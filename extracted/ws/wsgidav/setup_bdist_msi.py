@@ -3,7 +3,6 @@
 # NOTE: isort must not change this import order:
 # isort: skip_file
 
-import os
 import re
 import sys
 
@@ -15,8 +14,8 @@ from wsgidav import __version__
 # Check for Windows MSI Setup
 if "bdist_msi" not in sys.argv:  # or len(sys.argv) != 2:
     raise RuntimeError(
-        "This setup.py variant is only for creating 'bdist_msi' targets: {}\n"
-        "Example `{} bdist_msi`".format(sys.argv, sys.argv[0])
+        f"This setup.py variant is only for creating 'bdist_msi' targets: {sys.argv}\n"
+        f"Example `{sys.argv[0]} bdist_msi`"
     )
 
 org_version = __version__
@@ -54,12 +53,12 @@ else:
     patch = int(patch)
     alpha = 0
 
-version = "{}.{}.{}.{}".format(major, minor, patch, alpha)
-print("Version {}, using {}".format(org_version, version))
+version = f"{major}.{minor}.{patch}.{alpha}"
+print(f"Version {org_version}, using {version}")
 
 try:
-    readme = open("README.md", "rt").read()
-except IOError:
+    readme = open("README.md").read()
+except OSError:
     readme = "(readme not found. Running from tox/setup.py test?)"
 
 # These dependencies are for plain WsgiDAV:
@@ -70,22 +69,55 @@ except IOError:
 install_requires = []
 # ... The Windows MSI Setup should include lxml and CherryPy
 install_requires.extend([
+    "bcrypt",
     "cheroot",
     "lxml",
+    "passlib",
 ])
-setup_requires = install_requires
+# Do NOT set setup_requires: it makes setuptools download eggs into `.eggs/`,
+# and cx_Freeze would then freeze from there (missing namespace packages).
+setup_requires = []
+
+
+def _check_build_environment(modules):
+    """Fail early if frozen dependencies are missing or come from `.eggs/`."""
+    import importlib
+
+    problems = []
+    for name in modules:
+        try:
+            mod = importlib.import_module(name)
+        except ImportError as e:
+            problems.append(f"{name}: not importable ({e})")
+            continue
+        path = getattr(mod, "__file__", None) or ""
+        if ".egg" in path:
+            problems.append(f"{name}: imported from an egg ({path})")
+    if problems:
+        raise RuntimeError(
+            "Build environment is incomplete. `pip install` the missing packages "
+            "into the active Python and delete the `.eggs/` folder:\n  "
+            + "\n  ".join(problems)
+        )
+
+
+# cheroot's dependencies. `jaraco` is a namespace package, so it must be listed
+# as packages (not includes):
+freeze_packages = [
+    # "jaraco.functools",
+    # "more_itertools",
+]
+_check_build_environment(install_requires + freeze_packages)
 tests_require = []
 
 executables = [
     Executable(
         script="wsgidav/server/server_cli.py",
         base=None,
-        # base="Win32GUI",
         target_name="wsgidav.exe",
         icon="docs/source/logo.ico",
         shortcut_name="WsgiDAV",
         copyright="(c) 2009-2024 Martin Wendt",
-        # trademarks="...",
     )
 ]
 
@@ -99,6 +131,7 @@ build_exe_options = {
         "dbm",
         "wsgidav.dir_browser",
         "wsgidav.dc.nt_dc",
+        *freeze_packages,
     ],
     "excludes": [
         "tkinter",

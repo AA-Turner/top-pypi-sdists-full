@@ -7,6 +7,7 @@ See: <https://api.slack.com/messaging>
 
 from __future__ import annotations
 
+from copy import deepcopy
 from enum import Enum
 from json import dumps
 from typing import Any
@@ -18,12 +19,20 @@ from slackblocks._limits import (
     MESSAGE_ATTACHMENTS_MAX_ITEMS,
     MESSAGE_BLOCKS_MAX_ITEMS,
     MESSAGE_CHANNEL_MIN_LENGTH,
+    MESSAGE_DATA_VISUALIZATIONS_MAX_ITEMS,
 )
 from slackblocks._surfaces import validate_surface_blocks
 from slackblocks.utils import coerce_to_list, validate_string_nonnull
 
 from .attachments import Attachment
-from .blocks import Block, DataTableBlock, MarkdownBlock, _text_character_count
+from .blocks import (
+    Block,
+    ContainerBlock,
+    DataTableBlock,
+    DataVisualizationBlock,
+    MarkdownBlock,
+    _text_character_count,
+)
 from .errors import LengthError, TypeMismatchError
 
 
@@ -52,6 +61,16 @@ def _validate_message_totals(
     Both totals count the message's blocks and the blocks of its attachments.
     """
     all_blocks = [*(blocks or []), *(block for att in attachments or [] for block in att.blocks)]
+
+    def chart_count(block: Block) -> int:
+        if isinstance(block, DataVisualizationBlock):
+            return 1
+        if isinstance(block, ContainerBlock):
+            return sum(chart_count(child) for child in block.child_blocks)
+        return 0
+
+    if sum(chart_count(block) for block in all_blocks) > MESSAGE_DATA_VISUALIZATIONS_MAX_ITEMS:
+        raise LengthError("A message may contain at most two data visualization blocks.")
     markdown = sum(len(block.text) for block in all_blocks if isinstance(block, MarkdownBlock))
     if markdown > MARKDOWN_TOTAL_TEXT_MAX_LENGTH:
         raise LengthError(
@@ -166,6 +185,7 @@ class Message(BaseMessage):
             unfurled.
         unfurl_media: if `True`, media from links (e.g. images) will
             automatically unfurl.
+        metadata: optional message metadata, including `event_type` and `event_payload`.
     Throws:
         InvalidUsageException: in the event that the items passed to `blocks`
             are not valid [`Blocks`](/slackblocks/latest/reference/blocks).
@@ -181,6 +201,7 @@ class Message(BaseMessage):
         mrkdwn: bool = True,
         unfurl_links: bool | None = None,
         unfurl_media: bool | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         channel = validate_string_nonnull(
             channel, field_name="channel", min_length=MESSAGE_CHANNEL_MIN_LENGTH
@@ -188,20 +209,33 @@ class Message(BaseMessage):
         super().__init__(channel, text, blocks, attachments, thread_ts, mrkdwn)
         self.unfurl_links = unfurl_links
         self.unfurl_media = unfurl_media
+        self.metadata = metadata
 
     def _resolve(self) -> dict[str, Any]:
-        return resolve(
+        payload = resolve(
             {
                 **super()._resolve(),
                 "unfurl_links": self.unfurl_links,
                 "unfurl_media": self.unfurl_media,
             }
         )
+        if self.metadata is not None:
+            # Application JSON nulls carry data; Block Kit's omission rule does not apply.
+            payload["metadata"] = deepcopy(self.metadata)
+        return payload
 
 
 class MessageResponse(BaseMessage):
     """
     A required, immediate response that confirms your app received the payload.
+
+    Args:
+        ephemeral: ``True`` explicitly requests a private response; ``False``
+            explicitly requests an ``in_channel`` response. Omitting the argument
+            (or passing ``None``) preserves the transport's default visibility.
+            Slash-command responses default to private when no response type is sent.
+
+    See: <https://docs.slack.dev/interactivity/implementing-slash-commands/#responding_to_commands>.
     """
 
     def __init__(
@@ -212,7 +246,7 @@ class MessageResponse(BaseMessage):
         thread_ts: str | None = None,
         mrkdwn: bool = True,
         replace_original: bool = False,
-        ephemeral: bool = False,
+        ephemeral: bool | None = None,
     ) -> None:
         super().__init__(
             text=text,
@@ -229,7 +263,13 @@ class MessageResponse(BaseMessage):
             {
                 **super()._resolve(),
                 "replace_original": self.replace_original,
-                "response_type": "ephemeral" if self.ephemeral else None,
+                "response_type": (
+                    None
+                    if self.ephemeral is None
+                    else "ephemeral"
+                    if self.ephemeral
+                    else "in_channel"
+                ),
             }
         )
 

@@ -288,14 +288,78 @@ ArtKey ArtKey::encode(ValueVector* vector, uint64_t vectorPos) {
 std::shared_ptr<BufferWriter> ArtPrimaryKeyIndexStorageInfo::serialize() const {
     auto bufferWriter = std::make_shared<BufferWriter>();
     auto serializer = Serializer(bufferWriter);
+    // A checkpoint serializes every index but only writes the trees of tables it touched, so an
+    // index still holding its 0.17 entries writes them back rather than an empty page range.
+    if (treePageRange.startPageIdx == INVALID_PAGE_IDX && !entries.empty()) {
+        serializer.write<uint64_t>(entries.size());
+        for (const auto& [key, offset] : entries) {
+            serializer.write<uint64_t>(key.size());
+            serializer.write(key.data(), key.size());
+            serializer.write<offset_t>(offset);
+        }
+        return bufferWriter;
+    }
     serializer.write<page_idx_t>(treePageRange.startPageIdx);
     serializer.write<page_idx_t>(treePageRange.numPages);
     serializer.write<uint64_t>(treeSize);
     return bufferWriter;
 }
 
+// 0.17 stored the index as its entries, a count followed by (key size, key, offset) triples:
+// 8 bytes when empty and at least 24 otherwise. Later versions store the page range of the
+// disk-backed tree in exactly TREE_INFO_SIZE bytes. The storage version does not tell the two
+// apart: a checkpoint that does not rewrite the tree restamps the file but keeps the list.
+static constexpr uint64_t TREE_INFO_SIZE = 2 * sizeof(page_idx_t) + sizeof(uint64_t);
+static_assert(TREE_INFO_SIZE == 16, "an entry list is 8 bytes when empty and 24 or more otherwise");
+
+[[noreturn]] static void throwInvalidEntryList() {
+    throw RuntimeException("Invalid ART index storage info. The database file may be corrupted.");
+}
+
+static void requireBytes(const BufferReader& reader, uint64_t numBytes) {
+    if (numBytes > reader.dataSize - reader.readSize) {
+        throwInvalidEntryList();
+    }
+}
+
+static std::unique_ptr<IndexStorageInfo> deserializeEntries(std::unique_ptr<BufferReader> reader) {
+    const auto& buffer = *reader;
+    Deserializer deSer(std::move(reader));
+    requireBytes(buffer, sizeof(uint64_t));
+    uint64_t numEntries = 0;
+    deSer.deserializeValue(numEntries);
+    // Each entry holds at least a key size and an offset.
+    constexpr auto minEntrySize = sizeof(uint64_t) + sizeof(offset_t);
+    if (numEntries > (buffer.dataSize - buffer.readSize) / minEntrySize) {
+        throwInvalidEntryList();
+    }
+    std::vector<std::pair<std::vector<uint8_t>, offset_t>> entries;
+    entries.reserve(numEntries);
+    for (uint64_t i = 0; i < numEntries; ++i) {
+        requireBytes(buffer, sizeof(uint64_t));
+        uint64_t keySize = 0;
+        deSer.deserializeValue(keySize);
+        requireBytes(buffer, keySize);
+        std::vector<uint8_t> key(keySize);
+        if (keySize > 0) {
+            deSer.read(key.data(), keySize);
+        }
+        requireBytes(buffer, sizeof(offset_t));
+        offset_t offset = INVALID_OFFSET;
+        deSer.deserializeValue(offset);
+        entries.emplace_back(std::move(key), offset);
+    }
+    if (!deSer.finished()) {
+        throwInvalidEntryList();
+    }
+    return std::make_unique<ArtPrimaryKeyIndexStorageInfo>(std::move(entries));
+}
+
 std::unique_ptr<IndexStorageInfo> ArtPrimaryKeyIndexStorageInfo::deserialize(
     std::unique_ptr<BufferReader> reader) {
+    if (reader->dataSize != TREE_INFO_SIZE) {
+        return deserializeEntries(std::move(reader));
+    }
     Deserializer deSer(std::move(reader));
     page_idx_t startPageIdx = INVALID_PAGE_IDX;
     page_idx_t numPages = 0;

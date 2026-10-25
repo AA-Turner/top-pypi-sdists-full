@@ -139,7 +139,8 @@ impl<'t> crate::ArrayOfTable<'t> {
     }
 
     /// For each key-prefix of the header (prefix length `i + 1` at index `i`), the number of
-    /// preceding `[[array_of_tables]]` headers that equal that prefix.
+    /// preceding `[[array_of_tables]]` headers that equal that prefix within the same parent
+    /// array element.
     #[inline]
     pub fn parent_array_of_tables_prefix_counts(&self) -> Vec<usize> {
         crate::header_info(self.syntax()).array_of_tables_counts

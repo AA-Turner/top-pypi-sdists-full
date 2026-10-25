@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+from typing import Any, Protocol
 
 from protobuf import Message, Registry
-from protobuf.wkt import (
+from protobuf.wkt.google.protobuf import (
     api_pb,
     cpp_features_pb,
     descriptor_pb,
@@ -18,6 +18,7 @@ from protobuf.wkt import (
     type_pb,
     wrappers_pb,
 )
+from typing_extensions import TypeVar
 
 CODEC_NAME_PROTO = "proto"
 CODEC_NAME_JSON = "json"
@@ -40,8 +41,8 @@ DEFAULT_REGISTRY = Registry(
 )
 
 
-T_contra = TypeVar("T_contra", contravariant=True)
-U = TypeVar("U")
+T_contra = TypeVar("T_contra", contravariant=True, default=Any)
+U = TypeVar("U", default=Any)
 V = TypeVar("V", bound=Message)
 
 
@@ -72,7 +73,7 @@ class ProtoBinaryCodec(Codec[Message, V]):
         return message.to_binary()
 
     def decode(self, data: bytes | bytearray, message_class: type[V]) -> V:
-        return message_class.from_binary(data)  # ty: ignore[invalid-argument-type] # TODO: Fix type in protobuf-py
+        return message_class.from_binary(data)
 
 
 class ProtoJSONCodec(Codec[Message, V]):

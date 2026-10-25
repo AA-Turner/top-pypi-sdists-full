@@ -19,6 +19,8 @@ from justhtml.core.constants import (
     WHITESPACE_PRESERVING_ELEMENTS,
     WHITESPACE_TRIMMING_BLOCK_ELEMENTS,
 )
+from justhtml.sanitizer.attributes import _AllowedAttributes, _normalize_allowed_attributes
+from justhtml.sanitizer.css import _CssProperties, _normalize_css_properties
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection
@@ -529,7 +531,7 @@ class AllowlistAttrs:
     """Retain only allowlisted attributes by tag and global allowlist."""
 
     selector: str
-    allowed_attributes: dict[str, set[str]]
+    allowed_attributes: _AllowedAttributes
     enabled: bool
     callback: NodeCallback | None
     report: ReportCallback | None
@@ -538,14 +540,12 @@ class AllowlistAttrs:
         self,
         selector: str,
         *,
-        allowed_attributes: dict[str, Collection[str]],
+        allowed_attributes: _AllowedAttributes,
         enabled: bool = True,
         callback: NodeCallback | None = None,
         report: ReportCallback | None = None,
     ) -> None:
-        normalized: dict[str, set[str]] = {}
-        for tag, attrs in allowed_attributes.items():
-            normalized[str(tag)] = {str(a).lower() for a in attrs}
+        normalized = _normalize_allowed_attributes(allowed_attributes)
         object.__setattr__(self, "selector", str(selector))
         object.__setattr__(self, "allowed_attributes", normalized)
         object.__setattr__(self, "enabled", bool(enabled))
@@ -584,7 +584,7 @@ class AllowStyleAttrs:
     """Sanitize inline style attributes when present."""
 
     selector: str
-    allowed_css_properties: tuple[str, ...]
+    allowed_css_properties: _CssProperties
     url_policy: UrlPolicy | None
     enabled: bool
     callback: NodeCallback | None
@@ -594,7 +594,7 @@ class AllowStyleAttrs:
         self,
         selector: str,
         *,
-        allowed_css_properties: Collection[str],
+        allowed_css_properties: _CssProperties,
         url_policy: UrlPolicy | None = None,
         enabled: bool = True,
         callback: NodeCallback | None = None,
@@ -604,7 +604,7 @@ class AllowStyleAttrs:
         object.__setattr__(
             self,
             "allowed_css_properties",
-            tuple(sorted({str(p).strip().lower() for p in allowed_css_properties if str(p).strip()})),
+            _normalize_css_properties(allowed_css_properties),
         )
         object.__setattr__(self, "url_policy", url_policy)
         object.__setattr__(self, "enabled", bool(enabled))

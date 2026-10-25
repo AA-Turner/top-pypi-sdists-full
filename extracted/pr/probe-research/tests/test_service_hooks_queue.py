@@ -366,6 +366,68 @@ def test_the_dispatcher_finds_the_interpreter_client_ensure_starts(tmp_path, cas
     assert (client.runtime_python() is None) == (case == "none")
 
 
+@pytest.mark.parametrize("case", ["idle", "idle-long-ago", "stop", "none", "idle-then-another-started",
+                                  "idle-lock-unchanged"])
+def test_a_miss_does_not_restart_a_service_that_just_went_idle(tmp_path, monkeypatch, case):
+    """A service that exited idle had nothing to keep it: a session whose tap
+    never asks it to record (a 0.9.x tap, after an update) only made every hook
+    miss start it again, and it quit 20 s later, every minute (live test G).
+    Within IDLE_RETRY_S of an idle exit a miss starts none; the session's own
+    tap starts one when it has something to record."""
+    from probe.service import guard
+
+    dispatch = _dispatch()
+    sys.path.insert(0, str(HOOKS))
+    try:
+        import _service_paths
+    finally:
+        sys.path.pop(0)
+    python = tmp_path / "python"
+    python.write_text("#!/bin/sh\necho started >> " + str(tmp_path / "spawned") + "\n")
+    python.chmod(0o755)
+    paths.ensure_dirs()
+    client.write_runtime(str(python), "1.0.0")
+    at = {"idle": time.time() - 5, "idle-long-ago": time.time() - getattr(dispatch, "IDLE_RETRY_S", 600) - 5,
+          "stop": time.time() - 5}.get(case, time.time() - 5 if case.startswith("idle-") else None)
+    if at is not None:
+        reason = "stop" if case == "stop" else "idle"
+        (paths.service_dir() / guard.LAST_STOP_NAME).write_text(
+            json.dumps({"pid": 999999, "start": "111", "reason": reason, "at": at}))
+    if case == "idle-then-another-started":
+        # A service started since the idle exit (a tap's `tap record`) and then
+        # crashed: its lock names it, not the one that went idle.
+        paths.lock_path().write_text("424242 222\n")
+    elif case == "idle-lock-unchanged":
+        paths.lock_path().write_text("999999 111\n")
+    monkeypatch.setattr(dispatch, "service_mark", lambda kind: str(tmp_path / f"mark.{kind}"))
+    dispatch.ensure_service(_service_paths, lambda: True)
+    started = wait_for(lambda: (tmp_path / "spawned").exists(), 2.0)
+    assert bool(started) == (case not in ("idle", "idle-lock-unchanged")), case
+    # The service's own names for what it writes there.
+    assert dispatch.LAST_STOP_NAME == guard.LAST_STOP_NAME and dispatch.IDLE_STOP == protocol.StopReason.IDLE
+
+
+@pytest.mark.parametrize("idle", [True, False])
+def test_a_miss_after_an_idle_exit_runs_its_record_keeping_routes_itself(tmp_path, monkeypatch, idle):
+    """No service is coming to drain the queue soon after an idle exit (a miss
+    starts none then), so the record-keeping routes run in the hook, never
+    left in a queue nobody drains."""
+    from probe.service import guard
+
+    dispatch = _dispatch()
+    paths.ensure_dirs()
+    if idle:
+        (paths.service_dir() / guard.LAST_STOP_NAME).write_text(json.dumps({"reason": "idle", "at": time.time()}))
+    written = []
+    monkeypatch.setattr(dispatch, "queue_folder", lambda sp, any_drainer: str(tmp_path))
+    monkeypatch.setattr(dispatch, "write_queued", lambda folder, item, data: written.append(item) or True)
+    miss = dispatch.Miss(str(HOOKS.parent), b'{"session_id": "s"}', time.monotonic())
+    monkeypatch.setattr(miss, "connect", lambda: dispatch.Miss.DOWN)
+    monkeypatch.setattr(miss, "_session_off", lambda: False)
+    queued = miss.queue("post-tool", b'{"session_id": "s", "tool_name": "Bash"}', {"session_id": "s"})
+    assert queued is (not idle) and bool(written) is (not idle)
+
+
 def test_the_dispatcher_s_cli_marks_are_the_service_s_paths():
     dispatch = _dispatch()
     home = paths.home()
@@ -477,3 +539,35 @@ def test_a_proxy_with_credentials_is_never_stored():
     dispatch = _dispatch()
     assert dispatch.queue_env(env) == kept
     assert dispatch.proxy_credentials(env) is True and dispatch.proxy_credentials(kept) is False
+
+
+class _ServiceFolder:
+    """The two paths `idle_recently` asks of `_service_paths`, in a folder of the test's own."""
+
+    def __init__(self, folder: Path):
+        self.folder = folder
+
+    def service_dir(self) -> Path:
+        return self.folder
+
+    def lock_path(self) -> Path:
+        return self.folder / paths.LOCK_NAME
+
+
+@pytest.mark.parametrize("start", ["123456", "Sat Oct 24 13:52:39 2026"])  # Linux ticks, macOS `ps lstart`
+@pytest.mark.parametrize("holder", ["the-idle-one", "another"])
+def test_the_idle_record_stands_until_another_service_holds_the_lock(tmp_path, start, holder):
+    """The lock keeps `<pid> <start time>` (`server._name_holder`), and on macOS
+    the start time is five words: split on every space, it never matched the
+    stop record, so every idle exit read as "another service started since"
+    there and a miss restarted the service each time. Read as `guard.holder`
+    reads it: the pid, then the rest."""
+    from probe.service import guard
+
+    dispatch = _dispatch()
+    sp = _ServiceFolder(tmp_path)
+    (tmp_path / guard.LAST_STOP_NAME).write_text(
+        json.dumps({"pid": 4242, "start": start, "reason": dispatch.IDLE_STOP, "at": time.time() - 5}))
+    named = f"4242 {start}" if holder == "the-idle-one" else f"5151 {start}"
+    sp.lock_path().write_text(named + "\n")
+    assert dispatch.idle_recently(sp) is (holder == "the-idle-one")

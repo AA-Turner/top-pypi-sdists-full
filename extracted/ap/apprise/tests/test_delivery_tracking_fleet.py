@@ -76,6 +76,13 @@ FLEET = (
         {},
     ),
     (
+        "zalo",
+        "zalo://123456789:abcdefghij/chat1/chat999/",
+        "chat1",
+        "chat999",
+        {},
+    ),
+    (
         "bulkvs",
         "bulkvs://user:pass@12125550000/12125550001/12125559999/",
         "12125550001",
@@ -279,6 +286,14 @@ FLEET = (
         {},
     ),
     (
+        "goalert",
+        "goalert://localhost/ab12cd34-ab12-4c5d-8e9f-000000000001"
+        "/ab12cd34-ab12-4c5d-8e9f-000000009999",
+        "000000000001",
+        "000000009999",
+        {"__http__": 204},
+    ),
+    (
         "ntfy",
         "ntfy://localhost/topic0001/topic9999",
         "topic0001",
@@ -333,6 +348,20 @@ FLEET = (
         f"evolution://{TOKEN}@localhost/inst/12125550001/12125559999",
         "12125550001",
         "12125559999",
+        {},
+    ),
+    (
+        "onebot",
+        "onebot://localhost/@1001/#9009",
+        "1001",
+        "9009",
+        {},
+    ),
+    (
+        "cliq",
+        "cliq://1001.abc.def/channel1/channel999",
+        "channel1",
+        "channel999",
         {},
     ),
     (
@@ -398,6 +427,13 @@ FLEET = (
         "1111111111",
         "2222222222",
         {},
+    ),
+    (
+        "betterstack",
+        f"betterstack://{TOKEN}/user@example.com/team0001/team9999",
+        "team0001",
+        "team9999",
+        {"__http__": requests.codes.created},
     ),
 )
 

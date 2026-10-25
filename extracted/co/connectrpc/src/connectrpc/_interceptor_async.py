@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from asyncio import CancelledError
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, runtime_checkable
+
+from .code import Code
+from .errors import ConnectError
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Sequence
@@ -189,6 +193,9 @@ class MetadataInterceptorInvoker(Generic[T]):
         error: Exception | None = None
         try:
             return await call_next(request, ctx)
+        except CancelledError:
+            error = ConnectError(Code.CANCELED, "Request was cancelled")
+            raise
         except Exception as e:
             error = e
             raise
@@ -205,6 +212,9 @@ class MetadataInterceptorInvoker(Generic[T]):
         error: Exception | None = None
         try:
             return await call_next(request, ctx)
+        except CancelledError:
+            error = ConnectError(Code.CANCELED, "Request was cancelled")
+            raise
         except Exception as e:
             error = e
             raise
@@ -220,8 +230,15 @@ class MetadataInterceptorInvoker(Generic[T]):
         token = await self._delegate.on_start(ctx)
         error: Exception | None = None
         try:
-            async for response in call_next(request, ctx):
-                yield response
+            responses = call_next(request, ctx)
+            try:
+                async for response in responses:
+                    yield response
+            finally:
+                await _aclose(responses)
+        except CancelledError:
+            error = ConnectError(Code.CANCELED, "Request was cancelled")
+            raise
         except Exception as e:
             error = e
             raise
@@ -237,13 +254,28 @@ class MetadataInterceptorInvoker(Generic[T]):
         token = await self._delegate.on_start(ctx)
         error: Exception | None = None
         try:
-            async for response in call_next(request, ctx):
-                yield response
+            responses = call_next(request, ctx)
+            try:
+                async for response in responses:
+                    yield response
+            finally:
+                await _aclose(responses)
+        except CancelledError:
+            error = ConnectError(Code.CANCELED, "Request was cancelled")
+            raise
         except Exception as e:
             error = e
             raise
         finally:
             await self._delegate.on_end(token, ctx, error)
+
+
+async def _aclose(stream: AsyncIterator[object]) -> None:
+    # A generator that wraps another does not close it when it is closed itself,
+    # which leaves the inner one's finally blocks to the garbage collector.
+    aclose = getattr(stream, "aclose", None)
+    if aclose is not None:
+        await aclose()
 
 
 class MetadataInterceptorsRun:
@@ -257,7 +289,6 @@ class MetadataInterceptorsRun:
     _interceptors: Sequence[MetadataInterceptor[Any]]
     _ctx: RequestContext
     _started: list[tuple[MetadataInterceptor[Any], Any]]
-    _ended: bool
 
     def __init__(
         self, interceptors: Sequence[MetadataInterceptor[Any]], ctx: RequestContext
@@ -265,7 +296,6 @@ class MetadataInterceptorsRun:
         self._interceptors = interceptors
         self._ctx = ctx
         self._started = []
-        self._ended = False
 
     async def start(self) -> None:
         """Invoke on_start for each interceptor in order.
@@ -280,19 +310,22 @@ class MetadataInterceptorsRun:
     async def end(self, error: Exception | None) -> Exception | None:
         """Invoke on_end for each started interceptor in reverse order.
 
-        If an on_end raises, the exception replaces the current error and is
-        passed to the remaining interceptors, matching the behavior of
-        interceptors nested around the endpoint function. Only the first call
-        invokes on_end; later calls return the error unchanged.
+        A normal on_end exception replaces the reported error for remaining
+        interceptors. Cancellation propagates after all started interceptors
+        have been unwound.
         """
-        if self._ended:
-            return error
-        self._ended = True
-        for interceptor, token in reversed(self._started):
+        cancellation: CancelledError | None = None
+        while self._started:
+            interceptor, token = self._started.pop()
             try:
                 await interceptor.on_end(token, self._ctx, error)
-            except Exception as e:  # noqa: BLE001, PERF203 # invoking user callback
+            except CancelledError as e:
+                cancellation = e
+                error = ConnectError(Code.CANCELED, "Request was cancelled")
+            except Exception as e:  # noqa: BLE001 # invoking user callback
                 error = e
+        if cancellation is not None:
+            raise cancellation
         return error
 
 

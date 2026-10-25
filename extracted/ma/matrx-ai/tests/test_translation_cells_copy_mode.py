@@ -204,9 +204,13 @@ def test_a_rule_carrying_a_k6_field_compiles_and_changes_nothing_on_the_wire(
         got = _wire(manager)
         for ask, base, now in zip(ASKS, baseline, got, strict=True):
             if ask.get("max_output_tokens", 4096) < 1024:
+                # The unset ask already carries the platform default ("low", owner
+                # ruling 2026-10-24); the tiny cap moves it only when off differs.
                 assert now == [
                     json.dumps({"max_completion_tokens": 100, "reasoning_effort": sent}),
-                    [("reasoning_effort", "clamped", "None", repr(sent), True)],
+                    []
+                    if sent == "low"
+                    else [("reasoning_effort", "clamped", "'low'", repr(sent), True)],
                 ], (ask, now)
             else:
                 assert now == base, ask
@@ -307,7 +311,8 @@ def test_a_foreign_key_drop_is_an_adjustment_and_still_silent_to_the_client() ->
         patch.object(outbound_params, "send_client_warning") as warn,
     ):
         params = outbound_params.resolve_outbound_params(_Config(), controls)
-    assert params == {"temperature": 0.5, "max_completion_tokens": 4096}
+    # reasoning_effort "low" is the platform default for an unset depth (2026-10-24).
+    assert params == {"temperature": 0.5, "max_completion_tokens": 4096, "reasoning_effort": "low"}
     warn.assert_not_called()  # C1 adds no user-visible warning; C6 owns that
 
 

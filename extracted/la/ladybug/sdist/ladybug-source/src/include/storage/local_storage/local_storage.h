@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <unordered_map>
 
 #include "common/copy_constructors.h"
@@ -11,6 +12,22 @@ namespace main {
 class ClientContext;
 } // namespace main
 namespace storage {
+// Local tables are keyed by their owning catalog as well as their table ID: table IDs are
+// per-catalog, so a transaction touching several graphs can hold uncommitted state for
+// same-ID tables in different catalogs.
+struct LocalTableKey {
+    std::string ownerCatalogName;
+    common::table_id_t tableID;
+    bool operator==(const LocalTableKey&) const = default;
+};
+
+struct LocalTableKeyHash {
+    std::size_t operator()(const LocalTableKey& key) const {
+        return std::hash<std::string>{}(key.ownerCatalogName) ^
+               (std::hash<common::table_id_t>{}(key.tableID) << 1);
+    }
+};
+
 // Data structures in LocalStorage are not thread-safe.
 // For now, we only support single thread insertions and updates. Once we optimize them with
 // multiple threads, LocalStorage and its related data structures should be reworked to be
@@ -23,6 +40,8 @@ public:
     // Do nothing if the table already exists, otherwise create a new local table.
     LocalTable* getOrCreateLocalTable(Table& table);
     // Return nullptr if no local table exists.
+    LocalTable* getLocalTable(const Table& table) const;
+    // Return nullptr if no local table exists, or several owners hold the same table ID.
     LocalTable* getLocalTable(common::table_id_t tableID) const;
 
     // Optimistic page allocation is scoped to one storage manager (each partition child has
@@ -37,7 +56,7 @@ public:
 
 private:
     main::ClientContext& clientContext;
-    std::unordered_map<common::table_id_t, std::unique_ptr<LocalTable>> tables;
+    std::unordered_map<LocalTableKey, std::unique_ptr<LocalTable>, LocalTableKeyHash> tables;
 
     // The mutex is only needed when working with the optimistic allocators
     std::mutex mtx;

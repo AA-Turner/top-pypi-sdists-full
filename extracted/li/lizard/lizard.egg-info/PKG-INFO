@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lizard
-Version: 1.24.2
+Version: 1.24.3
 Summary: A code analyzer without caring the C/C++ header files. It works with Java, C/C++, JavaScript, Python, Ruby, Swift, Objective C. Metrics includes cyclomatic complexity number etc.
 Home-page: http://www.lizard.ws
 Download-URL: https://pypi.python.org/lizard/
@@ -95,7 +95,7 @@ It counts
 
 -  the nloc (lines of code without comments),
 -  CCN (cyclomatic complexity number),
--  token count of functions.
+-  token count of functions,
 -  parameter count of functions.
 
 You can set limits for CCN (-C) and the number of parameters (-a).
@@ -108,7 +108,9 @@ often very hard to get all the included folders and files right when
 they are complicated. But we don't really need that kind of accuracy for
 cyclomatic complexity.
 
-It requires python3.8 or above (early versions are not verified).
+It requires Python 3.8 or above. The test suite runs on Python 3.8 and 3.10,
+on Linux and Windows, in continuous integration; other versions are not
+verified.
 
 JavaScript and TypeScript defaults
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

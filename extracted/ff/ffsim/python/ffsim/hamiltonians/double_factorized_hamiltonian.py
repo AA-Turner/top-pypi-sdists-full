@@ -20,7 +20,7 @@ from ffsim import protocols
 from ffsim.contract.diag_coulomb import diag_coulomb_linop
 from ffsim.contract.num_op_sum import num_op_sum_linop
 from ffsim.hamiltonians.molecular_hamiltonian import MolecularHamiltonian
-from ffsim.linalg import double_factorized
+from ffsim.linalg import double_factorized, double_factorized_compressed
 from ffsim.operators import FermionOperator
 from ffsim.states.dimensions import dim
 
@@ -84,7 +84,6 @@ class DoubleFactorizedHamiltonian(
 
     .. _Motta et al., "Low rank representations for quantum simulation of electronic structure" (2021): https://arxiv.org/abs/1808.02625
     .. _Cohn, Motta, and Parrish, "Quantum Filter Diagonalization with Double-Factorized Hamiltonians" (2021): https://arxiv.org/abs/2104.08957
-    .. _scipy.optimize.minimize: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
     """  # noqa: E501
 
     one_body_tensor: np.ndarray
@@ -144,11 +143,9 @@ class DoubleFactorizedHamiltonian(
         tol: float = 1e-8,
         max_vecs: int | None = None,
         optimize: bool = False,
-        method: str = "L-BFGS-B",
-        callback=None,
-        options: dict | None = None,
         diag_coulomb_indices: list[tuple[int, int]] | None = None,
         cholesky: bool = True,
+        **optimize_kwargs,
     ) -> DoubleFactorizedHamiltonian:
         r"""Initialize a DoubleFactorizedHamiltonian from a MolecularHamiltonian.
 
@@ -159,8 +156,9 @@ class DoubleFactorizedHamiltonian(
         results.
 
         See :class:`DoubleFactorizedHamiltonian` for a description of the
-        ``z_representation`` argument. See :func:`ffsim.linalg.double_factorized` for a
-        description of the rest of the arguments.
+        ``z_representation`` argument. See :func:`ffsim.linalg.double_factorized` and
+        :func:`ffsim.linalg.double_factorized_compressed` for a description of the rest
+        of the arguments.
 
         Args:
             hamiltonian: The Hamiltonian whose double-factorized representation to
@@ -174,12 +172,6 @@ class DoubleFactorizedHamiltonian(
             max_vecs: An optional limit on the number of terms to keep in the
                 decomposition of the two-body tensor. This argument overrides ``tol``.
             optimize: Whether to optimize the tensors returned by the decomposition.
-            method: The optimization method. See the documentation of
-                `scipy.optimize.minimize`_ for possible values.
-            callback: Callback function for the optimization. See the documentation of
-                `scipy.optimize.minimize`_ for usage.
-            options: Options for the optimization. See the documentation of
-                `scipy.optimize.minimize`_ for usage.
             diag_coulomb_indices: Allowed indices for nonzero values of the diagonal
                 Coulomb matrices. Matrix entries corresponding to indices not in this
                 list will be set to zero. This list should contain only upper
@@ -190,6 +182,10 @@ class DoubleFactorizedHamiltonian(
                 decomposition. If False, a full eigenvalue decomposition is used
                 instead, which can be much more expensive. This argument is ignored if
                 ``optimize`` is set to True.
+            optimize_kwargs: Keyword arguments to pass to
+                :func:`scipy.optimize.minimize`. The default method is
+                ``"L-BFGS-B"``.
+                These arguments are ignored if ``optimize`` is set to ``False``.
 
         Returns:
             The double-factorized Hamiltonian.
@@ -202,13 +198,17 @@ class DoubleFactorizedHamiltonian(
             hamiltonian.two_body_tensor,
             tol=tol,
             max_vecs=max_vecs,
-            optimize=optimize,
-            method=method,
-            callback=callback,
-            options=options,
-            diag_coulomb_indices=diag_coulomb_indices,
-            cholesky=cholesky,
+            # Compression always starts from the Cholesky factorization
+            cholesky=cholesky or optimize,
         )
+        # The compression requires at least one term
+        if optimize and len(orbital_rotations):
+            diag_coulomb_mats, orbital_rotations, _ = double_factorized_compressed(
+                hamiltonian.two_body_tensor,
+                initial_guess=(diag_coulomb_mats, orbital_rotations),
+                diag_coulomb_indices=diag_coulomb_indices,
+                **optimize_kwargs,
+            )
         df_hamiltonian = DoubleFactorizedHamiltonian(
             one_body_tensor=one_body_tensor,
             diag_coulomb_mats=diag_coulomb_mats,

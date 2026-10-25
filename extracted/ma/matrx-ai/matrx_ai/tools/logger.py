@@ -59,6 +59,15 @@ def _register_call_row(conversation_id: Any, call_id: Any, row_id: str) -> None:
         _TOOL_CALL_ROW_BY_CALL_ID.set(key, row_id)
 
 
+class ToolLedgerWriteNotDurable(RuntimeError):
+    """A tool-call row write that must be on disk before the caller continues was not.
+
+    Raised by the crash-recovery writers (``stamp_row_metadata`` /
+    ``log_resolved_after_restart``), which — unlike the fire-and-forget ledger
+    writes — report failure instead of logging it and returning.
+    """
+
+
 class DelegationNotDurable(RuntimeError):
     """A tool call was told to park for a human and the park is not on disk.
 
@@ -1236,15 +1245,21 @@ class ToolExecutionLogger:
         }
         await self._update_row(row_id, update_data, coordinator=coordinator)
 
-    async def stamp_row_metadata(
-        self, row_id: str, metadata: dict[str, Any], *, coordinator: Any = None
-    ) -> None:
-        """Replace the row's ``metadata`` (the caller merges) and leave its status alone.
+    async def stamp_row_metadata(self, row_id: str, key: str, value: Any) -> None:
+        """Merge ``{key: value}`` into the row's ``metadata`` — atomically, now, or RAISE.
 
-        Crash recovery writes a durable marker here BEFORE it re-runs paid work for
-        the call, so a second crash can read that the call was already re-attached.
+        One ``jsonb_set`` on the one key, so a sibling key written in between is
+        never clobbered. Committed before it returns (no coordinator deferral) and
+        a row that did not take it raises ``ToolLedgerWriteNotDurable``: crash
+        recovery writes its "already re-attached" marker here BEFORE it re-runs
+        paid work, and a marker that silently failed would let the next crash run
+        that work again.
         """
-        await self._update_row(row_id, {"metadata": metadata}, coordinator=coordinator)
+        rows = await _cxm().tool_call.patch_jsonb_path(row_id, "metadata", [key], value)
+        if rows != 1:
+            raise ToolLedgerWriteNotDurable(
+                f"chat.tool_call {row_id}: metadata.{key} was not written ({rows} rows matched)"
+            )
 
     async def log_resolved_after_restart(
         self,
@@ -1254,16 +1269,19 @@ class ToolExecutionLogger:
         is_error: bool,
         error_type: str | None,
         error_message: str | None,
-        metadata: dict[str, Any],
+        metadata_key: str,
+        metadata_value: Any,
         duration_ms: int = 0,
-        coordinator: Any = None,
     ) -> None:
         """Settle a call a server restart left open, with the result recovery produced.
 
         The output is serialized and previewed by the same rules a live completion
         uses (``build_tool_call_finished_fields``), so the rebuilt turn pairs this
         row's output as the call's tool_result and the card reads it like any other.
-        ``resolution_source='crash_recovery'`` names who answered.
+        ``resolution_source='crash_recovery'`` names who answered. The settle is
+        written now (never deferred) and RAISES ``ToolLedgerWriteNotDurable`` when the
+        row did not take it — the caller must make that loud, because the turn it
+        resumes would otherwise read no answer at all.
         """
         now = datetime.now(UTC)
         fields = build_tool_call_finished_fields(
@@ -1275,14 +1293,17 @@ class ToolExecutionLogger:
         )
         if is_error and error_type:
             fields["error_type"] = error_type
-        fields.update(
-            {
-                "resolved_at": now.isoformat(),
-                "resolution_source": "crash_recovery",
-                "metadata": metadata,
-            }
-        )
-        await self._update_row(row_id, fields, coordinator=coordinator)
+        fields["completed_at"] = now
+        fields["resolved_at"] = now
+        fields["resolution_source"] = "crash_recovery"
+        record_row_settled(row_id)
+        rows = await _cxm().tool_call.update_item_fields(row_id, **fields)
+        if rows != 1:
+            raise ToolLedgerWriteNotDurable(
+                f"chat.tool_call {row_id}: the crash-recovery settle was not written "
+                f"({rows} rows matched)"
+            )
+        await self.stamp_row_metadata(row_id, metadata_key, metadata_value)
 
     async def settle_open_rows_at_run_end(
         self,

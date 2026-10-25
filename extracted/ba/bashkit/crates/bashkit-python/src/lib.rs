@@ -14,6 +14,8 @@
 // wasm rather than scattering per-item cfgs through shared conversion helpers.
 #![cfg_attr(target_arch = "wasm32", allow(dead_code, unused_imports))]
 
+#[cfg(not(target_arch = "wasm32"))]
+mod streaming;
 mod terminal;
 
 // interop (capsule FS handoff), realfs (host mounts) and the credential-injection
@@ -74,7 +76,9 @@ use pyo3::types::{
 #[cfg(not(target_arch = "wasm32"))]
 use pyo3_async_runtimes::TaskLocals;
 #[cfg(not(target_arch = "wasm32"))]
-use pyo3_async_runtimes::tokio::future_into_py;
+mod async_bridge;
+#[cfg(not(target_arch = "wasm32"))]
+use async_bridge::future_into_py;
 
 // `caller_loop_locals` is a captured asyncio-loop handle, only ever `Some` when an
 // async `execute()` ran (native). On wasm there is no such loop, so the field is
@@ -87,7 +91,7 @@ type CallerLoopLocals = std::convert::Infallible;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, OnceLock, RwLock, Weak};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::runtime::{Handle, Runtime};
@@ -231,7 +235,10 @@ fn interpreter_at_exit() -> bool {
 
 /// Registered with `atexit` at module import; not part of the public API.
 #[pyfunction]
-fn _mark_interpreter_at_exit() {
+fn _mark_interpreter_at_exit(_py: Python<'_>) {
+    #[cfg(not(target_arch = "wasm32"))]
+    async_bridge::shutdown(_py);
+    #[cfg(target_arch = "wasm32")]
     INTERPRETER_AT_EXIT.store(true, Ordering::Release);
 }
 
@@ -1067,7 +1074,7 @@ enum FileSystemHandle {
     Static(Arc<dyn FileSystem>),
     Live {
         inner: Arc<Mutex<Bash>>,
-        external_handler_reentry_depth: Option<Arc<AtomicUsize>>,
+        external_handler_reentry_guard: Option<Arc<ExternalHandlerReentryGuard>>,
     },
 }
 
@@ -1084,9 +1091,12 @@ impl FileSystemHandle {
             Self::Static(fs) => Ok(Arc::clone(fs)),
             Self::Live {
                 inner,
-                external_handler_reentry_depth,
+                external_handler_reentry_guard,
             } => {
-                reject_external_handler_reentry_depth(external_handler_reentry_depth.as_ref())?;
+                reject_external_handler_reentry_guard(
+                    external_handler_reentry_guard.as_ref(),
+                    true,
+                )?;
                 let bash = inner.lock().await;
                 Ok(bash.fs())
             }
@@ -1094,31 +1104,65 @@ impl FileSystemHandle {
     }
 }
 
-fn reject_external_handler_reentry_depth(
-    external_handler_reentry_depth: Option<&Arc<AtomicUsize>>,
+fn reject_external_handler_reentry_guard(
+    external_handler_reentry_guard: Option<&Arc<ExternalHandlerReentryGuard>>,
+    synchronous: bool,
 ) -> PyResult<()> {
-    if let Some(depth) = external_handler_reentry_depth
-        && depth.load(Ordering::Relaxed) > 0
-    {
-        return Err(PyRuntimeError::new_err(EXTERNAL_HANDLER_REENTRY_ERROR));
+    if let Some(guard) = external_handler_reentry_guard {
+        if !guard.enabled {
+            return Ok(());
+        }
+        return Python::attach(|py| {
+            if guard.marker.call_method0(py, "get")?.extract::<bool>(py)? {
+                return Err(PyRuntimeError::new_err(EXTERNAL_HANDLER_REENTRY_ERROR));
+            }
+            if synchronous {
+                let thread = guard.get_ident.call0(py)?;
+                let active = guard
+                    .active_threads
+                    .call_method1(py, "get", (thread, 0))?
+                    .extract::<usize>(py)?;
+                if active > 0 {
+                    return Err(PyRuntimeError::new_err(
+                        "synchronous access would block the event loop running this interpreter's external handler; use await execute() or asyncio.to_thread()",
+                    ));
+                }
+            }
+            Ok(())
+        });
     }
     Ok(())
 }
 
-struct ExternalHandlerReentryScope {
-    depth: Arc<AtomicUsize>,
+// Decision: reentry belongs to the callback's Python context, not the instance.
+// An instance-wide counter also rejects unrelated requests while a callback
+// awaits I/O. A ContextVar follows callbacks (and child tasks) across thread
+// bridges while independent requests can still queue on the interpreter mutex.
+// Sync calls on an active handler's own loop thread must fail fast, even from
+// another task: blocking that loop would prevent the handler releasing the lock.
+struct ExternalHandlerReentryGuard {
+    enabled: bool,
+    marker: Py<PyAny>,
+    wrap: Py<PyAny>,
+    active_threads: Py<PyAny>,
+    get_ident: Py<PyAny>,
 }
 
-impl ExternalHandlerReentryScope {
-    fn enter(depth: Arc<AtomicUsize>) -> Self {
-        depth.fetch_add(1, Ordering::Relaxed);
-        Self { depth }
-    }
-}
-
-impl Drop for ExternalHandlerReentryScope {
-    fn drop(&mut self) {
-        self.depth.fetch_sub(1, Ordering::Relaxed);
+impl ExternalHandlerReentryGuard {
+    fn new(py: Python<'_>, enabled: bool) -> PyResult<Arc<Self>> {
+        let module = PyModule::from_code(
+            py,
+            c"from contextvars import ContextVar\nfrom threading import get_ident\nmarker = ContextVar('bashkit_external_handler', default=False)\nactive_threads = {}\ndef wrap(marker, active_threads, handler):\n    async def call(*args):\n        thread = get_ident()\n        active_threads[thread] = active_threads.get(thread, 0) + 1\n        token = marker.set(True)\n        try:\n            return await handler(*args)\n        finally:\n            marker.reset(token)\n            remaining = active_threads[thread] - 1\n            if remaining:\n                active_threads[thread] = remaining\n            else:\n                del active_threads[thread]\n    return call\n",
+            c"<bashkit_external_handler>",
+            c"_bashkit_external_handler",
+        )?;
+        Ok(Arc::new(Self {
+            enabled,
+            marker: module.getattr("marker")?.unbind(),
+            wrap: module.getattr("wrap")?.unbind(),
+            active_threads: module.getattr("active_threads")?.unbind(),
+            get_ident: module.getattr("get_ident")?.unbind(),
+        }))
     }
 }
 
@@ -2026,25 +2070,15 @@ impl PyFileSystem {
         }
     }
 
-    fn from_live(inner: Arc<Mutex<Bash>>, rt: PyRuntime) -> Self {
-        Self {
-            inner: FileSystemHandle::Live {
-                inner,
-                external_handler_reentry_depth: None,
-            },
-            rt,
-        }
-    }
-
     fn from_live_with_reentry_guard(
         inner: Arc<Mutex<Bash>>,
         rt: PyRuntime,
-        external_handler_reentry_depth: Arc<AtomicUsize>,
+        external_handler_reentry_guard: Arc<ExternalHandlerReentryGuard>,
     ) -> Self {
         Self {
             inner: FileSystemHandle::Live {
                 inner,
-                external_handler_reentry_depth: Some(external_handler_reentry_depth),
+                external_handler_reentry_guard: Some(external_handler_reentry_guard),
             },
             rt,
         }
@@ -3022,7 +3056,51 @@ enum PySyncLoopMode {
 struct PrivateLoopWorkItem {
     awaitable: Py<PyAny>,
     context: Py<PyAny>,
+    call: Arc<PrivateLoopCallState>,
     result_tx: std::sync::mpsc::SyncSender<PyResult<Py<PyAny>>>,
+}
+
+#[derive(Default)]
+struct PrivateLoopCallState {
+    cancelled: AtomicBool,
+    task: StdMutex<Option<Py<PyAny>>>,
+}
+
+// A timeout may drop the Rust future while its blocking worker still waits.
+// Cancel this work item's Python task, never whichever task happens to be
+// running next on the shared loop. The flag also covers cancellation before
+// the worker publishes its task.
+struct PrivateLoopCallGuard {
+    private_loop: Arc<PyPrivateAsyncLoop>,
+    call: Arc<PrivateLoopCallState>,
+}
+
+impl Drop for PrivateLoopCallGuard {
+    fn drop(&mut self) {
+        self.call.cancelled.store(true, Ordering::Release);
+        if interpreter_at_exit() {
+            return;
+        }
+        let Some(event_loop) = self.private_loop.event_loop.get() else {
+            return;
+        };
+        Python::attach(|py| {
+            let task = self
+                .call
+                .task
+                .lock()
+                .expect("private call task slot")
+                .as_ref()
+                .map(|task| task.clone_ref(py));
+            if let Some(task) = task
+                && let Ok(cancel) = task.bind(py).getattr("cancel")
+            {
+                let _ = event_loop
+                    .bind(py)
+                    .call_method1("call_soon_threadsafe", (cancel,));
+            }
+        });
+    }
 }
 
 // The lazily spawned worker behind a PyPrivateAsyncLoop: channel sender plus
@@ -3057,13 +3135,16 @@ struct PyPrivateAsyncLoop {
 
 impl PyPrivateAsyncLoop {
     fn new() -> Arc<Self> {
-        Arc::new(Self {
+        let private_loop = Arc::new(Self {
             worker: StdMutex::new(None),
             event_loop: Arc::new(OnceLock::new()),
             current_task: Arc::new(StdMutex::new(None)),
             closing: Arc::new(AtomicBool::new(false)),
             bg_thread_runner: StdMutex::new(None),
-        })
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        async_bridge::register_private_loop(&private_loop);
+        private_loop
     }
 
     // Lazily start the dedicated worker thread and return a clone of its sender.
@@ -3127,10 +3208,16 @@ impl PyPrivateAsyncLoop {
                         )?;
                         *current_task.lock().expect("private loop task slot") =
                             Some(task.clone().unbind());
+                        *item.call.task.lock().expect("private call task slot") =
+                            Some(task.clone().unbind());
+                        if item.call.cancelled.load(Ordering::Acquire) {
+                            let _ = task.call_method0("cancel");
+                        }
                         let result = event_loop
                             .bind(py)
                             .call_method1("run_until_complete", (task,));
                         *current_task.lock().expect("private loop task slot") = None;
+                        *item.call.task.lock().expect("private call task slot") = None;
                         result.map(|v| v.unbind())
                     });
                     // Ignore send errors: the caller timed out and moved on.
@@ -3254,6 +3341,7 @@ def _run(coro, ctx):
         py: Python<'_>,
         awaitable: &Py<PyAny>,
         context: &Py<PyAny>,
+        call: Arc<PrivateLoopCallState>,
     ) -> PyResult<Py<PyAny>> {
         // When a loop is already running on this thread (e.g. Jupyter / IPython),
         // asyncio forbids run_until_complete on any loop — even a brand-new one.
@@ -3279,6 +3367,7 @@ def _run(coro, ctx):
         let item = PrivateLoopWorkItem {
             awaitable: awaitable.clone_ref(py),
             context: context.clone_ref(py),
+            call,
             result_tx,
         };
         // THREAT[TM-PY-030]: send() is non-blocking (unbounded channel), so the
@@ -3363,6 +3452,7 @@ impl PyCallbackEngine {
 
 struct PyCallbackSession {
     state: StdMutex<PyCallbackSessionState>,
+    cancel_requested: AtomicBool,
     active_caller_tasks: Arc<StdMutex<Vec<Py<PyAny>>>>,
     private_async_loop: Arc<PyPrivateAsyncLoop>,
     engine: Arc<PyCallbackEngine>,
@@ -3392,6 +3482,7 @@ impl PyCallbackSession {
                 needs_async_callbacks,
                 use_caller_loop,
             )?),
+            cancel_requested: AtomicBool::new(false),
             active_caller_tasks: Arc::new(StdMutex::new(Vec::new())),
             private_async_loop,
             engine,
@@ -3428,6 +3519,9 @@ impl PyCallbackSession {
     }
 
     fn cancel_active_caller_tasks(&self, py: Python<'_>) -> PyResult<()> {
+        // Python cancellation must be visible before the native bridge handles
+        // its wakeup: a queued request may acquire the shell mutex first.
+        self.cancel_requested.store(true, Ordering::Release);
         let Some(locals) = self.current_caller_loop_locals() else {
             return Ok(());
         };
@@ -3463,14 +3557,22 @@ impl PyCallbackSession {
         self.engine.invoke(py, &context, callback, args)
     }
 
+    fn check_cancelled(&self) -> PyResult<()> {
+        if self.cancel_requested.load(Ordering::Acquire) {
+            return Err(Python::attach(asyncio_cancelled_error)?);
+        }
+        Ok(())
+    }
+
     fn run_awaitable_on_private_loop(
         &self,
         py: Python<'_>,
         awaitable: &Py<PyAny>,
+        call: Arc<PrivateLoopCallState>,
     ) -> PyResult<Py<PyAny>> {
         let context = self.current_context(py);
         self.private_async_loop
-            .run_awaitable(py, awaitable, &context)
+            .run_awaitable(py, awaitable, &context, call)
     }
 }
 
@@ -3490,7 +3592,7 @@ fn capture_callback_state(
     // which is native-only — on wasm we always fall through to the private-loop path.
     #[cfg(not(target_arch = "wasm32"))]
     if needs_async_callbacks && use_caller_loop {
-        let locals = pyo3_async_runtimes::tokio::get_current_locals(py)?;
+        let locals = async_bridge::get_current_locals(py)?;
         return Ok(PyCallbackSessionState {
             context: locals.context(py).unbind(),
             caller_loop_locals: Some(locals),
@@ -3860,8 +3962,9 @@ async fn call_python_callback_async(
             .map_err(|e| format!("{callback_name}: {e}"))?
     };
     #[cfg(target_arch = "wasm32")]
-    let result = Python::attach(|py| session.run_awaitable_on_private_loop(py, &awaitable))
-        .map_err(|e| format!("{callback_name}: {e}"))?;
+    let result =
+        Python::attach(|py| session.run_awaitable_on_private_loop(py, &awaitable, Arc::default()))
+            .map_err(|e| format!("{callback_name}: {e}"))?;
 
     Ok(result)
 }
@@ -3871,11 +3974,16 @@ async fn run_private_loop_awaitable_yielding(
     session: Arc<PyCallbackSession>,
     awaitable: Py<PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let call = Arc::new(PrivateLoopCallState::default());
+    let _cancel_on_drop = PrivateLoopCallGuard {
+        private_loop: session.private_async_loop.clone(),
+        call: call.clone(),
+    };
     // THREAT[TM-DOS-057]: execute_sync() has no caller asyncio loop. Run the
     // private Python event loop on Tokio's blocking pool so the interpreter
     // future yields and Bashkit's execution timeout can preempt slow callbacks.
     tokio::task::spawn_blocking(move || {
-        Python::attach(|py| session.run_awaitable_on_private_loop(py, &awaitable))
+        Python::attach(|py| session.run_awaitable_on_private_loop(py, &awaitable, call))
     })
     .await
     .map_err(|e| PyRuntimeError::new_err(format!("Python async callback worker failed: {e}")))?
@@ -4053,6 +4161,7 @@ fn capture_custom_builtin_session(
     builtins: &StdMutex<Vec<PyCustomBuiltinEntry>>,
     engine: &Arc<PyCallbackEngine>,
     use_caller_loop: bool,
+    has_external_handler: bool,
 ) -> PyResult<Option<Arc<PyCallbackSession>>> {
     let (is_empty, has_async) = {
         let guard = builtins
@@ -4060,13 +4169,13 @@ fn capture_custom_builtin_session(
             .map_err(|_| PyRuntimeError::new_err("custom_builtins lock poisoned"))?;
         (guard.is_empty(), guard.iter().any(|entry| entry.is_async))
     };
-    if is_empty {
+    if is_empty && !has_external_handler {
         return Ok(None);
     }
     PyCallbackSession::capture(
         py,
         engine.clone(),
-        has_async,
+        has_async || has_external_handler,
         use_caller_loop,
         PySyncLoopMode::SharedAcrossSessions,
     )
@@ -4250,6 +4359,7 @@ async fn exec_bash_with_optional_output(
 ) -> PyResult<ExecResult> {
     let mut execution_extensions = ExecutionExtensions::new();
     if let Some(session) = builtin_session {
+        session.check_cancelled()?;
         let _ = execution_extensions.insert(session);
     }
 
@@ -4280,64 +4390,280 @@ async fn exec_bash_with_optional_output(
             .await
     };
 
-    Ok(py_exec_result_from_bash_result(result))
+    let converted = py_exec_result_from_bash_result(result);
+    Ok(converted)
 }
 
-/// Build a `PythonExternalFnHandler` from a Python async callable.
-///
-/// The handler converts MontyObject args/kwargs to Python objects, calls the
-/// async handler coroutine, awaits it, and converts the result back.
-// Decision: reject same-instance live Bash access from external_handler.
-// Releasing the interpreter mutex during Python callbacks would widen the
-// execution model; a targeted guard keeps the failure explicit and local.
-// Drives an async Python coroutine handler via pyo3-async-runtimes — native-only.
-// On wasm, external_handler is rejected at construction.
+// Decision: external functions share the custom-builtin callback session. The
+// interpreter supplies a revocable request extension; no handler caches a
+// caller loop or ContextVars across execute() calls. Sync calls reuse the
+// instance's dedicated private-loop worker, including in notebooks.
 #[cfg(not(target_arch = "wasm32"))]
-fn make_external_handler(
-    py_handler: Py<PyAny>,
-    external_handler_reentry_depth: Arc<AtomicUsize>,
-) -> PythonExternalFnHandler {
+fn make_external_handler(py_handler: Py<PyAny>) -> PythonExternalFnHandler {
     Arc::new(move |fn_name, args, kwargs| {
         let py_handler = Python::attach(|py| py_handler.clone_ref(py));
-        let external_handler_reentry_depth = external_handler_reentry_depth.clone();
         Box::pin(async move {
-            let _reentry_scope = ExternalHandlerReentryScope::enter(external_handler_reentry_depth);
-            let fut = Python::attach(|py| {
-                let py_args = args
-                    .iter()
-                    .map(|o| monty_to_py(py, o))
-                    .collect::<PyResult<Vec<_>>>()?;
-                let py_args_list = PyList::new(py, &py_args)?;
-                let py_kwargs = PyDict::new(py);
-                for (k, v) in &kwargs {
-                    py_kwargs.set_item(monty_to_py(py, k)?, monty_to_py(py, v)?)?;
-                }
-                let coro = py_handler.call1(py, (fn_name, py_args_list, py_kwargs))?;
-                pyo3_async_runtimes::tokio::into_future(coro.into_bound(py))
-            });
-            match fut {
-                Err(e) => ExtFunctionResult::Error(MontyException::new(
-                    ExcType::RuntimeError,
-                    Some(e.to_string()),
-                )),
-                Ok(awaitable) => match awaitable.await {
-                    Err(e) => ExtFunctionResult::Error(MontyException::new(
-                        ExcType::RuntimeError,
-                        Some(e.to_string()),
-                    )),
-                    Ok(py_result) => {
-                        Python::attach(|py| match py_to_monty(py, py_result.bind(py)) {
-                            Ok(v) => ExtFunctionResult::Return(v),
-                            Err(e) => ExtFunctionResult::Error(MontyException::new(
-                                ExcType::RuntimeError,
-                                Some(e.to_string()),
-                            )),
-                        })
+            let result = async {
+                let session = bashkit::RuntimeCallContext::current()
+                    .execution_extension::<Arc<PyCallbackSession>>()
+                    .ok_or_else(|| "missing Python callback session".to_string())?;
+                let callback_session = session.try_with(Clone::clone).map_err(|e| e.to_string())?;
+                let py_args = Python::attach(|py| -> PyResult<Vec<Py<PyAny>>> {
+                    let positional = args
+                        .iter()
+                        .map(|o| monty_to_py(py, o))
+                        .collect::<PyResult<Vec<_>>>()?;
+                    let keywords = PyDict::new(py);
+                    for (key, value) in &kwargs {
+                        keywords.set_item(monty_to_py(py, key)?, monty_to_py(py, value)?)?;
                     }
-                },
+                    Ok(vec![
+                        fn_name.into_pyobject(py)?.into_any().unbind(),
+                        PyList::new(py, positional)?.into_any().unbind(),
+                        keywords.into_any().unbind(),
+                    ])
+                })
+                .map_err(|e| e.to_string())?;
+                let value = session
+                    .run(call_python_callback_async(
+                        callback_session,
+                        "external_handler",
+                        &py_handler,
+                        py_args,
+                    ))
+                    .await
+                    .map_err(|e| e.to_string())??;
+                Python::attach(|py| py_to_monty(py, value.bind(py))).map_err(|e| e.to_string())
+            }
+            .await;
+            match result {
+                Ok(value) => ExtFunctionResult::Return(value),
+                Err(message) => ExtFunctionResult::Error(MontyException::new(
+                    ExcType::RuntimeError,
+                    Some(message),
+                )),
             }
         })
     })
+}
+
+fn make_external_handler_native(py: Python<'_>, handler: &Py<PyAny>) -> PythonExternalFnHandler {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        make_external_handler(handler.clone_ref(py))
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (py, handler);
+        unreachable!("external_handler rejected at construction on wasm")
+    }
+}
+
+// TypeScript crosses the host boundary as JSON-shaped values. Convert directly
+// with the same nesting cap as Monty; reject functions, non-finite numbers,
+// arbitrary Python objects and out-of-range integers instead of stringifying
+// them or silently losing precision.
+#[cfg(not(target_arch = "wasm32"))]
+fn zapcode_to_py(
+    py: Python<'_>,
+    value: &bashkit::ZapcodeValue,
+    depth: usize,
+) -> PyResult<Py<PyAny>> {
+    use bashkit::ZapcodeValue as V;
+    if depth > MAX_NESTING_DEPTH {
+        return Err(PyValueError::new_err(
+            "TypeScript value nesting depth exceeds maximum of 64",
+        ));
+    }
+    Ok(match value {
+        V::Undefined | V::Null => py.None(),
+        V::Bool(v) => v.into_pyobject(py)?.to_owned().into_any().unbind(),
+        V::Int(v) => v.into_pyobject(py)?.into_any().unbind(),
+        V::Float(v) if v.is_finite() => v.into_pyobject(py)?.into_any().unbind(),
+        V::String(v) => v.as_ref().into_pyobject(py)?.into_any().unbind(),
+        V::Array(values) => {
+            let values = values
+                .iter()
+                .map(|v| zapcode_to_py(py, v, depth + 1))
+                .collect::<PyResult<Vec<_>>>()?;
+            PyList::new(py, values)?.into_any().unbind()
+        }
+        V::Object(values) => {
+            let dict = PyDict::new(py);
+            for (key, value) in values {
+                dict.set_item(key.as_ref(), zapcode_to_py(py, value, depth + 1)?)?;
+            }
+            dict.into_any().unbind()
+        }
+        _ => {
+            return Err(PyValueError::new_err(
+                "TypeScript external function arguments must be JSON values",
+            ));
+        }
+    })
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn py_to_zapcode(obj: &Bound<'_, PyAny>, depth: usize) -> PyResult<bashkit::ZapcodeValue> {
+    use bashkit::ZapcodeValue as V;
+    if depth > MAX_NESTING_DEPTH {
+        return Err(PyValueError::new_err(
+            "Python object nesting depth exceeds maximum of 64",
+        ));
+    }
+    if obj.is_none() {
+        return Ok(V::Null);
+    }
+    if let Ok(value) = obj.extract::<bool>() {
+        return Ok(V::Bool(value));
+    }
+    if obj.is_instance_of::<PyInt>() {
+        return obj.extract::<i64>().map(V::Int).map_err(|_| {
+            PyValueError::new_err("TypeScript handler integers must fit in signed 64 bits")
+        });
+    }
+    if let Ok(value) = obj.extract::<f64>() {
+        if !value.is_finite() {
+            return Err(PyValueError::new_err(
+                "TypeScript handler numbers must be finite",
+            ));
+        }
+        return Ok(V::Float(value));
+    }
+    if let Ok(value) = obj.extract::<String>() {
+        return Ok(V::String(Arc::from(value)));
+    }
+    if let Ok(values) = obj.cast::<PyList>() {
+        return values
+            .iter()
+            .map(|v| py_to_zapcode(&v, depth + 1))
+            .collect::<PyResult<Vec<_>>>()
+            .map(V::Array);
+    }
+    if let Ok(values) = obj.cast::<PyDict>() {
+        return values
+            .iter()
+            .map(|(key, value)| {
+                Ok((
+                    Arc::from(key.extract::<String>()?),
+                    py_to_zapcode(&value, depth + 1)?,
+                ))
+            })
+            .collect::<PyResult<_>>()
+            .map(V::Object);
+    }
+    Err(PyTypeError::new_err(
+        "TypeScript external handler must return a JSON value",
+    ))
+}
+
+fn make_typescript_external_handler_native(
+    py: Python<'_>,
+    handler: &Py<PyAny>,
+) -> bashkit::TypeScriptExternalFnHandler {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let handler = handler.clone_ref(py);
+        Arc::new(move |name, args| {
+            let handler = Python::attach(|py| handler.clone_ref(py));
+            Box::pin(async move {
+                let session = bashkit::RuntimeCallContext::current()
+                    .execution_extension::<Arc<PyCallbackSession>>()
+                    .ok_or_else(|| "missing Python callback session".to_string())?;
+                let callback_session = session.try_with(Clone::clone).map_err(|e| e.to_string())?;
+                let args = Python::attach(|py| -> PyResult<Vec<Py<PyAny>>> {
+                    Ok(vec![
+                        name.into_pyobject(py)?.into_any().unbind(),
+                        PyList::new(
+                            py,
+                            args.iter()
+                                .map(|value| zapcode_to_py(py, value, 0))
+                                .collect::<PyResult<Vec<_>>>()?,
+                        )?
+                        .into_any()
+                        .unbind(),
+                    ])
+                })
+                .map_err(|e| e.to_string())?;
+                let value = session
+                    .run(call_python_callback_async(
+                        callback_session,
+                        "typescript_external_handler",
+                        &handler,
+                        args,
+                    ))
+                    .await
+                    .map_err(|e| e.to_string())??;
+                Python::attach(|py| py_to_zapcode(value.bind(py), 0)).map_err(|e| e.to_string())
+            })
+        })
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (py, handler);
+        unreachable!("typescript_external_handler rejected at construction on wasm")
+    }
+}
+
+fn prepare_external_handler(
+    py: Python<'_>,
+    python: bool,
+    names: &[String],
+    handler: Option<Py<PyAny>>,
+    guard: &ExternalHandlerReentryGuard,
+) -> PyResult<Option<Py<PyAny>>> {
+    prepare_runtime_external_handler(py, python, names, handler, guard, "python", "external")
+}
+
+fn prepare_runtime_external_handler(
+    py: Python<'_>,
+    enabled: bool,
+    names: &[String],
+    handler: Option<Py<PyAny>>,
+    guard: &ExternalHandlerReentryGuard,
+    runtime: &str,
+    prefix: &str,
+) -> PyResult<Option<Py<PyAny>>> {
+    #[cfg(target_arch = "wasm32")]
+    if handler.is_some() {
+        return Err(PyRuntimeError::new_err(format!(
+            "{prefix}_handler is not available in the WebAssembly (Pyodide) build",
+        )));
+    }
+    if !names.is_empty() && handler.is_none() {
+        return Err(PyValueError::new_err(format!(
+            "{prefix}_functions requires {prefix}_handler — the list has no effect without a handler",
+        )));
+    }
+    let Some(handler) = handler else {
+        return Ok(None);
+    };
+    if !enabled {
+        return Err(PyValueError::new_err(format!(
+            "{prefix}_handler requires {runtime}=True"
+        )));
+    }
+    if !handler.bind(py).is_callable() {
+        return Err(PyValueError::new_err(format!(
+            "{prefix}_handler must be callable"
+        )));
+    }
+    if !is_coroutine_callable(py, handler.bind(py))? {
+        return Err(PyValueError::new_err(format!(
+            "{prefix}_handler must be an async callable (coroutine function)"
+        )));
+    }
+    guard
+        .wrap
+        .call1(
+            py,
+            (
+                guard.marker.bind(py),
+                guard.active_threads.bind(py),
+                handler,
+            ),
+        )
+        .map(Some)
 }
 
 /// Apply python/external_handler configuration to a `BashBuilder`.
@@ -4349,7 +4675,6 @@ fn apply_python_config(
     limits: PythonLimits,
     fn_names: Vec<String>,
     handler: Option<Py<PyAny>>,
-    external_handler_reentry_depth: Arc<AtomicUsize>,
 ) -> bashkit::BashBuilder {
     // By construction, handler.is_some() implies python=true (validated in new()).
     // On wasm, external_handler is rejected at construction, so handler is always
@@ -4357,11 +4682,8 @@ fn apply_python_config(
     match (python, handler) {
         #[cfg(not(target_arch = "wasm32"))]
         (true, Some(h)) => {
-            builder = builder.python_with_external_handler(
-                limits,
-                fn_names,
-                make_external_handler(h, external_handler_reentry_depth),
-            );
+            builder =
+                builder.python_with_external_handler(limits, fn_names, make_external_handler(h));
             // Passing python=True from Python is itself the explicit opt-in for
             // in-process Python execution; propagate that to the builtin's env gate.
             builder = builder.env("BASHKIT_ALLOW_INPROCESS_PYTHON", "1");
@@ -4369,7 +4691,7 @@ fn apply_python_config(
         #[cfg(target_arch = "wasm32")]
         (true, Some(_)) => unreachable!("external_handler rejected at construction on wasm"),
         (true, None) => {
-            let _ = (&fn_names, &external_handler_reentry_depth);
+            let _ = &fn_names;
             builder = builder.python_with_limits(limits);
             builder = builder.env("BASHKIT_ALLOW_INPROCESS_PYTHON", "1");
         }
@@ -4479,7 +4801,7 @@ pub struct PyBash {
     external_functions: Vec<String>,
     /// Async Python callable invoked when Monty calls an external function.
     external_handler: Option<Py<PyAny>>,
-    external_handler_reentry_depth: Arc<AtomicUsize>,
+    external_handler_reentry_guard: Arc<ExternalHandlerReentryGuard>,
     /// Tracking list for `is_async` flag detection (used by session capture).
     /// Kept in sync with `host_registry` by `add_builtin` / `remove_builtin`.
     /// Wrapped in `Arc<StdMutex<_>>` so post-construction registration works
@@ -4526,7 +4848,11 @@ impl Drop for PyBash {
 
 impl PyBash {
     fn reject_external_handler_reentry(&self) -> PyResult<()> {
-        reject_external_handler_reentry_depth(Some(&self.external_handler_reentry_depth))
+        reject_external_handler_reentry_guard(Some(&self.external_handler_reentry_guard), false)
+    }
+
+    fn reject_external_handler_sync_access(&self) -> PyResult<()> {
+        reject_external_handler_reentry_guard(Some(&self.external_handler_reentry_guard), true)
     }
 
     fn build_live_builder(&self, py: Python<'_>) -> PyResult<bashkit::BashBuilder> {
@@ -4572,7 +4898,6 @@ impl PyBash {
             profile.python_limits().clone(),
             self.external_functions.clone(),
             handler_clone,
-            self.external_handler_reentry_depth.clone(),
         );
         builder = apply_sqlite_config(
             builder,
@@ -4688,47 +5013,22 @@ impl PyBash {
         let network = parse_network_config(network)?;
 
         let fn_names = external_functions.clone().unwrap_or_default();
-        // external_handler runs an async Python coroutine driven through
-        // pyo3-async-runtimes, which the wasm build omits. Reject it there.
-        #[cfg(target_arch = "wasm32")]
-        if external_handler.is_some() {
-            return Err(PyRuntimeError::new_err(
-                "external_handler is not available in the WebAssembly (Pyodide) build",
-            ));
-        }
-        if !fn_names.is_empty() && external_handler.is_none() {
-            return Err(PyValueError::new_err(
-                "external_functions requires external_handler — the list has no effect without a handler",
-            ));
-        }
-        if external_handler.is_some() && !python {
-            return Err(PyValueError::new_err(
-                "external_handler requires python=True",
-            ));
-        }
-        if external_handler
-            .as_ref()
-            .is_some_and(|h| !h.bind(py).is_callable())
-        {
-            return Err(PyValueError::new_err("external_handler must be callable"));
-        }
-        if let Some(ref handler) = external_handler {
-            let bound = handler.bind(py);
-            if !is_coroutine_callable(py, bound)? {
-                return Err(PyValueError::new_err(
-                    "external_handler must be an async callable (coroutine function)",
-                ));
-            }
-        }
+        let external_handler_reentry_guard =
+            ExternalHandlerReentryGuard::new(py, external_handler.is_some())?;
+        let external_handler = prepare_external_handler(
+            py,
+            python,
+            &fn_names,
+            external_handler,
+            &external_handler_reentry_guard,
+        )?;
         let handler_for_build = external_handler.as_ref().map(|h| h.clone_ref(py));
-        let external_handler_reentry_depth = Arc::new(AtomicUsize::new(0));
         builder = apply_python_config(
             builder,
             python,
             core_profile.python_limits().clone(),
             fn_names,
             handler_for_build,
-            external_handler_reentry_depth.clone(),
         );
         builder = apply_sqlite_config(
             builder,
@@ -4773,7 +5073,7 @@ impl PyBash {
             sqlite,
             external_functions: external_functions.unwrap_or_default(),
             external_handler,
-            external_handler_reentry_depth,
+            external_handler_reentry_guard,
             custom_builtins: Arc::new(StdMutex::new(custom_builtins)),
             runtime_env: Arc::new(StdMutex::new(Vec::new())),
             runtime_mounts: Arc::new(StdMutex::new(Vec::new())),
@@ -4824,22 +5124,61 @@ impl PyBash {
     /// pyo3-async-runtimes, which the WebAssembly (Pyodide) build omits. On wasm,
     /// use `execute_sync()`. See knowledge/runtimes/emscripten-wheels.md.
     #[cfg(not(target_arch = "wasm32"))]
-    #[pyo3(signature = (commands, on_output=None))]
+    #[pyo3(signature = (commands, on_output=None, *, capture=None, stdout=None, stderr=None))]
     fn execute<'py>(
         &self,
         py: Python<'py>,
         commands: String,
         on_output: Option<Py<PyAny>>,
+        capture: Option<usize>,
+        stdout: Option<Py<PyAny>>,
+        stderr: Option<Py<PyAny>>,
     ) -> PyResult<Bound<'py, PyAny>> {
         self.reject_external_handler_reentry()?;
-        let builtin_session =
-            capture_custom_builtin_session(py, &self.custom_builtins, &self.builtin_engine, true)?;
+        let live_output = capture.is_some() || stdout.is_some() || stderr.is_some();
+        if live_output && on_output.is_some() {
+            return Err(PyTypeError::new_err(
+                "use stdout/stderr byte sinks instead of on_output with streaming options",
+            ));
+        }
+        streaming::validate_sink(py, stdout.as_ref())?;
+        streaming::validate_sink(py, stderr.as_ref())?;
+        let builtin_session = if live_output {
+            Some(PyCallbackSession::capture(
+                py,
+                self.builtin_engine.clone(),
+                true,
+                true,
+                PySyncLoopMode::SharedAcrossSessions,
+            )?)
+        } else {
+            capture_custom_builtin_session(
+                py,
+                &self.custom_builtins,
+                &self.builtin_engine,
+                true,
+                self.external_handler.is_some(),
+            )?
+        };
         let on_output = prepare_output_handler(py, on_output)?;
         let inner = self.inner.clone();
         let cancel_session = builtin_session.clone();
         let future = future_into_py(py, async move {
             let mut bash = inner.lock().await;
-            exec_bash_with_optional_output(&mut bash, &commands, on_output, builtin_session).await
+            if live_output {
+                streaming::execute(
+                    &mut bash,
+                    &commands,
+                    capture,
+                    stdout,
+                    stderr,
+                    builtin_session.expect("live output session"),
+                )
+                .await
+            } else {
+                exec_bash_with_optional_output(&mut bash, &commands, on_output, builtin_session)
+                    .await
+            }
         })?;
         if let Some(cancel_session) = cancel_session {
             attach_future_cancellation_callback(py, &future, cancel_session.clone())?;
@@ -4850,9 +5189,8 @@ impl PyBash {
 
     /// Execute commands synchronously (blocking).
     ///
-    /// Not supported when `external_handler` is configured: the handler is an async
-    /// Python coroutine that requires a running event loop, which is unavailable in
-    /// sync context. Use `execute()` (async) instead.
+    /// Async external handlers run on the instance's private worker loop.
+    /// Use `execute()` to use clients bound to the caller's active loop.
     ///
     /// Releases GIL before blocking on tokio to prevent deadlock with callbacks.
     ///
@@ -4870,13 +5208,14 @@ impl PyBash {
         commands: String,
         on_output: Option<Py<PyAny>>,
     ) -> PyResult<ExecResult> {
-        if self.external_handler.is_some() {
-            return Err(PyRuntimeError::new_err(
-                "execute_sync is not supported when external_handler is configured — use execute() (async) instead, e.g. asyncio.run(bash.execute(...))",
-            ));
-        }
-        let builtin_session =
-            capture_custom_builtin_session(py, &self.custom_builtins, &self.builtin_engine, false)?;
+        self.reject_external_handler_sync_access()?;
+        let builtin_session = capture_custom_builtin_session(
+            py,
+            &self.custom_builtins,
+            &self.builtin_engine,
+            false,
+            self.external_handler.is_some(),
+        )?;
         let on_output = prepare_output_handler(py, on_output)?;
         let inner = self.inner.clone();
 
@@ -4904,8 +5243,6 @@ impl PyBash {
     }
 
     /// Execute commands synchronously. Raises `BashError` on non-zero exit.
-    ///
-    /// Not supported when `external_handler` is configured.
     #[pyo3(signature = (commands, on_output=None))]
     fn execute_sync_or_throw(
         &self,
@@ -4932,8 +5269,13 @@ impl PyBash {
         on_output: Option<Py<PyAny>>,
     ) -> PyResult<Bound<'py, PyAny>> {
         self.reject_external_handler_reentry()?;
-        let builtin_session =
-            capture_custom_builtin_session(py, &self.custom_builtins, &self.builtin_engine, true)?;
+        let builtin_session = capture_custom_builtin_session(
+            py,
+            &self.custom_builtins,
+            &self.builtin_engine,
+            true,
+            self.external_handler.is_some(),
+        )?;
         let on_output = prepare_output_handler(py, on_output)?;
         let inner = self.inner.clone();
         let cancel_session = builtin_session.clone();
@@ -4965,6 +5307,18 @@ impl PyBash {
     /// Override precedence matches `custom_builtins` at construction time:
     /// shell function > POSIX special builtin > custom builtin > baked-in
     /// builtin > `PATH`.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn add_command(&self, py: Python<'_>, name: String, callback: Py<PyAny>) -> PyResult<()> {
+        streaming::register(
+            py,
+            name,
+            callback,
+            &self.rt,
+            &self.custom_builtins,
+            &self.host_registry,
+        )
+    }
+
     fn add_builtin(&self, py: Python<'_>, name: String, callback: Py<PyAny>) -> PyResult<()> {
         let entry = build_py_custom_builtin_entry(py, name.clone(), callback)?;
         let adapter = PyCustomBuiltinAdapter::from_entry(py, &entry, &self.rt);
@@ -4997,7 +5351,7 @@ impl PyBash {
     /// python mode, external function handler, and custom builtins.
     /// Releases GIL before blocking on tokio to prevent deadlock.
     fn reset(&self, py: Python<'_>) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         replace_live_bash_with_builder(
             py,
             &self.rt,
@@ -5028,7 +5382,7 @@ impl PyBash {
         exclude_filesystem: bool,
         exclude_functions: bool,
     ) -> PyResult<PyPackedCommit> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         commit_live_bash(
             py,
             &self.rt,
@@ -5054,7 +5408,7 @@ impl PyBash {
         objects: HashMap<String, Vec<u8>>,
         policy: &str,
     ) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let state = capture_shell_state(py, &self.rt, &self.inner)?;
         let env_overrides = placeholder_env_overrides(&state, &self.network);
         checkout_live_bash(
@@ -5073,7 +5427,7 @@ impl PyBash {
     /// Compare against `SnapshotGraph.capabilities(...)` to tell whether a
     /// stored commit will pass a given checkout policy before attempting it.
     fn capabilities(&self, py: Python<'_>) -> PyResult<PyCapabilityFingerprint> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let rt = self.rt.clone();
         let inner = self.inner.clone();
         let caps = py.detach(|| {
@@ -5093,7 +5447,7 @@ impl PyBash {
         exclude_filesystem: bool,
         exclude_functions: bool,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let bytes = snapshot_live_bash(
             py,
             &self.rt,
@@ -5113,7 +5467,7 @@ impl PyBash {
         exclude_filesystem: bool,
         exclude_functions: bool,
     ) -> PyResult<Bound<'py, PyBytes>> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let bytes = snapshot_live_bash_keyed(
             py,
             &self.rt,
@@ -5136,19 +5490,19 @@ impl PyBash {
     /// `BashError` if the script does not parse; treat that as "deny or
     /// prompt", never as "no commands".
     fn analyze(&self, py: Python<'_>, script: &str) -> PyResult<ScriptAnalysis> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         analyze_script(py, &self.rt, &self.inner, script)
     }
 
     /// Capture a read-only shell-state snapshot for prompt rendering and inspection.
     fn shell_state(&self, py: Python<'_>) -> PyResult<ShellState> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         capture_shell_state(py, &self.rt, &self.inner)
     }
 
     /// Restore interpreter state from bytes previously produced by `snapshot()`.
     fn restore_snapshot(&self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let state = capture_shell_state(py, &self.rt, &self.inner)?;
         let env_overrides = placeholder_env_overrides(&state, &self.network);
         restore_live_bash_with_env_overrides(py, &self.rt, &self.inner, data, &env_overrides)
@@ -5156,7 +5510,7 @@ impl PyBash {
 
     /// Restore interpreter state from HMAC-protected bytes produced by `snapshot_keyed()`.
     fn restore_snapshot_keyed(&self, py: Python<'_>, data: Vec<u8>, key: Vec<u8>) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let state = capture_shell_state(py, &self.rt, &self.inner)?;
         let env_overrides = placeholder_env_overrides(&state, &self.network);
         restore_live_bash_keyed_with_env_overrides(
@@ -5320,60 +5674,60 @@ impl PyBash {
     }
 
     fn read_file(&self, py: Python<'_>, path: String) -> PyResult<String> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| read_text_via_live_fs(&self.rt, &self.inner, path))
     }
 
     fn write_file(&self, py: Python<'_>, path: String, content: String) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| write_text_via_live_fs(&self.rt, &self.inner, path, content))
     }
 
     fn append_file(&self, py: Python<'_>, path: String, content: String) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| append_text_via_live_fs(&self.rt, &self.inner, path, content))
     }
 
     #[pyo3(signature = (path, recursive=false))]
     fn mkdir(&self, py: Python<'_>, path: String, recursive: bool) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| mkdir_via_live_fs(&self.rt, &self.inner, path, recursive))
     }
 
     fn exists(&self, py: Python<'_>, path: String) -> PyResult<bool> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| exists_via_live_fs(&self.rt, &self.inner, path))
     }
 
     #[pyo3(signature = (path, recursive=false))]
     fn remove(&self, py: Python<'_>, path: String, recursive: bool) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| remove_via_live_fs(&self.rt, &self.inner, path, recursive))
     }
 
     fn stat(&self, py: Python<'_>, path: String) -> PyResult<Py<PyAny>> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let metadata = py.detach(|| stat_via_live_fs(&self.rt, &self.inner, path))?;
         metadata_to_pydict(py, &metadata)
     }
 
     fn chmod(&self, py: Python<'_>, path: String, mode: u32) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| chmod_via_live_fs(&self.rt, &self.inner, path, mode))
     }
 
     fn symlink(&self, py: Python<'_>, target: String, link: String) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| symlink_via_live_fs(&self.rt, &self.inner, target, link))
     }
 
     fn read_link(&self, py: Python<'_>, path: String) -> PyResult<String> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         py.detach(|| read_link_via_live_fs(&self.rt, &self.inner, path))
     }
 
     fn read_dir(&self, py: Python<'_>, path: String) -> PyResult<Py<PyAny>> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let entries = py.detach(|| read_dir_via_live_fs(&self.rt, &self.inner, path))?;
         let items: Vec<Py<PyAny>> = entries
             .iter()
@@ -5384,7 +5738,7 @@ impl PyBash {
 
     #[pyo3(signature = (path=".".to_string()))]
     fn ls(&self, py: Python<'_>, path: String) -> PyResult<Py<PyAny>> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let names = match py.detach(|| read_dir_via_live_fs(&self.rt, &self.inner, path)) {
             Ok(entries) => entries
                 .into_iter()
@@ -5396,7 +5750,7 @@ impl PyBash {
     }
 
     fn glob(&self, py: Python<'_>, pattern: String) -> PyResult<Py<PyAny>> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let matches = py.detach(|| -> PyResult<Vec<String>> {
             Ok(glob_via_bash(
                 &self.rt,
@@ -5415,13 +5769,13 @@ impl PyBash {
     /// batch reads where consistency isn't needed, prefer reading files via
     /// `execute_sync("cat ...")`.
     fn fs(&self, py: Python<'_>) -> PyResult<Py<PyFileSystem>> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         Py::new(
             py,
             PyFileSystem::from_live_with_reentry_guard(
                 self.inner.clone(),
                 self.rt.clone(),
-                self.external_handler_reentry_depth.clone(),
+                self.external_handler_reentry_guard.clone(),
             ),
         )
     }
@@ -5443,7 +5797,7 @@ impl PyBash {
         fs: PyRef<'_, PyFileSystem>,
         read_only: bool,
     ) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let inner = self.inner.clone();
         let source = fs.inner.clone();
         let runtime_mounts = self.runtime_mounts.clone();
@@ -5475,7 +5829,7 @@ impl PyBash {
 
     /// Unmount a live filesystem without rebuilding the interpreter.
     fn unmount(&self, py: Python<'_>, vfs_path: String) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let inner = self.inner.clone();
         let runtime_mounts = self.runtime_mounts.clone();
         py.detach(|| {
@@ -5496,7 +5850,7 @@ impl PyBash {
     /// existing instance instead of only through the constructor. Survives
     /// `reset()` — like custom builtins, and unlike env a *script* exported.
     fn set_env(&self, py: Python<'_>, key: String, value: String) -> PyResult<()> {
-        self.reject_external_handler_reentry()?;
+        self.reject_external_handler_sync_access()?;
         let inner = self.inner.clone();
         let runtime_env = self.runtime_env.clone();
         py.detach(|| {
@@ -5567,6 +5921,11 @@ pub struct BashTool {
     /// Opt-in runtimes, replayed for resets, snapshots, and tool metadata.
     python: bool,
     typescript: bool,
+    external_functions: Vec<String>,
+    external_handler: Option<Py<PyAny>>,
+    typescript_external_functions: Vec<String>,
+    typescript_external_handler: Option<Py<PyAny>>,
+    external_handler_reentry_guard: Arc<ExternalHandlerReentryGuard>,
     /// Tracking list for `is_async` flag detection (used by session capture).
     /// Kept in sync with `host_registry` by `add_builtin` / `remove_builtin`.
     /// Wrapped in `Arc<StdMutex<_>>` so post-construction registration works
@@ -5607,14 +5966,53 @@ impl Drop for BashTool {
 }
 
 impl BashTool {
+    fn reject_external_handler_reentry(&self) -> PyResult<()> {
+        reject_external_handler_reentry_guard(Some(&self.external_handler_reentry_guard), false)
+    }
+
+    fn reject_external_handler_sync_access(&self) -> PyResult<()> {
+        reject_external_handler_reentry_guard(Some(&self.external_handler_reentry_guard), true)
+    }
+
+    fn with_external_function_help(&self, mut text: String) -> String {
+        for (language, names) in [
+            ("Python", &self.external_functions),
+            ("TypeScript", &self.typescript_external_functions),
+        ] {
+            if !names.is_empty() {
+                text.push_str(&format!(
+                    "\n\n{language} host functions: {}. Use the host-provided signatures.",
+                    names.join(", ")
+                ));
+            }
+        }
+        text
+    }
+
     fn build_live_builder(&self, py: Python<'_>) -> PyResult<bashkit::BashBuilder> {
         let profile = self.profile.core();
         let mut builder = Bash::builder().profile(profile.clone());
         if self.python {
-            builder = builder.python();
+            if let Some(handler) = &self.external_handler {
+                builder = builder.python_with_external_handler(
+                    profile.python_limits().clone(),
+                    self.external_functions.clone(),
+                    make_external_handler_native(py, handler),
+                );
+            } else {
+                builder = builder.python();
+            }
         }
         if self.typescript {
-            builder = builder.typescript();
+            if let Some(handler) = &self.typescript_external_handler {
+                builder = builder.typescript_with_external_handler(
+                    profile.typescript_limits().clone(),
+                    self.typescript_external_functions.clone(),
+                    make_typescript_external_handler_native(py, handler),
+                );
+            } else {
+                builder = builder.typescript();
+            }
         }
 
         if let Some(ref username) = self.username {
@@ -5745,6 +6143,10 @@ impl BashTool {
         profile=PyExecutionProfile::Standard,
         python=false,
         typescript=false,
+        external_functions=None,
+        external_handler=None,
+        typescript_external_functions=None,
+        typescript_external_handler=None,
     ))]
     fn new(
         py: Python<'_>,
@@ -5765,14 +6167,56 @@ impl BashTool {
         profile: PyExecutionProfile,
         python: bool,
         typescript: bool,
+        external_functions: Option<Vec<String>>,
+        external_handler: Option<Py<PyAny>>,
+        typescript_external_functions: Option<Vec<String>>,
+        typescript_external_handler: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
         let core_profile = profile.core();
         let mut builder = Bash::builder().profile(core_profile.clone());
+        let fn_names = external_functions.unwrap_or_default();
+        let external_handler_reentry_guard = ExternalHandlerReentryGuard::new(
+            py,
+            external_handler.is_some() || typescript_external_handler.is_some(),
+        )?;
+        let external_handler = prepare_external_handler(
+            py,
+            python,
+            &fn_names,
+            external_handler,
+            &external_handler_reentry_guard,
+        )?;
         if python {
-            builder = builder.python();
+            if let Some(handler) = &external_handler {
+                builder = builder.python_with_external_handler(
+                    core_profile.python_limits().clone(),
+                    fn_names.clone(),
+                    make_external_handler_native(py, handler),
+                );
+            } else {
+                builder = builder.python();
+            }
         }
+        let ts_fn_names = typescript_external_functions.unwrap_or_default();
+        let typescript_external_handler = prepare_runtime_external_handler(
+            py,
+            typescript,
+            &ts_fn_names,
+            typescript_external_handler,
+            &external_handler_reentry_guard,
+            "typescript",
+            "typescript_external",
+        )?;
         if typescript {
-            builder = builder.typescript();
+            if let Some(handler) = &typescript_external_handler {
+                builder = builder.typescript_with_external_handler(
+                    core_profile.typescript_limits().clone(),
+                    ts_fn_names.clone(),
+                    make_typescript_external_handler_native(py, handler),
+                );
+            } else {
+                builder = builder.typescript();
+            }
         }
 
         if let Some(ref u) = username {
@@ -5844,6 +6288,11 @@ impl BashTool {
             env,
             python,
             typescript,
+            external_functions: fn_names,
+            external_handler,
+            typescript_external_functions: ts_fn_names,
+            typescript_external_handler,
+            external_handler_reentry_guard,
             custom_builtins: Arc::new(StdMutex::new(custom_builtins)),
             runtime_env: Arc::new(StdMutex::new(Vec::new())),
             runtime_mounts: Arc::new(StdMutex::new(Vec::new())),
@@ -5887,21 +6336,61 @@ impl BashTool {
 
     /// Native-only (see `Bash.execute`). Use `execute_sync()` on wasm.
     #[cfg(not(target_arch = "wasm32"))]
-    #[pyo3(signature = (commands, on_output=None))]
+    #[pyo3(signature = (commands, on_output=None, *, capture=None, stdout=None, stderr=None))]
     fn execute<'py>(
         &self,
         py: Python<'py>,
         commands: String,
         on_output: Option<Py<PyAny>>,
+        capture: Option<usize>,
+        stdout: Option<Py<PyAny>>,
+        stderr: Option<Py<PyAny>>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let builtin_session =
-            capture_custom_builtin_session(py, &self.custom_builtins, &self.builtin_engine, true)?;
+        self.reject_external_handler_reentry()?;
+        let live_output = capture.is_some() || stdout.is_some() || stderr.is_some();
+        if live_output && on_output.is_some() {
+            return Err(PyTypeError::new_err(
+                "use stdout/stderr byte sinks instead of on_output with streaming options",
+            ));
+        }
+        streaming::validate_sink(py, stdout.as_ref())?;
+        streaming::validate_sink(py, stderr.as_ref())?;
+        let builtin_session = if live_output {
+            Some(PyCallbackSession::capture(
+                py,
+                self.builtin_engine.clone(),
+                true,
+                true,
+                PySyncLoopMode::SharedAcrossSessions,
+            )?)
+        } else {
+            capture_custom_builtin_session(
+                py,
+                &self.custom_builtins,
+                &self.builtin_engine,
+                true,
+                self.external_handler.is_some() || self.typescript_external_handler.is_some(),
+            )?
+        };
         let on_output = prepare_output_handler(py, on_output)?;
         let inner = self.inner.clone();
         let cancel_session = builtin_session.clone();
         let future = future_into_py(py, async move {
             let mut bash = inner.lock().await;
-            exec_bash_with_optional_output(&mut bash, &commands, on_output, builtin_session).await
+            if live_output {
+                streaming::execute(
+                    &mut bash,
+                    &commands,
+                    capture,
+                    stdout,
+                    stderr,
+                    builtin_session.expect("live output session"),
+                )
+                .await
+            } else {
+                exec_bash_with_optional_output(&mut bash, &commands, on_output, builtin_session)
+                    .await
+            }
         })?;
         if let Some(cancel_session) = cancel_session {
             attach_future_cancellation_callback(py, &future, cancel_session.clone())?;
@@ -5923,8 +6412,14 @@ impl BashTool {
         commands: String,
         on_output: Option<Py<PyAny>>,
     ) -> PyResult<ExecResult> {
-        let builtin_session =
-            capture_custom_builtin_session(py, &self.custom_builtins, &self.builtin_engine, false)?;
+        self.reject_external_handler_sync_access()?;
+        let builtin_session = capture_custom_builtin_session(
+            py,
+            &self.custom_builtins,
+            &self.builtin_engine,
+            false,
+            self.external_handler.is_some() || self.typescript_external_handler.is_some(),
+        )?;
         let on_output = prepare_output_handler(py, on_output)?;
         let inner = self.inner.clone();
 
@@ -5976,8 +6471,14 @@ impl BashTool {
         commands: String,
         on_output: Option<Py<PyAny>>,
     ) -> PyResult<Bound<'py, PyAny>> {
-        let builtin_session =
-            capture_custom_builtin_session(py, &self.custom_builtins, &self.builtin_engine, true)?;
+        self.reject_external_handler_reentry()?;
+        let builtin_session = capture_custom_builtin_session(
+            py,
+            &self.custom_builtins,
+            &self.builtin_engine,
+            true,
+            self.external_handler.is_some() || self.typescript_external_handler.is_some(),
+        )?;
         let on_output = prepare_output_handler(py, on_output)?;
         let inner = self.inner.clone();
         let cancel_session = builtin_session.clone();
@@ -6000,6 +6501,18 @@ impl BashTool {
 
     /// Register a Python callback as a custom bash builtin.
     /// See [`PyBash::add_builtin`] for semantics.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn add_command(&self, py: Python<'_>, name: String, callback: Py<PyAny>) -> PyResult<()> {
+        streaming::register(
+            py,
+            name,
+            callback,
+            &self.rt,
+            &self.custom_builtins,
+            &self.host_registry,
+        )
+    }
+
     fn add_builtin(&self, py: Python<'_>, name: String, callback: Py<PyAny>) -> PyResult<()> {
         let entry = build_py_custom_builtin_entry(py, name.clone(), callback)?;
         let adapter = PyCustomBuiltinAdapter::from_entry(py, &entry, &self.rt);
@@ -6032,6 +6545,7 @@ impl BashTool {
     /// THREAT[TM-PY-028]: Rebuild with same config to preserve security limits
     /// and registered custom builtins.
     fn reset(&self, py: Python<'_>) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         replace_live_bash_with_builder(
             py,
             &self.rt,
@@ -6051,6 +6565,7 @@ impl BashTool {
         exclude_filesystem: bool,
         exclude_functions: bool,
     ) -> PyResult<Bound<'py, PyBytes>> {
+        self.reject_external_handler_sync_access()?;
         let bytes = snapshot_live_bash(
             py,
             &self.rt,
@@ -6070,6 +6585,7 @@ impl BashTool {
         exclude_filesystem: bool,
         exclude_functions: bool,
     ) -> PyResult<Bound<'py, PyBytes>> {
+        self.reject_external_handler_sync_access()?;
         let bytes = snapshot_live_bash_keyed(
             py,
             &self.rt,
@@ -6092,16 +6608,19 @@ impl BashTool {
     /// `BashError` if the script does not parse; treat that as "deny or
     /// prompt", never as "no commands".
     fn analyze(&self, py: Python<'_>, script: &str) -> PyResult<ScriptAnalysis> {
+        self.reject_external_handler_sync_access()?;
         analyze_script(py, &self.rt, &self.inner, script)
     }
 
     /// Capture a read-only shell-state snapshot for prompt rendering and inspection.
     fn shell_state(&self, py: Python<'_>) -> PyResult<ShellState> {
+        self.reject_external_handler_sync_access()?;
         capture_shell_state(py, &self.rt, &self.inner)
     }
 
     /// Restore interpreter state from bytes previously produced by `snapshot()`.
     fn restore_snapshot(&self, py: Python<'_>, data: Vec<u8>) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         let state = capture_shell_state(py, &self.rt, &self.inner)?;
         let env_overrides = placeholder_env_overrides(&state, &self.network);
         restore_live_bash_with_env_overrides(py, &self.rt, &self.inner, data, &env_overrides)
@@ -6109,6 +6628,7 @@ impl BashTool {
 
     /// Restore interpreter state from HMAC-protected bytes produced by `snapshot_keyed()`.
     fn restore_snapshot_keyed(&self, py: Python<'_>, data: Vec<u8>, key: Vec<u8>) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         let state = capture_shell_state(py, &self.rt, &self.inner)?;
         let env_overrides = placeholder_env_overrides(&state, &self.network);
         restore_live_bash_keyed_with_env_overrides(
@@ -6142,6 +6662,10 @@ impl BashTool {
         profile=PyExecutionProfile::Standard,
         python=false,
         typescript=false,
+        external_functions=None,
+        external_handler=None,
+        typescript_external_functions=None,
+        typescript_external_handler=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot(
@@ -6164,6 +6688,10 @@ impl BashTool {
         profile: PyExecutionProfile,
         python: bool,
         typescript: bool,
+        external_functions: Option<Vec<String>>,
+        external_handler: Option<Py<PyAny>>,
+        typescript_external_functions: Option<Vec<String>>,
+        typescript_external_handler: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
         let tool = Self::new(
             py,
@@ -6184,6 +6712,10 @@ impl BashTool {
             profile,
             python,
             typescript,
+            external_functions,
+            external_handler,
+            typescript_external_functions,
+            typescript_external_handler,
         )?;
         tool.restore_snapshot(py, data)?;
         Ok(tool)
@@ -6211,6 +6743,10 @@ impl BashTool {
         profile=PyExecutionProfile::Standard,
         python=false,
         typescript=false,
+        external_functions=None,
+        external_handler=None,
+        typescript_external_functions=None,
+        typescript_external_handler=None,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot_keyed(
@@ -6234,6 +6770,10 @@ impl BashTool {
         profile: PyExecutionProfile,
         python: bool,
         typescript: bool,
+        external_functions: Option<Vec<String>>,
+        external_handler: Option<Py<PyAny>>,
+        typescript_external_functions: Option<Vec<String>>,
+        typescript_external_handler: Option<Py<PyAny>>,
     ) -> PyResult<Self> {
         let tool = Self::new(
             py,
@@ -6254,55 +6794,70 @@ impl BashTool {
             profile,
             python,
             typescript,
+            external_functions,
+            external_handler,
+            typescript_external_functions,
+            typescript_external_handler,
         )?;
         tool.restore_snapshot_keyed(py, data, key)?;
         Ok(tool)
     }
 
     fn read_file(&self, py: Python<'_>, path: String) -> PyResult<String> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| read_text_via_live_fs(&self.rt, &self.inner, path))
     }
 
     fn write_file(&self, py: Python<'_>, path: String, content: String) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| write_text_via_live_fs(&self.rt, &self.inner, path, content))
     }
 
     fn append_file(&self, py: Python<'_>, path: String, content: String) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| append_text_via_live_fs(&self.rt, &self.inner, path, content))
     }
 
     #[pyo3(signature = (path, recursive=false))]
     fn mkdir(&self, py: Python<'_>, path: String, recursive: bool) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| mkdir_via_live_fs(&self.rt, &self.inner, path, recursive))
     }
 
     fn exists(&self, py: Python<'_>, path: String) -> PyResult<bool> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| exists_via_live_fs(&self.rt, &self.inner, path))
     }
 
     #[pyo3(signature = (path, recursive=false))]
     fn remove(&self, py: Python<'_>, path: String, recursive: bool) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| remove_via_live_fs(&self.rt, &self.inner, path, recursive))
     }
 
     fn stat(&self, py: Python<'_>, path: String) -> PyResult<Py<PyAny>> {
+        self.reject_external_handler_sync_access()?;
         let metadata = py.detach(|| stat_via_live_fs(&self.rt, &self.inner, path))?;
         metadata_to_pydict(py, &metadata)
     }
 
     fn chmod(&self, py: Python<'_>, path: String, mode: u32) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| chmod_via_live_fs(&self.rt, &self.inner, path, mode))
     }
 
     fn symlink(&self, py: Python<'_>, target: String, link: String) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| symlink_via_live_fs(&self.rt, &self.inner, target, link))
     }
 
     fn read_link(&self, py: Python<'_>, path: String) -> PyResult<String> {
+        self.reject_external_handler_sync_access()?;
         py.detach(|| read_link_via_live_fs(&self.rt, &self.inner, path))
     }
 
     fn read_dir(&self, py: Python<'_>, path: String) -> PyResult<Py<PyAny>> {
+        self.reject_external_handler_sync_access()?;
         let entries = py.detach(|| read_dir_via_live_fs(&self.rt, &self.inner, path))?;
         let items: Vec<Py<PyAny>> = entries
             .iter()
@@ -6313,6 +6868,7 @@ impl BashTool {
 
     #[pyo3(signature = (path=".".to_string()))]
     fn ls(&self, py: Python<'_>, path: String) -> PyResult<Py<PyAny>> {
+        self.reject_external_handler_sync_access()?;
         let names = match py.detach(|| read_dir_via_live_fs(&self.rt, &self.inner, path)) {
             Ok(entries) => entries
                 .into_iter()
@@ -6324,6 +6880,7 @@ impl BashTool {
     }
 
     fn glob(&self, py: Python<'_>, pattern: String) -> PyResult<Py<PyAny>> {
+        self.reject_external_handler_sync_access()?;
         let matches = py.detach(|| -> PyResult<Vec<String>> {
             Ok(glob_via_bash(
                 &self.rt,
@@ -6342,9 +6899,14 @@ impl BashTool {
     /// batch reads where consistency isn't needed, prefer reading files via
     /// `execute_sync("cat ...")`.
     fn fs(&self, py: Python<'_>) -> PyResult<Py<PyFileSystem>> {
+        self.reject_external_handler_sync_access()?;
         Py::new(
             py,
-            PyFileSystem::from_live(self.inner.clone(), self.rt.clone()),
+            PyFileSystem::from_live_with_reentry_guard(
+                self.inner.clone(),
+                self.rt.clone(),
+                self.external_handler_reentry_guard.clone(),
+            ),
         )
     }
 
@@ -6365,6 +6927,7 @@ impl BashTool {
         fs: PyRef<'_, PyFileSystem>,
         read_only: bool,
     ) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         let inner = self.inner.clone();
         let source = fs.inner.clone();
         let runtime_mounts = self.runtime_mounts.clone();
@@ -6398,6 +6961,7 @@ impl BashTool {
     ///
     /// See `Bash.set_env`. Survives `reset()`.
     fn set_env(&self, py: Python<'_>, key: String, value: String) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         let inner = self.inner.clone();
         let runtime_env = self.runtime_env.clone();
         py.detach(|| {
@@ -6412,6 +6976,7 @@ impl BashTool {
 
     /// Unmount a live filesystem without rebuilding the interpreter.
     fn unmount(&self, py: Python<'_>, vfs_path: String) -> PyResult<()> {
+        self.reject_external_handler_sync_access()?;
         let inner = self.inner.clone();
         let runtime_mounts = self.runtime_mounts.clone();
         py.detach(|| {
@@ -6436,15 +7001,15 @@ impl BashTool {
     }
 
     fn description(&self) -> PyResult<String> {
-        Ok(self.build_rust_tool()?.description().to_string())
+        Ok(self.with_external_function_help(self.build_rust_tool()?.description().to_string()))
     }
 
     fn help(&self) -> PyResult<String> {
-        Ok(self.build_rust_tool()?.help())
+        Ok(self.with_external_function_help(self.build_rust_tool()?.help()))
     }
 
     fn system_prompt(&self) -> PyResult<String> {
-        Ok(self.build_rust_tool()?.system_prompt())
+        Ok(self.with_external_function_help(self.build_rust_tool()?.system_prompt()))
     }
 
     fn input_schema(&self) -> PyResult<String> {
@@ -6958,6 +7523,8 @@ fn _bashkit(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<AnalyzedCommand>()?;
     m.add_class::<AnalyzedRedirect>()?;
     m.add_class::<PyBuiltinContext>()?;
+    #[cfg(not(target_arch = "wasm32"))]
+    streaming::add_classes(m)?;
     m.add_class::<PyFileSystem>()?;
     m.add_class::<PyPackedCommit>()?;
     m.add_class::<PySnapshotDiff>()?;

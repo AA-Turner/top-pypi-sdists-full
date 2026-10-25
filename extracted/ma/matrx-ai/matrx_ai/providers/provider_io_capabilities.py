@@ -86,6 +86,8 @@ _ENDPOINT_STYLE: dict[str, str] = {
     "generic_openai_chat": _STYLE_OPENAI_CHAT,
     "huggingface_chat": _STYLE_OPENAI_CHAT,
     "moonshot_chat": _STYLE_MOONSHOT_CHAT,
+    # llama-server on a person's device speaks chat-completions (images only).
+    "device_chat": _STYLE_OPENAI_CHAT,
 }
 
 

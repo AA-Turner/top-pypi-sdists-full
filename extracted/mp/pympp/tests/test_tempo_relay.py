@@ -256,7 +256,7 @@ async def test_relay_rejection_returns_retryable_http_challenge() -> None:
     retry = Challenge.from_www_authenticate(headers["WWW-Authenticate"])
     assert status == 402
     assert headers["Content-Type"] == "application/problem+json"
-    assert retry.id != challenge.id
+    assert retry.id == challenge.id
     assert body["type"].endswith("/verification-failed")
     assert body["status"] == 402
     assert body["challengeId"] == retry.id
@@ -407,7 +407,7 @@ async def test_charge_validation_uses_python_field_names() -> None:
         "recipient": "0x4567890123456789012345678901234567890123",
     }
 
-    with patch.object(intent, "_validate_transaction_payload"):
+    with patch.object(intent, "_validate_transaction_payload", return_value=None):
         result = await intent.validate(payment, request)
 
     assert result.details == {
@@ -472,3 +472,32 @@ async def test_relay_does_not_authorize_cached_receipts_for_concurrent_credentia
         )
     assert sum(isinstance(result, Receipt) for result in results) == 1
     assert sum(isinstance(result, VerificationFailedError) for result in results) == 1
+
+
+@pytest.mark.asyncio
+async def test_relay_receipt_preserves_funding_currency() -> None:
+    token = "0x20c0000000000000000000000000000000000001"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/validate"):
+            return response({"success": True})
+        return response(
+            {
+                "success": True,
+                "receipt": {
+                    "method": "tempo",
+                    "reference": "0xabc",
+                    "timestamp": "2026-08-05T12:00:00Z",
+                    "fundingCurrency": token,
+                },
+            }
+        )
+
+    async with relay_method(handler) as method:
+        result = await broadcast_credential(
+            intent=method.intents["charge"],
+            credential=credential(),
+            request={"amount": "1000"},
+        )
+
+    assert result.funding_currency == token

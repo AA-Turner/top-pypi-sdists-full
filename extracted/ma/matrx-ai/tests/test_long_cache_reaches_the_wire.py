@@ -11,7 +11,7 @@ conversation config (``to_storage_dict``) dropped it too, so turn 2+ lost it as 
 from __future__ import annotations
 
 import dataclasses
-import inspect
+from matrx_utils.source_guard import stable_source
 import re
 
 from matrx_ai.client_host.agent_source import ExecutionAgentDefinition, definition_to_agent_config
@@ -83,7 +83,7 @@ def test_every_unified_config_field_is_read_by_from_dict_unless_it_is_runtime_on
         "supports_tools",
         "held_prompt",  # set by the resolver on a mandate-held turn, settled at the send boundary
     }
-    source = inspect.getsource(UnifiedConfig.from_dict)
+    source = stable_source(UnifiedConfig.from_dict)
     forgotten = [
         f.name
         for f in dataclasses.fields(UnifiedConfig)

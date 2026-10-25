@@ -34,8 +34,10 @@ Imports nothing from the AI libraries at load time.
 
 from __future__ import annotations
 
+import errno
 import os
 import re
+import sqlite3
 from pathlib import Path
 
 from probe._compat import StrEnum
@@ -56,6 +58,11 @@ USER_SIDE_STATUSES = frozenset({401, 402, 403, 408, 429, 504})
 #: `__cause__`, so only the text is left to know it by. A hung connection (a
 #: laptop on bad wifi) pinged "Daemon bug" (probe-bench-temp, 2026-10-11).
 MCP_INIT_TIMEOUT = "Failed to initialize server session"
+#: SQLite's "database or disk is full" (its primary code; Python >= 3.11 sets
+#: `sqlite_errorcode`, older ones only the text), and a write's own errnos.
+SQLITE_FULL = 13
+SQLITE_FULL_TEXT = "database or disk is full"
+OUT_OF_SPACE = frozenset(code for code in (errno.ENOSPC, getattr(errno, "EDQUOT", None)) if code is not None)
 _CODE = re.compile(r"^[a-z0-9_]{1,64}$")
 #: How far down `__cause__` and inside exception groups an error is looked into.
 _DEPTH = 6
@@ -146,13 +153,30 @@ def status_of(exc: BaseException | None) -> int | None:
     return None
 
 
+def disk_full(exc: BaseException, depth: int = 0) -> bool:
+    """The machine's disk (or the person's quota) is full, here or in what it
+    was raised from. A group is when every error in it is."""
+    members = _members(exc)
+    if members is not None and depth < _DEPTH:
+        return all(disk_full(m, depth + 1) for m in members)
+    for link in _links(exc):
+        if isinstance(link, sqlite3.OperationalError):
+            code = getattr(link, "sqlite_errorcode", None)
+            if (code & 0xFF == SQLITE_FULL) if isinstance(code, int) else SQLITE_FULL_TEXT in str(link):
+                return True
+        elif isinstance(link, OSError) and link.errno in OUT_OF_SPACE:
+            return True
+    return False
+
+
 def quiet(exc: BaseException, depth: int = 0) -> bool:
-    """Not Probe's to look at: no answer at all, or an answer that is the
-    researcher's (USER_SIDE_STATUSES). A group is quiet when every error in it is."""
+    """Not Probe's to look at: no answer at all, an answer that is the
+    researcher's (USER_SIDE_STATUSES), or a full disk. A group is quiet when
+    every error in it is."""
     members = _members(exc)
     if members is not None and depth < _DEPTH:
         return all(quiet(m, depth + 1) for m in members)
-    return network_only(exc) or status_of(exc) in USER_SIDE_STATUSES
+    return network_only(exc) or status_of(exc) in USER_SIDE_STATUSES or disk_full(exc)
 
 
 def bite_kind(exc: BaseException) -> Kind | None:

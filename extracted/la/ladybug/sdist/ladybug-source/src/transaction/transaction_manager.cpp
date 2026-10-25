@@ -12,6 +12,7 @@
 #include "main/db_config.h"
 #include "storage/checkpointer.h"
 #include "storage/wal/local_wal.h"
+#include "storage/wal/wal.h"
 #include <format>
 
 using namespace lbug::common;
@@ -79,7 +80,9 @@ Transaction* TransactionManager::beginTransaction(main::ClientContext& clientCon
         auto transaction = std::make_unique<Transaction>(clientContext, type, ++lastTransactionID,
             lastTimestamp.load(std::memory_order_acquire));
         activeTransactions.push_back(std::move(transaction));
-        return activeTransactions.back().get();
+        auto* result = activeTransactions.back().get();
+        registerTransactionNoLock(result->getID(), result->getStartTS());
+        return result;
     }
     case TransactionType::RECOVERY:
     case TransactionType::WRITE: {
@@ -93,7 +96,9 @@ Transaction* TransactionManager::beginTransaction(main::ClientContext& clientCon
             lastTimestamp.load(std::memory_order_acquire));
         activeWriteTransactionCount.fetch_add(1, std::memory_order_release);
         activeTransactions.push_back(std::move(transaction));
-        return activeTransactions.back().get();
+        auto* result = activeTransactions.back().get();
+        registerTransactionNoLock(result->getID(), result->getStartTS());
+        return result;
     }
         // LCOV_EXCL_START
     default: {
@@ -282,6 +287,54 @@ void TransactionManager::clearTransactionNoLock(transaction_t transactionID) {
     std::erase_if(activeTransactions, [transactionID](const auto& activeTransaction) {
         return activeTransaction->getID() == transactionID;
     });
+    openTxnStartTS.erase(transactionID);
+    recomputeHorizonNoLock();
+}
+
+void TransactionManager::registerTransactionNoLock(transaction_t transactionID,
+    transaction_t startTS) {
+    openTxnStartTS[transactionID] = startTS;
+    if (cachedHorizon == INVALID_TRANSACTION || startTS < cachedHorizon) {
+        cachedHorizon = startTS;
+    }
+}
+
+void TransactionManager::recomputeHorizonNoLock() {
+    cachedHorizon = INVALID_TRANSACTION;
+    for (const auto& entry : openTxnStartTS) {
+        const auto startTS = entry.second;
+        if (cachedHorizon == INVALID_TRANSACTION || startTS < cachedHorizon) {
+            cachedHorizon = startTS;
+        }
+    }
+}
+
+transaction_t TransactionManager::snapshotHorizon() {
+    std::unique_lock lck{mtxForSerializingPublicFunctionCalls};
+    return cachedHorizon;
+}
+
+TransactionManager::HorizonPinInfo TransactionManager::snapshotHorizonInfo() {
+    std::unique_lock lck{mtxForSerializingPublicFunctionCalls};
+    HorizonPinInfo pin;
+    pin.openTxnCount = openTxnStartTS.size();
+    for (const auto& entry : openTxnStartTS) {
+        if (pin.horizon == INVALID_TRANSACTION || entry.second < pin.horizon) {
+            pin.horizon = entry.second;
+            pin.pinningTxnID = entry.first;
+        }
+    }
+    return pin;
+}
+
+std::vector<transaction_t> TransactionManager::snapshotOpenStartTSs() {
+    std::unique_lock lck{mtxForSerializingPublicFunctionCalls};
+    std::vector<transaction_t> startTSs;
+    startTSs.reserve(openTxnStartTS.size());
+    for (const auto& entry : openTxnStartTS) {
+        startTSs.push_back(entry.second);
+    }
+    return startTSs;
 }
 
 std::unique_ptr<Checkpointer> TransactionManager::initCheckpointer(
@@ -302,6 +355,14 @@ void TransactionManager::tryCheckpoint(main::ClientContext& clientContext) {
 
 void TransactionManager::checkpointNoLock(main::ClientContext& clientContext) {
     QueryProgressScope progress{clientContext, 0.01};
+    // Capture the retention horizon before acquiring the write gate. Taking the
+    // public-function lock here is safe because the gate is not held yet; the value is
+    // threaded through the checkpointer so no later stage re-acquires that lock under
+    // the gate.
+    const auto preHorizonPin = snapshotHorizonInfo();
+    auto retentionHorizon = preHorizonPin.horizon;
+    auto openStartTSs = snapshotOpenStartTSs();
+    auto pinningTxnID = preHorizonPin.pinningTxnID;
     // We only need to wait for active write transactions to leave the system before
     // checkpointing. Read transactions can continue because they use MVCC snapshot isolation.
     // Column chunk metadata of in-place checkpointed data is published before the shadow pages
@@ -313,6 +374,11 @@ void TransactionManager::checkpointNoLock(main::ClientContext& clientContext) {
     } catch (std::exception& e) {
         throw CheckpointException{e};
     }
+    try {
+        clientContext.getDatabase()->getStorageManager()->getWAL().throwIfPoisoned();
+    } catch (std::exception& e) {
+        throw CheckpointException{e};
+    }
     auto checkpointer = initCheckpointerFunc(clientContext);
     try {
         // lastTimestamp is atomic, so we can snapshot it without taking
@@ -320,8 +386,55 @@ void TransactionManager::checkpointNoLock(main::ClientContext& clientContext) {
         // lock order against beginTransaction() (which takes public -> start) while the
         // checkpoint holds the write gate (start), deadlocking concurrent writers during an
         // auto-checkpoint triggered from commit().
+        //
+        // A reader that begins between the pre-gate capture above and the write gate (or
+        // during the storage phase) would be missing from the pre-gate horizon and lose its
+        // snapshot. Isolate newcomers by bumping lastTimestamp: the checkpoint snapshot is
+        // the pre-bump value, and every transaction that begins afterwards observes the
+        // collapsed post-checkpoint base with a larger start timestamp, so it needs no
+        // retention. Readers that began before the bump keep startTS <= snapshotTimestamp
+        // and must be covered by retention below.
         transaction_t snapshotTimestamp = lastTimestamp.load(std::memory_order_acquire);
-        checkpointer->beginCheckpoint(snapshotTimestamp);
+        lastTimestamp.fetch_add(1, std::memory_order_acq_rel);
+        // Re-sample the registry to include gap readers without deadlocking: a waiting
+        // writer holds the public lock while blocked on the gate, so only try_lock here.
+        // Keep only start timestamps at or below the checkpoint snapshot; anything larger
+        // began after the bump and observes the post-checkpoint base.
+        {
+            std::unique_lock tryLck{mtxForSerializingPublicFunctionCalls, std::try_to_lock};
+            if (tryLck.owns_lock()) {
+                transaction_t postHorizon = INVALID_TRANSACTION;
+                transaction_t postPin = INVALID_TRANSACTION;
+                std::vector<transaction_t> postOpen;
+                postOpen.reserve(openTxnStartTS.size());
+                for (const auto& entry : openTxnStartTS) {
+                    if (entry.second > snapshotTimestamp) {
+                        continue;
+                    }
+                    postOpen.push_back(entry.second);
+                    if (postHorizon == INVALID_TRANSACTION || entry.second < postHorizon) {
+                        postHorizon = entry.second;
+                        postPin = entry.first;
+                    }
+                }
+                retentionHorizon = postHorizon;
+                openStartTSs = std::move(postOpen);
+                pinningTxnID = postPin;
+            } else if (retentionHorizon == INVALID_TRANSACTION) {
+                // A writer is waiting on the gate and holds the public lock. Fall back to a
+                // conservative horizon: any gap reader holds startTS == snapshotTimestamp.
+                // This over-retains only when a writer races the checkpoint with no actual
+                // gap reader, which is rare and still correct.
+                retentionHorizon = snapshotTimestamp;
+                openStartTSs.push_back(snapshotTimestamp);
+            } else if (std::ranges::find(openStartTSs, snapshotTimestamp) == openStartTSs.end()) {
+                // Pre-gate horizon already covers gap readers (their startTS >= horizon),
+                // but CSR coverage needs their timestamp present to take a snapshot.
+                openStartTSs.push_back(snapshotTimestamp);
+            }
+        }
+        checkpointer->beginCheckpoint(snapshotTimestamp, retentionHorizon, openStartTSs,
+            pinningTxnID);
         progress.update(0.15);
     } catch (std::exception& e) {
         checkpointer->rollback();
@@ -342,6 +455,17 @@ void TransactionManager::checkpointNoLock(main::ClientContext& clientContext) {
         checkpointer->finishCheckpoint();
         progress.update(0.95);
     } catch (std::exception& e) {
+        auto* wal = &clientContext.getDatabase()->getStorageManager()->getWAL();
+        if (wal->mayHaveCheckpointRecord()) {
+            checkpointer->releaseCheckpointLocks();
+            wal->poison(std::format(
+                "Checkpoint failed after its commit record may have reached storage: {}",
+                e.what()));
+            throw CheckpointException(std::format(
+                "Checkpoint failed after its commit record may have reached storage; the database "
+                "refuses further writes until restart. Original error: {}",
+                e.what()));
+        }
         checkpointer->rollback();
         throw CheckpointException{e};
     }

@@ -55,7 +55,7 @@ import httpx
 
 from probe import version_policy
 from probe._compat import StrEnum
-from probe._shared import scrub
+from probe._shared import scrub, update_request
 from probe.cli import autoupdate, updater, versions
 from probe.cli.capabilities import tracking_plugin_name
 from probe.client_headers import client_version_headers, device_headers
@@ -679,9 +679,13 @@ def _deliver(base_url: str, headers: dict[str, str], body: dict, timeout: float)
             timeout=httpx.Timeout(timeout, connect=min(timeout, CONNECT_TIMEOUT_S)),
             verify=ssl_context(),
         ) as client:
-            return client.post(ROUTE, json=body, headers=headers).status_code
+            response = client.post(ROUTE, json=body, headers=headers)
     except Exception:  # noqa: BLE001 - offline, DNS, TLS, timeout: all the same here
         return None
+    # The refresher's report flush is often the one request a machine that only
+    # runs hooks makes with its device: it hears "update now" here too.
+    update_request.note(response.headers)
+    return response.status_code
 
 
 def flush(base_url: str | None = None, *, timeout: float = SEND_TIMEOUT_S) -> None:

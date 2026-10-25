@@ -138,13 +138,32 @@ def wanted(state: str, sid: str) -> str | None:
 class Endpoint:
     base_url: str
     key: str
+    #: The workspace limit of the SAME config the key came from, as header pairs
+    #: (`probe.sdk.workspace_limit`): each session polls under its own computer's
+    #: setting, never the service's own config's.
+    limit_headers: tuple[tuple[str, str], ...] = ()
 
 
-def endpoint(config: str, keys: tuple[str, ...] = ("companion_token",)) -> Endpoint | None:
+def _config_limit(row: dict, environ: dict | None) -> tuple[tuple[str, str], ...]:
+    """`row`'s (a context's) limit headers, `environ` (the session's own, when
+    known) on top. No network: an environment slug goes fail-closed."""
+    try:
+        from probe.sdk import workspace_limit as wl
+
+        return tuple(sorted(wl.offline_headers(wl.resolve_limit(row, environ or {})).items()))
+    except Exception:  # noqa: BLE001 -- a context the reader cannot read limits nothing
+        return ()
+
+
+def endpoint(
+    config: str, keys: tuple[str, ...] = ("companion_token",), *, environ: dict | None = None
+) -> Endpoint | None:
     """`probe.daemon.model.endpoint()` without the environment: the daemon key
     and API of `config`'s current context (a v1 flat file is its one context).
     `keys`: the context's credentials to use, the first one present wins (the
-    hint lane reads with the read-only key first, `hints.KEYS`)."""
+    hint lane reads with the read-only key first, `hints.KEYS`). The endpoint
+    carries that context's workspace limit (`environ`: the session's own
+    environment, whose `PROBE_WORKSPACE_LIMIT` outranks it)."""
     try:
         data = json.loads(caller._read_config(Path(config)))
     except (OSError, ValueError, RecursionError):
@@ -168,7 +187,7 @@ def endpoint(config: str, keys: tuple[str, ...] = ("companion_token",)) -> Endpo
         return None
     if not url.hostname:
         return None
-    return Endpoint(base_url=base.rstrip("/"), key=key)
+    return Endpoint(base_url=base.rstrip("/"), key=key, limit_headers=_config_limit(row, environ))
 
 
 class Answer:
@@ -210,6 +229,13 @@ class Fetcher:
             except Exception:  # noqa: BLE001 -- the poll goes out without them
                 self._headers = {}
         return self._headers
+
+    @staticmethod
+    def _limit_headers(ep: "Endpoint") -> dict:
+        """The workspace limit of the config `ep` was read from (`endpoint`):
+        the session's own, re-read with the endpoint every round, so a change
+        reaches the next poll."""
+        return dict(getattr(ep, "limit_headers", ()) or ())
 
     def _ssl(self):
         if self._context is None:
@@ -281,6 +307,7 @@ class Fetcher:
             "Accept": "application/json",
             "User-Agent": f"probe-service/{self.version}",
             **self._client_headers(),
+            **self._limit_headers(ep),
         }
         deadline = time.monotonic() + REQUEST_DEADLINE_S
         # The whole request, connect and headers included: a server that drips

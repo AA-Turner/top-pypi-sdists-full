@@ -10,13 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.14']
+        python-version: ['3.15']
         tmux-version: ['3.2a', '3.3a', '3.4', '3.5', '3.6', '3.7', 'master']
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 
@@ -40,7 +40,7 @@ jobs:
 
       - name: Setup tmux build cache for tmux ${{ matrix.tmux-version }}
         id: tmux-build-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/tmux-builds/tmux-${{ matrix.tmux-version }}
           key: tmux-${{ matrix.tmux-version }}
@@ -48,6 +48,7 @@ jobs:
       - name: Build tmux ${{ matrix.tmux-version }}
         if: steps.tmux-build-cache.outputs.cache-hit != 'true'
         run: |
+          sudo apt-get update
           sudo apt install libevent-dev libncurses5-dev libtinfo-dev libutempter-dev bison
           mkdir ~/tmux-builds
           mkdir ~/tmux-src
@@ -77,13 +78,14 @@ jobs:
       - name: Test with pytest
         continue-on-error: ${{ matrix.tmux-version == 'master' }}
         run: |
+          sudo apt-get update
           sudo apt install libevent-2.1-7
           export PATH=$HOME/tmux-builds/tmux-${{ matrix.tmux-version }}/bin:$PATH
           ls $HOME/tmux-builds/tmux-${{ matrix.tmux-version }}/bin
           tmux -V
           uv run py.test --cov=./ --cov-report=xml --verbose
 
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -100,10 +102,10 @@ jobs:
         python-version: ['3.14']
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           enable-cache: true
 

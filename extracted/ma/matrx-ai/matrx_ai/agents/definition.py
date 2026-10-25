@@ -569,6 +569,8 @@ class Agent:
             matrx_actions=agent_config.matrx_actions,
         )
         agent.declares_variables = True
+        # The agent's own settings layer, before any run/person override applies.
+        agent.config.snapshot_authored_settings()
         if variables:
             # Set only: the async constructor that called this runs the
             # pre-substitution step and then applies (``from_agent``).
@@ -673,7 +675,7 @@ class Agent:
         return self
 
     async def execute(
-        self: HolderCarrier["Agent"],
+        self: HolderCarrier[Agent],
         user_input: str | list[dict[str, Any]] | None = None,
         *,
         max_iterations: int | None = None,

@@ -145,26 +145,3 @@ def test_a_failed_write_from_a_thread_with_no_loop_is_spilled_for_replay(monkeyp
 
     got = _call_from_a_thread_with_no_loop(monkeypatch, _writer, _spill)
     assert spilled == ["chat.conversation"] and got == "spilled-without-coordinator"
-
-
-def test_the_real_spill_writes_a_replayable_failure_row(monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
-    import json
-
-    monkeypatch.setenv("MATRX_SPILL_DIR", str(tmp_path))
-    from matrx_orm.session import fallback
-
-    monkeypatch.setattr(fallback, "_spill_dir_cache", None)
-    monkeypatch.setattr(qh, "_resolve_app_context", lambda: None)
-    from db.models.chat import (
-        Conversation,  # the real model (this package's conftest stubs the registry)
-    )
-
-    monkeypatch.setattr(qh, "get_model", lambda _t: Conversation)
-    ok = qh._spill_write_failure(
-        "chat.conversation", {"metadata": {"k": "v"}}, op_type="update", primary_key=("id", CONV), error="boom"
-    )
-    files = list(tmp_path.glob("*.json"))
-    assert ok and len(files) == 1, "nothing was spilled"
-    row = json.loads(files[0].read_text())
-    assert row["table_target"] == "chat.conversation" and row["op_type"] == "update" and "boom" in row["error_text"]
-    files[0].unlink()

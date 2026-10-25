@@ -59,11 +59,12 @@ keywords = [
     "800.com",
     "Africas Talking",
     "Alerts",
+    "AMQP",
     "Apprise API",
     "Automated Packet Reporting System",
-    "Amazon Chime",
     "AWS",
     "Bark",
+    "Better Stack",
     "Blink(1)",
     "BlueSky",
     "Brevo",
@@ -94,8 +95,11 @@ keywords = [
     "Fluxer",
     "Form",
     "Free Mobile",
+    "GitHub",
     "Gnome",
+    "GoAlert",
     "Google Chat",
+    "Gorush",
     "Gotify",
     "GroupMe",
     "Growl",
@@ -104,6 +108,8 @@ keywords = [
     "httpSMS",
     "HumHub",
     "IFTTT",
+    "ilert",
+    "incident.io",
     "IRC",
     "Jellyfin",
     "Jira",
@@ -116,6 +122,7 @@ keywords = [
     "LaMetric",
     "Lark",
     "Lauther",
+    "LFG Alarm",
     "Line",
     "MacOSX",
     "Mailgun",
@@ -138,6 +145,7 @@ keywords = [
     "Notifyre",
     "Ntfy",
     "Office365",
+    "OneBot",
     "OneSignal",
     "Opsgenie",
     "PagerDuty",
@@ -193,6 +201,7 @@ keywords = [
     "Spike",
     "Splunk",
     "SpugPush",
+    "Squadcast",
     "Stackfield",
     "Streamlabs",
     "Stride",
@@ -224,6 +233,8 @@ keywords = [
     "XML",
     "XMPP",
     "YouLMK",
+    "Zalo",
+    "Zoho Cliq",
     "Zoom",
     "Zulip",
 ]
@@ -253,6 +264,13 @@ all-plugins = [
 
     # Provides encrypted spush:// sends
     "PyNaCl",
+
+    # Provides amqp:// support for AMQP 0.9.1
+    "pika",
+
+    # AMQP 1.0 requires a source build on Linux. Install it separately with:
+    #   pip install python-qpid-proton
+    # "python-qpid-proton",
 
     # provides growl:// support
     "gntp",

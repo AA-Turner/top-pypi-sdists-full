@@ -432,6 +432,38 @@ def validate_rules_against_settings(
 
 
 # ── the compiled map ─────────────────────────────────────────────────────────
+#: How a provider writes "thinking off" (Anthropic "disabled", Gemini level "none").
+_OFF_WORDS = frozenset({"none", "off", "disabled", "0", "false"})
+
+
+def _leaf_values(value: Any) -> list[Any]:
+    """Every scalar inside a wire fragment (nested dicts and lists flattened)."""
+    if isinstance(value, dict):
+        return [leaf for v in value.values() for leaf in _leaf_values(v)]
+    if isinstance(value, list):
+        return [leaf for v in value for leaf in _leaf_values(v)]
+    return [value]
+
+
+def _carried_faithfully(fragment: Any, value: Any, levels: set[str]) -> bool:
+    """The person's value reached the wire unchanged in meaning (Arman, 2026-10-24):
+    * still IN what is sent (Claude effort "medium" -> output_config.effort "medium");
+    * an OFF sent as the provider's own off ("none" -> thinking.type "disabled");
+    * a level carried on another scale with no other level named ("low" -> budget 1024).
+    Anything else is a change: a number not sent as itself (budget 8192 capped to 4096),
+    an off that still thinks, a different level ("none" sent as "minimal"), or any
+    rewrite when the setting vocabulary is not loaded (nothing to judge it by)."""
+    want = str(value).strip().lower()
+    leaves = [str(leaf).strip().lower() for leaf in _leaf_values(fragment)]
+    if want in leaves:
+        return True
+    if not levels or isinstance(value, (int, float)):
+        return False
+    if want in _OFF_WORDS:
+        return any(leaf in _OFF_WORDS for leaf in leaves)
+    return not any(leaf in levels and leaf != want for leaf in leaves)
+
+
 def _value_rides_on_wire(out: dict[str, Any], key: str, value: Any) -> bool:
     """True when ``value`` sits at a wire leaf that carries ``key``'s meaning (any depth)."""
     from matrx_ai.catalog.wire_meaning import leaves, meaning_paths
@@ -483,6 +515,173 @@ class CompiledControlsMap(BaseModel):
 
     def rule_for(self, key: str) -> ControlRule:
         return self.rules.get(key, PASSTHROUGH_RULE)
+
+    # ── THE PLATFORM REASONING DEFAULT ───────────────────────────────────────
+    def _depth_rule(self, context: dict[str, Any] | None) -> tuple[str, ControlRule] | None:
+        """The key + rule through which this target carries reasoning DEPTH, or
+        ``None`` when it carries none (a non-reasoning model / passthrough)."""
+        for key in ("reasoning_effort", "thinking_level"):
+            rule = self.rules.get(key)
+            if rule is None or rule.supported is False or rule.drop:
+                continue
+            if rule.context is not None and not _context_matches(rule.context, context):
+                continue
+            return key, rule
+        return None
+
+    def platform_default_effort(self) -> str:
+        """``ai.setting.default_value`` of reasoning_effort (the data home),
+        else the declared fallback (DB-less hosts)."""
+        if self.families is not None:
+            value = self.families.defaults.get("reasoning_effort")
+            if isinstance(value, str) and value:
+                return value
+        return D.PLATFORM_DEFAULT_REASONING_EFFORT
+
+    @staticmethod
+    def _auto_native(key: str, rule: ControlRule) -> bool:
+        """Does the target offer a NATIVE auto for its depth control?"""
+        if rule.processor is not None:
+            declared = rule.processor_config.get("auto_native")
+            if isinstance(declared, bool):
+                return declared
+            return rule.processor in D.AUTO_NATIVE_PROCESSORS
+        # A scalar rule offers auto only when its value_map names a provider
+        # word for it (``"auto": null`` is the declared "no such word").
+        word = (rule.value_map or {}).get("auto")
+        return isinstance(word, str) and bool(word)
+
+    @staticmethod
+    def _decline_deeper_default(out: dict[str, Any], rule: ControlRule, default: str) -> dict[str, Any]:
+        """The platform default cannot land on this target: it keeps its own unset behavior,
+        and a cell default DEEPER than the platform default does not fill in its place."""
+        declared = str(rule.default).lower() if rule.default is not None else None
+        scale = D.EFFORT_SCALE
+        if declared in scale and default in scale and scale.index(declared) > scale.index(default):
+            out[D.REASONING_DEFAULT_DECLINED_KEY] = True
+        return out
+
+    @staticmethod
+    def _nearest_offered_level(default: str, offered: Any) -> str | None:
+        """The offered effort LEVEL nearest ``default`` on the canonical scale
+        (ties go to the cheaper one); ``None`` when no level is offered."""
+        scale = D.EFFORT_SCALE
+        if default not in scale:
+            return None
+        levels = [str(v) for v in offered if str(v) in scale and str(v) not in D.HOUSE_VALUES]
+        if not levels:
+            return None
+        target = scale.index(default)
+        return min(levels, key=lambda v: (abs(scale.index(v) - target), scale.index(v)))
+
+    def thinking_refuses_forced_tool(self) -> bool:
+        """Does this target's thinking control reject a FORCED tool_choice
+        (Anthropic manual/budget thinking)? Then a forced turn never thinks."""
+        for rule in self.rules.values():
+            if rule.processor is None or rule.supported is False or rule.drop:
+                continue
+            declared = rule.processor_config.get("forced_tool_with_thinking")
+            if isinstance(declared, bool):
+                if not declared:
+                    return True
+                continue
+            modes = D.FORCED_TOOL_REFUSING_THINKING_MODES.get(rule.processor)
+            if modes and rule.processor_config.get("mode", "budget") in modes:
+                return True
+        return False
+
+    def _default_would_defeat_sampling(self, canonical: dict[str, Any]) -> bool:
+        """Would a defaulted thinking block force-drop a sampling value the
+        caller set (Anthropic's exclusion)? Then the default yields."""
+        excludes = any(
+            rule.processor in D.THINKING_EXCLUDES_SAMPLING_PROCESSORS
+            and rule.supported is not False
+            for rule in self.rules.values()
+        )
+        if not excludes:
+            return False
+        temperature = canonical.get("temperature")
+        top_p = canonical.get("top_p")
+        return (
+            (temperature is not None and temperature != D.ANTHROPIC_THINKING_TEMPERATURE)
+            or canonical.get("top_k") is not None
+            or (top_p is not None and top_p < D.ANTHROPIC_THINKING_MIN_TOP_P)
+        )
+
+    def apply_reasoning_default(
+        self, canonical: dict[str, Any], *, context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """THE three reasoning states, decided once for every seam.
+
+        * a depth key the caller set (reasoning_effort other than "auto",
+          thinking_level, thinking_budget, or the off ``none``) -> untouched;
+        * explicit "auto" (``reasoning_effort="auto"`` or the canonicalize
+          posture marker) -> left unset where the target offers a native auto
+          (so the provider decides), sent as the value_map word for a scalar
+          rule that has one, else the platform default;
+        * unset -> the platform default (``ai.setting.default_value``, "low").
+
+        Applied only on a target that carries a depth control; a non-reasoning
+        target is returned unchanged. Never mutates the input."""
+        if canonical.get(D.PROVIDER_DEFAULT_PROBE_KEY):
+            return {k: v for k, v in canonical.items() if k != D.PROVIDER_DEFAULT_PROBE_KEY}
+        effort = canonical.get("reasoning_effort")
+        posture_auto = effort == "auto" or canonical.get(D.REASONING_POSTURE_KEY) == "auto"
+        explicit = (effort is not None and effort != "auto") or any(
+            canonical.get(k) is not None for k in D.REASONING_DEPTH_KEYS[1:]
+        ) or "reasoning_effort" in (canonical.get("_convert") or {})
+        if explicit:
+            return canonical
+        depth = self._depth_rule(context)
+        if depth is None:
+            return canonical
+        key, rule = depth
+        out = {k: v for k, v in canonical.items() if k != D.REASONING_POSTURE_KEY}
+        out.pop("reasoning_effort", None)
+        if posture_auto and self._auto_native(key, rule):
+            # "auto" stays on the key: a value_map sends the provider's word, a
+            # processor reads it as its native unset path, and a cell's declared
+            # default can never fill over the person's choice.
+            if key == "reasoning_effort":
+                out["reasoning_effort"] = "auto"
+            return out
+        if canonical.get(D.FORCED_TOOL_CHOICE_KEY) and self.thinking_refuses_forced_tool():
+            # A forced tool call cannot ride manual thinking (Anthropic 400s):
+            # the platform default never turns thinking on for that turn.
+            return out
+        if self._default_would_defeat_sampling(canonical):
+            return out
+        default = self.platform_default_effort()
+        # The default lands as the target's OFFERED level nearest to it: a
+        # listing without "low" (Together's ["auto","none","high","xhigh"])
+        # gets its closest real level (ties go lower), never the provider's own
+        # unset depth. A listing that offers no level at all (a hybrid on/off
+        # model's ["auto","none"]) keeps its own unset behavior; "none" is an
+        # off switch, never a level the default may pick.
+        if rule.ui_values and default not in rule.ui_values:
+            nearest = self._nearest_offered_level(default, rule.ui_values)
+            if nearest is None:
+                return self._decline_deeper_default(out, rule, default)
+            default = nearest
+        if rule.accepts and default not in rule.accepts:
+            nearest = self._nearest_offered_level(default, rule.accepts)
+            if nearest is None:
+                return self._decline_deeper_default(out, rule, default)
+            default = nearest
+        if rule.value_map and default not in rule.value_map:
+            offered = [k for k, v in rule.value_map.items() if v is not None]
+            nearest = self._nearest_offered_level(default, offered)
+            if nearest is None:
+                return self._decline_deeper_default(out, rule, default)
+            default = nearest
+        # A cell's declared default SHALLOWER than the platform default (a
+        # live-voice "minimal") is a deliberate cheaper choice and stays.
+        declared = str(rule.default).lower() if rule.default is not None else None
+        scale = D.EFFORT_SCALE
+        if declared in scale and default in scale and scale.index(declared) < scale.index(default):
+            return out
+        out[key] = default
+        return out
 
     def _nearest_in(self, key: str, value: str, candidates: Any) -> str | None:
         # K7: an ordinal with declared POSITIONS measures by position, not by
@@ -716,6 +915,25 @@ class CompiledControlsMap(BaseModel):
             return family == "visibility"
         return key in D.VISIBILITY_OFF_KEYS
 
+    def _levels_of(self, key: str) -> set[str]:
+        """Every named value of ``key``'s family (reasoning_effort, thinking_level, …)."""
+        if self.families is None:
+            return set()
+        family = self.families.family_of.get(key)
+        keys = self.families.members.get(family, (key,)) if family and family != "none" else (key,)
+        return {str(v).lower() for k in keys for v in self.families.vocab.get(k, ())}
+
+    def _overruled_by_sibling(self, key: str, caller_keys: list[str]) -> bool:
+        """Another key the caller set in ``key``'s family decided it (thinking_level
+        "high" beside reasoning_effort "none"): the person's value was lost."""
+        family = self.families.family_of.get(key) if self.families is not None else None
+        if family is None or family == "none":
+            return len(caller_keys) > 1
+        return any(
+            other != key and self.families.family_of.get(other) == family  # type: ignore[union-attr]
+            for other in caller_keys
+        )
+
     def _owning_processor(self, key: str) -> ControlRule | None:
         for rule in self.rules.values():
             if (
@@ -922,6 +1140,11 @@ class CompiledControlsMap(BaseModel):
         caller_set = {
             k for k, v in canonical.items() if v is not None and not str(k).startswith("_")
         }
+        # ── THE PLATFORM REASONING DEFAULT (owner ruling 2026-10-24) ─────────
+        # unset -> low; explicit level -> as given; explicit "auto" -> the
+        # provider's own auto only where the target natively offers one. Runs
+        # AFTER caller_set so a defaulted key is never voiced as a user drop.
+        canonical = self.apply_reasoning_default(canonical, context=context)
         # ── BRIDGE: target-aware number -> scale (K6 from_number) ────────────
         canonical, adjustments = self.bridge_numbers(canonical)
 
@@ -1097,6 +1320,7 @@ class CompiledControlsMap(BaseModel):
                                 key=key,
                                 action="mapped",
                                 canonical_value=value,
+                                faithful=True,
                                 sent_value=rule.off.send,
                                 reason=f"'{key}'={value!r} is off; declared off sends {rule.off.send!r}",
                             )
@@ -1458,6 +1682,7 @@ class CompiledControlsMap(BaseModel):
                 or rule.const is not None
                 or rule.processor is not None
                 or key in context_dropped
+                or (key == "reasoning_effort" and canonical.get(D.REASONING_DEFAULT_DECLINED_KEY))
             ):
                 continue
             value_was_set = canonical.get(key) is not None and key not in off_omitted
@@ -1586,6 +1811,7 @@ class CompiledControlsMap(BaseModel):
                             key=source,
                             action="mapped",
                             canonical_value=incoming,
+                            faithful=True,
                             sent_value=deciding.off.send,
                             reason=(
                                 f"'{source}'={incoming!r} is off; declared off sends "
@@ -1648,6 +1874,10 @@ class CompiledControlsMap(BaseModel):
                 rule.accepts is not None
                 and incoming is not None
                 and not converted
+                # A person's "auto" reaches a processor only where the target
+                # offers a NATIVE auto (apply_reasoning_default): it is a
+                # posture, never a degree to convert to the nearest accepted.
+                and not D.is_unset_posture(incoming)
                 and not _is_accepted(incoming, rule.accepts)
             ):
                 nearest = self._nearest_accepted(key, incoming, rule.accepts)
@@ -1779,7 +2009,12 @@ class CompiledControlsMap(BaseModel):
         candidates = [
             k
             for k in [key, *rule.processor_config.get("consumes", [])]
-            if k in caller_set and pre_canonical.get(k) is not None and k not in accounted
+            if k in caller_set
+            and pre_canonical.get(k) is not None
+            and k not in accounted
+            # A native "auto" is honored by sending nothing for depth: that is
+            # the provider deciding, never a setting that "had no effect".
+            and not D.is_unset_posture(pre_canonical.get(k))
         ]
         if not candidates:
             return
@@ -1803,6 +2038,7 @@ class CompiledControlsMap(BaseModel):
                         key=consumed,
                         action="mapped",
                         canonical_value=value,
+                        faithful=True,
                         sent_value=fragment or None,
                         expected=True,
                         reason=(
@@ -1818,6 +2054,7 @@ class CompiledControlsMap(BaseModel):
                         key=consumed,
                         action="dropped",
                         canonical_value=value,
+                        faithful=not self._overruled_by_sibling(consumed, candidates),
                         sent_value=None,
                         expected=True,
                         provenance="computed",
@@ -1834,6 +2071,7 @@ class CompiledControlsMap(BaseModel):
                         key=consumed,
                         action="mapped",
                         canonical_value=value,
+                        faithful=_carried_faithfully(fragment, value, self._levels_of(consumed)),
                         sent_value=fragment or None,
                         expected=True,
                         reason=(

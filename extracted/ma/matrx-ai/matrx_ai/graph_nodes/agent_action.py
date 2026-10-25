@@ -48,7 +48,7 @@ from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult
 from matrx_graph.types.usl import field_extras
 from matrx_utils import vcprint
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator, model_validator
 
 from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.capabilities import ClientContext, UserOverrides
@@ -205,6 +205,16 @@ class AgentRunCommonInput(BaseModel):
         ),
         json_schema_extra=field_extras(widget="json"),
     )
+
+    @field_validator("config_overrides", "runtime_config_overrides")
+    @classmethod
+    def _no_device_pick(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        """A workflow step runs its own model: it never carries (or inherits) the device a
+        person picked for their own run (``served_via``, config/served_via.py, L5 R2)."""
+        from matrx_ai.config.served_via import refuse_served_via_outside_the_run_request
+
+        refuse_served_via_outside_the_run_request(value, where="a workflow step's settings")
+        return value
 
     # --- conversation gating ---
     conversation_id: str | None = Field(

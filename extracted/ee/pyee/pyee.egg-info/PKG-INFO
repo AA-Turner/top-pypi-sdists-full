@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyee
-Version: 15.0.0
+Version: 16.0.0
 Summary: A rough port of Node.js's EventEmitter to Python with a few tricks of its own
 Author-email: Josh Holbrook <josh.holbrook@gmail.com>
 License: MIT

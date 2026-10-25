@@ -190,8 +190,9 @@ def cmd_clean(argv) -> int:
     # clean deleted it anyway when it walked `known_agents`. The exception is
     # a native-store dir boost recorded linking into before that agent's
     # `links_skills` went false: what dangles into the store there is boost's.
-    for adir in (*agents.sweep_dirs(),
-                 *(d for _a, d in agents.remembered_native_dirs())):
+    for adir in agents.unique_dirs(
+            [*agents.sweep_dirs(),
+             *(d for _a, d in agents.remembered_native_dirs())]):
         # ``os.path``: ``Path.is_dir`` raises under a dir with no search bit
         # on Python 3.12 and 3.13.
         if not os.path.isdir(adir):  # noqa: FURB146
@@ -207,7 +208,14 @@ def cmd_clean(argv) -> int:
         )
 
     configured = {t.safe_name for t in registry.list_taps()}
-    if paths.cache_dir().is_dir():
+    # With config.json unreadable or corrupt, the tap list is DEFAULTS' empty
+    # one, so every tap's cache read as stale and was deleted — on a file
+    # whose bytes, under a mode-000 config, still list every one of them.
+    cfg_err = config.check()
+    if cfg_err:
+        out.warn("left the tap caches alone: %s" % cfg_err,
+                 stream=sys.stderr, wrap=True)
+    elif paths.cache_dir().is_dir():
         # Skip boost's own derived artifacts. They live in the same directory and
         # end in .json, but no tap is named `rag_index` or `discovery`, so the
         # stem test alone called both stale and deleted them every run — see
@@ -494,8 +502,9 @@ def cmd_compact(argv) -> int:
         except BoostError as e:
             broken += 1
             rows.append({"tap": tap.name, "error": str(e)})
-            out.warn("could not compact %s: %s" % (tap.name, e),
-                     stream=sys.stderr if args.json else None)
+            out.warn("could not compact %s: %s%s"
+                     % (tap.name, e, " — %s" % e.hint if e.hint else ""),
+                     stream=sys.stderr if args.json else None, wrap=True)
             continue
         after = util.dir_size(tap.path)
         # A re-clone did real work — refreshed the clone, possibly moved it
@@ -1737,6 +1746,8 @@ def _tool_list(args: dict):
     if not any(everything.values()) and not project:
         return "nothing installed\n" + footer, False
     lines = []
+    # `[modified]` hashes each installed skill copy, as `boost list` does --
+    # the one cost here beyond the lock reads, 0.2-0.4 ms per fixture skill.
     for kind, section in everything.items():
         for n, e in sorted(section.items()):
             where = scopes.project_label(e) if kind != "skill" else None
@@ -1744,12 +1755,14 @@ def _tool_list(args: dict):
                          % (n, e.get("version", "?"), e.get("tap", "?"),
                             "" if kind == "skill" else " [%s]" % kind,
                             " [project %s]" % where if where else "",
-                            mcp.state_marks(e)))
+                            mcp.state_marks(e, kind == "skill" and integrity
+                                            .locally_edited(kind, n, e))))
     if project:
         lines.append("project skills (%s):" % _tilde(pbase))
         lines.extend("%s v%s (%s) [project]%s"
                      % (n, e.get("version", "?"), e.get("tap", "?"),
-                        mcp.state_marks(e))
+                        mcp.state_marks(e, integrity.locally_edited(
+                            "skill", n, e, base=pbase)))
                      for n, e in sorted(project.items()))
     lines.append(footer)
     return "\n".join(lines), False
@@ -1837,6 +1850,12 @@ def _tool_info(args: dict):
                  else scopes.project_label(entry))
         if where:
             lines.append("scope: project (%s)" % where)
+        if kind == "skill" and integrity.locally_edited(
+                kind, catalog.split_name(name)[1], entry, base=pbase):
+            # Doctor's and verify's check: the body an agent reads next is
+            # not the tap's.
+            lines.append("modified: yes — edited since install; `boost "
+                         "verify` names it")
         if entry.get("pinned"):
             lines.append("pinned: yes")
         if entry.get("quarantined"):
@@ -2576,9 +2595,9 @@ def _seed_catalog_for_mcp(force: bool) -> None:
     # 14-45s of network with nothing to show for it until it finishes — on
     # the one command a first-time user was told to run, silence that long
     # reads as a hang.
-    if bootstrap.will_seed(force=force):
+    if plan := bootstrap.seed_plan(force=force):
         out.info("no registries tapped yet — adding the %d recommended ones "
-                 "(one-time, needs the network)" % len(config.DEFAULT_TAPS))
+                 "(one-time, needs the network)" % len(plan))
     res = bootstrap.seed_catalog(force=force)
     if res.skipped:
         return
@@ -2597,6 +2616,46 @@ def _seed_catalog_for_mcp(force: bool) -> None:
 #: `boost mcp register` test, and every provisioning script, would silently
 #: write a standing block into a real CLAUDE.md.
 NO_RULE_ENV = "BOOST_NO_RULE"
+
+
+def _boost_first_targets(hosts: list[str]) -> list[str]:
+    """The files :func:`_offer_boost_first` would offer to write; [] for no offer.
+
+    Every gate that does not need the registration to have run, in one place,
+    so `boost mcp register --dry-run` names the offer exactly when the real
+    run would make it.
+    """
+    from ..core import builtin
+
+    if typedvalue.env_flag(NO_RULE_ENV, unknown=True):
+        return []
+    # Scoped to hosts where boost actually registered a server. Offering it for
+    # an agent with no boost tools would install standing text naming
+    # `boost_search` to an agent that does not have it.
+    if not hosts or not builtin.rule_is_available():
+        return []
+    if lockfile.get_rule(builtin.BUILTIN_RULES[0]):
+        return []                   # already installed; do not re-ask
+    scoped_agents = {builtin.AGENT_FOR_HOST.get(h) for h in hosts}
+    # materializing_agents, not enabled_agents: this is a *rule*, so the
+    # preview has to be built from the set the rule install actually writes to,
+    # or it names a path nothing ever creates. AGENT_FOR_HOST lists only
+    # claude-code and gemini today and both materialize rules, so the two sets
+    # coincide and this is a guard rather than a fix.
+    #
+    # Note what it does and does not cover. `only_agents` below is
+    # `scoped_agents`, not this filtered list, so a skills-only agent added to
+    # AGENT_FOR_HOST would be dropped from the preview and still passed to the
+    # install, where `narrow_materializing` drops it again — silently, since
+    # the intersection is non-empty as long as one real agent remains. If it
+    # were the *only* scoped agent, `targets` is empty and the early return
+    # below means the offer is never made and `store.install` never runs. So
+    # the failure this prevents is a printed path that no install backs, not a
+    # refusal.
+    return [str(rules.rule_target(agent, skills_dir,
+                                  builtin.BUILTIN_RULES[0])[1])
+            for agent, skills_dir in agents.materializing_agents().items()
+            if agent in scoped_agents]
 
 
 def _offer_boost_first(hosts: list[str]) -> None:
@@ -2622,38 +2681,11 @@ def _offer_boost_first(hosts: list[str]) -> None:
     """
     from ..core import builtin
 
-    if typedvalue.env_flag(NO_RULE_ENV, unknown=True):
-        return
-    # Scoped to hosts where boost actually registered a server. Offering it for
-    # an agent with no boost tools would install standing text naming
-    # `boost_search` to an agent that does not have it.
-    if not hosts or not builtin.rule_is_available():
-        return
-    if lockfile.get_rule(builtin.BUILTIN_RULES[0]):
-        return                      # already installed; do not re-ask
-    body = (builtin.source_dir() / (builtin.BUILTIN_RULES[0] + ".mdc"))
-    scoped_agents = {builtin.AGENT_FOR_HOST.get(h) for h in hosts}
-    # materializing_agents, not enabled_agents: this is a *rule*, so the
-    # preview has to be built from the set the rule install actually writes to,
-    # or it names a path nothing ever creates. AGENT_FOR_HOST lists only
-    # claude-code and gemini today and both materialize rules, so the two sets
-    # coincide and this is a guard rather than a fix.
-    #
-    # Note what it does and does not cover. `only_agents` below is
-    # `scoped_agents`, not this filtered list, so a skills-only agent added to
-    # AGENT_FOR_HOST would be dropped from the preview and still passed to the
-    # install, where `narrow_materializing` drops it again — silently, since
-    # the intersection is non-empty as long as one real agent remains. If it
-    # were the *only* scoped agent, `targets` is empty and the early return
-    # below means the offer is never made and `store.install` never runs. So
-    # the failure this prevents is a printed path that no install backs, not a
-    # refusal.
-    targets = [str(rules.rule_target(agent, skills_dir,
-                                     builtin.BUILTIN_RULES[0])[1])
-               for agent, skills_dir in agents.materializing_agents().items()
-               if agent in scoped_agents]
+    targets = _boost_first_targets(hosts)
     if not targets:
         return
+    body = (builtin.source_dir() / (builtin.BUILTIN_RULES[0] + ".mdc"))
+    scoped_agents = {builtin.AGENT_FOR_HOST.get(h) for h in hosts}
     out.info("")
     out.info("boost can also add its own rule, `%s`, to your agents' standing "
              "instructions:" % builtin.BUILTIN_RULES[0])
@@ -2738,7 +2770,9 @@ def cmd_mcp(argv) -> int:
     shim = str(paths.launcher())
     verb = "register" if args.action == "register" else "unregister"
 
+    seeding = args.action == "register" and (args.seed_ok or args.seed)
     if args.dry_run:
+        would_settle: list[str] = []
         # Before seeding and before any subprocess runs — the flag exists so
         # the argv boost would run is visible in the one case that mattered
         # (`--host gemini` with `gemini` on PATH), not only the one case that
@@ -2759,6 +2793,20 @@ def cmd_mcp(argv) -> int:
             note = "  — outside this $HOME, refused without --force" \
                 if escape else ""
             out.dim("  writes %s%s" % (cfg, note))
+            if installed and not escape:
+                would_settle.append(host)
+        if seeding and (plan := bootstrap.seed_plan(force=args.seed)):
+            # The real run taps these before it touches any host — 14-45s of
+            # network a preview that stayed quiet about it would hide.
+            out.info("would tap %d recommended %s first (needs the network): "
+                     "%s" % (len(plan), "registry" if len(plan) == 1
+                             else "registries", ", ".join(plan)), wrap=True)
+        if args.action == "register" and (
+                rule_targets := _boost_first_targets(would_settle)):
+            from ..core import builtin
+            out.info("would then offer to add the `%s` rule to %s (asks first)"
+                     % (builtin.BUILTIN_RULES[0], ", ".join(rule_targets)),
+                     wrap=True)
         out.dim("  dry run — nothing was %sed, nothing tapped" % verb, wrap=True)
         return 0
 
@@ -2767,7 +2815,7 @@ def cmd_mcp(argv) -> int:
     # typo'd `--host` spent 14-45s and half a gigabyte before argparse's own
     # error, and seeding last would have registered a server the user then
     # watches answer nothing while the clones run.
-    if args.action == "register" and (args.seed_ok or args.seed):
+    if seeding:
         _seed_catalog_for_mcp(args.seed)
 
     # `auto` skips hosts that are not installed; naming a host explicitly (or

@@ -10,6 +10,12 @@
 
 namespace py
 {
+#if PY_VERSION_HEX >= 0x030F0000
+    PyInterpreterView* main_interpreter_view() noexcept;
+#endif
+
+    void keep_thread_state() noexcept;
+
     /**
      * Holds the Python GIL for as long as it is in scope, unless the
      * interpreter is being finalized or already has been, in which case it
@@ -27,7 +33,15 @@ namespace py
      * From Python 3.15, PyThreadState_EnsureFromView() (PEP 788) makes the
      * check and the attach one step. Before that they are two, so a thread
      * that passes the check just as another starts finalizing still attaches
-     * to an interpreter that is going away.
+     * to an interpreter that is going away. on_thread_exit() in handles.cpp
+     * takes the same two steps on a thread that is exiting, inside
+     * LdrShutdownThread(), where the attach then hangs the thread (3.14) or
+     * re-enters thread exit (3.12, 3.13). That needs finalization to start
+     * during the thread's exit, a window of milliseconds.
+     *
+     * On a thread Python has not seen, which is most threads WinRT calls back
+     * on, the guard first gives the thread a thread state of its own: see
+     * keep_thread_state().
      */
     struct gil_guard
     {
@@ -55,13 +69,16 @@ namespace py
       private:
         static PyThreadStateToken* attach() noexcept
         {
-            // A view does not keep the interpreter from finalizing, so the one
-            // taken on first use serves for as long as the process runs.
-            static PyInterpreterView* const view = PyInterpreterView_FromMain();
+            PyInterpreterView* const view = main_interpreter_view();
 
             if (!view)
             {
                 return nullptr;
+            }
+
+            if (!PyGILState_GetThisThreadState())
+            {
+                keep_thread_state();
             }
 
             return PyThreadState_EnsureFromView(view);
@@ -80,6 +97,11 @@ namespace py
         {
             if (m_held)
             {
+                if (!PyGILState_GetThisThreadState())
+                {
+                    keep_thread_state();
+                }
+
                 m_state = PyGILState_Ensure();
             }
         }

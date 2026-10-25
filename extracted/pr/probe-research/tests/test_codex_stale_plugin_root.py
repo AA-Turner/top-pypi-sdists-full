@@ -54,6 +54,7 @@ import json
 import os
 import re
 import subprocess
+import uuid
 from pathlib import Path
 
 import pytest
@@ -139,7 +140,7 @@ def _install(
     return root
 
 
-def _run(command: str, env: dict[str, str], **extra: str) -> subprocess.CompletedProcess:
+def _run(command: str, env: dict[str, str], payload: str = "{}", **extra: str) -> subprocess.CompletedProcess:
     base = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": os.environ.get("HOME", "/tmp"),
@@ -150,7 +151,7 @@ def _run(command: str, env: dict[str, str], **extra: str) -> subprocess.Complete
         ["/bin/bash", "-c", command],
         capture_output=True,
         text=True,
-        input="{}",
+        input=payload,
         env={**base, **env, **extra},
     )
 
@@ -187,12 +188,22 @@ def test_every_hook_re_resolves_to_the_installed_version(tmp_path, plugin, comma
     cache = tmp_path / "cache"
     target = _target(command)
     live = _install(cache, _LIVE, target, plugin=plugin)
-
+    payload = "{}"
+    watchers = tmp_path / "watchers"
+    if target == "tap_handover.py":
+        # Its gate: a watcher pid file for the payload's session, in a watcher
+        # folder of this test's own (PROBE_TAP_WATCHER_DIR), never the shared /tmp.
+        session = str(uuid.uuid4())
+        watchers.mkdir()
+        (watchers / f"prbe-codex-tap-watcher-{session}.pid").write_text("1")
+        payload = json.dumps({"session_id": session})
     result = _run(
         command,
         {"PLUGIN_ROOT": str(cache / plugin / _DEAD)},
+        payload,
         # The gated hooks return before their target unless their gate is met.
         XDG_STATE_HOME=str(_flag_home(tmp_path)),
+        PROBE_TAP_WATCHER_DIR=str(watchers),
     )
 
     assert result.returncode == 0, result.stderr

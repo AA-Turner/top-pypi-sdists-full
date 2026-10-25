@@ -68,13 +68,19 @@ namespace py::interp
                 return nullptr;
             }
 
+            auto const abi = instance_abi(self);
+            if (!abi)
+            {
+                return nullptr;
+            }
+
             auto const overload = select_overload(*member, nargs);
             if (!overload)
             {
                 return nullptr;
             }
 
-            return call_member(*member, *overload, abi_of(self), args, nargs);
+            return call_member(*member, *overload, abi, args, nargs);
         }
 
         /**
@@ -168,6 +174,12 @@ namespace py::interp
                 return nullptr;
             }
 
+            auto const abi = instance_abi(self);
+            if (!abi)
+            {
+                return nullptr;
+            }
+
             // A WinRT vector counts its elements in a uint32_t, so there is
             // nothing to ask it for outside that range. CPython has already
             // added the length to a negative index given to this slot, and
@@ -190,10 +202,7 @@ namespace py::interp
             bool direct{};
 
             auto* const direct_item = call_indexed(
-                info->protocol.get_at,
-                abi_of(self),
-                static_cast<uint32_t>(index),
-                direct);
+                info->protocol.get_at, abi, static_cast<uint32_t>(index), direct);
 
             if (direct)
             {
@@ -798,13 +807,19 @@ namespace py::interp
                 return nullptr;
             }
 
+            auto const abi = instance_abi(self);
+            if (!abi)
+            {
+                return nullptr;
+            }
+
             // The three members take nothing and hand back one value each, so
             // where the table describes them the way IIterator<T> always does
             // they are called in one crossing rather than three. A table that
             // describes them some other way is answered below.
             bool fused{};
 
-            auto* const item = call_iterator_step(*info, abi_of(self), fused);
+            auto* const item = call_iterator_step(*info, abi, fused);
 
             if (fused)
             {
@@ -1004,7 +1019,11 @@ namespace py::interp
                 return false;
             }
 
-            auto const abi = abi_of(self);
+            auto const abi = instance_abi(self);
+            if (!abi)
+            {
+                return false;
+            }
 
             {
                 auto _gil = release_gil();
@@ -1171,8 +1190,14 @@ namespace py::interp
          */
         winrt::Windows::Foundation::IInspectable object_of(PyObject* self)
         {
+            auto const abi = instance_abi(self);
+            if (!abi)
+            {
+                throw python_exception();
+            }
+
             winrt::Windows::Foundation::IInspectable object;
-            winrt::copy_from_abi(object, abi_of(self));
+            winrt::copy_from_abi(object, abi);
             return object;
         }
 

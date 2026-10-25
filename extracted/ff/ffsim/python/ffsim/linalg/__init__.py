@@ -12,8 +12,11 @@
 
 from ffsim.linalg.double_factorized_decomposition import (
     double_factorized,
+    double_factorized_compressed,
     double_factorized_t2,
     double_factorized_t2_alpha_beta,
+    double_factorized_t2_alpha_beta_compressed,
+    double_factorized_t2_compressed,
     modified_cholesky,
 )
 from ffsim.linalg.givens import (
@@ -23,6 +26,8 @@ from ffsim.linalg.givens import (
 )
 from ffsim.linalg.linalg import (
     expm_multiply_taylor,
+    logm_special_orthogonal,
+    logm_unitary,
     lup,
     match_global_phase,
     one_hot,
@@ -40,8 +45,11 @@ from ffsim.linalg.predicates import (
 __all__ = [
     "apply_matrix_to_slices",
     "double_factorized",
+    "double_factorized_compressed",
     "double_factorized_t2",
     "double_factorized_t2_alpha_beta",
+    "double_factorized_t2_alpha_beta_compressed",
+    "double_factorized_t2_compressed",
     "expm_multiply_taylor",
     "givens_decomposition",
     "givens_decomposition_slater",
@@ -51,6 +59,8 @@ __all__ = [
     "is_real_symmetric",
     "is_special_orthogonal",
     "is_unitary",
+    "logm_special_orthogonal",
+    "logm_unitary",
     "lup",
     "match_global_phase",
     "modified_cholesky",

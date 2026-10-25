@@ -72,7 +72,7 @@ def test_a_delivered_session_reads_its_receipt_cursor_and_when_it_landed(tmp_pat
     assert found == {
         "last_line": 6, "received_bytes": path.stat().st_size, "received_at": found["received_at"],
         "pending_bytes": 0, "pending_lines": 0, "pending_batch": False, "finalized": False, "retrying": False,
-        "scope": {"backend": "synthetic.invalid", "customer": CUSTOMER},
+        "offline": False, "scope": {"backend": "synthetic.invalid", "customer": CUSTOMER},
     }
     # The journal stamps the receipt as it retires the batch (tap 0.10.6).
     assert before <= found["received_at"] <= time.time()
@@ -202,6 +202,7 @@ def test_after_an_account_switch_the_active_recorders_failures_show(tmp_path):
     found = receipts.read([sid], [root], {})[sid]
     assert (found["last_line"], found["received_at"], found["pending_lines"], found["pending_batch"],
             found["retrying"]) == (0, None, 6, True, True)
+    assert found["offline"] is False, "a refused key is an answer"
     # No recorder holds the session in any journal: where it goes now is
     # unknown, so nothing is claimed for it.
     new.close()
@@ -451,3 +452,23 @@ def test_a_reader_never_writes_the_journal(tmp_path):
     wal = db.with_name(db.name + "-wal")
     assert not wal.exists() or wal.stat().st_size == 0
     claim.close()
+
+
+@pytest.mark.parametrize("error, offline", [
+    ("http 0: <urlopen error [Errno 51] Network is unreachable>", True),
+    ("http 0: <urlopen error [Errno 8] nodename nor servname provided, or not known>", True),
+    # An answer of a kind (review): a proxy re-signing TLS, a hang, a refusal; and no detail to tell.
+    ("http 0: <urlopen error [SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed>", False),
+    ("http 0: <urlopen error timed out>", False),
+    ("http 0: <urlopen error [Errno 61] Connection refused>", False),
+    ("stream receipts unavailable (http 0); nothing newly staged", False),
+    ("http 503: transcript delivery pending", False),
+    ("HTTP 401: token refused", False),
+    ("http 0123", False),
+    (None, False),
+])
+def test_a_receipt_says_when_its_last_upload_got_no_answer(error, offline):
+    """An offline laptop's uploads find no network at all: the watch's
+    `capture_stalled` is about uploads the network carried and that stalled."""
+    found = receipts.receipt({"source_line_end": 1, "source_byte_end": 0, "error": error}, False, {}, "s")
+    assert found["offline"] is offline and found["retrying"] is (error is not None)

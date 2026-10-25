@@ -1506,8 +1506,22 @@ class TokenUsage:
             # the platform paid nothing, so it costs no points. The list price
             # stays visible through calculate_catalog_cost (evidence only).
             return 0.0
+        if self.device_served:
+            # The call ran on the person's own computer (served_via, wire
+            # device_chat): nobody was billed, there is no offering and no price.
+            vcprint(
+                f"[Pricing] device-served: {self.matrx_model_name or '?'} costs 0.0 "
+                f"({self.input_tokens} in / {self.output_tokens} out tokens)",
+                color="cyan",
+            )
+            return 0.0
         breakdown = self.calculate_cost_breakdown(pricing_lookup, at)
         return breakdown.total_cost if breakdown is not None else None
+
+    @property
+    def device_served(self) -> bool:
+        """True for a call a person's own device served (``providers/device/``)."""
+        return bool(self.metadata.get("device_served")) or self.api == "device_chat"
 
     def calculate_catalog_cost(
         self, pricing_lookup: dict[str, ModelPricing] | None = None, at: datetime | None = None
@@ -1519,6 +1533,16 @@ class TokenUsage:
     def calculate_cost_breakdown(
         self, pricing_lookup: dict[str, ModelPricing] | None = None, at: datetime | None = None
     ) -> UsageCostBreakdown | None:
+        if self.device_served:
+            # No price exists for a device-served call and none is missing: it is a real
+            # zero (no pricing lookup, so no pricing-miss alarm).
+            return UsageCostBreakdown(
+                input_cost=0.0, output_cost=0.0, cached_input_cost=0.0,
+                cache_write_5m_cost=0.0, cache_write_1h_cost=0.0, total_cost=0.0,
+                input_tokens=self.input_tokens, output_tokens=self.output_tokens,
+                cached_input_tokens=self.cached_input_tokens,
+                cache_write_5m_tokens=0, cache_write_1h_tokens=0,
+            )
         if not self.matrx_model_name:
             return None
 

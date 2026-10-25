@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: vector-quantize-pytorch
-Version: 1.31.6
+Version: 1.32.0
 Summary: Vector Quantization - Pytorch
 Project-URL: Homepage, https://pypi.org/project/vector-quantize-pytorch/
 Project-URL: Repository, https://github.com/lucidrains/vector-quantizer-pytorch
@@ -37,7 +37,7 @@ Requires-Python: >=3.9
 Requires-Dist: einops>=0.8.0
 Requires-Dist: einx>=0.3.0
 Requires-Dist: loguru
-Requires-Dist: torch-einops-utils>=0.1.12
+Requires-Dist: torch-einops-utils>=0.1.42
 Requires-Dist: torch>=2.4
 Provides-Extra: examples
 Requires-Dist: torchvision; extra == 'examples'
@@ -934,6 +934,18 @@ assert loss.item() >= 0
     archivePrefix = {arXiv},
     primaryClass = {cs.CV},
     url     = {https://arxiv.org/abs/2404.02905},
+}
+```
+
+```bibtex
+@misc{kumbong2026nextconcept,
+    title   = {Next-Concept Modeling: Fast, Parallel Coarse-to-Fine Text Generation},
+    author  = {Hermann Kumbong and Ishan S. Khare and Iddah Mlauzi and Andrew Woen and Charles Ding and E. Kelly Buchanan and Simran Arora and Azalia Mirhoseini and Christopher Ré},
+    year    = {2026},
+    eprint  = {2610.14162},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.CL},
+    url     = {https://arxiv.org/abs/2610.14162},
 }
 ```
 

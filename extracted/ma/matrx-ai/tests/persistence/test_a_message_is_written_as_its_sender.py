@@ -21,30 +21,19 @@ Two legs, two distinct users on one shared conversation:
 
 1. ``test_the_door_stamps_the_requests_own_actor`` — the real door onto a real Coordinator.
 2. ``test_two_seats_on_one_conversation_land_as_themselves`` (``integration``) — the real flush
-   against the LIVE database inside a rolled-back transaction: the owner's turn and the
-   editor's turn on one conversation, read back from Postgres.
+   against the LIVE database through the host's models. It lives in the host, at
+   ``aidream/db/tests/test_a_message_is_written_as_its_sender_live.py``: a package never imports
+   the host.
 """
 
 from __future__ import annotations
 
-import os
 import uuid
-from pathlib import Path
 from types import SimpleNamespace
-
-import pytest
-from dotenv import load_dotenv
-
-REPO = Path(__file__).resolve().parents[4]
-load_dotenv(REPO / ".env")
-
-_HAS_DB = bool(os.environ.get("SUPABASE_MATRIX_HOST"))
 
 _ORG = "66666666-6666-4666-8666-666666666666"
 OWNER = "11111111-1111-4111-8111-111111111111"
 EDITOR = "22222222-2222-4222-8222-222222222222"
-ADMIN_SEAT = "87a6e699-3622-4869-8843-d0867456c0dd"  # admin@admin.com
-TEST_SEAT = "4060701e-706a-4c76-b3ca-0bbc69fa5a14"  # test@test.com
 
 
 class _MessageMeta:
@@ -150,76 +139,3 @@ async def test_an_update_that_does_not_author_keeps_the_sender(monkeypatch) -> N
         stand_in.__exit__(None, None, None)
         _coordinator_cv.reset(token)
         coord._session._ops.clear()
-
-
-@pytest.mark.integration
-@pytest.mark.skipif(not _HAS_DB, reason="needs the live platform database (SUPABASE_MATRIX_*)")
-async def test_two_seats_on_one_conversation_land_as_themselves(monkeypatch) -> None:
-    """Live: admin's conversation, two distinct real users, read back from Postgres, rolled back."""
-    from matrx_orm import register_platform_db
-
-    register_platform_db(
-        "supabase_automation_matrix",
-        package="message_sender_forcing_test",
-        additional_schemas=["chat", "auth", "iam"],
-    )
-    from db.models.chat import Conversation, Message
-    from matrx_orm.core.transaction import transaction
-
-    from matrx_ai.persistence.coordinator import Coordinator
-    from matrx_ai.persistence.queue_helpers import _coordinator_cv, queue_message_create
-    from matrx_ai.persistence.registry import override_table
-
-    # The two fixed test seats (aidream CLAUDE.md): the owner and the non-admin second seat.
-    owner, editor = ADMIN_SEAT, TEST_SEAT
-    # admin's Workspace — never the Safety Net Real Tests organization.
-    rows = await Conversation.filter(
-        created_by=owner, organization_id="884d1ce8-7b49-4fba-a2f3-0f7dd7c83d4f", deleted_at=None
-    ).limit(1).values("id", "organization_id")
-    if not rows:
-        pytest.skip("no conversation of admin's in admin's Workspace to attach a turn to")
-    conversation = rows[0]
-
-    class _Rollback(Exception):
-        pass
-
-    owner_row, editor_row = str(uuid.uuid4()), str(uuid.uuid4())
-    landed: dict[str, dict] = {}
-    with override_table("chat.message", Message):
-        try:
-            async with transaction("supabase_automation_matrix"):
-                for row_id, actor, position in ((owner_row, owner, 9_100_001), (editor_row, editor, 9_100_002)):
-                    coord = Coordinator(request_id=str(uuid.uuid4()))
-                    token = _coordinator_cv.set(coord)
-                    try:
-                        _request_as(monkeypatch, actor, str(conversation["organization_id"]))
-                        queue_message_create(
-                            id=row_id,
-                            conversation_id=str(conversation["id"]),
-                            role="user",
-                            position=position,
-                            status="active",
-                            content=[{"type": "text", "text": "defect 55 forcing test"}],
-                            organization_id=str(conversation["organization_id"]),
-                            created_by=owner,
-                        )
-                        report = await coord.flush(reason="manual")
-                        assert report.error is None, report.error
-                    finally:
-                        _coordinator_cv.reset(token)
-                for r in await Message.filter(id__in=[owner_row, editor_row]).values(
-                    "id", "created_by", "updated_by"
-                ):
-                    landed[str(r["id"])] = {k: str(v) if v else None for k, v in r.items()}
-                raise _Rollback
-        except _Rollback:
-            pass
-
-    assert set(landed) == {owner_row, editor_row}, landed
-    # created_by is the PARENT's owner on a component — by law, for both rows.
-    assert landed[editor_row]["created_by"] == owner, landed
-    assert landed[owner_row]["updated_by"] == owner, landed
-    assert landed[editor_row]["updated_by"] == editor, (
-        f"the editor's message landed in Postgres as {landed[editor_row]['updated_by']!r}; "
-        f"nothing on the row names the editor {editor}"
-    )

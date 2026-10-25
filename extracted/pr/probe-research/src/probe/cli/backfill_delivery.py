@@ -7,7 +7,7 @@ import mimetypes
 from pathlib import Path
 
 from ..sdk.client import Anchor
-from ..sdk.journal import OutboxFull
+from ..sdk.journal import WAITING_STATES, OutboxFull
 from .backfill_coverage import Coverage, own_names
 from .backfill_manifest import validate_manifest
 
@@ -148,7 +148,7 @@ def _retire_cut_name(coverage: Coverage, client, row: dict, intent: dict) -> dic
     if (previous["state"] == "unknown" or previous.get("name") is None
             or previous["name"] in own_names(intent) or intent.get("reissue_of")):
         return intent
-    if client.discard_delivery(correlation)["state"] in {"queued", "pending", "failed"}:
+    if client.discard_delivery(correlation)["state"] in WAITING_STATES:
         raise ValueError(
             "Another upload pass holds the outbox; resume once it finishes "
             "to send this file under its own name."

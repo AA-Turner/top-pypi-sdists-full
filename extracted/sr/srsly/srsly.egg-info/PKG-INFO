@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: srsly
-Version: 2.5.4
+Version: 2.5.5
 Summary: Modern high-performance serialization utilities for Python
 Home-page: https://github.com/explosion/srsly
 Author: Explosion
@@ -21,8 +21,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: <3.15,>=3.9
+Requires-Python: <3.16,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: catalogue<2.1.0,>=2.0.3

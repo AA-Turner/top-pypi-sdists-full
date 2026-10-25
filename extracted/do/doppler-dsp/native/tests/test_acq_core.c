@@ -20,6 +20,7 @@
 #include "doppler/detector/det_private.h"
 #include "doppler/dp_complex.h"
 #include "doppler/dp_tlm/dp_tlm_core.h"
+#include "doppler/gold/gold_core.h"
 #include "dp_chunk_inv.h"
 #include "dp_preamble_test.h"
 #include "dp_rng_test.h"
@@ -2683,6 +2684,45 @@ carrier_and_prior_domain (void)
   return fails;
 }
 
+/* dp_acq_dsl_db()'s value summed directly, O(n^2) per point: residuals at
+ * the engine's 129 points across one tile, fs / n wide, and every tile
+ * offset -(W-1)..W-1; the worst off-mainlobe lag relative to the best own
+ * peak at each residual. The template's scale cancels in the ratio. */
+static double
+_brute_dsl_db (const float _Complex *ref, size_t n, double fs, size_t w,
+               size_t zone)
+{
+  const double ft    = fs / (double)n;
+  const long   kmax  = (long)w - 1;
+  double       worst = 0.0;
+  for (int p = 0; p <= 128; p++)
+    {
+      const double r   = -0.5 * ft + ft * (double)p / 128.0;
+      double       own = 0.0, side = 0.0;
+      for (long k = -kmax; k <= kmax; k++)
+        for (size_t m = 0; m < n; m++)
+          {
+            double _Complex acc = 0.0;
+            for (size_t i = 0; i < n; i++)
+              {
+                const size_t j = (i + m) % n;
+                acc += (double _Complex)ref[j]
+                       * cexp (I * 2.0 * M_PI * (r + (double)k * ft)
+                               * (double)j / fs)
+                       * conj ((double _Complex)ref[i]);
+              }
+            const double v = cabs (acc);
+            if (m == 0 && v > own)
+              own = v;
+            if (m >= zone && m <= n - zone && v > side)
+              side = v;
+          }
+      if (side / own > worst)
+        worst = side / own;
+    }
+  return 20.0 * log10 (worst);
+}
+
 int
 main (void)
 {
@@ -3670,6 +3710,37 @@ main (void)
     DP_CHECK (w1->coherent_bins == 1 && w1->blk == NULL);
     DP_CHECK_MSG (w7->coherent_bins == D, "D = (code_only_epochs + 1) / 2");
     DP_CHECK_MSG (wr->coherent_bins == 2, "the Doppler rate bounds D");
+    /* Both bounds are ceilings, and D runs at the largest 7-smooth length
+       under them (dp_fft_smooth_floor(), #1247): a window of 25 epochs
+       gives (25+1)/2 = 13, which runs as 12. */
+    {
+      dp_acq_state_t *w25 = dp_acq_create_continuous (
+          CODE7, sf, spc, crate, 0.0, 60.0, 200.0e3, 1e-2, 0.9, 0, 25, 0.0);
+      DP_REQUIRE (w25 != NULL);
+      DP_CHECK_MSG (w25->coherent_bins == 12, "13 runs as 7-smooth 12");
+      dp_acq_destroy (w25);
+    }
+    /* The operating points on a 1023-chip code, 2 samples a chip, under
+       500 Hz/s: 5 Mcps's window of 813 epochs and rate bound give 154,
+       which runs as 150; the async-DSSS design point (3.069 Mcps, rate
+       bound 94.9) gives 94 = 2 x 47, which runs as 90. Sabotage: drop the
+       round-down in acq_block_depth() -> both red. */
+    {
+      static uint8_t code1023[1023];
+      uint32_t       st = 7u;
+      for (size_t k = 0; k < 1023; k++)
+        code1023[k] = (uint8_t)(dp_xs32 (&st) & 1u);
+      dp_acq_state_t *op5 = dp_acq_create_continuous (
+          code1023, 1023, 2, 5.0e6, 0.0, 45.0, 0.0, 1e-2, 0.9, 0, 813, 500.0);
+      dp_acq_state_t *spec
+          = dp_acq_create_continuous (code1023, 1023, 2, 3.069e6, 0.0, 45.0,
+                                      0.0, 1e-2, 0.9, 0, 999, 500.0);
+      DP_REQUIRE (op5 != NULL && spec != NULL);
+      DP_CHECK_MSG (op5->coherent_bins == 150, "154 runs as 7-smooth 150");
+      DP_CHECK_MSG (spec->coherent_bins == 90, "94 runs as 7-smooth 90");
+      dp_acq_destroy (op5);
+      dp_acq_destroy (spec);
+    }
     DP_CHECK (dp_acq_create_continuous (CODE7, sf, spc, crate, 0.0, 60.0,
                                         200.0e3, 1e-2, 0.9, 0, 0, 0.0)
               == NULL); /* code_only_epochs < 1 */
@@ -3997,6 +4068,87 @@ main (void)
     DP_CHECK (fabs (got[0] - 20.0 * log10 (1.0 / 7.0)) < 1e-6); /* 1/N */
     DP_CHECK (isinf (got[1])); /* perfect: none */
     DP_CHECK (isfinite (got[2]) && got[2] < 0.0 && got[2] > -40.0);
+  }
+
+  /* ── dp_acq_dsl_db: computed on its first read, on the built grid ───
+   * The sweep is pts x (2W - 1) transforms that only a peak-list consumer
+   * reads, so the constructor does not run it: an engine that never asks
+   * pays nothing. Asked after a grid was pinned (which leaves wideband
+   * mode, window_bins 3 -> 1), it still reads the grid the engine was
+   * built on. Sabotage, each red: run the sweep in the constructor; sweep
+   * the current window_bins on the first read. */
+  {
+    const double    cr = 1.0e6;
+    dp_acq_state_t *a  = dp_xnn (dp_acq_create_continuous (
+        CODE7, 7, 4, cr, cr / 28.0, 60.0, 200e3, 1e-3, 0.9, 0, 1, 0.0));
+    dp_acq_state_t *b  = dp_xnn (dp_acq_create_continuous (
+        CODE7, 7, 4, cr, cr / 28.0, 60.0, 200e3, 1e-3, 0.9, 0, 1, 0.0));
+    DP_REQUIRE (a->window_bins == 3);
+    DP_CHECK (!a->dsl_ready && a->shape.dsl == 0.0);
+    const double built = dp_acq_dsl_db (a);
+    DP_CHECK (a->dsl_ready && isfinite (built));
+    DP_REQUIRE (dp_acq_configure_search_raw (b, 1, 1) == 0);
+    DP_REQUIRE (b->window_bins == 1);
+    DP_CHECK (dp_acq_dsl_db (b) == built);
+    dp_acq_destroy (a);
+    dp_acq_destroy (b);
+  }
+
+  /* ── dp_acq_dsl_db: the Doppler-offset sidelobe (#2525) ─────────────
+   * Checked against the ambiguity summed directly (_brute_dsl_db(),
+   * FFT-free) on the engine's own sweep, for a real code and for a complex
+   * template, whose ambiguity is not symmetric in Doppler, so the roll's
+   * direction and the negative offsets count. Then the receivers' SPEC
+   * search against an independent numpy sweep of the same ambiguity every
+   * 10 Hz over +-5 kHz (-16.95 dB, at -4500 Hz; design acq-surface.md §8);
+   * then du = 0, where it is psl; then the gate. Sabotage, each red: ignore
+   * the roll; sweep offsets 0..W-1 only (the complex template). Rolling by
+   * -k is no defect: the offsets are swept symmetrically, so each residual
+   * sees the same set either way. */
+  {
+    const double    cr = 1.0e6;
+    dp_acq_state_t *a  = dp_xnn (dp_acq_create_continuous (
+        CODE7, 7, 4, cr, cr / 28.0, 60.0, 200e3, 1e-3, 0.9, 0, 1, 0.0));
+    DP_REQUIRE (a->window_bins == 3);
+    float _Complex *ref = dp_code_preamble (CODE7, 7, 4);
+    DP_CHECK (fabs (dp_acq_dsl_db (a)
+                    - _brute_dsl_db (ref, 28, cr * 4.0, a->window_bins,
+                                     a->shape.zone))
+              < 1e-6);
+    DP_CHECK (dp_acq_dsl_db (a) >= dp_acq_psl_db (a));
+    DP_CHECK (dp_acq_gate_stat (a) == (double)a->threshold || a->n_noncoh > 1);
+    free (ref);
+    dp_acq_destroy (a);
+
+    float _Complex qpsk[64];
+    uint32_t st = 2525u;
+    for (size_t i = 0; i < 64; i++)
+      qpsk[i] = (float _Complex)cexp (I * M_PI / 2.0
+                                      * (double)(dp_xs32 (&st) >> 30));
+    a = dp_xnn (dp_acq_create_burst (qpsk, 64, 4, 1.0e6, 50.0, 20e3, 1e-3, 0.9,
+                                     0, 0.0, 1));
+    DP_REQUIRE (a->window_bins == 3);
+    DP_CHECK (
+        fabs (dp_acq_dsl_db (a)
+              - _brute_dsl_db (qpsk, 64, 1.0e6, a->window_bins, a->shape.zone))
+        < 1e-6);
+    dp_acq_destroy (a);
+
+    uint8_t          gold[1023];
+    dp_gold_state_t *g = dp_gold_create (934, 350, 567, 73, 10);
+    dp_gold_generate (g, 1023, gold, 1023);
+    dp_gold_destroy (g);
+    a = dp_xnn (dp_acq_create_continuous (gold, 1023, 2, 3.069e6, 2700.0, 47.0,
+                                          5000.0, 1e-3, 0.9, 0, 1, 0.0));
+    DP_CHECK (a->window_bins == 5 && a->n_noncoh > 1);
+    DP_CHECK (fabs (dp_acq_dsl_db (a) - (-16.95)) < 0.01);
+    DP_CHECK (fabs (dp_acq_psl_db (a) - 20.0 * log10 (65.0 / 1023.0)) < 1e-6);
+    DP_CHECK (dp_acq_gate_stat (a) == (double)a->eta_nc);
+    dp_acq_destroy (a);
+    a = dp_xnn (dp_acq_create_continuous (gold, 1023, 2, 3.069e6, 2700.0, 47.0,
+                                          0.0, 1e-3, 0.9, 0, 1, 0.0));
+    DP_CHECK (fabs (dp_acq_dsl_db (a) - dp_acq_psl_db (a)) < 1e-9);
+    dp_acq_destroy (a);
   }
 
   /* A coupled carrier and the Doppler prior (doppler#2103). */

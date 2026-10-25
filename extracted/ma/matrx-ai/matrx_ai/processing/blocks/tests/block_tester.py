@@ -42,6 +42,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import datetime
 from typing import Any
 
@@ -206,8 +207,8 @@ def run_ts_parser(
     """
     Run content through the TypeScript splitContentIntoBlocksV2 parser.
 
-    Invokes parse_blocks.mts via npx tsx from the matrx-frontend directory so that
-    the @/ path alias resolves correctly.
+    Stages parse_blocks.mts in the matrx-frontend directory so its package
+    exports resolve from that checkout, then reads machine output from a file.
 
     Returns a list of RenderBlock dicts, or None if the subprocess failed.
     """
@@ -217,21 +218,48 @@ def run_ts_parser(
         print(_c(C.YELLOW, "     Set MATRX_FRONTEND_ROOT correctly to enable TS comparison."))
         return None
 
-    cmd = [
-        "npx", "tsx",
-        "--tsconfig", tsconfig,
-        TS_BRIDGE_SCRIPT,
-    ]
-
     try:
-        result = subprocess.run(
-            cmd,
-            input=content,
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd=matrx_admin_path,
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = os.path.join(tmp, "blocks.json")
+            with open(TS_BRIDGE_SCRIPT, encoding="utf-8") as bridge_file:
+                bridge_source = bridge_file.read()
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".mts", dir=matrx_admin_path, delete=False
+            ) as staged_file:
+                staged_file.write(bridge_source)
+                staged = staged_file.name
+            try:
+                result = subprocess.run(
+                    [
+                        "npx", "tsx",
+                        "--tsconfig", tsconfig,
+                        staged,
+                        "--out", out_path,
+                    ],
+                    input=content,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    cwd=matrx_admin_path,
+                )
+            finally:
+                os.unlink(staged)
+
+            if result.stderr:
+                for line in result.stderr.strip().splitlines():
+                    print(_c(C.GREY, f"     [TS stderr] {line}"))
+
+            if result.returncode != 0:
+                print(_c(C.RED, f"[TS] ERROR: parse_blocks.mts exited with code {result.returncode}"))
+                return None
+
+            try:
+                with open(out_path, encoding="utf-8") as output_file:
+                    blocks = json.load(output_file)
+                return blocks if isinstance(blocks, list) else None
+            except (OSError, json.JSONDecodeError) as exc:
+                print(_c(C.RED, f"[TS] ERROR: Failed to read JSON output — {exc}"))
+                return None
     except FileNotFoundError:
         print(_c(C.RED, "[TS] ERROR: 'npx' not found. Ensure Node.js is installed and in PATH."))
         return None
@@ -239,21 +267,6 @@ def run_ts_parser(
         print(_c(C.RED, "[TS] ERROR: TypeScript parser timed out after 30s."))
         return None
 
-    if result.stderr:
-        for line in result.stderr.strip().splitlines():
-            print(_c(C.GREY, f"     [TS stderr] {line}"))
-
-    if result.returncode != 0:
-        print(_c(C.RED, f"[TS] ERROR: parse_blocks.mts exited with code {result.returncode}"))
-        return None
-
-    try:
-        blocks = json.loads(result.stdout)
-        return blocks if isinstance(blocks, list) else None
-    except json.JSONDecodeError as exc:
-        print(_c(C.RED, f"[TS] ERROR: Failed to parse JSON output — {exc}"))
-        print(_c(C.GREY, f"     stdout preview: {result.stdout[:300]}"))
-        return None
 
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ terminal error the person can read.
 
 from __future__ import annotations
 
-import inspect
+from matrx_utils.source_guard import stable_source
 from types import SimpleNamespace
 
 from matrx_ai.config import TextContent, ThinkingContent, UnifiedMessage
@@ -48,7 +48,7 @@ def test_refusal_after_text_is_not_retried() -> None:
 
 
 def test_stop_branch_tells_the_person_when_nothing_was_written() -> None:
-    src = inspect.getsource(executor)
+    src = stable_source(executor)
     assert 'code="refusal_retry"' in src
     assert src.index("if not has_visible_answer and not _response_has_tool_calls(api_response)") < src.index(
         "provider_response_failed"

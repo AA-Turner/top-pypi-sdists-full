@@ -1,19 +1,21 @@
 import os
 import platform
 import unittest
-from subprocess import PIPE, Popen
+from io import BytesIO
+from subprocess import Popen
 from unittest import mock
 
 from django.core.files.storage import default_storage, storages
 from django.template.loader import render_to_string
-from PIL import Image
+from django.test.utils import override_settings
+from PIL import Image, ImageSequence
 
 from sorl.thumbnail import default
-from sorl.thumbnail.base import ThumbnailBackend
+from sorl.thumbnail.base import EXTENSIONS, ThumbnailBackend
 from sorl.thumbnail.conf import settings
 from sorl.thumbnail.engines.convert_engine import EngineError
 from sorl.thumbnail.engines.pil_engine import Engine as PILEngine
-from sorl.thumbnail.helpers import get_module_class, tokey
+from sorl.thumbnail.helpers import get_module_class, run, tokey
 from sorl.thumbnail.images import ImageFile
 from sorl.thumbnail.parsers import parse_geometry
 from sorl.thumbnail.templatetags.thumbnail import margin
@@ -60,6 +62,19 @@ class SimpleTestCase(BaseTestCase):
         t = self.BACKEND.get_thumbnail(item.image, '400x300', crop='center', upscale=True)
         self.assertEqual(t.x, 400)
         self.assertEqual(t.y, 300)
+
+    @unittest.skipIf(
+        'pil_engine' not in settings.THUMBNAIL_ENGINE
+        and 'convert_engine' not in settings.THUMBNAIL_ENGINE,
+        'padding is only implemented in PIL and convert',
+    )
+    def test_padding(self):
+        item = Item.objects.get(image='200x100.jpg')
+
+        t = self.BACKEND.get_thumbnail(item.image, '300x300', padding=True)
+
+        self.assertEqual((t.x, t.y), (300, 300))
+        self.assertEqual(Image.open(t.storage.path(t.name)).size, (300, 300))
 
     @unittest.skipIf('pil_engine' not in settings.THUMBNAIL_ENGINE, 'blur is only supported in PIL')
     def test_crop_and_blur(self):
@@ -212,11 +227,11 @@ class SimpleTestCase(BaseTestCase):
     def test_quality(self):
         im = ImageFile(Item.objects.get(image='500x500.jpg').image)
         th = self.BACKEND.get_thumbnail(im, '100x100', quality=50)
-        p1 = Popen(['identify', '-verbose', th.storage.path(th.name)], stdout=PIPE)
-        p2 = Popen(['grep', '-c', 'Quality: 50'], stdin=p1.stdout, stdout=PIPE)
-        p1.stdout.close()
-        output = p2.communicate()[0].strip()
-        self.assertEqual(output.decode('utf-8'), '1')
+        img = Image.open(th.storage.path(th.name))
+        # Every engine writes JPEG with libjpeg, so quality 50 gives the same tables as Pillow's
+        reference = BytesIO()
+        Image.new(img.mode, (8, 8)).save(reference, 'JPEG', quality=50)
+        self.assertEqual(img.quantization, Image.open(reference).quantization)
 
     def test_transparency(self):
         item, _created = self.create_image(
@@ -230,6 +245,86 @@ class SimpleTestCase(BaseTestCase):
         th = self.BACKEND.get_thumbnail(path, '11x11', format='JPEG')
         img = Image.open(th.storage.path(th.name))
         self.assertFalse(self.is_transparent(img))
+
+    @unittest.skipUnless('pil_engine' in settings.THUMBNAIL_ENGINE
+                         or 'wand_engine' in settings.THUMBNAIL_ENGINE
+                         or 'convert_engine' in settings.THUMBNAIL_ENGINE,
+                         'not checked on the pgmagick and vipsthumbnail engines')
+    def test_transparency_la_to_jpeg(self):
+        Image.new('LA', (50, 50)).save(os.path.join(settings.MEDIA_ROOT, 'la.png'))
+        th = self.BACKEND.get_thumbnail('la.png', '11x11', format='JPEG')
+        img = Image.open(th.storage.path(th.name))
+        self.assertEqual(img.format, 'JPEG')
+
+    @unittest.skipUnless('pil_engine' in settings.THUMBNAIL_ENGINE
+                         or 'wand_engine' in settings.THUMBNAIL_ENGINE
+                         or 'convert_engine' in settings.THUMBNAIL_ENGINE,
+                         'only the PIL, wand and convert engines honour THUMBNAIL_FLATTEN')
+    def test_flatten(self):
+        # Grey diagonals on a transparent background whose stored color is black
+        self.create_image('50x50_transparent.png', (50, 50), transparent=True)
+        # Alpha channel with black stored under the transparent pixels
+        rgba = Image.new('RGBA', (50, 50), (0, 0, 0, 0))
+        rgba.save(os.path.join(settings.MEDIA_ROOT, 'rgba.png'))
+        with override_settings(THUMBNAIL_FLATTEN=True):
+            for name in ('50x50_transparent.png', 'rgba.png'):
+                th = self.BACKEND.get_thumbnail(name, '50x50', format='JPEG')
+                img = Image.open(th.storage.path(th.name)).convert('RGB')
+                self.assertEqual(img.getpixel((25, 2)), (255, 255, 255))
+
+                for off in ('off', False):
+                    th = self.BACKEND.get_thumbnail(name, '50x50', format='JPEG', flatten=off)
+                    img = Image.open(th.storage.path(th.name)).convert('RGB')
+                    self.assertEqual(img.getpixel((25, 2)), (0, 0, 0))
+
+    @unittest.skipUnless('pil_engine' in settings.THUMBNAIL_ENGINE
+                         or 'convert_engine' in settings.THUMBNAIL_ENGINE,
+                         'only the PIL and convert engines pad and flatten')
+    def test_flatten_padding_color(self):
+        rgba = Image.new('RGBA', (50, 25), (0, 0, 0, 0))
+        rgba.save(os.path.join(settings.MEDIA_ROOT, 'rgba_wide.png'))
+        with override_settings(THUMBNAIL_FLATTEN=True):
+            th = self.BACKEND.get_thumbnail(
+                'rgba_wide.png', '50x50', format='JPEG', padding=True, padding_color='#ff0000'
+            )
+        img = Image.open(th.storage.path(th.name)).convert('RGB')
+        # The transparent source gets the padding color, not white, like the bars around it
+        for xy in ((25, 2), (25, 25)):
+            r, g, b = img.getpixel(xy)
+            self.assertTrue(r > 250 and g < 5 and b < 5, img.getpixel(xy))
+
+    @unittest.skipIf(
+        settings.THUMBNAIL_CONVERT.startswith('gm ')
+        or 'pgmagick_engine' in settings.THUMBNAIL_ENGINE,
+        'GraphicsMagick has no AVIF encoder',
+    )
+    def test_avif_output(self):
+        im = ImageFile(Item.objects.get(image='500x500.jpg').image)
+        th = self.BACKEND.get_thumbnail(im, '100x100', format='AVIF')
+        img = Image.open(th.storage.path(th.name))
+        self.assertEqual(img.format, 'AVIF')
+        self.assertEqual(img.size, (100, 100))
+
+    @unittest.skipIf('pil_engine' not in settings.THUMBNAIL_ENGINE, 'animation is only kept in PIL')
+    def test_animated_gif(self):
+        # A red square moving right over a transparent background
+        frames = []
+        for x in (0, 50, 100):
+            frame = Image.new('RGBA', (200, 100))
+            frame.paste((255, 0, 0, 255), (x, 0, x + 50, 100))
+            frames.append(frame)
+        frames[0].save(os.path.join(settings.MEDIA_ROOT, 'animated.gif'), save_all=True,
+                       append_images=frames[1:], duration=[100, 200, 300], loop=0, disposal=2)
+
+        th = self.BACKEND.get_thumbnail('animated.gif', '100x50', format='GIF')
+        img = Image.open(th.storage.path(th.name))
+        self.assertEqual((th.x, th.y), (100, 50))
+        self.assertEqual(img.info['loop'], 0)
+        self.assertEqual([frame.info['duration'] for frame in ImageSequence.Iterator(img)],
+                         [100, 200, 300])
+        # The square left the top left corner, it must not leave a trail there
+        img.seek(2)
+        self.assertEqual(img.convert('RGBA').getpixel((0, 0))[3], 0)
 
     def test_image_file_deserialize(self):
         im = ImageFile(Item.objects.get(image='500x500.jpg').image)
@@ -352,6 +447,42 @@ class SimpleTestCase(BaseTestCase):
         # neither the password, the command line nor the tool's stderr leak into the error
         self.assertEqual(str(cm.exception), 'The identify command did not report an image size')
 
+    @unittest.skipIf(
+        'vipsthumbnail_engine' not in settings.THUMBNAIL_ENGINE,
+        'only the vipsthumbnail engine shells out to vipsheader',
+    )
+    def test_vipsheader_failure(self):
+        with open(os.path.join(settings.MEDIA_ROOT, 'broken.pdf'), 'wb') as f:
+            f.write(b'not a pdf')
+        with self.assertRaises(EngineError):
+            self.BACKEND.get_thumbnail('broken.pdf', '50x50')
+
+    @unittest.skipIf(
+        'convert_engine' not in settings.THUMBNAIL_ENGINE,
+        'only the convert engine falls back to another format',
+    )
+    def test_unsupported_output_format(self):
+        item = Item.objects.get(image='100x100.jpg')
+        # stands in for AVIF on an ImageMagick without the libheif encoder plugin
+        with mock.patch.dict(EXTENSIONS, {'NOPE': 'nope'}):
+            with self.assertRaises(EngineError) as cm:
+                self.BACKEND.get_thumbnail(item.image, '50x50', format='NOPE')
+        self.assertIn('The convert command wrote JPEG instead of NOPE', str(cm.exception))
+
+    @unittest.skipIf(
+        'convert_engine' not in settings.THUMBNAIL_ENGINE,
+        'only the convert engine checks the written format',
+    )
+    def test_format_check_only_on_conversion(self):
+        item = Item.objects.get(image='100x100.jpg')
+        with mock.patch('subprocess.Popen', wraps=Popen) as popen:
+            self.BACKEND.get_thumbnail(item.image, '40x40', format='JPEG')
+            self.BACKEND.get_thumbnail(item.image, '40x40', format='PNG')
+        checks = [call.args[0] for call in popen.call_args_list if '%m' in call.args[0]]
+        # JPEG to JPEG can't fall back to another format, so only the PNG is checked
+        self.assertEqual(len(checks), 1)
+        self.assertTrue(checks[0][-1].endswith('.png[0]'))
+
     def test_falsey_file_argument(self):
         with self.assertRaises(ValueError):
             self.BACKEND.get_thumbnail('', '100x100')
@@ -464,6 +595,29 @@ class CropTestCase(BaseTestCase):
         im = engine.get_image(th)
         self.assertEqual(im.size[0], 32)
         self.assertEqual(im.size[1], 32)
+
+    def test_smart_crop_size(self):
+        engine = PILEngine()
+        cases = [
+            ((1280, 720), (200, 200), True, (200, 200)),  # came out 44px wide
+            ((500, 442), (60, 60), True, (60, 60)),  # never returned
+            ((720, 1280), (50, 100), True, (50, 100)),  # raised ValueError
+            ((100, 50), (200, 200), False, (50, 50)),  # not scaled, never returned
+        ]
+        for source, geometry, upscale, expected in cases:
+            with self.subTest(source=source, geometry=geometry):
+                options = dict(ThumbnailBackend.default_options, crop='smart', upscale=upscale)
+                im = engine.create(Image.new('RGB', source), geometry, options)
+                self.assertEqual(im.size, expected)
+
+    @unittest.skipIf(
+        'pil_engine' in settings.THUMBNAIL_ENGINE,
+        'the PIL engine supports smart crop',
+    )
+    def test_smart_crop_unsupported(self):
+        message = "crop='smart' is only supported by the PIL engine"
+        with self.assertRaisesMessage(NotImplementedError, message):
+            self.BACKEND.get_thumbnail('data/white_border.jpg', '32x32', crop='smart')
 
     def test_image_with_orientation(self):
         name = 'data/aspect_test.jpg'
@@ -673,6 +827,36 @@ class DummyTestCase(unittest.TestCase):
             '<img src="https://dummyimage.com/600x400" width="600" '
             'height="400" srcset="https://dummyimage.com/1200x800 2x; '
             'https://dummyimage.com/900x600 1.5x">'
+        )
+
+
+class ShellTestCase(unittest.TestCase):
+    def test_captures_text_and_exit_code(self):
+        p = run(['sh', '-c', 'echo out; echo err >&2; exit 3'])
+        self.assertEqual((p.returncode, p.stdout, p.stderr), (3, 'out\n', 'err\n'))
+
+    def test_large_stderr_does_not_block(self):
+        # more than a pipe buffer on stderr deadlocked the old Popen + wait() pattern
+        p = run(['sh', '-c', 'head -c 300000 /dev/zero | tr "\\0" x >&2'])
+        self.assertEqual((p.returncode, len(p.stderr)), (0, 300000))
+
+    def test_stdin_is_closed(self):
+        # cat would block on an inherited terminal instead of returning
+        self.assertEqual(run(['cat']).stdout, '')
+
+    def test_missing_tool(self):
+        with self.assertRaises(EngineError) as cm:
+            run(['sorl-thumbnail-no-such-tool'])
+        self.assertEqual(
+            str(cm.exception), 'sorl-thumbnail-no-such-tool is not installed or not on PATH'
+        )
+
+    @override_settings(THUMBNAIL_COMMAND_TIMEOUT=0.1)
+    def test_timeout(self):
+        with self.assertRaises(EngineError) as cm:
+            run(['sleep', '5'])
+        self.assertEqual(
+            str(cm.exception), 'sleep did not finish in 0.1 seconds, see THUMBNAIL_COMMAND_TIMEOUT'
         )
 
 

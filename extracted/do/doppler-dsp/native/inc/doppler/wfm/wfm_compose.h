@@ -417,6 +417,19 @@ typedef struct {
                           by the composer, which clears it at create; zero
                           until an instance has sent a frame. Not an input:
                           no face sets it. */
+    size_t code_only_symbols; /* Continuous dsss: pure-code symbols opening
+                          each frame of frame_symbols symbols. The data
+                          pauses through them and runs on across frames,
+                          so a searcher can integrate coherently over the
+                          window; once a payload ends, no window is sent.
+                          At most frame_symbols, and fewer when a data
+                          source is set; 0 with frame_symbols 0 = no
+                          window. */
+    size_t frame_symbols; /* Continuous dsss: the frame, in symbols, that
+                          code_only_symbols opens; give it with
+                          code_only_symbols, or both 0 for no window. The
+                          frame runs on the stream's own symbol clock, so
+                          its edges land at any chip phase. */
 } wfm_source_t;
 
 /**
@@ -684,7 +697,10 @@ double dp_wfm_source_create_snr(const wfm_source_t *src, double fs, double snr,
  * `symbol_rate`: 0 → the burst form (`dp_wfm_synth_set_dsss_chips`); > 0 → the
  * continuous form (`dp_wfm_synth_set_dsss_cont`) with `chips_per_symbol =
  * (fs/sps)/symbol_rate`, taking the data from the payload when one is supplied
- * (`bits`) and otherwise from the seeded PN. A no-op for a non-dsss source.
+ * (`bits`) and otherwise from the seeded PN, and framing it with the per-frame
+ * code-only window (`code_only_symbols` of every `frame_symbols`,
+ * dp_wfm_synth_set_dsss_window) when one is set. A no-op for a non-dsss
+ * source.
  *
  * @param syn  A synth from dp_wfm_synth_create() with `wtype == WFM_SYNTH_DSSS`.
  * @param src  The source (codes, payload, symbol_rate, pn config).
@@ -1049,9 +1065,12 @@ int dp_wfm_source_data_is_stream(const wfm_source_t *src);
  *   per symbol (rounded up), times `sps`, per frame.
  * - **A dsss burst**: its chips times `sps` (samples per chip), per burst.
  * - **Continuous dsss** has no frame: a "frame" is one data bit, one per
- *   data symbol, and the run is every chip of the first @p frames symbols
- *   at `fs / sps / symbol_rate` chips per symbol -- not a whole number, so
- *   not a product -- times `sps`.
+ *   data symbol, and the run is every chip up to the symbol after the
+ *   @p frames-th data symbol, at `fs / sps / symbol_rate` chips per symbol
+ *   -- not a whole number, so not a product -- times `sps`. Every symbol
+ *   carries data unless a code-only window is set; then the data pauses
+ *   through each frame's first `code_only_symbols`, and the run counts
+ *   every window before the last data symbol (not one after it).
  *
  * @param src     the source.
  * @param fs      the segment's sample rate (only continuous dsss reads it).
@@ -1479,6 +1498,39 @@ void dp_wfm_compose_destroy(dp_wfm_compose_state_t *state);
 const wfm_segment_t *dp_wfm_compose_segments(const dp_wfm_compose_state_t *state,
                                           size_t *n_out, int *repeat,
                                           int *continuous);
+
+/**
+ * @brief The composer's own entry points, as a table its state starts with.
+ *
+ * Every composer state's first member points at one of these, set at
+ * create. A component that holds a composer but does not link the composer
+ * engine (the SigMF writer, doppler#2564) reads the segments through it:
+ * dp_wfm_scene_segments() calls the composer's OWN dp_wfm_compose_segments(),
+ * so the code that runs is the code that built the scene, even when the two
+ * live in different extension modules.
+ */
+typedef struct wfm_scene_ops
+{
+  /** dp_wfm_compose_segments(), as the composer that owns the state has it. */
+  const wfm_segment_t *(*segments)(const dp_wfm_compose_state_t *state,
+                                   size_t *n_out, int *repeat,
+                                   int *continuous);
+} wfm_scene_ops_t;
+
+/**
+ * @brief dp_wfm_compose_segments() for a caller that does not link the
+ *        composer: dispatched through the state's own wfm_scene_ops_t.
+ * @param scene a composer (dp_wfm_compose_create() or a JSON reader).
+ * @param n_out receives the segment count.
+ * @return the composer's internal segments, as dp_wfm_compose_segments().
+ */
+static inline const wfm_segment_t *
+dp_wfm_scene_segments(const dp_wfm_compose_state_t *scene, size_t *n_out)
+{
+  const wfm_scene_ops_t *ops
+      = *(const wfm_scene_ops_t *const *)(const void *)scene;
+  return ops->segments(scene, n_out, NULL, NULL);
+}
 
 /* ── JSON spec (the shared --from-file / --record format) ─────────────────── */
 /*

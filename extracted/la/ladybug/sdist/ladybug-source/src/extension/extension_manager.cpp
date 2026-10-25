@@ -46,7 +46,7 @@ void ExtensionManager::loadExtension(const std::string& path, main::ClientContex
         isOfficial ? ExtensionSource::OFFICIAL : ExtensionSource::USER));
     auto transaction = transaction::Transaction::Get(*context);
     if (transaction->shouldLogToWAL()) {
-        transaction->getLocalWAL().logLoadExtension(path);
+        transaction->getLocalWAL().logLoadExtension("" /* main catalog */, path);
     }
 }
 
@@ -95,6 +95,15 @@ void ExtensionManager::autoLoadLinkedExtensions(main::ClientContext* context) {
     trxContext->beginRecoveryTransaction();
     loadLinkedExtensions(context, loadedExtensions);
     trxContext->commit();
+}
+
+void ExtensionManager::setData(const std::string& key, std::string value) {
+    dataMap[key] = std::move(value);
+}
+
+std::string ExtensionManager::getData(const std::string& key) const {
+    auto it = dataMap.find(key);
+    return it == dataMap.end() ? std::string{} : it->second;
 }
 
 ExtensionManager* ExtensionManager::Get(const main::ClientContext& context) {

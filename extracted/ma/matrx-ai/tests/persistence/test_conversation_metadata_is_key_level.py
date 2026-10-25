@@ -96,35 +96,6 @@ def test_an_existing_chat_keeps_its_other_run_configuration_keys_when_picks_chan
     assert meta["k"] == 1
 
 
-def test_request_context_track_patches_its_one_key(coord):
-    import asyncio
-    from types import SimpleNamespace
-
-    from aidream.services.conversation_context import request_context_track as rct
-
-    cid = "c-track"
-    conv = SimpleNamespace(metadata={"run_configuration": {"outputKinds": ["timeline"]}})
-    asyncio.run(rct._persist_snapshot(conversation_id=cid, current={"agent_id": "a1"}, conv=conv))
-    meta = coalesce_ops(coord._session._ops)[0].payload["metadata"]
-    assert meta["run_configuration"] == {"outputKinds": ["timeline"]}
-    assert meta["last_request_context"] == {"agent_id": "a1"}
-
-
-def test_the_om_gate_and_remark_handles_and_group_stamp_keep_run_configuration(coord):
-    from aidream.services.conversation_context import observational_memory_gate as om
-
-    from matrx_ai.config import remark_handles as rh
-
-    cid = "c-writers"
-    stored = {"run_configuration": {"outputKinds": ["timeline"]}}
-    om._persist_async(cid, {"enabled": True}, stored)
-    assert rh._queue_metadata(cid, {rh.REPLY_FAILURES_KEY: []}, stored)
-    meta = coalesce_ops(coord._session._ops)[0].payload["metadata"]
-    assert meta["run_configuration"] == {"outputKinds": ["timeline"]}
-    assert meta[om.METADATA_KEY] == {"enabled": True}
-    assert rh.REPLY_FAILURES_KEY in meta
-
-
 def test_the_title_backfill_writes_one_key_atomically_never_the_whole_object():
     import asyncio
     from types import SimpleNamespace

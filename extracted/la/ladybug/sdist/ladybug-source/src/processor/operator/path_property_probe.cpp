@@ -30,6 +30,9 @@ void PathPropertyProbe::initLocalStateInternal(ResultSet* /*resultSet_*/,
         StructVector::getFieldVectorRaw(*relsDataVector, InternalKeyword::SRC);
     pathDstNodeIDsDataVector =
         StructVector::getFieldVectorRaw(*relsDataVector, InternalKeyword::DST);
+    // Clear for pooled-plan reuse (fresh operators start empty).
+    pathNodesPropertyDataVectors.clear();
+    pathRelsPropertyDataVectors.clear();
     for (auto fieldIdx : info.nodeFieldIndices) {
         pathNodesPropertyDataVectors.push_back(
             StructVector::getFieldVector(nodesDataVector, fieldIdx).get());
@@ -63,10 +66,23 @@ static void copyInternalID(ValueVector* srcVector, ValueVector* dstIDVector,
     ValueVector* dstLabelVector,
     const std::unordered_map<common::table_id_t, std::string>& tableIDToName) {
     auto srcDataVector = ListVector::getDataVector(srcVector);
+    // On ANY graphs node labels form a set, so the label vector is a list. Write a
+    // single-element list holding the table name; writing a scalar string into it
+    // would corrupt the list structure (the table-name bytes would later be read back
+    // as list entries). Scalar label vectors keep the historical behavior.
+    const auto labelIsList = dstLabelVector->dataType.getPhysicalType() == PhysicalTypeID::LIST;
     for (auto i = 0u; i < ListVector::getDataVectorSize(srcVector); ++i) {
         auto id = srcDataVector->getValue<internalID_t>(i);
         dstIDVector->setValue(i, id);
-        StringVector::addString(dstLabelVector, i, tableIDToName.at(id.tableID));
+        const auto& label = tableIDToName.at(id.tableID);
+        if (labelIsList) {
+            auto entry = ListVector::addList(dstLabelVector, 1);
+            dstLabelVector->setValue(i, entry);
+            StringVector::addString(ListVector::getDataVector(dstLabelVector), entry.offset,
+                label.data(), label.size());
+        } else {
+            StringVector::addString(dstLabelVector, i, label.data(), label.size());
+        }
     }
 }
 

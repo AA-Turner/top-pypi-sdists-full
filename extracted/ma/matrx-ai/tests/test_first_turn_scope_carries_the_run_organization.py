@@ -20,7 +20,7 @@ import pytest
 
 from matrx_ai.context_engine import build_agent_context, configure_context_resolver
 
-RUN_ORG = "f980f202-0e4e-4e39-8411-facae6fab50e"
+RUN_ORG = "2643e470-b275-47f3-95f3-ae275ad3ca47"
 
 
 @pytest.fixture

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from collections.abc import Mapping
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,12 +16,54 @@ class Split(BaseModel):
     memo: str | None = None
 
 
+FIXED_ATTRIBUTION_MEMO_ERROR = "Fixed split memos must not use MPP attribution; omit the memo"
+
+
+def is_fixed_attribution_memo(memo: object) -> bool:
+    """Return whether a fixed split ``memo`` uses the MPP attribution format."""
+    from mpp.methods.tempo._attribution import is_mpp_memo
+
+    if not isinstance(memo, str):
+        return False
+    try:
+        raw = bytes.fromhex(memo.removeprefix("0x"))
+    except ValueError:
+        return False  # Calldata encoding reports malformed hex.
+    return is_mpp_memo("0x" + raw.hex())
+
+
+def reject_fixed_attribution_memos(request: Mapping[str, Any]) -> None:
+    """Refuse a charge request whose fixed split memos use MPP attribution.
+
+    Such a split transfer could also pay the challenge its memo names. Checked
+    before a server issues a challenge and before a client pays one. Parsing
+    stays permissive, so credentials for outstanding challenges fail
+    verification with ``CredentialReplayedError``.
+    """
+    details = request.get("methodDetails")
+    if not isinstance(details, Mapping):
+        return
+    splits = details.get("splits")
+    if not isinstance(splits, list):
+        return
+    for split in splits:
+        if isinstance(split, Mapping) and is_fixed_attribution_memo(split.get("memo")):
+            raise ValueError(FIXED_ATTRIBUTION_MEMO_ERROR)
+
+
 class MethodDetails(BaseModel):
     """Method-specific details for Tempo charge requests."""
 
     chainId: int = 4217
     feePayer: bool = False
-    feePayerUrl: str | None = None
+    feePayerUrl: str | None = Field(
+        default=None,
+        description=(
+            "External signing service. It must authorize, validate, simulate, and enforce "
+            "gas and spending limits before returning a broadcastable signature; "
+            "pympp does not enforce the external sponsor's policy."
+        ),
+    )
     splits: list[Split] | None = None
 
 

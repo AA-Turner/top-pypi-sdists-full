@@ -1,6 +1,7 @@
 #include "storage/checkpointer.h"
 
 #include <chrono>
+#include <cstdio>
 #include <string_view>
 #include <thread>
 #include <vector>
@@ -53,24 +54,6 @@ void writeDatabaseHeaderToStorage(main::ClientContext& clientContext, const Data
     shadowFile.getShadowingFH().unpinPage(shadowHeader.shadowPage);
 
     storageManager.setDatabaseHeader(std::make_unique<DatabaseHeader>(header));
-}
-
-void logCheckpointAndApplyShadowPagesForStorage(main::ClientContext& clientContext,
-    StorageManager& storageManager, bool walRotated) {
-    auto& shadowFile = storageManager.getShadowFile();
-    shadowFile.flushAll(clientContext);
-    auto wal = &storageManager.getWAL();
-    if (walRotated) {
-        wal->logAndFlushCheckpointToFrozen(&clientContext);
-    } else {
-        wal->logAndFlushCheckpoint(&clientContext);
-    }
-    shadowFile.applyShadowPages(storageManager, clientContext);
-    auto bufferManager = MemoryManager::Get(clientContext)->getBufferManager();
-    if (!walRotated) {
-        wal->clear();
-    }
-    shadowFile.clear(*bufferManager);
 }
 
 bool isLockContention(const common::IOException& exception) {
@@ -138,15 +121,21 @@ void Checkpointer::acquireCheckpointLocks() {
         StorageUtils::getCheckpointApplyLockFilePath(databasePath));
 }
 
-void Checkpointer::releaseCheckpointLocks() {
+void Checkpointer::releaseCheckpointLocks() noexcept {
     checkpointApplyLockFile.reset();
     checkpointIntentLockFile.reset();
     auto vfs = common::VirtualFileSystem::GetUnsafe(clientContext);
     const auto databasePath = clientContext.getDatabasePath();
-    vfs->removeFileIfExists(StorageUtils::getCheckpointIntentLockFilePath(databasePath),
-        &clientContext);
-    vfs->removeFileIfExists(StorageUtils::getCheckpointApplyLockFilePath(databasePath),
-        &clientContext);
+    try {
+        vfs->removeFileIfExists(StorageUtils::getCheckpointIntentLockFilePath(databasePath),
+            &clientContext);
+    } catch (...) { // NOLINT: An unlocked stale lock path carries no checkpoint state.
+    }
+    try {
+        vfs->removeFileIfExists(StorageUtils::getCheckpointApplyLockFilePath(databasePath),
+            &clientContext);
+    } catch (...) { // NOLINT: An unlocked stale lock path carries no checkpoint state.
+    }
 }
 
 std::vector<Checkpointer::CheckpointTarget> Checkpointer::collectCheckpointTargets() const {
@@ -238,7 +227,8 @@ void Checkpointer::writeCheckpoint() {
     checkpointTargets = collectCheckpointTargets();
 
     for (const auto& target : checkpointTargets) {
-        auto rotated = target.storageManager->getWAL().rotateForCheckpoint(&clientContext);
+        const auto rotated = target.storageManager == mainStorageManager &&
+                             target.storageManager->getWAL().rotateForCheckpoint(&clientContext);
         walRotatedByManager[target.storageManager] = rotated;
         walRotated = walRotated || rotated;
     }
@@ -253,14 +243,9 @@ void Checkpointer::writeCheckpoint() {
     persistPartitionChildFiles();
     databaseHeader.dataFileNumPages = mainStorageManager->getDataFH()->getNumPages();
     writeDatabaseHeader(databaseHeader);
+    flushGraphShadowFiles();
     logCheckpointAndApplyShadowPages(walRotatedByManager.at(mainStorageManager));
-    for (const auto& target : checkpointTargets) {
-        if (target.storageManager == mainStorageManager) {
-            continue;
-        }
-        logCheckpointAndApplyShadowPagesForStorage(clientContext, *target.storageManager,
-            walRotatedByManager.at(target.storageManager));
-    }
+    applyGraphShadowPages();
 
     // Snapshot versions while the write gate is still held.
     for (const auto& target : checkpointTargets) {
@@ -275,17 +260,35 @@ void Checkpointer::writeCheckpoint() {
     postCheckpointCleanup();
 }
 
-void Checkpointer::beginCheckpoint(common::transaction_t snapshotTimestamp) {
+void Checkpointer::beginCheckpoint(common::transaction_t snapshotTimestamp,
+    common::transaction_t retentionHorizon_, std::vector<common::transaction_t> openStartTSs_,
+    common::transaction_t pinningTxnID_) {
     if (isInMemory) {
         return;
     }
 
     acquireCheckpointLocks();
     snapshotTS = snapshotTimestamp;
+    retentionHorizon = retentionHorizon_;
+    openStartTSs = std::move(openStartTSs_);
+    pinningTxnID = pinningTxnID_;
     checkpointTargets = collectCheckpointTargets();
 
+    // A held-open reader pins the WAL: rotating now would orphan the frozen records its
+    // snapshot may still need, and the next checkpoint refuses to overwrite a leftover
+    // frozen WAL. The checkpoint proceeds without rotation; the CHECKPOINT record lands in
+    // the active WAL and retirement below is skipped the same way.
+    // Independently, an active WAL that already holds a CHECKPOINT record (left by an
+    // earlier pinned checkpoint) is never rotated into a frozen WAL: the frozen recovery
+    // path requires the CHECKPOINT record to be final, so a rotated mid-file CHECKPOINT
+    // would break crash recovery. The record stays in the active WAL, whose recovery
+    // replays the suffix after the last CHECKPOINT.
+    const bool pinWAL = retentionHorizon != common::INVALID_TRANSACTION;
+    const bool activeWALHasCheckpoint = mainStorageManager->getWAL().mayHaveCheckpointRecord();
     for (const auto& target : checkpointTargets) {
-        auto rotated = target.storageManager->getWAL().rotateForCheckpoint(&clientContext);
+        const auto rotated = !pinWAL && !activeWALHasCheckpoint &&
+                             target.storageManager == mainStorageManager &&
+                             target.storageManager->getWAL().rotateForCheckpoint(&clientContext);
         walRotatedByManager[target.storageManager] = rotated;
         walRotated = walRotated || rotated;
     }
@@ -356,7 +359,7 @@ void Checkpointer::persistPartitionChildFiles() {
         header.dataFileNumPages = dataFH->getNumPages();
         writeDatabaseHeaderToStorage(clientContext, header, *sm);
         // Durable BEFORE the main database's commit point (see comment in checkpointer.h).
-        sm->getShadowFile().flushAll(clientContext);
+        sm->getShadowFile().flushAll(mainStorageManager->getOrInitDatabaseID(clientContext));
     }
 }
 
@@ -374,26 +377,15 @@ void Checkpointer::finishCheckpoint() {
     persistPartitionChildFiles();
     checkpointHeader.dataFileNumPages = mainStorageManager->getDataFH()->getNumPages();
     writeDatabaseHeader(checkpointHeader);
+    flushGraphShadowFiles();
     logCheckpointAndApplyShadowPages(walRotatedByManager.at(mainStorageManager));
-    for (const auto& target : checkpointTargets) {
-        if (target.storageManager == mainStorageManager) {
-            continue;
-        }
-        logCheckpointAndApplyShadowPagesForStorage(clientContext, *target.storageManager,
-            walRotatedByManager.at(target.storageManager));
-    }
+    applyGraphShadowPages();
 }
 
-void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) {
+void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) try {
     if (isInMemory) {
         return;
     }
-    // NOTE: No try/catch here is intentional. By the time this runs, finishCheckpoint() has
-    // already persisted the checkpoint header and applied shadow pages — the database is
-    // durable.  Any exception in the in-memory cleanup below indicates a programming error;
-    // letting it propagate (and crash the process) is safer than continuing with partially
-    // reset in-memory state.  On the next startup the database loads from the stable
-    // on-disk checkpoint and is fully consistent.
     mainStorageManager->finalizeCheckpoint(clientContext);
     for (const auto& target : checkpointTargets) {
         if (target.storageManager == mainStorageManager) {
@@ -409,7 +401,6 @@ void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) {
         }
     }
     auto bufferManager = MemoryManager::Get(clientContext)->getBufferManager();
-    bufferManager->removeEvictedCandidates();
 
     for (const auto& target : checkpointTargets) {
         if (catalogVersionAtCheckpointByCatalog.contains(target.catalog)) {
@@ -427,14 +418,83 @@ void Checkpointer::postCheckpointCleanup(bool canResetPageManagerToCurrent) {
                 pageManager->resetVersion();
             }
         }
-        if (walRotated) {
-            target.storageManager->getWAL().clearFrozenWAL();
-        } else {
-            target.storageManager->getWAL().reset();
+    }
+    // The snapshot horizon pins the WAL alongside the version chains: retirement is
+    // skipped while a reader is open and resumes at the next unpinned checkpoint. With no
+    // transaction open every path below is exactly as before.
+    const bool pinWALRetirement = retentionHorizon != common::INVALID_TRANSACTION;
+    for (const auto& target : checkpointTargets) {
+        if (target.storageManager == mainStorageManager) {
+            continue;
         }
+        if (pinWALRetirement) {
+            continue;
+        }
+        target.storageManager->getWAL().retireFrozenWAL();
+        target.storageManager->getWAL().retireActiveWAL();
+    }
+    const auto mainWALRotated = walRotatedByManager.at(mainStorageManager);
+    beforeWALRetirement(mainWALRotated);
+    if (!pinWALRetirement) {
+        if (mainWALRotated) {
+            mainStorageManager->getWAL().retireFrozenWAL();
+        } else {
+            mainStorageManager->getWAL().retireActiveWAL();
+        }
+        onWALRetired(mainWALRotated);
+    }
+    for (const auto& target : checkpointTargets) {
+        target.storageManager->getShadowFile().clear(*bufferManager, false);
         target.storageManager->getShadowFile().reset();
     }
+    if (auto* dbManager = main::DatabaseManager::Get(clientContext)) {
+        for (auto* sm : dbManager->getPartitionStorageRegistry()->getAllManagers()) {
+            if (sm->getShadowFile().hasShadowingFH()) {
+                sm->getShadowFile().clear(*bufferManager, false);
+                sm->getShadowFile().reset();
+            }
+        }
+    }
+    common::VirtualFileSystem::GetUnsafe(clientContext)
+        ->syncParentDirectory(
+            StorageUtils::getShadowFilePath(mainStorageManager->getDatabasePath()));
+    // Durability marker for pinned checkpoints: the active WAL holds CHECKPOINT records
+    // with no rotation, and cleanup above removed the shadow. Recovery treats such
+    // CHECKPOINTs as durable only when this marker exists; a missing shadow without the
+    // marker is an out-of-band loss and must throw, never silently delete the WAL.
+    if (!isInMemory) {
+        auto* vfs = common::VirtualFileSystem::GetUnsafe(clientContext);
+        const auto markerPath =
+            StorageUtils::getPinnedCheckpointMarkerPath(mainStorageManager->getDatabasePath());
+        if (pinWALRetirement) {
+            auto markerFile = vfs->openFile(markerPath,
+                common::FileOpenFlags(
+                    common::FileFlags::WRITE | common::FileFlags::CREATE_IF_NOT_EXISTS),
+                &clientContext);
+            const uint8_t done = 1;
+            markerFile->writeFile(&done, 1, 0);
+            markerFile->truncate(1);
+            markerFile->syncFile();
+            markerFile.reset();
+            vfs->syncParentDirectory(markerPath);
+        } else {
+            vfs->removeFileIfExists(markerPath, &clientContext);
+            vfs->syncParentDirectory(markerPath);
+        }
+    }
+    bufferManager->removeEvictedCandidates();
     releaseCheckpointLocks();
+} catch (const std::exception& e) {
+    mainStorageManager->getWAL().poison(std::format("Checkpoint cleanup failed: {}", e.what()));
+    throw common::RuntimeException(std::format(
+        "Checkpoint cleanup failed; the database refuses further writes until restart. Original "
+        "error: {}",
+        e.what()));
+} catch (...) {
+    mainStorageManager->getWAL().poison("Checkpoint cleanup failed: unknown exception");
+    throw common::RuntimeException(
+        "Checkpoint cleanup failed; the database refuses further writes until restart. Original "
+        "error: unknown exception");
 }
 
 bool Checkpointer::checkpointStorage() {
@@ -447,7 +507,8 @@ bool Checkpointer::checkpointStorage() {
                 transaction::Transaction::DUMMY_TRANSACTION_ID, snapshotTS);
             targetHasChanges =
                 target.storageManager->checkpoint(&clientContext, *target.catalog, snapshotTxn,
-                    *pageAllocator, tableEpochWatermarksByManager.at(target.storageManager));
+                    *pageAllocator, tableEpochWatermarksByManager.at(target.storageManager),
+                    retentionHorizon, openStartTSs);
         } else {
             targetHasChanges =
                 target.storageManager->checkpoint(&clientContext, *target.catalog, *pageAllocator);
@@ -511,9 +572,45 @@ void Checkpointer::writeDatabaseHeader(const DatabaseHeader& header) {
     writeDatabaseHeaderToStorage(clientContext, header, *mainStorageManager);
 }
 
+void Checkpointer::beforeWALRetirement(bool) {}
+
+void Checkpointer::onWALRetired(bool) {}
+
+void Checkpointer::beforeGraphShadowApply(StorageManager&) {}
+
 void Checkpointer::logCheckpointAndApplyShadowPages(bool walRotated_) {
-    logCheckpointAndApplyShadowPagesForStorage(clientContext, *mainStorageManager, walRotated_);
+    auto& shadowFile = mainStorageManager->getShadowFile();
+    shadowFile.flushAll(mainStorageManager->getOrInitDatabaseID(clientContext));
+    auto* vfs = common::VirtualFileSystem::GetUnsafe(clientContext);
+    vfs->syncParentDirectory(
+        StorageUtils::getShadowFilePath(mainStorageManager->getDatabasePath()));
+    auto& wal = mainStorageManager->getWAL();
+    if (walRotated_) {
+        wal.logAndFlushCheckpointToFrozen(&clientContext);
+    } else {
+        wal.logAndFlushCheckpoint(&clientContext);
+    }
+    shadowFile.applyShadowPages(*mainStorageManager, clientContext);
     applyShadowPagesForPartitionChildren();
+}
+
+void Checkpointer::flushGraphShadowFiles() {
+    const auto ownerDatabaseID = mainStorageManager->getOrInitDatabaseID(clientContext);
+    for (const auto& target : checkpointTargets) {
+        if (target.storageManager != mainStorageManager) {
+            target.storageManager->getShadowFile().flushAll(ownerDatabaseID);
+        }
+    }
+}
+
+void Checkpointer::applyGraphShadowPages() {
+    for (const auto& target : checkpointTargets) {
+        if (target.storageManager != mainStorageManager) {
+            beforeGraphShadowApply(*target.storageManager);
+            target.storageManager->getShadowFile().applyShadowPages(*target.storageManager,
+                clientContext);
+        }
+    }
 }
 
 // Partition children keep their own data files and shadow files but no WAL (the main database
@@ -526,17 +623,13 @@ void Checkpointer::applyShadowPagesForPartitionChildren() {
     if (dbManager == nullptr) {
         return;
     }
-    auto bufferManager = MemoryManager::Get(clientContext)->getBufferManager();
     for (auto* sm : dbManager->getPartitionStorageRegistry()->getAllManagers()) {
         auto& shadowFile = sm->getShadowFile();
         if (!shadowFile.hasShadowingFH()) {
             continue;
         }
-        // Durability was established by persistPartitionChildFiles() BEFORE the main commit
-        // point; here we only apply the pending pages and drop the shadow file.
         shadowFile.applyShadowPages(*sm, clientContext);
         sm->getDataFH()->flushAllDirtyPagesInFrames();
-        shadowFile.clear(*bufferManager);
     }
 }
 
@@ -587,20 +680,23 @@ bool Checkpointer::canAutoCheckpoint(const main::ClientContext& clientContext,
     return expectedSize > clientContext.getDBConfig()->checkpointThreshold;
 }
 
-void Checkpointer::readCheckpoint() {
+void Checkpointer::readCheckpoint(bool applyPartitionCheckpointShadows,
+    std::optional<common::uuid> legacyCheckpointDatabaseID, bool checkpointBundle) {
     // IMPORTANT: Use the main database's storage manager, NOT StorageManager::Get() which
     // returns the graph's storage manager if a default graph exists!
     auto storageManager = clientContext.getDatabase()->getStorageManager();
     storageManager->initDataFileHandle(common::VirtualFileSystem::GetUnsafe(clientContext),
         &clientContext);
     if (!isInMemory && storageManager->getDataFH()->getNumPages() > 0) {
-        readCheckpoint(&clientContext, clientContext.getDatabase()->getCatalog(), storageManager);
+        readCheckpoint(&clientContext, clientContext.getDatabase()->getCatalog(), storageManager,
+            applyPartitionCheckpointShadows, legacyCheckpointDatabaseID, checkpointBundle);
     }
     extension::ExtensionManager::Get(clientContext)->autoLoadLinkedExtensions(&clientContext);
 }
 
 void Checkpointer::readCheckpoint(main::ClientContext* context, catalog::Catalog* catalog,
-    StorageManager* storageManager) {
+    StorageManager* storageManager, bool applyPartitionCheckpointShadows,
+    std::optional<common::uuid> legacyCheckpointDatabaseID, bool checkpointBundle) {
     auto fileInfo = storageManager->getDataFH()->getFileInfo();
     auto reader = std::make_unique<common::BufferedFileReader>(*fileInfo);
     common::Deserializer deSer(std::move(reader));
@@ -620,12 +716,15 @@ void Checkpointer::readCheckpoint(main::ClientContext* context, catalog::Catalog
         deSer.getReader()->cast<common::BufferedFileReader>()->resetReadOffset(
             currentHeader->catalogPageRange.startPageIdx * common::LBUG_PAGE_SIZE);
         catalog->deserialize(deSer);
+        auto* partitionRegistry = PartitionStorageRegistry::Get(context);
+        partitionRegistry->openAllChildren(context, *catalog, applyPartitionCheckpointShadows);
+        if (applyPartitionCheckpointShadows) {
+            partitionRegistry->replayCheckpointShadows(context, legacyCheckpointDatabaseID,
+                checkpointBundle);
+        }
         deSer.getReader()->cast<common::BufferedFileReader>()->resetReadOffset(
             currentHeader->metadataPageRange.startPageIdx * common::LBUG_PAGE_SIZE);
         storageManager->deserialize(context, catalog, deSer);
-        // Ensure every partition child in the catalog has live storage (children absent from
-        // older snapshots get freshly created files).
-        PartitionStorageRegistry::Get(context)->openAllChildren(context, *catalog);
         storageManager->getDataFH()->getPageManager()->deserialize(deSer);
         storageManager->getDataFH()->getPageManager()->reclaimTailPagesIfNeeded(
             currentHeader->dataFileNumPages);

@@ -522,6 +522,7 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         from matrx_scraper.features.utils import (
             format_scraped_pages_section,
         )
+        from matrx_scraper.search.search import brave_failure_reason
 
         # ------------------------------------------------------------------
         # Phase 1: Concurrent search — fire all queries at once
@@ -604,7 +605,13 @@ async def research_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 success=False,
                 error=ToolError(
                     error_type="execution",
-                    message="All search queries failed to return results.",
+                    # The search helper returns None on failure; name its recorded cause, never just "failed".
+                    message="All search queries failed to return results."
+                    + "".join(
+                        f" {q!r}: {why}."
+                        for q in parsed.queries
+                        if (why := brave_failure_reason(q))
+                    ),
                     is_retryable=True,
                     suggested_action="Try different search queries or check network connectivity.",
                 ),

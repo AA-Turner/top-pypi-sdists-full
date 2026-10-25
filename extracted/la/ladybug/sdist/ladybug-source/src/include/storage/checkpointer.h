@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -40,7 +41,10 @@ public:
     virtual ~Checkpointer();
 
     void writeCheckpoint();
-    void beginCheckpoint(common::transaction_t snapshotTS);
+    void beginCheckpoint(common::transaction_t snapshotTS,
+        common::transaction_t retentionHorizon = common::INVALID_TRANSACTION,
+        std::vector<common::transaction_t> openStartTSs = {},
+        common::transaction_t pinningTxnID = common::INVALID_TRANSACTION);
     // Materialize storage while the write gate remains held. WAL rotation alone does not protect
     // the version chains and update metadata scanned and reset in this phase.
     void checkpointStoragePhase();
@@ -49,9 +53,12 @@ public:
     // the checkpoint itself can be marked clean.
     void postCheckpointCleanup(bool canResetPageManagerToCurrent = true);
     void rollback();
+    void releaseCheckpointLocks() noexcept;
     bool wasWalRotated() const { return walRotated; }
 
-    void readCheckpoint();
+    void readCheckpoint(bool applyPartitionCheckpointShadows = false,
+        std::optional<common::uuid> legacyCheckpointDatabaseID = std::nullopt,
+        bool checkpointBundle = false);
 
     static bool canAutoCheckpoint(const main::ClientContext& clientContext,
         const transaction::Transaction& transaction);
@@ -68,7 +75,16 @@ protected:
         bool hasStorageChanges);
     virtual void writeDatabaseHeader(const DatabaseHeader& header);
     virtual void logCheckpointAndApplyShadowPages(bool walRotated = false);
+    // Runs before the WAL retirement step on every checkpoint, whether or not retirement
+    // is skipped for a pinned horizon.
+    virtual void beforeWALRetirement(bool walRotated);
+    // Runs only when WAL retirement actually executes; skipped alongside retirement while
+    // the horizon pins the WAL.
+    virtual void onWALRetired(bool walRotated);
+    virtual void beforeGraphShadowApply(StorageManager& storageManager);
     void applyShadowPagesForPartitionChildren();
+    void flushGraphShadowFiles();
+    void applyGraphShadowPages();
 
 private:
     struct CheckpointTarget {
@@ -79,9 +95,10 @@ private:
     std::vector<CheckpointTarget> collectCheckpointTargets() const;
 
     static void readCheckpoint(main::ClientContext* context, catalog::Catalog* catalog,
-        StorageManager* storageManager);
+        StorageManager* storageManager, bool applyPartitionCheckpointShadows = false,
+        std::optional<common::uuid> legacyCheckpointDatabaseID = std::nullopt,
+        bool checkpointBundle = false);
     void acquireCheckpointLocks();
-    void releaseCheckpointLocks();
 
     PageRange serializeCatalog(const catalog::Catalog& catalog, StorageManager& storageManager);
     PageRange serializeCatalogSnapshot(const catalog::Catalog& catalog,
@@ -97,6 +114,18 @@ protected:
     bool walRotated = false;
     // Snapshot timestamp captured at drain time for MVCC catalog serialization.
     common::transaction_t snapshotTS = 0;
+    // Snapshot-horizon floor captured alongside snapshotTS (before the write gate).
+    // Version data committed at or after it is retained for open readers, and WAL
+    // rotation/retirement is skipped while it pins (the WAL keeps the commit records the
+    // pinned snapshot may still need);
+    // INVALID_TRANSACTION when no transaction was open (fast path: wipe and retire as before).
+    common::transaction_t retentionHorizon = common::INVALID_TRANSACTION;
+    // Transaction holding the horizon above, for pin observability. Meaningful only when
+    // the horizon is pinned.
+    common::transaction_t pinningTxnID = common::INVALID_TRANSACTION;
+    // Open-reader start timestamps captured alongside the horizon. CSR groups use the set
+    // (not the scalar) to cover and prune retained pre-checkpoint snapshots.
+    std::vector<common::transaction_t> openStartTSs;
     // Database header captured during beginCheckpoint for use in finishCheckpoint.
     DatabaseHeader checkpointHeader{};
     // Whether storage had changes during checkpointStoragePhase.

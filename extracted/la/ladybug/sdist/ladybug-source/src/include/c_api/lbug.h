@@ -140,6 +140,9 @@ typedef struct {
     bool enable_multi_writes;
     // If true, node tables create the default primary-key hash index.
     bool enable_default_hash_index;
+    // How many reusable cloned physical plans each thread retains per cached prepared
+    // statement. 0 disables pooled-plan reuse.
+    uint64_t physical_plan_pool_per_thread;
 
 #if defined(__APPLE__)
     // The thread quality of service (QoS) for the worker threads.
@@ -1080,6 +1083,15 @@ LBUG_C_API lbug_value* lbug_value_create_json(const char* val_);
  * @param val_ The UUID string value to create.
  */
 LBUG_C_API lbug_value* lbug_value_create_uuid(const char* val_);
+/**
+ * @brief Creates a value with BLOB type and the given binary data and length.
+ * Caller is responsible for destroying the returned value.
+ * @param data The binary data buffer. Must be non-null when length is non-zero; a null buffer
+ * with zero length creates an empty blob.
+ * @param length The length of the binary data in bytes.
+ * @return The created value, or nullptr if data is null while length is non-zero.
+ */
+LBUG_C_API lbug_value* lbug_value_create_blob(const uint8_t* data, uint64_t length);
 /**
  * @brief Creates a list value with the given number of elements and the given elements.
  * The caller needs to make sure that all elements have the same type.

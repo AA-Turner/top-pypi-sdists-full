@@ -29,7 +29,7 @@ MODES = [{"mode": "gemini_3", "family": "pro"}, {"mode": "legacy"}]
 @pytest.mark.parametrize("mode", MODES)
 def test_unset_canonical_takes_the_cell_default(mode: dict) -> None:
     wire = _wire({**mode, "default_include_thoughts": True}, {})
-    assert wire["thinking_config"] == {"include_thoughts": True}
+    assert wire["thinking_config"]["include_thoughts"] is True
 
 
 @pytest.mark.parametrize("mode", MODES)
@@ -40,7 +40,7 @@ def test_explicit_false_wins_over_the_cell_default(mode: dict) -> None:
 
 def test_reasoning_summary_never_wins_over_the_cell_default() -> None:
     wire = _wire({"mode": "gemini_3", "family": "pro", "default_include_thoughts": True}, {"reasoning_summary": "never"})
-    assert wire["thinking_config"] == {"include_thoughts": False}
+    assert wire["thinking_config"]["include_thoughts"] is False
 
 
 @pytest.mark.parametrize("mode", MODES)

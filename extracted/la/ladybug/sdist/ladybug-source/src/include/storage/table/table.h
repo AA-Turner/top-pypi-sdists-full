@@ -166,6 +166,7 @@ public:
     common::TableType getTableType() const { return tableType; }
     common::table_id_t getTableID() const { return tableID; }
     std::string getTableName() const { return tableName; }
+    const std::string& getOwnerCatalogName() const { return ownerCatalogName; }
     // The StorageManager that owns this table's data file. Partition children report their
     // own per-partition manager, not the main database's.
     StorageManager* getStorageManager() const { return storageManager; }
@@ -188,7 +189,9 @@ public:
         LocalTable* localTable) = 0;
     virtual bool checkpoint(main::ClientContext* context, catalog::TableCatalogEntry* tableEntry,
         PageAllocator& pageAllocator, const transaction::Transaction* snapshotTxn = nullptr,
-        uint64_t epochWatermark = 0) = 0;
+        uint64_t epochWatermark = 0,
+        common::transaction_t retentionHorizon = common::INVALID_TRANSACTION,
+        const std::vector<common::transaction_t>& openStartTSs = {}) = 0;
     virtual void rollbackCheckpoint() = 0;
     // Runs after the checkpoint commit point (shadow pages applied). Used to publish
     // in-memory state that must not become visible if the checkpoint still fails.
@@ -227,6 +230,7 @@ protected:
     common::TableType tableType;
     common::table_id_t tableID;
     std::string tableName;
+    std::string ownerCatalogName;
     bool enableCompression;
     MemoryManager* memoryManager;
     StorageManager* storageManager;

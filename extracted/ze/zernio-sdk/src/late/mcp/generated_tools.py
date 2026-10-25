@@ -185,6 +185,82 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get a Facebook Page's public info",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def account_settings_get_facebook_page_info(account_id: str) -> str:
+        """Get a Facebook Page's public info
+
+        Returns the public info of the Page selected on a `facebook` account: about,
+        description, website, phone, emails and opening hours, as Meta returns them
+        from the Page node. Text fields the Page never filled come back as null.
+
+        Args:
+            account_id: The ID of a connected Facebook account. (required)"""
+        client = _get_client()
+        try:
+            response = client.account_settings.get_facebook_page_info(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a Facebook Page's public info",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def account_settings_update_facebook_page_info(
+        account_id: str,
+        about: str | None = None,
+        description: str | None = None,
+        website: str | None = None,
+        phone: str | None = None,
+        emails: list[str] | None = None,
+        hours: dict[str, Any] | None = None,
+    ) -> str:
+        """Update a Facebook Page's public info
+
+        Updates the public info of the Page selected on a `facebook` account. Only the
+        fields in the body are sent to Meta, every other field keeps its value. Send an
+        empty string to clear a text field. Unknown fields are rejected with a 400.
+
+        Returns the Page info read back from Meta after the update. Meta needs the
+        `pages_manage_metadata` permission and a Page role that can edit the Page:
+        without them Meta's refusal comes back as `platform_api_error`.
+
+        Args:
+            account_id: The ID of a connected Facebook account. (required)
+            about: Short description, shown as Description in the Page's Edit Page Info.
+            description: Longer text, shown as Additional Information.
+            website: URL of the Page's website.
+            phone
+            emails: Replaces every email listed on the Page.
+            hours: Replaces the opening hours. Keys are `{day}_{slot}_{open|close}` with day `mon` to `sun` and slot 1 or 2, values are 24h `HH:MM` times."""
+        client = _get_client()
+        try:
+            response = client.account_settings.update_facebook_page_info(
+                account_id=account_id,
+                about=about,
+                description=description,
+                website=website,
+                phone=phone,
+                emails=emails,
+                hours=hours,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get persistent menu",
             readOnlyHint=True,
             destructiveHint=False,
@@ -9494,7 +9570,7 @@ def register_generated_tools(mcp, _get_client):
                 catalog_format: Meta catalog template creatives only (goal `catalog_sales`, goal `traffic` with `promotedObject.productSetId`, or `adSetId` with `promotedObject.productSetId`); a 400 otherwise. Sent as `object_story_spec.template_data.format_option`. `force_single_link` is never sent with it (Meta rejects the pair, subcode 1443051). `single_image` also sends `format_transformation_spec` with `carousel` and `da_collection` set to `data_source: ["none"]`, so Meta keeps the single image instead of turning it into a carousel or collection. `carousel_images_single_item` also sends `template_data.multi_share_end_card: false`, which Meta requires for that format (subcode 1443167). Omit it to let Meta pick the format.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
                 ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
-                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. When Meta cannot dry-run the nested tree (code 2, or an unknown-error code 1 on an OFFSITE_CONVERSIONS ad set nested in a new campaign, which Meta returns for some website-conversion ad sets that it then creates normally), the campaign and creative are validated on their own and the adSet and ad nodes come back unverified with the reason. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
+                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. When Meta cannot dry-run the nested tree (code 2, or an unknown-error code 1 on an OFFSITE_CONVERSIONS ad set nested in a new campaign, which Meta returns for some website-conversion ad sets that it then creates normally, or a code 100 subcode 2446880 "WhatsApp number required" on an ad that does not message on WhatsApp, which Meta returns intermittently and then creates the ad normally), the campaign and creative are validated on their own and the adSet and ad nodes come back unverified with the reason. If the creative's own dry run also asks for a WhatsApp number, the creative comes back unverified too. Messaging ads still fail on 2446880. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error.
                 budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget. Reddit Ads: the ad group's daily or lifetime spend goal; lifetime needs `endDate`.
                 status: Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default, back-compat); PAUSED pauses only the TOP-MOST object this call creates and switches everything below it on, so one resume of that object brings the new tree live and nothing that already existed is touched: a new campaign is held paused with its ad set and ad on; with `existingCampaignId` the new ad set is held paused with its ad on; with `adSetId` the new ad itself is paused. `campaignStatus: ACTIVE` with `status: PAUSED` moves the pause down to the new ad set. `campaignStatus`, `adSetStatus` and `adStatus` set one level each and always win for that level; `status: PAUSED` adds a hold of its own only when none of them is PAUSED. To create every object paused, send all three as PAUSED. LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE; a new campaign in an existing group stays DRAFT; a held creative (with `adSetId`) is created DRAFT, as LinkedIn refuses PAUSED until its review is APPROVED. X has no per-ad switch, so its lowest level is the line item. Google Performance Max and Demand Gen accept PAUSED only (the campaign is created paused).
@@ -12669,7 +12745,7 @@ def register_generated_tools(mcp, _get_client):
                 metric_type: "total_value" (default) returns aggregated totals and supports breakdowns.
         "time_series" returns daily values but only works with the "reach" metric.
                 breakdown: Breakdown dimension (only valid with metricType=total_value).
-        Valid values depend on the metric: media_product_type, follow_type, follower_type, contact_button_type."""
+        Valid values per metric: reach and views take follow_type or media_product_type; follows_and_unfollows takes follow_type; profile_links_taps takes contact_button_type; comments, likes, saves, shares and total_interactions take media_product_type."""
         client = _get_client()
         try:
             response = client.analytics.get_instagram_account_insights(
@@ -13414,6 +13490,51 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.analytics.get_facebook_post_reactions(
                 account_id=account_id, post_id=post_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List visitor posts on a Facebook Page",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_list_facebook_visitor_posts(
+        account_id: str, limit: int = 25, cursor: str | None = None
+    ) -> str:
+        """List visitor posts on a Facebook Page
+
+        Returns the posts other people published on the connected Facebook Page,
+        newest first. Zernio reads the Page feed (Graph `/{page-id}/feed`, which
+        works on New Pages Experience Pages, unlike the deprecated `visitor_posts`
+        edge) and drops the posts the Page published itself and the posts other
+        people published on their own timeline that only tag the Page. A Page
+        without visitor posts returns an empty `data` array.
+
+        Cursor-paginated: pass `nextCursor` from the previous response as
+        `cursor` to read the next page. `limit` sets how many feed entries are
+        scanned, so a page can hold fewer posts than `limit`, or none, while
+        `nextCursor` is not null. `nextCursor` is null when there are no more
+        pages, and the final page can come back empty.
+
+        Works on `facebook` accounts with a Page selected. Meta requires the `pages_read_user_content`
+        permission, which Zernio requests with the comments scope: an account
+        connected without it receives Meta's refusal as `platform_api_error`.
+
+        Platforms: facebook
+
+        Args:
+            account_id: The ID of a connected Facebook Page account. (required)
+            limit: Number of Page feed entries to scan. The Page's own posts are dropped from them.
+            cursor: The `nextCursor` of the previous page."""
+        client = _get_client()
+        try:
+            response = client.analytics.list_facebook_visitor_posts(
+                account_id=account_id, limit=limit, cursor=cursor
             )
             return _format_response(response)
         except Exception as e:
@@ -16852,7 +16973,7 @@ def register_generated_tools(mcp, _get_client):
             comment_reply_delay_seconds: Seconds to wait before posting the public comment reply. Omit or send 0 to post it right after the DM (the default). The reply never goes out before the DM, so a value below dmDelaySeconds is raised to it. Ignored when trigger=story_reply, which has no public reply.
             also_match_in_dms: Also fire these keywords on a plain inbound DM, so the automation answers people who message the keyword instead of commenting it. Requires at least one keyword (an empty keyword list means 'match anything', which would answer every inbound message) and is rejected on story_reply automations, which already trigger on DMs. Dedup is per door: a contact who already received the DM from their comment can still receive it from a DM.
             audience: Object with keys: followerStatus (one of: any, follower, non_follower); minFollowerCount (integer) - Skip commenters with fewer followers than this. Omit for no size rule.; whenUnknown (one of: send, skip, verify) - What to do when Instagram will not reveal the follow relationship. * `send` (default) - deliver the DM anyway (fails open). * `skip` - stay silent. * `verify` ...; tapToUnlock (boolean) - Send `followGate.message` with its button to EVERY commenter and deliver the real DM when they tap it, with no follow check at any point. Cannot be combined ...
-            follow_gate: Object with keys: message (string) - Confirmation DM sent when whenUnknown=verify or tapToUnlock=true. The default copy asks for a follow under whenUnknown=verify and only for the tap under ...; buttonLabel (string) - Confirm button label. Defaults to \"I'm following\" (whenUnknown=verify) or \"Unlock\" (tapToUnlock).; notFollowingMessage (string) - Sent to a commenter we know does not follow (followerStatus=follower), and after a confirm tap that does not unlock the DM. When following is what would ...
+            follow_gate: Object with keys: message (string) - Confirmation DM sent when whenUnknown=verify or tapToUnlock=true. The default copy asks for a follow under whenUnknown=verify and only for the tap under ...; buttonLabel (string) - Confirm button label. Defaults to \"I'm following\" (whenUnknown=verify) or \"Unlock\" (tapToUnlock).; profileButtonLabel (string) - Optional. When set, the follow gate DM and the not-following message with the confirm button also carry a URL button with this label that opens the connected ...; notFollowingMessage (string) - Sent to a commenter we know does not follow (followerStatus=follower), and after a confirm tap that does not unlock the DM. When following is what would ...
             repeat_policy: Object with keys: mode (one of: once, every_comment; required); cooldownHours (integer) - every_comment only (400 with once). Hours after a DM during which the same person is not DMed again.
             dedupe_same_text_hours: Skip the DM when this recipient already received identical DM text (after personalisation) from this account, from any automation, within this many hours. The skip is logged with status skipped.
             public_reply_policy: 'after_dm' posts commentReply only after a successful DM. 'always' posts it whatever the audience rule, dedupe or DM outcome: the moment a comment matches, or after commentReplyDelaySeconds when set (raised to dmDelaySeconds, so it never precedes the DM attempt).
@@ -16996,7 +17117,7 @@ def register_generated_tools(mcp, _get_client):
             dm_delay_seconds: Seconds to wait after the trigger before sending the DM. Send 0 to clear the delay and reply immediately.
             comment_reply_delay_seconds: Seconds to wait before posting the public comment reply. Send 0 to clear it. The reply never goes out before the DM.
             audience: Object with keys: followerStatus (one of: any, follower, non_follower); minFollowerCount (integer) - Skip commenters with fewer followers than this. Omit for no size rule.; whenUnknown (one of: send, skip, verify) - What to do when Instagram will not reveal the follow relationship. * `send` (default) - deliver the DM anyway (fails open). * `skip` - stay silent. * `verify` ...; tapToUnlock (boolean) - Send `followGate.message` with its button to EVERY commenter and deliver the real DM when they tap it, with no follow check at any point. Cannot be combined ...
-            follow_gate: Object with keys: message (string) - Confirmation DM sent when whenUnknown=verify or tapToUnlock=true. The default copy asks for a follow under whenUnknown=verify and only for the tap under ...; buttonLabel (string) - Confirm button label. Defaults to \"I'm following\" (whenUnknown=verify) or \"Unlock\" (tapToUnlock).; notFollowingMessage (string) - Sent to a commenter we know does not follow (followerStatus=follower), and after a confirm tap that does not unlock the DM. When following is what would ...
+            follow_gate: Object with keys: message (string) - Confirmation DM sent when whenUnknown=verify or tapToUnlock=true. The default copy asks for a follow under whenUnknown=verify and only for the tap under ...; buttonLabel (string) - Confirm button label. Defaults to \"I'm following\" (whenUnknown=verify) or \"Unlock\" (tapToUnlock).; profileButtonLabel (string) - Optional. When set, the follow gate DM and the not-following message with the confirm button also carry a URL button with this label that opens the connected ...; notFollowingMessage (string) - Sent to a commenter we know does not follow (followerStatus=follower), and after a confirm tap that does not unlock the DM. When following is what would ...
             is_active
             repeat_policy: Object with keys: mode (one of: once, every_comment; required); cooldownHours (integer) - every_comment only (400 with once). Hours after a DM during which the same person is not DMed again.
             dedupe_same_text_hours: Skip the DM when this recipient already received identical DM text (after personalisation) from this account, from any automation, within this many hours. The skip is logged with status skipped. Send null to clear.
@@ -20643,7 +20764,7 @@ def register_generated_tools(mcp, _get_client):
                 brand_name: Your product name, for the two branded pages. With `signup=hosted` (WhatsApp) it replaces Zernio in the page title ("Connect your WhatsApp number to <brandName>"). With `welcome=true` it fills the heading ("<brandName> wants to connect to your <platform>"); without it the screen shows Zernio and the Zernio mark. Both pages keep a Zernio mark: they are co-branded, not white-label. Trimmed; 1 to 60 characters. Rejected with 400 `INVALID_FIELD_VALUE` without `signup=hosted` or `welcome=true`. Sealed into the page link at issue time, so editing the URL cannot change it.
                 primary_color: Hex colour (`#RRGGBB`) for the primary button on the hosted WhatsApp signup page (`signup=hosted`) or the welcome screen (`welcome=true`). Validated server-side; anything else is a 400 `INVALID_FIELD_VALUE`. Rejected without one of the two.
                 welcome: Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button reads Connecting for about a second and then sends the user on to the platform's own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio's own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform's authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.
-                welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine`, `consentLine` and `statusLine` (up to 200 each, `statusLine` being the line above the button), `buttonLabel` (up to 30, the label of the link the button becomes if the redirect stalls); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor` (the button), `accentColor` (the header gradient, built as a scale of that colour, and the icons), `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
+                welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine`, `consentLine` and `statusLine` (up to 200 each, `statusLine` being the line above the button), `buttonLabel` (up to 30, the label of the link the button becomes if the redirect stalls), and for the closing page shown when there is no `redirect_url`, `successHeading` and `errorHeading` (up to 120) and `successBody` and `errorBody` (up to 200); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor` (the button), `accentColor` (the header gradient, built as a scale of that colour, and the icons), `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`, `bannerStyle` as `halftone` (default), `solid` (a flat tint of `accentColor`) or `plain` (no banner fill). Icons: `trustLineIcon` (default `shield`) and `consentLineIcon` (default `link`), each one of `shield`, `lock`, `link`, `check`, `user`, `sparkles` or `none`. Visibility: `hide`, an array of any of `heading`, `trustLine`, `consentLine`, `statusLine`, `successBody` and `errorBody`, removes those lines from the screens. Links: `termsUrl` and `privacyUrl` (https, up to 2048 characters) add small Terms and Privacy links at the bottom of every hosted screen. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
                 logo_url: Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.
                 language: Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`.
                 handoff: Let the user finish on their phone. When `true`, the response also carries `handoff`: show `handoff.url` as a QR code in your app (any QR library), the user scans it and the welcome screen opens on the phone, already carrying this connect, so they log in to the platform there without signing in to anything else. The phone ends on a Zernio result screen telling them to go back to their computer. Learn the outcome by polling `GET /v1/connect/handoffs/{handoffId}` (every 2 to 5 seconds is fine) or from the `account.connected` webhook. Shows the welcome screen with your branding parameters or saved settings. Cannot be combined with `welcome=false`, `headless=true`, `signup`, `redirect=true` or `redirect_url` (400 `INVALID_FIELD_VALUE`). `handoff.url` works for 30 minutes. When the account is re-enabled straight away the response carries `account` instead, as without `handoff`."""
@@ -27894,7 +28015,7 @@ def register_generated_tools(mcp, _get_client):
             profile_id: Filter by profile ID
             platform: Filter by platform
             status: Filter by conversation status
-            folder: requests lists Facebook and Instagram Message Requests (threads from people the account has not accepted) live from Meta, each item with `folder: requests`. Meta has no accept call: replying moves a thread to the inbox, which is what POST /v1/inbox/conversations/{conversationId}/accept does. When Meta will not list the folder for the one account asked (`accountId`), the call answers 400 PLATFORM_LIMITATION; across several accounts the refusal is reported per account in meta.failedAccounts. Instagram accounts connected with Instagram Login answer PLATFORM_LIMITATION (Meta does not expose the folder on that login); Facebook and Instagram via Facebook Login are served. One page of up to `limit` threads; `pagination.hasMore` is true when threads past `limit` were cut (narrow with `accountId`), `pagination.nextCursor` is always null and a `cursor` answers 400.
+            folder: requests lists Facebook Page Message Requests (threads from people the account has not accepted) live from Meta, each item with `folder: requests`. Meta has no accept call: replying moves a thread to the inbox, which is what POST /v1/inbox/conversations/{conversationId}/accept does. When Meta will not list the folder for the one account asked (`accountId`), the call answers 400 PLATFORM_LIMITATION; across several accounts the refusal is reported per account in meta.failedAccounts. Instagram accounts (Instagram Login and Facebook Login) answer PLATFORM_LIMITATION, because Meta does not separate the folder on Instagram; only Facebook Pages are served. One page of up to `limit` threads; `pagination.hasMore` is true when threads past `limit` were cut (narrow with `accountId`), `pagination.nextCursor` is always null and a `cursor` answers 400.
             sort_order: Sort order by updated time
             limit: Maximum number of conversations to return; values above 100 are served as 100.
             cursor: Pagination cursor for next page
@@ -28497,7 +28618,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Accept a message request
 
-        Accept a Facebook or Instagram Message Request (listed with `GET /v1/inbox/conversations?folder=requests`) by replying to it.
+        Accept a Facebook or Instagram Message Request by replying to it (Facebook Page requests are listed with `GET /v1/inbox/conversations?folder=requests`; Instagram answers PLATFORM_LIMITATION there).
         Meta has no separate accept call: the first reply is what moves the thread into the inbox, so this sends `message`
         through the same path, checks and webhooks as `POST /v1/inbox/conversations/{conversationId}/messages`, and answers the same way.
         Supports the `Idempotency-Key` header.
@@ -28510,6 +28631,163 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.messages.accept_conversation_request(
                 conversation_id=conversation_id, account_id=account_id, message=message
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the Page's conversation labels",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def messages_list_inbox_labels(account_id: str) -> str:
+        """List the Page's conversation labels
+
+        Facebook Messenger only. Lists the custom labels defined on the Page (Graph `/{page-id}/custom_labels`). Other platforms answer 400 `platform_not_supported`.
+
+        Args:
+            account_id: Facebook social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.list_inbox_labels(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a conversation label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def messages_create_inbox_label(account_id: str, name: str) -> str:
+        """Create a conversation label
+
+        Facebook Messenger only. Creates a custom label on the Page (Graph `POST /{page-id}/custom_labels`). Other platforms answer 400 `platform_not_supported`.
+
+        Args:
+            account_id: Facebook social account ID (required)
+            name: Label name (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.create_inbox_label(
+                account_id=account_id, name=name
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a conversation label",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def messages_delete_inbox_label(label_id: str, account_id: str) -> str:
+        """Delete a conversation label
+
+        Facebook Messenger only. Deletes a custom label from the Page (Graph `DELETE /{label-id}`), which also removes it from every conversation. The id must be one of the Page's custom labels, otherwise 404 `resource_not_found`. Other platforms answer 400 `platform_not_supported`.
+
+        Args:
+            label_id: Meta label id (required)
+            account_id: Facebook social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.delete_inbox_label(
+                label_id=label_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the labels on a conversation",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def messages_list_conversation_labels(conversation_id: str, account_id: str) -> str:
+        """List the labels on a conversation
+
+        Facebook Messenger only. Lists the Page's custom labels applied to the person in this conversation (Graph `/{psid}/custom_labels`). Other platforms answer 400 `platform_not_supported`.
+
+        Args:
+            conversation_id: Conversation ID (Zernio id or Meta platform conversation id) (required)
+            account_id: Facebook social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.list_conversation_labels(
+                conversation_id=conversation_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add a label to a conversation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def messages_add_conversation_label(
+        conversation_id: str, account_id: str, label_id: str
+    ) -> str:
+        """Add a label to a conversation
+
+        Facebook Messenger only. Applies one of the Page's custom labels to the person in this conversation (Graph `POST /{label-id}/label?user={psid}`). The id must be one of the Page's custom labels, otherwise 404 `resource_not_found`. Other platforms answer 400 `platform_not_supported`.
+
+        Args:
+            conversation_id: Conversation ID (Zernio id or Meta platform conversation id) (required)
+            account_id: Facebook social account ID (required)
+            label_id: Meta label id from listInboxLabels (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.add_conversation_label(
+                conversation_id=conversation_id,
+                account_id=account_id,
+                label_id=label_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove a label from a conversation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def messages_remove_conversation_label(
+        conversation_id: str, label_id: str, account_id: str
+    ) -> str:
+        """Remove a label from a conversation
+
+        Facebook Messenger only. Removes one of the Page's custom labels from the person in this conversation (Graph `DELETE /{label-id}/label?user={psid}`). The label itself stays on the Page. The id must be one of the Page's custom labels, otherwise 404 `resource_not_found`. Other platforms answer 400 `platform_not_supported`.
+
+        Args:
+            conversation_id: Conversation ID (Zernio id or Meta platform conversation id) (required)
+            label_id: Meta label id (required)
+            account_id: Facebook social account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.messages.remove_conversation_label(
+                conversation_id=conversation_id,
+                label_id=label_id,
+                account_id=account_id,
             )
             return _format_response(response)
         except Exception as e:
@@ -31455,7 +31733,7 @@ def register_generated_tools(mcp, _get_client):
             title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
             content
             media_items: Each item is an object with keys: type (one of: image, video, gif, document); url (string) - A media item with a null, missing or empty url is dropped.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image, applied on every platform that supports it: Instagram (feed images only, not Reels/Stories), Facebook, Threads, X ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, regular video uploads, and LinkedIn video posts. Max ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Sent to YouTube, Facebook videos, LinkedIn, X and ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
-            platforms: Target platforms and accounts for this post. Each item must include platform and accountId. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override.; customMedia (list of objects with keys type, url, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. It is kept when a top-level scheduledFor is also sent, except a date sent back unchanged that matched the post ...; platformSpecificData (object) - A <platform>Settings namespace (e.g. facebookSettings, tiktokSettings) omitted from the request is preserved from the stored post. Sending the key replaces ...
+            platforms: Target platforms and accounts for this post. Each item must include platform and accountId. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override.; customMedia (list of objects with keys type, url, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. It is kept when a top-level scheduledFor is also sent, except a date sent back unchanged (same instant, or the ...; platformSpecificData (object) - A <platform>Settings namespace (e.g. facebookSettings, tiktokSettings) omitted from the request is preserved from the stored post. Sending the key replaces ...
             scheduled_for
             publish_now
             is_draft: When omitted, the post keeps its current draft status. Send `false` to promote a draft to scheduled (combined with `scheduledFor`, `publishNow`, or a queue).
@@ -31619,6 +31897,62 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.posts.unpublish_post(
+                post_id=post_id, platform=platform, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Pin post",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def posts_pin_post(
+        post_id: str, platform: str, account_id: str | None = None
+    ) -> str:
+        """Pin post
+
+        Pins a published Facebook Page post to the top of its Page. Only Facebook posts can be pinned; any other platform answers 400 `platform_not_supported`. Works for posts on Pages connected through Facebook Login.
+
+        Args:
+            post_id: (required)
+            platform: Must be `facebook`. Any other value answers 400 `platform_not_supported`. (required)
+            account_id: Which Facebook account's copy to change when the post was published to several Facebook accounts. Required in that case."""
+        client = _get_client()
+        try:
+            response = client.posts.pin_post(
+                post_id=post_id, platform=platform, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Unpin post",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def posts_unpin_post(
+        post_id: str, platform: str, account_id: str | None = None
+    ) -> str:
+        """Unpin post
+
+        Unpins a published Facebook Page post from the top of its Page. Only Facebook posts can be unpinned; any other platform answers 400 `platform_not_supported`.
+
+        Args:
+            post_id: (required)
+            platform: Must be `facebook`. Any other value answers 400 `platform_not_supported`. (required)
+            account_id: Which Facebook account's copy to change when the post was published to several Facebook accounts. Required in that case."""
+        client = _get_client()
+        try:
+            response = client.posts.unpin_post(
                 post_id=post_id, platform=platform, account_id=account_id
             )
             return _format_response(response)

@@ -16,7 +16,7 @@ Two halves:
 
 from __future__ import annotations
 
-import inspect
+from matrx_utils.source_guard import stable_source
 
 import pytest
 
@@ -96,14 +96,14 @@ async def test_a_parked_row_is_not_swept(ledger):
 def test_the_run_exit_sweeps_before_its_final_commit():
     from matrx_ai.orchestrator import executor
 
-    src = inspect.getsource(executor._finalize_and_persist)
+    src = stable_source(executor._finalize_and_persist)
     sweep = src.find("settle_open_rows_at_run_end(")
     final = src.find('finalize(reason="request_final_commit")')
     assert sweep != -1, "_finalize_and_persist must run the run-end sweep"
     assert final != -1
     assert sweep < final, "the sweep must be queued before the run's final commit"
 
-    run_src = inspect.getsource(executor.execute_until_complete)
+    run_src = stable_source(executor.execute_until_complete)
     backstop = run_src.find("settle_open_rows_at_run_end(")
     close = run_src.find("reset_turn_ledger(ledger_token)")
     assert backstop != -1 and backstop < close, (

@@ -128,9 +128,12 @@ BRAVE_WEB_SEARCH_URL = f"{BRAVE_API_ROOT}/web/search"
 #: text_decorations) to the news or image endpoint is not a no-op we can rely
 #: on, so each endpoint sends only its own.
 #:
-#: NOT here, deliberately: suggest, spellcheck and llm/context. All three
-#: return 400 OPTION_NOT_IN_PLAN on our subscription (verified 2026-08-20), so
-#: shipping a method for them would be a method that only ever fails.
+#: NOT here, deliberately: llm/context — 400 OPTION_NOT_IN_PLAN on our
+#: subscription (verified 2026-08-20), so a method would only ever fail.
+#: `suggest` and `spellcheck` are their own methods below: Arman approved the
+#: Autosuggest add-on 2026-10-24 for the search box's suggestions, and Brave
+#: Spellcheck 2026-10-25 for the editor's right-click spelling rows. Each add-on
+#: rides its OWN key, which the host passes as `api_key=`.
 _WEB_ONLY = frozenset(
     {"offset", "extra_snippets", "text_decorations", "result_filter", "units", "goggles", "summary"}
 )
@@ -165,6 +168,8 @@ BRAVE_LOCAL_DESCRIPTIONS_URL = f"{BRAVE_API_ROOT}/local/descriptions"
 #: web search with `summary=True` returns an opaque `summarizer.key`, and that
 #: key — not the query — is what this endpoint takes.
 BRAVE_SUMMARIZER_URL = f"{BRAVE_API_ROOT}/summarizer/search"
+BRAVE_SUGGEST_URL = f"{BRAVE_API_ROOT}/suggest/search"
+BRAVE_SPELLCHECK_URL = f"{BRAVE_API_ROOT}/spellcheck/search"
 
 #: Statuses worth another attempt. A 429 is included, but exhausting the
 #: attempts on one raises `BraveRateLimitError` rather than a generic HTTP
@@ -766,6 +771,47 @@ class BraveSearchClient:
             BRAVE_SUMMARIZER_URL,
             {"key": summarizer_key, "entity_info": entity_info},
             query=summarizer_key[:80],
+            timeout=timeout,
+            api_key=api_key,
+        )
+
+    async def suggest(
+        self,
+        query: str,
+        *,
+        count: int = 8,
+        country: str = "us",
+        timeout: float = 3,  # noqa: ASYNC109 - httpx per-request timeout, not a cancellation scope
+        api_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Brave Autosuggest — query completions for a search box as the person types
+        (`results[].query`). Needs the Autosuggest add-on on the subscription; without it
+        Brave answers 400 OPTION_NOT_IN_PLAN. Short timeout: a late suggestion is useless."""
+        return await self._raw_get(
+            BRAVE_SUGGEST_URL,
+            {"q": query, "count": count, "country": country.lower()},
+            query=query,
+            timeout=timeout,
+            api_key=api_key,
+        )
+
+    async def spellcheck(
+        self,
+        query: str,
+        *,
+        country: str = "us",
+        timeout: float = 3,  # noqa: ASYNC109 - httpx per-request timeout, not a cancellation scope
+        api_key: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Brave Spellcheck — the corrected form of `query` as a whole
+        (`results[].query`; an empty `results` means Brave would change nothing).
+        `query.original` echoes what was sent. Needs the Spellcheck plan on the key;
+        without it Brave answers 400 OPTION_NOT_IN_PLAN. Short timeout: it answers a
+        right-click that is already open."""
+        return await self._raw_get(
+            BRAVE_SPELLCHECK_URL,
+            {"q": query, "country": country.lower()},
+            query=query,
             timeout=timeout,
             api_key=api_key,
         )

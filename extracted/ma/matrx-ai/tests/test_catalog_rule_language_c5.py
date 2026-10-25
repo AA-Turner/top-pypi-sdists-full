@@ -271,10 +271,14 @@ class TestProcessorTablesAreRuleData:
         controls = _map({"reasoning_effort": rule})
         assert controls.outbound({"reasoning_effort": "medium"})[0] == {"reasoning_effort": "medium"}
         assert controls.outbound({"reasoning_effort": "xhigh"})[0] == {"reasoning_effort": "low"}
-        # NOT SET: only the cell-DECLARED default rides; undeclared, nothing.
-        assert controls.outbound({})[0] == {"reasoning_effort": "high"}
+        # NOT SET: the platform default ("low", owner ruling 2026-10-24, catalog/FEATURE.md
+        # §12) lands through the processor's set path — a DEEPER cell default ("high") no
+        # longer decides an unset run.
+        assert controls.outbound({})[0] == {"reasoning_effort": "low"}
+        # A bare Together cell: Together lists no "low", so the default lands on its
+        # nearest offered level (controls.apply_reasoning_default, ties go lower).
         bare = _map({"reasoning_effort": {"processor": "together_reasoning"}})
-        assert bare.outbound({})[0] == {}
+        assert bare.outbound({})[0] == {"reasoning_effort": "high"}
 
     def test_media_aspect_table_from_processor_config(self):
         rule = {
@@ -413,5 +417,8 @@ def test_google_legacy_hidden_thoughts_keep_an_explicit_budget():
     })})
     out, _ = compiled.outbound({"include_thoughts": False, "thinking_budget": 5000})
     assert out["thinking_config"] == {"include_thoughts": False, "thinking_budget": 5000}
+    # No depth set: the platform default ("low" → its budget) decides the depth, never the
+    # visibility switch (owner ruling 2026-10-24; before it this was the dynamic -1).
     out, _ = compiled.outbound({"include_thoughts": False})
-    assert out["thinking_config"] == {"include_thoughts": False, "thinking_budget": -1}
+    assert out["thinking_config"]["include_thoughts"] is False
+    assert out["thinking_config"]["thinking_budget"] == 1024

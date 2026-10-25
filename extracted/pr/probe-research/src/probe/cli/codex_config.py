@@ -206,8 +206,36 @@ def _replace_span(text: str, span: tuple[int, int] | None, block: str) -> str:
     return "".join(lines[:start]) + block + "".join(lines[end:])
 
 
-def write_mcp_bearer(name: str, *, url: str, token: str, path: Path | None = None) -> WriteResult:
+def configured_limit_headers(name: str, *, path: Path | None = None) -> dict[str, str] | None:
+    """The workspace-limit headers in the table we wrote ({} for none), or None
+    when there is no entry to compare. A copy of the limit, like the bearer: a
+    limit change must re-render it (`setup.sync_codex_mcp_token`)."""
+    from probe.sdk.workspace_limit import limit_headers_of
+
+    target = path or config_path()
+    try:
+        parsed = tomllib.loads(target.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    entry = (parsed.get("mcp_servers") or {}).get(name)
+    if not isinstance(entry, dict):
+        return None
+    headers = entry.get("http_headers")
+    return limit_headers_of(headers if isinstance(headers, dict) else {})
+
+
+def write_mcp_bearer(
+    name: str,
+    *,
+    url: str,
+    token: str,
+    path: Path | None = None,
+    limit_headers: dict[str, str] | None = None,
+) -> WriteResult:
     """Point Codex's `name` MCP at `url` with a static Authorization header.
+
+    `limit_headers`: this computer's workspace-limit headers to carry beside it
+    (default: what the Probe config stores now, `workspace_limit.stored_headers`).
 
     Replaces the whole table rather than patching keys inside it: a leftover
     `bearer_token_env_var` from an earlier shape would otherwise sit alongside
@@ -238,11 +266,20 @@ def write_mcp_bearer(name: str, *, url: str, token: str, path: Path | None = Non
     # reading, that the transport cannot carry the id, is false and would have
     # sent us building a worse fix. The agent's own shell DOES see the variable,
     # which is what `search(exclude_session=...)` is for meanwhile.
+    if limit_headers is None:
+        from probe.sdk.workspace_limit import stored_headers
+
+        limit_headers = stored_headers()
+    # This computer's workspace limit rides the same static table (the hosted MCP
+    # forwards it); absent for the whole team.
+    limit = "".join(
+        f", {_toml_string(key)} = {_toml_string(value)}" for key, value in sorted(limit_headers.items())
+    )
     block = (
         f"[mcp_servers.{name}]\n"
         f"url = {_toml_string(url)}\n"
         f"http_headers = {{ Authorization = {_toml_string(f'Bearer {token}')}, "
-        f"{_toml_string(AGENT_HEADER)} = {_toml_string(CODEX_AGENT_LABEL)} }}\n"
+        f"{_toml_string(AGENT_HEADER)} = {_toml_string(CODEX_AGENT_LABEL)}{limit} }}\n"
         f"env_http_headers = {{ "
         f"{_toml_string(AGENT_SESSION_HEADER)} = \"CODEX_THREAD_ID\" }}\n"
     )
@@ -263,6 +300,62 @@ def write_mcp_bearer(name: str, *, url: str, token: str, path: Path | None = Non
     except OSError as exc:
         raise ConfigError(f"could not write {target}: {exc}") from exc
     return WriteResult(path=target, changed=True, previous=previous)
+
+
+def write_limit_headers(name: str, limit_headers: dict[str, str], *, path: Path | None = None) -> WriteResult:
+    """Set ONLY the workspace-limit headers in `name`'s existing table -- for an
+    install Codex authenticates itself (`codex mcp login`, OAuth), which has no
+    static bearer for `write_mcp_bearer` to rewrite around. Every other key of the
+    table is left as it is; `limit_headers` empty removes them.
+
+    Edits the table's one `http_headers = { ... }` line (adding it under the
+    header when absent). A table whose `http_headers` is spelled any other way (a
+    sub-table) is refused, never rewritten: the file is a person's as well as ours.
+    """
+    from probe.sdk.workspace_limit import LIMIT_HEADER, TEAM_ITEMS_HEADER
+
+    target = path or config_path()
+    try:
+        original = target.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigError(f"could not read {target}: {exc}") from exc
+    _validated(original, what=str(target))
+    entry = (tomllib.loads(original).get("mcp_servers") or {}).get(name)
+    if not isinstance(entry, dict):
+        raise ConfigError(f"{target} has no [mcp_servers.{name}] table")
+    current = entry.get("http_headers") if isinstance(entry.get("http_headers"), dict) else {}
+    limit_keys = {LIMIT_HEADER.lower(), TEAM_ITEMS_HEADER.lower()}
+    kept = {str(k): str(v) for k, v in current.items() if str(k).lower() not in limit_keys}
+    headers = {**kept, **dict(sorted(limit_headers.items()))}
+    if headers == {str(k): str(v) for k, v in current.items()}:
+        return WriteResult(path=target, changed=False, previous=original)
+
+    lines = original.splitlines(keepends=True)
+    span = _table_span(lines, name)
+    assert span is not None  # the parse above found the table
+    start, end = span
+    own_end = next(
+        (i for i in range(start + 1, end) if lines[i].lstrip().startswith("[")), end
+    )  # before the table's first sub-table
+    key_line = re.compile(r'^\s*(?:http_headers|"http_headers")\s*=')
+    at = next((i for i in range(start + 1, own_end) if key_line.match(lines[i])), None)
+    if at is None and "http_headers" in entry:
+        raise ConfigError(f"{target}: [mcp_servers.{name}] spells http_headers as a table; left untouched")
+    inline = ", ".join(f"{_toml_string(k)} = {_toml_string(v)}" for k, v in headers.items())
+    replacement = [f"http_headers = {{ {inline} }}\n"] if headers else []
+    if at is None:
+        lines[start + 1 : start + 1] = replacement
+    else:
+        lines[at : at + 1] = replacement
+    updated = "".join(lines)
+    _validated(updated, what="the updated Codex config")
+    if ((tomllib.loads(updated).get("mcp_servers") or {}).get(name) or {}).get("http_headers", {}) != headers:
+        raise ConfigError(f"{target}: could not place the workspace-limit headers; left untouched")
+    try:
+        write_text_atomic(target, updated, mode=0o600)
+    except OSError as exc:
+        raise ConfigError(f"could not write {target}: {exc}") from exc
+    return WriteResult(path=target, changed=True, previous=original)
 
 
 def restore(result: WriteResult) -> None:

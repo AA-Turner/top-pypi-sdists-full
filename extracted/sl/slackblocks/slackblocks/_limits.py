@@ -17,6 +17,8 @@ BUTTON_URL_MAX_LENGTH = 3000
 BUTTON_VALUE_MAX_LENGTH = 2000
 # button.accessibility_label.max_length
 BUTTON_ACCESSIBILITY_LABEL_MAX_LENGTH = 75
+# button.agent_prompt.max_length
+BUTTON_AGENT_PROMPT_MAX_LENGTH = 4000
 # confirmation.title.max_length
 CONFIRMATION_TITLE_MAX_LENGTH = 100
 # confirmation.text.max_length
@@ -41,10 +43,16 @@ OPTION_GROUP_OPTIONS_MIN_ITEMS = 1
 OPTION_GROUP_OPTIONS_MAX_ITEMS = 100
 # select.placeholder.max_length
 SELECT_PLACEHOLDER_MAX_LENGTH = 150
+# select.options.min_items
+SELECT_OPTIONS_MIN_ITEMS = 1
 # select.options.max_items
 SELECT_OPTIONS_MAX_ITEMS = 100
+# select.option_groups.min_items
+SELECT_OPTION_GROUPS_MIN_ITEMS = 1
 # select.option_groups.max_items
 SELECT_OPTION_GROUPS_MAX_ITEMS = 100
+# select.min_query_length.min
+SELECT_MIN_QUERY_LENGTH_MIN = 0
 # overflow.options.min_items
 OVERFLOW_OPTIONS_MIN_ITEMS = 1
 # overflow.options.max_items
@@ -265,6 +273,8 @@ VIDEO_VIDEO_URL_MAX_LENGTH = 3000
 VIDEO_TITLE_URL_MAX_LENGTH = 2000
 # video.provider_icon_url.max_length
 VIDEO_PROVIDER_ICON_URL_MAX_LENGTH = 2000
+# message.data_visualizations.max_items
+MESSAGE_DATA_VISUALIZATIONS_MAX_ITEMS = 2
 # message.channel.min_length
 MESSAGE_CHANNEL_MIN_LENGTH = 1
 # message.blocks.max_items

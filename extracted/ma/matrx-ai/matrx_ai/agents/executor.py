@@ -60,6 +60,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from matrx_ai.agents.definition import Agent, AgentExecuteResult
 from matrx_ai.agents.source_tracking import resolve_child_source
+from matrx_ai.config.citations import collect_message_citations
 from matrx_ai.config.host_turn import HostTurn, refuse_both
 from matrx_ai.config.media_config import collect_media_refs
 from matrx_ai.config.usage_config import AggregatedUsage, TokenUsage
@@ -200,6 +201,11 @@ class AgentRunResult(BaseModel, Generic[ParsedT]):
     # the consumer (``agent_call``) turns it back into a real content block that the
     # provider resolves to bytes at send time.
     media: list[dict[str, Any]] = Field(default_factory=list)
+
+    # The canonical citations (``matrx_ai.config.citations.NormalizedCitation``
+    # dicts) the run's final answer carries — Gemini grounding, OpenAI url
+    # annotations, Anthropic web citations — newest message only.
+    citations: list[dict[str, Any]] = Field(default_factory=list)
 
     # The tool call(s) the run's LAST assistant turn ended on when that turn wrote
     # no answer text — a run cut off mid-tool-call (cancelled, out of rounds, its
@@ -990,6 +996,7 @@ async def run_agent(
             else ("execution" if execution_failed else None)
         ),
         media=collect_media_refs(getattr(execute_result, "assistant_response", None)),
+        citations=collect_message_citations(getattr(execute_result, "assistant_response", None)),
         stopped_on_tool_calls=unanswered_tool_calls(
             getattr(execute_result, "assistant_response", None)
         ),

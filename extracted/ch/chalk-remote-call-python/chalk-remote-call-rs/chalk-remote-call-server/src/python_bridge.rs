@@ -1,3 +1,4 @@
+use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -7,6 +8,46 @@ use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyDict, PyList};
 use tokio::sync::{mpsc, Notify};
 use tonic::Status;
+
+thread_local! {
+    // This value belongs only to its OS thread, including its destructor.
+    static THREAD_ATTACHMENT: OnceCell<ThreadAttachment> = const { OnceCell::new() };
+}
+
+struct ThreadAttachment {
+    state: pyo3::ffi::PyGILState_STATE,
+}
+
+impl ThreadAttachment {
+    fn new(_py: Python<'_>) -> Self {
+        // SAFETY: the Python token guarantees an attached thread. This nested
+        // Ensure returns LOCKED and pins its state after the outer guard detaches.
+        // The outer PyO3 guard still releases the GIL between invocations.
+        let state = unsafe { pyo3::ffi::PyGILState_Ensure() };
+        Self { state }
+    }
+}
+
+impl Drop for ThreadAttachment {
+    fn drop(&mut self) {
+        // Tokio joins its blocking threads while start_server's caller is detached.
+        // Reattach before releasing our matching LOCKED token; PyO3 then releases
+        // its outer token, deleting the state without retaining the GIL.
+        let _ = Python::try_attach(|_| unsafe {
+            // SAFETY: creation and destruction run on this same OS thread under
+            // the GIL, and this releases exactly the nested Ensure above.
+            pyo3::ffi::PyGILState_Release(self.state);
+        });
+    }
+}
+
+fn retain_thread_state(py: Python<'_>) {
+    // pybind11 can cache this state in native TLS. Its lifetime must match the
+    // blocking worker rather than an individual Python invocation.
+    THREAD_ATTACHMENT.with(|attachment| {
+        attachment.get_or_init(|| ThreadAttachment::new(py));
+    });
+}
 
 /// Holds references to the Python handler and bridge function.
 pub struct PythonHandler {
@@ -59,6 +100,7 @@ impl PythonHandler {
         let owner = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             Python::attach(|py| -> Result<(), PythonError> {
+                retain_thread_state(py);
                 let handler = owner.handler.clone_ref(py);
                 let process_fn = &owner.process_fn;
                 let arg_names = &owner.arg_names;
@@ -125,6 +167,7 @@ impl PythonHandler {
         let owner = Arc::clone(self);
         tokio::task::spawn_blocking(move || {
             Python::attach(|py| -> Result<Vec<Vec<u8>>, PythonError> {
+                retain_thread_state(py);
                 let handler = &owner.handler;
                 let process_fn = &owner.process_fn;
                 let arg_names = &owner.arg_names;
@@ -490,5 +533,88 @@ mod tests {
     #[test]
     fn coalesced_dispatch_yields_under_gil_contention() {
         dispatch_yields_while_gil_is_held(Dispatch::Coalesced);
+    }
+    fn contains_thread_state(_py: Python<'_>, id: i64) -> bool {
+        // SAFETY: interpreter state iteration and ID access occur under the GIL.
+        unsafe {
+            let interpreter =
+                pyo3::ffi::PyThreadState_GetInterpreter(pyo3::ffi::PyThreadState_Get());
+            let mut state = pyo3::ffi::PyInterpreterState_ThreadHead(interpreter);
+            while !state.is_null() {
+                if pyo3::ffi::PyThreadState_GetID(state) == id {
+                    return true;
+                }
+                state = pyo3::ffi::PyThreadState_Next(state);
+            }
+        }
+        false
+    }
+
+    async fn blocking_thread_state_id() -> i64 {
+        tokio::task::spawn_blocking(|| {
+            Python::attach(|py| {
+                retain_thread_state(py);
+                // SAFETY: this call runs under the live attachment above.
+                unsafe { pyo3::ffi::PyThreadState_GetID(pyo3::ffi::PyThreadState_Get()) }
+            })
+        })
+        .await
+        .unwrap()
+    }
+
+    #[test]
+    fn blocking_worker_reuses_state_and_releases_it_at_shutdown() {
+        Python::initialize();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .max_blocking_threads(1)
+            .build()
+            .unwrap();
+        let ids = runtime.block_on(async {
+            let mut ids = Vec::new();
+            for _ in 0..40 {
+                ids.push(blocking_thread_state_id().await);
+            }
+            ids
+        });
+        assert!(ids.iter().all(|id| *id == ids[0]));
+        assert!(Python::attach(|py| contains_thread_state(py, ids[0])));
+        let failed = runtime.block_on(async {
+            tokio::task::spawn_blocking(|| {
+                Python::attach(|py| {
+                    retain_thread_state(py);
+                    panic!("test blocking job panic");
+                });
+            })
+            .await
+            .unwrap_err()
+        });
+        assert!(failed.is_panic());
+        assert_eq!(ids[0], runtime.block_on(blocking_thread_state_id()));
+        // Joining must happen with this test thread detached so TLS can clean up.
+        drop(runtime);
+        assert!(!Python::attach(|py| contains_thread_state(py, ids[0])));
+    }
+
+    #[test]
+    fn idle_blocking_worker_releases_state_before_replacement() {
+        Python::initialize();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .max_blocking_threads(1)
+            .thread_keep_alive(Duration::from_millis(20))
+            .build()
+            .unwrap();
+        let original = runtime.block_on(blocking_thread_state_id());
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        while Python::attach(|py| contains_thread_state(py, original)) {
+            assert!(
+                std::time::Instant::now() < deadline,
+                "idle worker state was not released"
+            );
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let replacement = runtime.block_on(blocking_thread_state_id());
+        assert_ne!(original, replacement);
+        drop(runtime);
+        assert!(!Python::attach(|py| contains_thread_state(py, replacement)));
     }
 }

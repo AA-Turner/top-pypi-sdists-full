@@ -43,6 +43,10 @@ struct RelTableScanState : TableScanState {
     // groups have been scanned (the local/uncommitted scan and downstream resume paths
     // iterate over the full batch).
     std::vector<common::sel_t> allBoundNodePositions;
+    // Reusable workspace for RelTable::initScanState: the batch's bound-node positions
+    // (copied from the input selection vector, then sorted by node offset). Kept on the
+    // scan state so repeated per-morsel inits reuse the buffer instead of allocating.
+    std::vector<common::sel_t> positionsBuffer;
 
     // Multi-parent packed scan support (see docs/multi_parent_lifetime.md). When
     // packedMultiParentScan is true, the CSR scan may serve children of MULTIPLE bound parents
@@ -56,6 +60,11 @@ struct RelTableScanState : TableScanState {
     std::vector<common::sel_t> packedChildOffsets;
 
     std::unique_ptr<LocalRelTableScanState> localTableScanState;
+
+    // Drops what the scan pinned in its current node group (see CSRNodeGroupScanPin), so a
+    // checkpoint that ran meanwhile can free the pages it replaced. Call when the scan is
+    // exhausted. The state can be scanned again: the next initScanState pins afresh.
+    void releaseScanPin();
 
     // Optional state used by Arrow-backed relationship tables. Keep it on the common scan state so
     // a single multi-rel scan state can scan native, icebug-disk-backed, and Arrow-backed tables.
@@ -171,6 +180,12 @@ struct LBUG_API RelTableDeleteState final : TableDeleteState {
           relIDVector{relIDVector}, detachDeleteDirection{detachDeleteDirection} {}
 };
 
+struct RelDegreeSummary {
+    common::row_idx_t numActiveBoundNodes = 0;
+    common::row_idx_t totalDegree = 0;
+    common::row_idx_t maxDegree = 0;
+};
+
 class LBUG_API RelTable : public Table {
 public:
     using rel_multiplicity_constraint_throw_func_t =
@@ -235,11 +250,16 @@ public:
         LocalTable* localTable) override;
     bool checkpoint(main::ClientContext*, catalog::TableCatalogEntry* tableEntry,
         PageAllocator& pageAllocator, const transaction::Transaction* snapshotTxn = nullptr,
-        uint64_t epochWatermark = 0) override;
+        uint64_t epochWatermark = 0,
+        common::transaction_t retentionHorizon = common::INVALID_TRANSACTION,
+        const std::vector<common::transaction_t>& openStartTSs = {}) override;
     void rollbackCheckpoint() override {};
     void reclaimStorage(PageAllocator& pageAllocator) const override;
 
     common::row_idx_t getNumTotalRows(const transaction::Transaction* transaction) override;
+    // Rels of a native rel table that the transaction can see, as count(*) counts them.
+    common::row_idx_t getNumVisibleRels(const transaction::Transaction* transaction,
+        common::RelDataDirection direction);
     virtual common::row_idx_t getNumActiveBoundNodes(const transaction::Transaction* transaction,
         common::RelDataDirection direction);
     virtual std::vector<std::pair<common::offset_t, common::row_idx_t>> getDegreeEntries(
@@ -249,6 +269,8 @@ public:
     virtual std::vector<std::pair<common::offset_t, common::row_idx_t>> getTopKDegrees(
         const transaction::Transaction* transaction, common::RelDataDirection direction,
         common::idx_t k);
+    virtual RelDegreeSummary getDegreeSummary(const transaction::Transaction* transaction,
+        common::RelDataDirection direction);
 
     RelTableData* getDirectedTableData(common::RelDataDirection direction) const;
 
@@ -287,6 +309,10 @@ private:
 
     void checkRelMultiplicityConstraint(transaction::Transaction* transaction,
         const TableInsertState& state) const;
+
+    template<typename FUNC>
+    void forEachDegree(const transaction::Transaction* transaction,
+        common::RelDataDirection direction, FUNC&& func);
 
 private:
     common::table_id_t relGroupID;

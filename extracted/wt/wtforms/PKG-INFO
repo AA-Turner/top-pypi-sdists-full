@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: WTForms
-Version: 3.3.0
+Version: 3.3.1
 Summary: Form validation and rendering for Python web development.
 Project-URL: Documentation, https://wtforms.readthedocs.io
 Project-URL: Changes, https://wtforms.readthedocs.io/changes

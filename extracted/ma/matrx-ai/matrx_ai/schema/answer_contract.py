@@ -146,6 +146,29 @@ def declared_output_contract() -> dict[str, Any] | None:
     return _DECLARED.get()
 
 
+#: Kind slug → writer of that kind's prompt contract (``fn(schema) -> str | None``). A kind whose schema
+#: is too large to read well as raw JSON (``visual_map``: ten engine schemas, ~65 KB) registers the
+#: authoring text a model actually follows; ``json_text_contract`` uses it in place of the dump. The
+#: answer is still checked against the full declared schema. Registered by the host at startup.
+_KIND_CONTRACT_WRITERS: dict[str, Any] = {}
+
+
+def register_kind_contract_writer(kind_slug: str, writer: Any) -> None:
+    """Register ``writer(schema) -> str | None`` as the prompt contract body for ``kind_slug``."""
+    _KIND_CONTRACT_WRITERS[kind_slug] = writer
+
+
+def _schema_kind(schema: dict[str, Any]) -> str | None:
+    marker = (schema.get("properties") or {}).get("__kind") if isinstance(schema, dict) else None
+    if isinstance(marker, dict):
+        if isinstance(marker.get("const"), str):
+            return marker["const"]
+        enum = marker.get("enum")
+        if isinstance(enum, list) and len(enum) == 1 and isinstance(enum[0], str):
+            return enum[0]
+    return None
+
+
 def json_text_contract(schema: dict[str, Any]) -> str:
     """The final-answer contract to put in the prompt when the provider's native
     schema switch cannot be used.
@@ -155,6 +178,18 @@ def json_text_contract(schema: dict[str, Any]) -> str:
     ``response_json_schema`` still comes back parseable), so every other
     enforcement drop now sends the same words rather than inventing its own.
     """
+    writer = _KIND_CONTRACT_WRITERS.get(_schema_kind(schema) or "")
+    if writer is not None:
+        try:
+            body = writer(schema)
+        except Exception as exc:  # noqa: BLE001 — fall back to the schema dump, loudly
+            vcprint(f"[answer_contract] kind contract writer failed: {exc}", color="red")
+            body = None
+        if isinstance(body, str) and body.strip():
+            return f"""FINAL ANSWER FORMAT:
+Use your tools as needed. When you give your final answer, reply with exactly one fenced `json` object written by the rules below, and nothing else: no prose before or after it, and no field omitted or truncated.
+
+{body.strip()}"""
     compact_schema = json.dumps(schema, ensure_ascii=False, separators=(",", ":"))
     return f"""FINAL ANSWER FORMAT:
 Use your tools as needed. When you give your final answer, reply with exactly one fenced `json` object that conforms to the JSON Schema below, and nothing else: no prose before or after it, and no field omitted or truncated.
@@ -178,6 +213,17 @@ def attach_json_text_contract(config: Any, schema: dict[str, Any]) -> bool:
         return False
     try:
         attach(json_text_contract(schema), slot="structured_output_contract")
+        # The send boundary may already have rendered this turn's block into the platform's host turn
+        # (``send_boundary.order_for_wire``); a slot joined after it is then never sent, and the translator
+        # does not re-render a placed block. 2026-10-24: every capability downgrade's contract was lost this
+        # way — Haiku saw 4,138 input tokens and no contract, and answered in Mermaid. Re-render the host
+        # turn so the contract rides with the block (the converted-prefill path does the same).
+        wire = getattr(messages, "_messages", None)
+        render = getattr(messages, "render_turn_context", None)
+        if isinstance(wire, list) and callable(render):
+            from matrx_ai.config.typed_text_last import refresh_host_turn
+
+            messages._messages = refresh_host_turn(wire, render())
     except Exception as exc:  # noqa: BLE001 — guidance is never worth failing a turn
         vcprint(
             f"[answer_contract] could not attach the JSON text contract: {exc}",

@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass, field
 
 from probe._compat import StrEnum
+from probe.sdk.workspace_limit import TeamItems
 
 
 class ActionName(StrEnum):
@@ -48,6 +49,9 @@ class ActionName(StrEnum):
     #: `desktop.request`). `probe.cli.desktop` reads and checks the request
     #: itself, so it never goes through `parse`.
     DESKTOP = "desktop"
+    #: Limit what Probe on this computer reads to one workspace, or lift the
+    #: limit: `probe workspace limit` (`probe.cli.workspace_limit_cmd`).
+    WORKSPACE_LIMIT = "workspace_limit"
 
 
 def _agent_words() -> dict[str, str]:
@@ -144,6 +148,25 @@ class SessionDefaultRequest:
 
 
 @dataclass(frozen=True)
+class WorkspaceLimitRequest:
+    """`probe workspace limit <workspace> [--team-items ...]`, or `--team` (workspace
+    None). `workspace`: an id, `id:<uuid>`, a slug or a name. `team_items` goes with
+    a workspace only; left out it keeps the current choice (show for a new limit)."""
+
+    workspace: str | None
+    team_items: TeamItems | None = None
+
+    def __post_init__(self) -> None:
+        if self.workspace is not None and (not isinstance(self.workspace, str) or not self.workspace.strip()):
+            raise RequestError(f"workspace_limit: workspace must be a workspace id, slug or name, or null; "
+                               f"got {_shown(self.workspace)}")
+        if self.team_items is not None:
+            object.__setattr__(self, "team_items", _word(TeamItems, "team_items", self.team_items))
+            if self.workspace is None:
+                raise RequestError("workspace_limit: team_items goes with a workspace; null shows the whole team")
+
+
+@dataclass(frozen=True)
 class StatusRequest:
     """`probe status --json`; `refresh` is its `--refresh`."""
 
@@ -222,7 +245,7 @@ class EmptyRequest:
 
 Request = (
     ConfigureRequest | RecorderRequest | SessionDefaultRequest | StatusRequest | VersionRequest | ReportRequest
-    | EmptyRequest
+    | WorkspaceLimitRequest | EmptyRequest
 )
 
 #: A configure request's capabilities: each is true, false or left out.
@@ -250,6 +273,7 @@ _FIELDS: dict[ActionName, dict[str, tuple[type | tuple[type, ...], bool]]] = {
         "env": (dict, False),
         "facts": (dict, False),
     },
+    ActionName.WORKSPACE_LIMIT: {"workspace": ((str, type(None)), True), "team_items": (str, False)},
     ActionName.LOGOUT: {},
     ActionName.UNINSTALL: {},
     ActionName.UPDATE: {},
@@ -338,6 +362,8 @@ def parse(action: ActionName | str, payload: object) -> Request:
             env=payload.get("env"),
             facts=payload.get("facts", {}),
         )
+    if name is ActionName.WORKSPACE_LIMIT:
+        return WorkspaceLimitRequest(workspace=payload["workspace"], team_items=payload.get("team_items"))
     return EmptyRequest()
 
 

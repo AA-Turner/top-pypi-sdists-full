@@ -2,6 +2,7 @@
 
 import copy
 import doctest
+import json
 import os
 import subprocess
 import sys
@@ -566,14 +567,33 @@ class CommandLineTests(unittest.TestCase):
         self._write('ptr.txt', '/a\n')
 
     def _write(self, name, content):
-        with open(os.path.join(self.dir, name), 'w') as f:
+        with open(os.path.join(self.dir, name), 'w', encoding='utf-8') as f:
             f.write(content)
 
-    def _run(self, *args):
+    def _run(self, *args, utf8=True):
         env = dict(os.environ, PYTHONPATH=self.ROOT, PYTHONUTF8='1')
+        if not utf8:
+            # Keep pipes in UTF-8 while exercising locale-dependent file I/O.
+            env.update(PYTHONUTF8='0', PYTHONIOENCODING='utf-8',
+                       LC_ALL='C', PYTHONCOERCECLOCALE='0')
         return subprocess.run([sys.executable, self.SCRIPT] + list(args),
                               cwd=self.dir, env=env, capture_output=True,
-                              text=True)
+                              encoding='utf-8')
+
+    def test_utf8_json_file_without_utf8_mode(self):
+        self._write('unicode.json', '{"value": "🚀"}')
+        proc = self._run('/value', 'unicode.json', utf8=False)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout), '🚀')
+        self.assertEqual(proc.stderr, '')
+
+    def test_utf8_pointer_file_without_utf8_mode(self):
+        self._write('unicode.json', json.dumps({'ä': 'expected'}))
+        self._write('unicode.txt', '/ä\n')
+        proc = self._run('-f', 'unicode.txt', 'unicode.json', utf8=False)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(json.loads(proc.stdout), 'expected')
+        self.assertEqual(proc.stderr, '')
 
     def test_positional_pointer(self):
         proc = self._run('/a', 'a.json', 'b.json')
@@ -638,6 +658,36 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn('Could not resolve pointer', proc.stderr)
         self.assertEqual(proc.stdout, '')
+
+    def test_end_of_list_pointer(self):
+        for content, pointer in (('[]', '/-'), ('[1, 2]', '/-'),
+                                 ('{"a": []}', '/a/-')):
+            with self.subTest(content=content, pointer=pointer):
+                self._write('array.json', content)
+                proc = self._run(pointer, 'array.json')
+                self.assertEqual(proc.returncode, 1)
+                self.assertEqual(proc.stdout, '')
+                self.assertIn('Could not resolve pointer:', proc.stderr)
+                self.assertNotIn('Traceback', proc.stderr)
+
+    def test_end_of_list_pointer_in_one_file(self):
+        self._write('array.json', '{"a": []}')
+        self._write('member.json', '{"a": {"-": "value"}}')
+        for files in (('array.json', 'member.json'),
+                      ('member.json', 'array.json')):
+            with self.subTest(files=files):
+                proc = self._run('/a/-', *files)
+                self.assertEqual(proc.returncode, 1)
+                self.assertEqual(proc.stdout, '"value"\n')
+                self.assertIn('Could not resolve pointer:', proc.stderr)
+                self.assertNotIn('Traceback', proc.stderr)
+
+    def test_hyphen_object_member(self):
+        self._write('member.json', '{"-": [1, 2]}')
+        proc = self._run('/-', 'member.json')
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout, '[1, 2]\n')
+        self.assertEqual(proc.stderr, '')
 
     def test_unresolvable_pointer_in_one_file(self):
         # /b resolves in b.json only; a.json is still reported but b.json

@@ -297,6 +297,9 @@ class AuditLane:
         settings = resolve()
         if not getattr(settings, "token", None):
             return None
+        if team_note_file.hidden_by_limit(settings):
+            # This computer's workspace limit hides team-wide items: no note to audit.
+            return None
         return (Client(settings=settings, async_writes=False, surface=Surface.CLI.value),
                 team_note_file.paths_for(settings), settings)
 

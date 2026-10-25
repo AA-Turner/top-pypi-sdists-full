@@ -223,7 +223,7 @@ cdef class Loop:
 
         # A weak set of all asynchronous generators that are
         # being iterated by the loop.
-        self._asyncgens = weakref_WeakSet()
+        self._asyncgens = WeakSet()
 
         # Set to True when `loop.shutdown_asyncgens` is called.
         self._asyncgens_shutdown_called = False
@@ -2825,8 +2825,6 @@ cdef class Loop:
             raise ValueError("universal_newlines must be False")
         if bufsize != 0:
             raise ValueError("bufsize must be 0")
-        if startupinfo is not None:
-            raise ValueError('startupinfo is not supported')
         if creationflags != 0:
             raise ValueError('creationflags is not supported')
 
@@ -2848,7 +2846,8 @@ cdef class Loop:
                                       waiter,
                                       debug_flags,
                                       preexec_fn,
-                                      restore_signals)
+                                      restore_signals,
+                                      startupinfo)
 
         try:
             await waiter
@@ -3453,6 +3452,7 @@ include "sslproto.pyx"
 include "handles/udp.pyx"
 
 include "server.pyx"
+include "weakref_set.pyx"
 
 
 # Used in UVProcess

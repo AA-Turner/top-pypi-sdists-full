@@ -42,6 +42,7 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from matrx_ai.config.dictionary_config import DictionaryConfig
+from matrx_ai.config.served_via import ServedVia
 
 
 class UnifiedConfigModel(BaseModel):
@@ -62,6 +63,10 @@ class UnifiedConfigModel(BaseModel):
     stream: bool = False
     matrx_model_name: str | None = None
     offering_id: str | None = None  # never populated in 6,485 stored configs
+    # The device the model runs on (config/served_via.py); stored with the conversation.
+    served_via: ServedVia | None = None
+    # This conversation's own instructions (UnifiedConfig.conversation_instructions, L3 one-chat G1).
+    conversation_instructions: str | None = None
     runtime_offering_id: str | None = None
     prompt_cache_key: str | None = None
     prompt_cache_marks: str | None = None
@@ -164,6 +169,8 @@ class UnifiedConfigModel(BaseModel):
     video_action: Optional[Literal['generate', 'edit', 'extend']] = None  # never populated in 6,485 stored configs
     mcp_servers: list[str] = Field(default_factory=list)
     authored_mcp_servers: list[str] | None = None
+    # The agent's own settings layer (UnifiedConfig.authored_settings); stored with the conversation.
+    authored_settings: dict[str, Any] | None = None
     compaction_settings: dict[str, Any] | None = None  # never populated in 6,485 stored configs
     detected_contexts: dict[str, str] | None = None  # never populated in 6,485 stored configs
     custom_configs: dict[str, Any] | None = None  # never populated in 6,485 stored configs

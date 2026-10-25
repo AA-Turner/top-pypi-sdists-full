@@ -35,7 +35,32 @@ from probe.core import events as json_events
 class UpdateOutcome:
     lines: list[str]
     ok: bool
+    #: The plugin or the tap moved and open sessions cannot follow it by
+    #: themselves (`updater.follows_without_restart`: Kimi Code, a
+    #: project-scope install, a tap before the hand-back, a session on
+    #: protocol 1): they need a restart, as before.
     restart_needed: bool
+    #: The plugin or the tap moved and open sessions follow it: an open
+    #: session runs the installed plugin's hooks from its next event
+    #: (`hooks/dispatch.py hand_over`), its skill copies are refreshed here,
+    #: and the Probe service moves the rest (the status line, the managed
+    #: block, its recorders' tap) after its update cycle.
+    plugins_moved: bool = False
+
+
+#: What `probe update` and the wizard's Update say when the plugins moved and
+#: open sessions follow.
+PICKED_UP = "No restart needed: open sessions pick up the new plugin at their next prompt."
+
+
+def after_update_line(outcome: "UpdateOutcome", agent: str) -> str | None:
+    """The line `probe update` and the wizard's Update end with: no restart
+    where open sessions follow, the restart line where they cannot, else none."""
+    if getattr(outcome, "plugins_moved", False):
+        return PICKED_UP
+    if getattr(outcome, "restart_needed", False):
+        return f"Restart {agent} to apply the plugin update."
+    return None
 
 
 #: Set by the Probe service (`probe.service.updater.SKIP_CLI_ENV`) when the CLI
@@ -286,6 +311,7 @@ def _perform_update(
         json_events.Status.DONE if res is None or res.ok else json_events.Status.FAILED,
     )
     json_events.step(json_events.Step.UPDATE_INTEGRATIONS, json_events.Status.STARTED)
+    plugins_moved = False
     restart_needed = False
     pres: updater.PluginResult | None = None
     pi_update: _PiUpdate | None = None
@@ -332,6 +358,10 @@ def _perform_update(
                 pres = dataclasses.replace(
                     pres, tap_running_stale=updater.stale_tap_daemons(source, pres.tap_after)
                 )
+            # "No restart needed" only where it is true (Claude Code or Codex,
+            # a user-scope install, a tap with the hand-back, every old session
+            # movable): everywhere else the restart line, as before.
+            pres = dataclasses.replace(pres, follows=updater.follows_without_restart(source, pres))
             # THE TAP'S OWN LINE, so all three versions are on screen (the CLI's
             # is above). It is a separate plugin, and "updated the plugin" said
             # nothing about it while it sat a version behind.
@@ -340,7 +370,8 @@ def _perform_update(
                 lines.append(f"  {tap_line}")
                 tap_behind = tap_line if behind else ""
             if pres.confirmed and (pres.changed or updater.tap_changed(pres)):
-                restart_needed = True
+                plugins_moved = pres.follows
+                restart_needed = not pres.follows
             nothing_installed = updater.nothing_installed(pres, source)
             # A machine that cannot run git would fail these the same way; the
             # failure printed above already says what to run first. Nor when
@@ -355,7 +386,12 @@ def _perform_update(
                     if kimi
                     else updater.manual_plugin_commands()
                 )
-                lines.append(f"  update them manually, then restart {agent}:")
+                # Followed once updated by hand only with the tap it would get.
+                follows = updater.follows_without_restart(source, pres, tap_after=tap_target or pres.tap_after)
+                lines.append(
+                    f"  update them manually ({agent} needs no restart):" if follows
+                    else f"  update them manually, then restart {agent}:"
+                )
                 lines.extend(f"    {line}" for line in manual.split("\n"))
 
     # `attempted` is what separates "the plugin update failed" from "there was no
@@ -461,6 +497,7 @@ def _perform_update(
         # not "the CLI half worked".
         ok=ok,
         restart_needed=restart_needed,
+        plugins_moved=plugins_moved,
     )
 
 

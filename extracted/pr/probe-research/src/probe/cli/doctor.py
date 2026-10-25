@@ -623,6 +623,33 @@ def _short(sid: object) -> str:
     return text if len(text) <= 12 else text[:12] + "…"
 
 
+def _session_state(session: dict) -> str:
+    """What a "Sessions" row says after the mode: nothing for a live session.
+    A session in mode off is never `alive` to the service, whatever its agent
+    does, so it is "(off)" while its agent runs (`service_calls.live_off`),
+    "(ended)" once it does not."""
+    from probe.cli import service_calls
+
+    if session.get("alive"):
+        return ""
+    return " (off)" if service_calls.live_off(session) else " (ended)"
+
+
+def _recorder_state(recorder: dict) -> str:
+    """"recording" only while the recorder holds its session's claim
+    (`recording`): a thread alive in its retry wait, or one whose session
+    another recorder (its own `tap watch`) holds, records nothing. A tap before
+    0.10.5 publishes no claim (null): its thread's life is all there is. A
+    session that is off (`off`) is captured by nobody, whatever the claim."""
+    if not recorder.get("alive"):
+        return "stopped"
+    if recorder.get("off") is True:
+        # Held: it may hold the session's claim (so an older tap's `tap watch`
+        # hands the session over), and records nothing.
+        return "not capturing: Probe is off"
+    return "not recording" if recorder.get("recording") is False else "recording"
+
+
 def service_rows(view: dict) -> list[str]:
     """The Probe service's own view (`service_calls.view()`): the "Probe
     service" section. Pure, like `render`."""
@@ -660,14 +687,13 @@ def service_rows(view: dict) -> list[str]:
     listed(
         "Sessions",
         sessions,
-        lambda s: f"{_short(s.get('sid'))} {s.get('harness')} {s.get('mode')}"
-        + ("" if s.get("alive") else " (ended)"),
+        lambda s: f"{_short(s.get('sid'))} {s.get('harness')} {s.get('mode')}" + _session_state(s),
     )
     listed(
         "Recorded by the service",
         view.get("recorders") or [],
         lambda r: f"{_short(r.get('sid'))} "
-        + ("recording" if r.get("alive") else "stopped")
+        + _recorder_state(r)
         + (f", last {r['last']}" if r.get("last") else "")
         + (f", {r['failures']} restart(s)" if r.get("failures") else ""),
     )
@@ -686,6 +712,9 @@ def service_rows(view: dict) -> list[str]:
         )
     update = view.get("update") or {}
     rows.append(_row("Updates", service_calls.update_text(update)))
+    app_text = service_calls.app_update_text(update.get("app"))
+    if app_text:
+        rows.append(_row("Desktop app", app_text))
     if update.get("deferred_reason"):
         since_text = service_calls.when(update.get("deferred_since") or update.get("deferred_at"))
         rows.append(_row("Update deferred", f"{update['deferred_reason']} (since {since_text})"))

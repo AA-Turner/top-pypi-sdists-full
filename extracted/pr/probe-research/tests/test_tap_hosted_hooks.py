@@ -69,10 +69,18 @@ def test_a_hosted_session_from_start_to_end(service_home, tmp_path, monkeypatch)
         assert checked.returncode == 0 and not pid_file.exists()
         assert not (plugin_dir / "heal" / sid).exists(), "the fast path, not the cold one"
 
-        # `probe status` and the self-heal read it as captured.
-        from probe.cli import capture_state
+        # `probe session status` and the self-heal read it as the service does:
+        # recorded while its recorder holds the session (`recording` in its status row).
+        # This one's server (127.0.0.1:1) never answers, so its recorder holds
+        # nothing; with no answer from the service, the marker alone, as before.
+        from probe.cli import capture_state, service_calls
 
+        row = next(r for r in service_home.call(Method.STATUS)["recorders"] if r["sid"] == sid)
         state = capture_state.session_capture_state(sid, "claude_code")
+        assert state.running is (row["recording"] is not False), (row, state)
+        with monkeypatch.context() as patch:
+            patch.setattr(service_calls, "recorders", lambda timeout=0.5: None)
+            state = capture_state.session_capture_state(sid, "claude_code")
         assert state.running is True and state.pid == status["pid"]
 
         ended = _hook("session-end.sh", {**payload, "reason": "exit"}, env, "--wait")

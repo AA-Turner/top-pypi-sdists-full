@@ -102,6 +102,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from matrx_graph.content_ir.model import KindSubModel
 from pydantic import BaseModel, ConfigDict, RootModel, model_validator
 
+from matrx_ai.config.served_via import ServedVia
 from matrx_ai.providers.resolved_capabilities import ResolvedModelCapabilities
 
 if TYPE_CHECKING:  # circular-by-design: controls.py imports ControlRule from here.
@@ -396,6 +397,11 @@ class Adjustment(BaseModel):
     # Adjustment records its conversion INTO ``key`` (``canonical_value`` is the
     # caller's value, ``sent_value`` the value ``key`` carried into its rule).
     converted_from: str | None = None
+    # The person's value reached the provider unchanged in MEANING — only written in
+    # the provider's own words or shape (a processor's native fragment, a declared
+    # off form, a key another setting already carried). Recorded with the request;
+    # never announced as "settings adjusted" (Arman, 2026-10-24).
+    faithful: bool = False
 
 
 class ControlsMap(RootModel[dict[str, ControlRule]]):
@@ -528,6 +534,17 @@ class ResolvedCallProfile(BaseModel):
     # asked for" is queryable instead of invisible — the silence that hid every
     # podcast being moved off gemini-2.5-pro-preview-tts for days (2026-08-10).
     resolution_route: Literal["pinned", "preferred", "tier_reroute"] = "preferred"
+
+    # WHAT KIND of route this profile is — decided once, at resolution, and read by
+    # every "may I fall back / swap" site (orchestrator/overload_reroute.py, the
+    # executor's retry loop, free-tier and child-safety swaps):
+    #   "offering"      — an ai.offering row (endpoint × api) — the server catalog.
+    #   "catalog_model" — a client-host / runtime catalog model dict (no offering rows).
+    #   "device"        — a person's own Matrx 2 computer (``served_via``): ONE route,
+    #                     no offering, no price, never moved to the cloud.
+    route_kind: Literal["offering", "catalog_model", "device"] = "offering"
+    # The device this call runs on — set exactly when ``route_kind == "device"``.
+    served_via: ServedVia | None = None
 
     model_id: str
     model_name: str

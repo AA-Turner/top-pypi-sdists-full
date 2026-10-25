@@ -56,6 +56,45 @@ def is_map_node(node: Any) -> bool:
     return (isinstance(extra, dict) or extra is True) and not node.get("properties")
 
 
+def forced_empty_maps(schema: Any) -> list[str]:
+    """Paths of every dynamic-key map (:func:`is_map_node`) the answer MUST carry.
+
+    A strict decoder narrows a map to ``{}`` (:func:`enforce_additional_properties_false`),
+    so a required, non-nullable map is FORCED empty: the model cannot write a single key
+    into it. 2026-10-24 live: an agent whose Output Schema is ``visual_map`` (``spec`` is
+    ``dict[str, Any]``) answered ``"spec": {}`` on Haiku 5.5 and Sonnet 5.5 and nothing
+    could be drawn. An optional or nullable map is left out: ``null`` still carries
+    "absent". Walks ``properties`` and array ``items``."""
+    out: list[str] = []
+
+    def nullable(node: dict[str, Any]) -> bool:
+        t = node.get("type")
+        return t == "null" or (isinstance(t, list) and "null" in t) or any(
+            isinstance(b, dict) and b.get("type") == "null" for b in node.get("anyOf") or [])
+
+    def walk(node: Any, path: str) -> None:
+        if not isinstance(node, dict):
+            return
+        props = node.get("properties")
+        if isinstance(props, dict):
+            required = set(node.get("required") or [])
+            for name, sub in props.items():
+                if not isinstance(sub, dict):
+                    continue
+                sub_path = f"{path}.{name}"
+                if name in required and is_map_node(sub) and not nullable(sub):
+                    out.append(sub_path)
+                walk(sub, sub_path)
+        items = node.get("items")
+        if isinstance(items, dict):
+            if is_map_node(items):
+                out.append(f"{path}[]")
+            walk(items, f"{path}[]")
+
+    walk(schema, "$")
+    return out
+
+
 def enforce_additional_properties_false(
     node: Any, *, maps: str = "narrow", notes: list[str] | None = None, _path: str = "$"
 ) -> Any:
@@ -2798,9 +2837,10 @@ def enforce_all_required(
     :func:`prune_optional_nulls`, which turns those nulls back into absence
     before the answer is judged against the declared schema.
 
-    A property that :func:`pins_one_value` (a ``const``, a one-member ``enum`` —
-    ``__kind``) is forced and NOT made nullable: the value is already determined,
-    so nothing is taken away, and 653 of the live schemas are this case alone.
+    The ``__kind`` marker, which :func:`pins_one_value`, is forced and NOT made
+    nullable: the value is already determined, so nothing is taken away, and 653
+    of the live schemas are this case alone. Any OTHER optional pinned field is
+    widened like the rest — absent is not the same answer as its one value.
     Anything else that cannot be widened is forced and NAMED in ``notes``, which
     the translators pass to the findings channel as a ``narrowed`` finding
     carrying the agent, the schema and the field names.
@@ -2817,7 +2857,12 @@ def enforce_all_required(
         forced: list[str] = []
         for name in optional:
             sub = props[name]
-            if not express_optional_as_nullable or pins_one_value(sub):
+            # Only the kind MARKER is forced as-is: its value is the document's identity. Any other OPTIONAL
+            # pinned field means "absent, or exactly this" — forcing it writes the value into every answer
+            # (2026-10-24: visual_map's `meta.engineering_profile` enum ["deployment-ownership"] would have
+            # switched every architecture diagram into that profile), so it is widened like any other.
+            pinned_marker = pins_one_value(sub) and name == KIND_KEY
+            if not express_optional_as_nullable or pinned_marker:
                 if not pins_one_value(sub):
                     forced.append(f"{_path}.{name}")
                 continue
@@ -2981,6 +3026,11 @@ def admits_null_in(node: Any, root: Any, *, _depth: int = 0) -> bool:
         return False
     if admits_null(node) and "$ref" not in node:
         return True
+    if "type" in node:
+        # A typed node that does not admit null cannot be widened by a combinator beside it: the branches are
+        # ANDed with the type. 2026-10-24: the engine's `brand` is `oneOf[{type: string, anyOf: [{maxLength},
+        # {pattern}]}, …]`; the type-less refinement branches "admitted" null, so a boundary null was kept.
+        return False
     for combinator in ("anyOf", "oneOf"):
         branches = node.get(combinator)
         if isinstance(branches, list) and any(

@@ -184,7 +184,7 @@ install_requires = [
 ]
 if use_numkong:
     include_dirs.append("numkong/include")
-    install_requires.append("numkong")
+    install_requires.append("numkong>=7.8.6")
 
 
 # With Clang, `setuptools` doesn't properly use the `language="c++"` argument we pass.
@@ -205,7 +205,7 @@ setup(
     description="Smaller & Faster Single-File Vector Search Engine from Unum",
     author="Ash Vardanian",
     author_email="info@unum.cloud",
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     url="https://github.com/unum-cloud/USearch",
     long_description=long_description,
     long_description_content_type="text/markdown",

@@ -294,7 +294,7 @@ NK_INTERNAL nk_f64_t nk_sum_three_products_f64_(nk_f64_t left_0, nk_f64_t right_
     nk_f64_dot2_(&sum, &compensation, left_0, right_0);
     nk_f64_dot2_(&sum, &compensation, left_1, right_1);
     nk_f64_dot2_(&sum, &compensation, left_2, right_2);
-    return sum + compensation;
+    return nk_f64_compensated_sum_(sum, compensation);
 }
 
 NK_INTERNAL nk_f32_t nk_sum_three_squares_f32_(nk_f32_t value_0, nk_f32_t value_1, nk_f32_t value_2) {
@@ -305,7 +305,7 @@ NK_INTERNAL nk_f64_t nk_sum_three_squares_f64_(nk_f64_t value_0, nk_f64_t value_
     nk_f64_dot2_(&sum, &compensation, value_0, value_0);
     nk_f64_dot2_(&sum, &compensation, value_1, value_1);
     nk_f64_dot2_(&sum, &compensation, value_2, value_2);
-    return sum + compensation;
+    return nk_f64_compensated_sum_(sum, compensation);
 }
 
 NK_INTERNAL void nk_accumulate_sum_f32_(nk_f32_t *sum, nk_f32_t *compensation, nk_f32_t value) {
@@ -431,8 +431,10 @@ nk_define_det3x3_(f64)
             nk_accumulate_square_##accumulator_type##_(&sum_squared, &sum_squared_compensation, dy);               \
             nk_accumulate_square_##accumulator_type##_(&sum_squared, &sum_squared_compensation, dz);               \
         }                                                                                                          \
-        nk_##accumulator_type##_t msd = (sum_squared + sum_squared_compensation) / (nk_##accumulator_type##_t)n;   \
-        *result = msd > 0 ? (nk_##result_type##_t)compute_sqrt(msd) : 0;                                           \
+        nk_##accumulator_type##_t msd = nk_##accumulator_type##_compensated_sum_(sum_squared,                      \
+                                                                                 sum_squared_compensation) /       \
+                                        (nk_##accumulator_type##_t)n;                                              \
+        *result = (nk_##result_type##_t)compute_sqrt(msd);                                                         \
     }
 
 /*  Kabsch algorithm for optimal rigid body superposition.
@@ -462,12 +464,18 @@ nk_define_det3x3_(f64)
             nk_accumulate_sum_##accumulator_type##_(&sum_b_z, &sum_b_z_compensation, val_b_z);                       \
         }                                                                                                            \
         nk_##accumulator_type##_t inv_n = (nk_##accumulator_type##_t)1.0 / (nk_##accumulator_type##_t)n;             \
-        nk_##accumulator_type##_t centroid_a_x = (sum_a_x + sum_a_x_compensation) * inv_n;                           \
-        nk_##accumulator_type##_t centroid_a_y = (sum_a_y + sum_a_y_compensation) * inv_n;                           \
-        nk_##accumulator_type##_t centroid_a_z = (sum_a_z + sum_a_z_compensation) * inv_n;                           \
-        nk_##accumulator_type##_t centroid_b_x = (sum_b_x + sum_b_x_compensation) * inv_n;                           \
-        nk_##accumulator_type##_t centroid_b_y = (sum_b_y + sum_b_y_compensation) * inv_n;                           \
-        nk_##accumulator_type##_t centroid_b_z = (sum_b_z + sum_b_z_compensation) * inv_n;                           \
+        nk_##accumulator_type##_t centroid_a_x =                                                                     \
+            nk_##accumulator_type##_compensated_sum_(sum_a_x, sum_a_x_compensation) * inv_n;                         \
+        nk_##accumulator_type##_t centroid_a_y =                                                                     \
+            nk_##accumulator_type##_compensated_sum_(sum_a_y, sum_a_y_compensation) * inv_n;                         \
+        nk_##accumulator_type##_t centroid_a_z =                                                                     \
+            nk_##accumulator_type##_compensated_sum_(sum_a_z, sum_a_z_compensation) * inv_n;                         \
+        nk_##accumulator_type##_t centroid_b_x =                                                                     \
+            nk_##accumulator_type##_compensated_sum_(sum_b_x, sum_b_x_compensation) * inv_n;                         \
+        nk_##accumulator_type##_t centroid_b_y =                                                                     \
+            nk_##accumulator_type##_compensated_sum_(sum_b_y, sum_b_y_compensation) * inv_n;                         \
+        nk_##accumulator_type##_t centroid_b_z =                                                                     \
+            nk_##accumulator_type##_compensated_sum_(sum_b_z, sum_b_z_compensation) * inv_n;                         \
         if (a_centroid)                                                                                              \
             a_centroid[0] = (nk_##output_type##_t)centroid_a_x, a_centroid[1] = (nk_##output_type##_t)centroid_a_y,  \
             a_centroid[2] = (nk_##output_type##_t)centroid_a_z;                                                      \
@@ -552,7 +560,8 @@ nk_define_det3x3_(f64)
             nk_accumulate_square_##accumulator_type##_(&sum_squared, &sum_squared_compensation,                      \
                                                        (nk_##accumulator_type##_t)dz);                               \
         }                                                                                                            \
-        *result = (nk_##result_type##_t)compute_sqrt((sum_squared + sum_squared_compensation) * inv_n);              \
+        *result = (nk_##result_type##_t)compute_sqrt(                                                                \
+            nk_##accumulator_type##_compensated_sum_(sum_squared, sum_squared_compensation) * inv_n);                \
     }
 
 /*  Umeyama algorithm for optimal similarity transformation (rotation + uniform scale).
@@ -584,12 +593,18 @@ nk_define_det3x3_(f64)
             nk_accumulate_sum_##accumulator_type##_(&sum_b_z, &sum_b_z_compensation, val_b_z);                        \
         }                                                                                                             \
         nk_##accumulator_type##_t inv_n = (nk_##accumulator_type##_t)1.0 / (nk_##accumulator_type##_t)n;              \
-        nk_##accumulator_type##_t centroid_a_x = (sum_a_x + sum_a_x_compensation) * inv_n;                            \
-        nk_##accumulator_type##_t centroid_a_y = (sum_a_y + sum_a_y_compensation) * inv_n;                            \
-        nk_##accumulator_type##_t centroid_a_z = (sum_a_z + sum_a_z_compensation) * inv_n;                            \
-        nk_##accumulator_type##_t centroid_b_x = (sum_b_x + sum_b_x_compensation) * inv_n;                            \
-        nk_##accumulator_type##_t centroid_b_y = (sum_b_y + sum_b_y_compensation) * inv_n;                            \
-        nk_##accumulator_type##_t centroid_b_z = (sum_b_z + sum_b_z_compensation) * inv_n;                            \
+        nk_##accumulator_type##_t centroid_a_x =                                                                      \
+            nk_##accumulator_type##_compensated_sum_(sum_a_x, sum_a_x_compensation) * inv_n;                          \
+        nk_##accumulator_type##_t centroid_a_y =                                                                      \
+            nk_##accumulator_type##_compensated_sum_(sum_a_y, sum_a_y_compensation) * inv_n;                          \
+        nk_##accumulator_type##_t centroid_a_z =                                                                      \
+            nk_##accumulator_type##_compensated_sum_(sum_a_z, sum_a_z_compensation) * inv_n;                          \
+        nk_##accumulator_type##_t centroid_b_x =                                                                      \
+            nk_##accumulator_type##_compensated_sum_(sum_b_x, sum_b_x_compensation) * inv_n;                          \
+        nk_##accumulator_type##_t centroid_b_y =                                                                      \
+            nk_##accumulator_type##_compensated_sum_(sum_b_y, sum_b_y_compensation) * inv_n;                          \
+        nk_##accumulator_type##_t centroid_b_z =                                                                      \
+            nk_##accumulator_type##_compensated_sum_(sum_b_z, sum_b_z_compensation) * inv_n;                          \
         if (a_centroid)                                                                                               \
             a_centroid[0] = (nk_##output_type##_t)centroid_a_x, a_centroid[1] = (nk_##output_type##_t)centroid_a_y,   \
             a_centroid[2] = (nk_##output_type##_t)centroid_a_z;                                                       \
@@ -640,18 +655,21 @@ nk_define_det3x3_(f64)
         /* Step 4: R = V * Uᵀ */                                                                                      \
         nk_##svd_type##_t optimal_rotation[9];                                                                        \
         nk_rotation_from_svd_##svd_type##_serial_(svd_left, svd_right, optimal_rotation);                             \
-        /* Handle reflection and compute scale: c = trace(D × S) / variance(a) */                                     \
-        /* D = diag(1, 1, det(R)), svd_diagonal contains proper positive singular values on diagonal */               \
         nk_##svd_type##_t rotation_determinant = nk_det3x3_##svd_type##_(optimal_rotation);                           \
-        nk_##svd_type##_t sign_det = rotation_determinant < 0 ? (nk_##svd_type##_t) - 1.0 : (nk_##svd_type##_t)1.0;   \
-        nk_##svd_type##_t trace_scaled_s = svd_diagonal[0] + svd_diagonal[4] + sign_det * svd_diagonal[8];            \
-        nk_##accumulator_type##_t scale_factor = (nk_##accumulator_type##_t)trace_scaled_s /                          \
-                                                 ((nk_##accumulator_type##_t)n * variance_a);                         \
-        if (scale) *scale = (nk_##output_type##_t)scale_factor;                                                       \
         if (rotation_determinant < 0) {                                                                               \
             svd_right[2] = -svd_right[2], svd_right[5] = -svd_right[5], svd_right[8] = -svd_right[8];                 \
             nk_rotation_from_svd_##svd_type##_serial_(svd_left, svd_right, optimal_rotation);                         \
         }                                                                                                             \
+        /* Optimal scale for the chosen rotation: c = trace(R × H) / ‖a - ā‖² */                                      \
+        nk_##svd_type##_t trace_rotation_covariance =                                                                 \
+            optimal_rotation[0] * cross_covariance[0] + optimal_rotation[1] * cross_covariance[3] +                   \
+            optimal_rotation[2] * cross_covariance[6] + optimal_rotation[3] * cross_covariance[1] +                   \
+            optimal_rotation[4] * cross_covariance[4] + optimal_rotation[5] * cross_covariance[7] +                   \
+            optimal_rotation[6] * cross_covariance[2] + optimal_rotation[7] * cross_covariance[5] +                   \
+            optimal_rotation[8] * cross_covariance[8];                                                                \
+        nk_##accumulator_type##_t scale_factor = (nk_##accumulator_type##_t)trace_rotation_covariance /               \
+                                                 ((nk_##accumulator_type##_t)n * variance_a);                         \
+        if (scale) *scale = (nk_##output_type##_t)scale_factor;                                                       \
         /* Output rotation matrix */                                                                                  \
         if (rotation)                                                                                                 \
             for (int j = 0; j < 9; ++j) rotation[j] = (nk_##output_type##_t)optimal_rotation[j];                      \
@@ -687,7 +705,8 @@ nk_define_det3x3_(f64)
             nk_accumulate_square_##accumulator_type##_(&sum_squared, &sum_squared_compensation,                       \
                                                        (nk_##accumulator_type##_t)dz);                                \
         }                                                                                                             \
-        *result = (nk_##result_type##_t)compute_sqrt((sum_squared + sum_squared_compensation) * inv_n);               \
+        *result = (nk_##result_type##_t)compute_sqrt(                                                                 \
+            nk_##accumulator_type##_compensated_sum_(sum_squared, sum_squared_compensation) * inv_n);                 \
     }
 
 /*  Keep the serial instantiations below actually scalar, regardless of build type.

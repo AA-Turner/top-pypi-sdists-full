@@ -162,6 +162,15 @@ class TestForeignContentScaling(unittest.TestCase):
 
 
 class TestSanitizerScaling(unittest.TestCase):
+    def test_script_comment_transitions_scale_linearly(self) -> None:
+        for options in ({}, {"transforms": [Sanitize()]}, {"sanitize": False}):
+            assert_scales_linearly(
+                lambda size: "<script>" + "<!--x-->" * size + "</script><p>safe</p>",
+                lambda source, options=options: JustHTML(source, **options),
+            )
+            source = "<script>" + "<!--x-->" * 1000 + "</script><p>safe</p>"
+            assert JustHTML(source, **options).query_one("p").to_text() == "safe"
+
     def test_nested_disallowed_wrappers_scale_linearly(self) -> None:
         assert_scales_linearly(
             lambda size: "<section>x" * size,
@@ -855,6 +864,46 @@ class TestCountingStack(unittest.TestCase):
 
 
 class TestParserSyntaxAndRecovery(_ParserEngineTestCase):
+    def test_void_head_whitespace_agrees_across_sanitization_paths(self) -> None:
+        for tag in ("base", "basefont", "bgsound", "link", "meta"):
+            for prefix in ("", "<head>"):
+                source = f"{prefix}<{tag}> \n<title>x</title><p>body"
+                expected = "<html><head> \n<title>x</title></head><body><p>body</p></body></html>"
+                with self.subTest(tag=tag, prefix=prefix):
+                    self.assert_parses_to(source, expected)
+                    self.assert_parses_to(source, expected, transforms=[Sanitize()])
+
+    def test_removed_metadata_preserves_surrounding_insertion_mode(self) -> None:
+        cases = (
+            ("<head></head>", "<html><head></head> \n<body><p>body</p></body></html>"),
+            ("<body>", "<html><head></head><body> \n<p>body</p></body></html>"),
+            ("<template>", "<html><head> \n<p>body</p></head><body></body></html>"),
+        )
+        for tag in ("base", "basefont", "bgsound", "link", "meta"):
+            for prefix, expected in cases:
+                source = f"{prefix}<{tag}> \n<p>body"
+                with self.subTest(tag=tag, prefix=prefix):
+                    self.assert_parses_to(source, expected)
+                    self.assert_parses_to(source, expected, transforms=[Sanitize()])
+            source = f"<{tag}> \n<p>body"
+            self.assert_parses_to(source, " \n<p>body</p>", fragment=True)
+            self.assert_parses_to(source, " \n<p>body</p>", fragment=True, transforms=[Sanitize()])
+
+    def test_metadata_preserves_foreign_content_breakout(self) -> None:
+        for tag in ("base", "basefont", "bgsound", "link", "meta"):
+            source = f"<svg><{tag}> \n<p>body"
+            whitespace = " \n" if tag == "meta" else ""
+            expected = f"<html><head></head><body>{whitespace}<p>body</p></body></html>"
+            with self.subTest(tag=tag):
+                self.assert_parses_to(source, expected)
+                self.assert_parses_to(source, expected, transforms=[Sanitize()])
+
+    def test_removed_metadata_keeps_head_noscript_open(self) -> None:
+        source = "<head><noscript><html><meta> \n</noscript><p>body"
+        expected = "<html><head> \n</head><body><p>body</p></body></html>"
+        self.assert_parses_to(source, expected, scripting_enabled=False)
+        self.assert_parses_to(source, expected, scripting_enabled=False, transforms=[Sanitize()])
+
     def test_malformed_markup_and_document_shell(self) -> None:
         cases = [
             ("abc<", "<html><head></head><body>abc&lt;</body></html>"),

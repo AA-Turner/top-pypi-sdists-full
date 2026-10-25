@@ -833,6 +833,24 @@ def get_authoring_mandate_policy() -> Any:
 
 
 # ---------------------------------------------------------------------------
+# Answer check (orchestrator/answer_checks.py)
+# ---------------------------------------------------------------------------
+#
+# OPTIONAL. Called at a tool-less finishing turn whose text is a JSON object with ``__kind``:
+#     async check(*, answer: dict, kind: str, mandate_key: str | None, agent_id: str | None,
+#                 user_id: str | None, organization_id: str | None) -> dict | None
+# returning ``{"kind": str, "problems": [sentence, ...], "correction_turns": int}`` (None / no problems = accept).
+# The host MUST NOT raise; the executor wraps it regardless and a failure means "no gate".
+
+_ANSWER_CHECK_KEY = "answer_check"
+
+
+def get_answer_check() -> Any:
+    """Return the host-injected answer check, or None."""
+    return _registry.get(_ANSWER_CHECK_KEY)
+
+
+# ---------------------------------------------------------------------------
 # Tool-failure loop guard (settings door + standoff decision)
 # ---------------------------------------------------------------------------
 #

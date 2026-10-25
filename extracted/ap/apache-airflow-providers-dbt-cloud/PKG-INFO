@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-dbt-cloud
-Version: 4.11.0
+Version: 4.11.1
 Summary: Provider package apache-airflow-providers-dbt-cloud for Apache Airflow
 Keywords: airflow-provider,dbt.cloud,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -29,10 +29,10 @@ Requires-Dist: asgiref>=2.3.0; python_version < '3.14'
 Requires-Dist: asgiref>=3.11.1; python_version >= '3.14'
 Requires-Dist: aiohttp>=3.14.0
 Requires-Dist: tenacity>=8.3.0
-Requires-Dist: apache-airflow-providers-openlineage>=2.3.0 ; extra == "openlineage"
+Requires-Dist: apache-airflow-providers-openlineage>=2.16.0 ; extra == "openlineage"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -68,7 +68,7 @@ Import-Namespace: airflow.providers.dbt
 
 Package ``apache-airflow-providers-dbt-cloud``
 
-Release: ``4.11.0``
+Release: ``4.11.1``
 
 
 `dbt Cloud <https://www.getdbt.com/product/dbt-cloud/>`__
@@ -81,7 +81,7 @@ This is a provider package for ``dbt.cloud`` provider. All classes for this prov
 are in ``airflow.providers.dbt.cloud`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.1/>`_.
 
 Installation
 ------------
@@ -129,12 +129,12 @@ Dependent package                                                               
 Optional dependencies
 ----------------------
 
-===============  ===============================================
+===============  ================================================
 Extra            Dependencies
-===============  ===============================================
-``openlineage``  ``apache-airflow-providers-openlineage>=2.3.0``
-===============  ===============================================
+===============  ================================================
+``openlineage``  ``apache-airflow-providers-openlineage>=2.16.0``
+===============  ================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-dbt-cloud/4.11.1/changelog.html>`_.
 

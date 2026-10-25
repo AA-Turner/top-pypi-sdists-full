@@ -3183,16 +3183,21 @@ def codex_mcp_token_drifted() -> bool:
     compare -- no Codex entry, or no token stored here. Safe to call on every
     wizard run.
     """
-    token = current_mcp_token()
-    if not token:
-        return False
     try:
         configured = codex_config.configured_bearer(CODEX_MCP_NAME)
     except Exception:  # noqa: BLE001 - an unreadable config is "nothing to say"
         return False
     if configured is None:
+        # No static bearer (OAuth): only the workspace-limit copy can drift.
+        return _codex_limit_drifted()
+    token = current_mcp_token()
+    if not token:
         return False
-    return configured != token or codex_config.needs_header_migration(CODEX_MCP_NAME)
+    return (
+        configured != token
+        or codex_config.needs_header_migration(CODEX_MCP_NAME)
+        or _codex_limit_drifted()
+    )
 
 
 def mcp_token_drifted() -> bool:
@@ -3237,18 +3242,25 @@ def sync_codex_mcp_token() -> list[str]:
         # table, and re-running the wizard must not bring it back.
         return []
     token = current_mcp_token()
-    if not token:
-        return []
     try:
         configured = codex_config.configured_bearer(CODEX_MCP_NAME)
     except Exception:  # noqa: BLE001
+        return []
+    if configured is None:
+        # No static bearer: an install Codex authenticates itself (OAuth), or no
+        # entry at all. The workspace limit must still reach the first.
+        return _sync_codex_limit_only()
+    if not token:
         return []
     # A ROTATION is not the only reason to rewrite. `write_mcp_bearer` replaces
     # the whole table, so a shape change (the agent-session header) reaches an
     # install only when something calls it -- and an install whose token never
     # rotates would otherwise keep the old table forever.
     stale_shape = codex_config.needs_header_migration(CODEX_MCP_NAME)
-    if configured is None or (configured == token and not stale_shape):
+    # And a third: this computer's workspace limit, copied into the same table,
+    # changed (`probe workspace limit`). The copy must follow it, as the bearer does.
+    stale_limit = _codex_limit_drifted()
+    if configured is None or (configured == token and not stale_shape and not stale_limit):
         return []
 
     url = codex_config.plugin_mcp_url(CODEX_MCP_NAME, marketplace=MARKETPLACE)
@@ -3272,9 +3284,66 @@ def sync_codex_mcp_token() -> list[str]:
     if plugin_cli.codex_mcp_auth_status(CODEX_MCP_NAME) != codex_config.BEARER_STATUS:
         codex_config.restore(written)
         return ["! could not update the Codex MCP token; its config is back as it was."]
+    if configured == token and stale_limit and not stale_shape:
+        return ["Codex MCP updated to this computer's workspace limit (restart Codex to load it)."]
     if configured == token:
         return ["Codex MCP config updated so agent sessions are identified."]
     return ["Codex MCP updated to your current read token."]
+
+
+#: Said whenever this computer is limited while Codex reads Probe through the
+#: PLUGIN's own MCP declaration (OAuth, no user-level table). A user-level
+#: `[mcp_servers.<name>]` table OVERRIDES the plugin's entry rather than merging
+#: with it (`codex_config`, verified on codex-cli 0.147.0), so writing one only to
+#: carry the limit would drop the OAuth sign-in it rides on. The safe choice is to
+#: leave that connection working and unlimited, and to say how to limit it: signed
+#: out, the wizard gives Codex this computer's key, with the limit beside it.
+CODEX_UNLIMITED_NOTICE = (
+    f"! Codex's Probe MCP signs in with its own OAuth login, so this computer's workspace limit "
+    f"cannot ride it and Codex still reads the whole team. To limit it: `codex mcp logout "
+    f"{CODEX_MCP_NAME}`, then re-run the Probe wizard (`probe wizard`)."
+)
+
+
+def _sync_codex_limit_only() -> list[str]:
+    """Bring the workspace-limit headers of a Codex entry with NO static bearer
+    (`codex mcp login`) in step with the Probe config: those headers only, the
+    rest of the table untouched. Undone when Codex's own view of its login moves.
+
+    With no user-level table at all -- the plugin's own OAuth declaration -- nothing
+    is written (it would shadow that sign-in): while limited, CODEX_UNLIMITED_NOTICE."""
+    from probe.sdk.workspace_limit import stored_headers
+
+    url = codex_config.plugin_mcp_url(CODEX_MCP_NAME, marketplace=MARKETPLACE)
+    if not url or not _same_deployment(url, _context_base_url()):
+        # A limit is one deployment's workspace: never sent to another's MCP.
+        return []
+    if codex_config.configured_limit_headers(CODEX_MCP_NAME) is None:
+        return [CODEX_UNLIMITED_NOTICE] if stored_headers() else []
+    if not _codex_limit_drifted():
+        return []
+
+    before = plugin_cli.codex_mcp_auth_status(CODEX_MCP_NAME)
+    try:
+        written = codex_config.write_limit_headers(CODEX_MCP_NAME, stored_headers())
+    except codex_config.ConfigError as exc:
+        return [f"! Codex's Probe MCP keeps its previous workspace limit: {exc}"]
+    if written.changed and plugin_cli.codex_mcp_auth_status(CODEX_MCP_NAME) != before:
+        codex_config.restore(written)
+        return ["! could not update the Codex MCP's workspace limit; its config is back as it was."]
+    return ["Codex MCP updated to this computer's workspace limit (restart Codex to load it)."] if written.changed else []
+
+
+def _codex_limit_drifted() -> bool:
+    """Codex's table carries other workspace-limit headers than the Probe config
+    stores now. False when there is nothing to compare."""
+    from probe.sdk.workspace_limit import stored_headers
+
+    try:
+        configured = codex_config.configured_limit_headers(CODEX_MCP_NAME)
+        return configured is not None and configured != stored_headers()
+    except Exception:  # noqa: BLE001 - an unreadable config is "nothing to say"
+        return False
 
 
 def apply_codex_mcp_auth() -> list[str]:
@@ -3437,6 +3506,10 @@ def seed_team_note_block() -> list[str]:
 
         settings = resolve()
         if not getattr(settings, "token", None):
+            return []
+        if team_note_file.hidden_by_limit(settings):
+            # Team-wide items are hidden by this computer's workspace limit.
+            team_note_file.remove_blocks()
             return []
         where = team_note_file.paths_for(settings)
         with Client(
@@ -4688,7 +4761,7 @@ SETTINGS_STATE_COPY: dict[Setting, dict[str, tuple[str, ...]]] = {
         # three have to space the same way, or a press jogs the text up a row.
         "full": ("", "New sessions read and write Probe."),
         "read-only": ("", "Write commands are blocked; search still works."),
-        "off": ("", "No Probe calls at all, so no search either."),
+        "off": ("", "No Probe calls at all, so no search either; the service captures none."),
     },
     Setting.RECORDER_CLAUDE_CODE: _RECORDER_STATE_COPY,
     Setting.RECORDER_CODEX: _RECORDER_STATE_COPY,
@@ -6152,10 +6225,32 @@ def restart_notice(caps: Capabilities, selection: Selection) -> list[str]:
     if not (caps.codex_available if caps.agent_source == "codex" else caps.claude_available):
         return []
     agent = "Codex" if caps.agent_source == "codex" else "Claude Code"
-    steps = [f"Restart {agent} to load Probe."]
-    if caps.agent_source == "codex" and selection.capture:
-        # Codex will not run a hook nobody trusted, and it says nothing when it
-        # declines. Without this line capture looks installed and sends nothing.
-        steps.append("In the new session: `/hooks` › approve Probe Session Capture.")
-        steps.append("Until you do, capture is installed but sends nothing.")
+    # A restart only where it is still true: a plugin an open session never
+    # loaded (installed now, or the legacy capture plugin replaced). A plugin
+    # already there is followed without one: its hooks read the switch at the
+    # next event, so "Restart Claude Code to load Probe" for those sent people
+    # off to restart for nothing.
+    installed_now = (
+        (selection.tracking and not caps.tracking_plugin_installed)
+        or (selection.capture and not caps.capture_plugin_installed)
+        or caps.legacy_capture_plugin_installed
+    )
+    if installed_now:
+        steps = [f"Restart {agent} to load Probe."]
+        if caps.agent_source == "codex" and selection.capture:
+            # Codex will not run a hook nobody trusted, and it says nothing when it
+            # declines. Without this line capture looks installed and sends nothing.
+            steps.append("In the new session: `/hooks` › approve Probe Session Capture.")
+            steps.append("Until you do, capture is installed but sends nothing.")
+        return steps
+    steps = []
+    if selection.capture and not current[Capability.CAPTURE]:
+        # The killswitch is gone: the capture hook each open session already
+        # runs starts its recorder again at a prompt (at most every 10 minutes).
+        steps.append(f"No restart needed: open {agent} sessions resume capture within minutes.")
+    elif not selection.capture and current[Capability.CAPTURE]:
+        # `turn_off` stopped every capture daemon and set the killswitch already.
+        steps.append("Capture is off, for open sessions too; nothing to restart.")
+    if not selection.tracking and current[Capability.TRACKING]:
+        steps.append(f"Open {agent} sessions keep Probe until they restart; new ones start without it.")
     return steps

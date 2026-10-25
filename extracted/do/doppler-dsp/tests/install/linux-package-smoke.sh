@@ -27,7 +27,9 @@ die() { echo "FAIL: $*" >&2; exit 1; }
 if command -v apt-get >/dev/null 2>&1; then
     fmt=deb
     export DEBIAN_FRONTEND=noninteractive
-    install() { apt-get install -y -qq --no-install-recommends "$@" >/dev/null; }
+    # The manager's own output stays on the log: a stalled mirror must show
+    # where it stopped, not sit silent until the job timeout (#2535).
+    install() { say "installing: $*"; apt-get install -y -q --no-install-recommends "$@"; }
     have() { dpkg -s "$1" >/dev/null 2>&1; }
     # libc6-dev is the -dev package's one archive dependency; the rest is
     # the consumer's toolchain.
@@ -37,7 +39,20 @@ if command -v apt-get >/dev/null 2>&1; then
     tools=("$PKGS"/doppler-dsp-tools_*.deb)
 else
     fmt=rpm
-    install() { dnf install -y -q "$@" >/dev/null; }
+    # dnf4 (almalinux:8) takes -v, which names the repository and URL it is
+    # waiting on, so a stall shows which mirror it is stuck on (#2544). dnf5
+    # (fedora:latest) rejects -v in every position, and with a stalled repo it
+    # shows only its phase line ("Updating and loading repositories:"): a stall
+    # there names the phase, not the repo. The 600s leg deadline is what bounds
+    # it on either. So -v is added only where the binary takes it: probed
+    # directly, not inferred from a version string, whose format is not one
+    # this script owns.
+    if dnf -v --version >/dev/null 2>&1; then
+        dnf_opts=(-v)
+    else
+        dnf_opts=()
+    fi
+    install() { say "installing: $*"; dnf "${dnf_opts[@]}" install -y "$@"; }
     have() { rpm -q "$1" >/dev/null 2>&1; }
     toolchain=(gcc cmake make pkgconf-pkg-config)
     # The runtime rpm is the one whose name has no -devel and no -tools.
@@ -53,7 +68,7 @@ fi
 # its missing toolchain here, and the index is fetched only then.
 missing=(); for p in "${toolchain[@]}"; do have "$p" || missing+=("$p"); done
 if [ "$fmt" = deb ] && [ ${#missing[@]} -gt 0 ]; then
-    apt-get update -qq >/dev/null
+    say "apt-get update"; apt-get update -q
 fi
 for f in "${rt[0]}" "${dev[0]}" "${tools[0]}"; do
     [ -f "$f" ] || die "no package matching $f — run 'make package-linux'"

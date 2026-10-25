@@ -165,11 +165,11 @@ def test_gemini_sliver_is_refused_and_a_real_take_and_a_silent_block_are_not():
 
 def test_gemini_check_runs_before_the_paid_call_is_marked_complete_and_before_storage():
     """Wiring guard: both Gemini accept points call the check before from_google_async persists."""
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     from matrx_ai.providers.google.google_api import GoogleChat
 
-    src = inspect.getsource(GoogleChat)
+    src = stable_source(GoogleChat)
     assert src.count("self._refuse_truncated_speech(accumulated_chunks, unified_config)") == 2
     for block in src.split("self._refuse_truncated_speech(accumulated_chunks, unified_config)")[1:]:
         assert block.index("paid_call_completed = True") < block.index("from_google_async")

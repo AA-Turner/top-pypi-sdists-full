@@ -94,6 +94,52 @@ describe.runIf(HAS_PROC)("a session the Probe service records (Linux: /proc)", (
     expect(report).toContain(path);
   });
 
+  it("/probe-status says what the CLI says when the service's recorder records nothing", async () => {
+    // The marker names a live service, but its recorder holds no claim (its
+    // server does not answer): the footer and `probe doctor` say "not
+    // recording", and this line said "capturing" from the marker alone.
+    const pid = await liveProcess(true);
+    const { sid, path } = marker(String(pid));
+    const tapState = mkdtempSync(join(tmpdir(), "pi-hosted-tap-"));
+    cleanup.push(tapState);
+    const deps = {
+      ...realDeps,
+      isExecutable: () => false,
+      env: { ...process.env, PROBE_PI_TAP_PLUGIN_DIR: tapState },
+      extensionDir: resolve(__dirname, ".."),
+      cwd: tmpdir(),
+    };
+
+    const report = buildStatusReport(sid, { ...deps, capture: { running: false, reason: "not recording" } });
+    expect(report).toContain("this session:  not capturing: not recording");
+    expect(report).not.toContain("capturing (recorded by the Probe service");
+    expect(report).toContain(path);
+
+    const running = buildStatusReport(sid, { ...deps, capture: { running: true, reason: "running" } });
+    expect(running).toContain("this session:  capturing (recorded by the Probe service");
+  });
+
+  it("/probe-status says a session switched off is not captured, because Probe is off", async () => {
+    // Probe off: the Probe service holds the session and records none of it;
+    // while no service runs, its `.hosted` marker names the session's own agent
+    // (no service), and the CLI's reason is `Probe is off`.
+    const agentPid = await liveProcess(false);
+    const { sid, path } = marker(String(agentPid));
+    const tapState = mkdtempSync(join(tmpdir(), "pi-hosted-tap-"));
+    cleanup.push(tapState);
+    const report = buildStatusReport(sid, {
+      ...realDeps,
+      isExecutable: () => false,
+      env: { ...process.env, PROBE_PI_TAP_PLUGIN_DIR: tapState },
+      extensionDir: resolve(__dirname, ".."),
+      cwd: tmpdir(),
+      capture: { running: false, reason: "Probe is off" },
+    });
+    expect(report).toContain("this session:  not capturing: Probe is off");
+    expect(report).not.toContain("this session:  capturing");
+    expect(path).toContain(sid);
+  });
+
   it("isDaemonAlive reads a live service's marker as alive", async () => {
     const pid = await liveProcess(true);
     const { sid } = marker(String(pid));

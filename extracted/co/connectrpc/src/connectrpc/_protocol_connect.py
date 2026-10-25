@@ -104,12 +104,12 @@ class ConnectServerProtocol:
                     Code.INVALID_ARGUMENT,
                     f"Invalid timeout header: '{timeout_header} has >10 digits",
                 )
-            try:
-                timeout_ms = int(timeout_header)
-            except ValueError as e:
+            # int() also accepts a sign, whitespace, and underscores.
+            if not (timeout_header.isascii() and timeout_header.isdigit()):
                 raise ConnectError(
                     Code.INVALID_ARGUMENT, f"Invalid timeout header: '{timeout_header}'"
-                ) from e
+                )
+            timeout_ms = int(timeout_header)
         else:
             timeout_ms = None
 
@@ -143,13 +143,12 @@ class ConnectServerProtocol:
 
     def negotiate_stream_compression(
         self, headers: Headers, compressions: dict[str, Compression]
-    ) -> tuple[Compression, Compression]:
-        req_compression_name = headers.get(
-            CONNECT_STREAMING_HEADER_COMPRESSION, "identity"
+    ) -> tuple[Compression | None, Compression]:
+        # Missing and empty header both mean identity.
+        req_compression_name = (
+            headers.get(CONNECT_STREAMING_HEADER_COMPRESSION) or "identity"
         )
-        req_compression = (
-            compressions.get(req_compression_name) or IdentityCompression()
-        )
+        req_compression = compressions.get(req_compression_name)
         accept_compression = headers.get(
             CONNECT_STREAMING_HEADER_ACCEPT_COMPRESSION, ""
         )
@@ -167,7 +166,7 @@ class ConnectEnvelopeWriter(EnvelopeWriter):
             end_message["metadata"] = metadata
         if error:
             end_message["error"] = error.to_dict()
-        data = json.dumps(end_message).encode()
+        data = json.dumps(end_message, ensure_ascii=False).encode("utf-8")
         if self._compression:
             data = self._compression.compress(data)
         return struct.pack(">BI", self._prefix | 0b10, len(data)) + data
@@ -312,6 +311,9 @@ class ConnectClientProtocol:
 
 
 class ConnectEnvelopeReader(EnvelopeReader[RES]):
+    _flags_mask = 0b11
+    _protocol_error_code = Code.INTERNAL
+
     def handle_end_message(
         self, prefix_byte: int, message_data: bytes | bytearray, /
     ) -> bool:
@@ -328,3 +330,13 @@ class ConnectEnvelopeReader(EnvelopeReader[RES]):
             # and streaming.
             raise ConnectWireError.from_dict(error, 500, Code.UNKNOWN).to_exception()
         return True
+
+    def handle_response_complete(
+        self,
+        _response: pyqwest.Response | pyqwest.SyncResponse,
+        /,
+        error: ConnectError | None = None,
+    ) -> None:
+        # A stream reset is reported by the caller.
+        if error is None and not self._ended:
+            raise ConnectError(Code.INTERNAL, "protocol error: unexpected EOF")

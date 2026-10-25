@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import io
 import threading
 from contextvars import ContextVar
 from copy import copy
@@ -15,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 from matrx_utils import supervised_task, vcprint
 
 from matrx_ai.config import UnifiedResponse
+from matrx_ai.config.served_via import served_via_kwargs
 
 # IMPORT SAFETY — do NOT import ai_model_manager (or anything else that resolves
 # host-injected DB models) at module scope. ``matrx_ai.db.ai_models`` resolves
@@ -262,6 +264,44 @@ def _wire_message_list(messages: Any) -> Any:
     return wire
 
 
+#: Wires whose structured output is grammar-constrained AND narrows a dynamic-key map to ``{}``.
+_MAP_NARROWING_WIRES = frozenset({"anthropic_chat", "openai_chat"})
+
+
+#: A schema whose SMALLEST Anthropic form (every nullable narrowed, identical subtrees shared) still costs
+#: this much against the compiled-grammar budget is refused on every rung of the grammar ladder: the lowest
+#: measured refusal scored 72.0 (``anthropic_grammar_cost``), and this is twice that. Sending it only buys
+#: doomed round trips (a "Schema is too complex" refusal can take 180 s) before the ladder's last rung —
+#: prompt-guided JSON — so that rung is taken up front. 2026-10-24: ``visual_map`` (ten engine schemas)
+#: costs ~1,030.
+ANTHROPIC_CERTAIN_REFUSAL_COST = 144.0
+
+
+def _anthropic_certain_refusal(schema: Any) -> str | None:
+    """Why Anthropic will refuse ``schema`` at every rung, or None when it may compile."""
+    if not isinstance(schema, dict):
+        return None
+    from matrx_ai.providers.anthropic.translator import AnthropicTranslator
+    from matrx_ai.schema.rules import (
+        anthropic_grammar_cost,
+        collapse_nullable_unions,
+        dedupe_identical_subtrees,
+    )
+
+    try:
+        with contextlib.redirect_stdout(io.StringIO()):
+            wire = AnthropicTranslator._translate_output_schema_once(schema, budget=None)[0]
+        smallest = dedupe_identical_subtrees(
+            collapse_nullable_unions(wire, keep=0, notes=[], reason="certain-refusal estimate")
+        )
+        cost = anthropic_grammar_cost(smallest)
+    except Exception:  # noqa: BLE001 — an estimate that cannot be made sends the schema as declared
+        return None
+    if cost > ANTHROPIC_CERTAIN_REFUSAL_COST:
+        return f"its smallest Anthropic form costs {cost:.0f} against the grammar budget (refused from 72)"  # agent-context-text-ok: finding detail for engineers, never sent to a model
+    return None
+
+
 def _downgrade_response_format(
     config: Any, caps: ResolvedModelCapabilities, wire_format: str
 ) -> None:
@@ -291,10 +331,27 @@ def _downgrade_response_format(
 
     mode = caps.structured_output_mode
     target: str | None = None
+    emptied: list[str] = []
+    over_budget: str | None = None
     if rf_type == "json_schema" and mode is not StructuredOutputMode.SCHEMA:
         target = "json_object" if mode is StructuredOutputMode.JSON else "text"
     elif rf_type == "json_object" and mode is StructuredOutputMode.TEXT:
         target = "text"
+    elif rf_type == "json_schema" and wire_format in _MAP_NARROWING_WIRES:
+        # A grammar-constrained decoder narrows every dynamic-key map to `{}`; a REQUIRED one is then
+        # forced empty and the answer can never carry its content (2026-10-24: Output Schema
+        # `visual_map`, `"spec": {}` on Haiku and Sonnet, 0 of 6 diagrams drawn). Prompt-guided JSON
+        # keeps the content; the answer is still checked against the declared schema afterwards.
+        from matrx_ai.schema.answer_contract import declared_schema_of as _declared
+        from matrx_ai.schema.rules import forced_empty_maps
+
+        emptied = forced_empty_maps(_declared(rf)[0])
+        if emptied:
+            target = "json_object"
+        elif wire_format == "anthropic_chat":
+            over_budget = _anthropic_certain_refusal(_declared(rf)[0])
+            if over_budget:
+                target = "json_object"
     if target is None:
         return
 
@@ -325,7 +382,11 @@ def _downgrade_response_format(
         },
         title=(
             f"⚠️  CAPABILITY ADJUSTMENT [{caps.model_name}]: response_format "
-            f"{rf_type} → {target} — this model does not support {rf_type}. Output "
+            f"{rf_type} → {target} — "
+            + (f"the strict decoder would force {', '.join(emptied)} empty. " if emptied
+               else f"Anthropic would refuse the schema: {over_budget}. " if over_budget
+               else f"this model does not support {rf_type}. ")
+            + "Output "
             "is downgraded to the best supported mode; the schema is NOT enforced "
             "at the provider"
             + (
@@ -347,12 +408,23 @@ def _downgrade_response_format(
         detail={
             **shape,
             "action": (
-                f"response_format {rf_type} → {target}: this model's capabilities do not "
+                f"response_format {rf_type} → {target}: the required map(s) "  # agent-context-text-ok: finding detail for engineers, never sent to a model
+                f"{', '.join(emptied)} would be forced empty by the {wire_format} decoder"
+                if emptied
+                else f"response_format {rf_type} → {target}: {over_budget}"
+                if over_budget
+                else f"response_format {rf_type} → {target}: this model's capabilities do not "
                 f"declare {rf_type}, so the schema was discarded before any translator ran"
             ),
             "schema_sent_as_prompt_guidance": guided,
             "remedy": (
-                "bind this run to an offering whose capabilities declare structured_output; "
+                "declare the map's entries as fields (or an array of {key, value}) so a strict "  # agent-context-text-ok: finding detail for engineers, never sent to a model
+                "decoder can hold them; until then the shape is guided by the prompt and checked afterwards"
+                if emptied
+                else "the schema is larger than any Anthropic grammar compiles; the shape is guided by the "  # agent-context-text-ok: finding detail for engineers, never sent to a model
+                "prompt (the kind's contract writer, when it has one) and checked afterwards"
+                if over_budget
+                else "bind this run to an offering whose capabilities declare structured_output; "
                 "otherwise the shape is only guided by the prompt and checked afterwards"
             ),
         },
@@ -361,6 +433,10 @@ def _downgrade_response_format(
         # answer there is nothing to recover to.
         was_recovered=None if guided else False,
     )
+    from matrx_ai.schema.answer_contract import mark_enforcement_dropped
+
+    # The answer check must not report "the provider accepted the request as enforced".
+    mark_enforcement_dropped(f"response_format {rf_type} → {target} before the provider call")
     config.response_format = {"type": target}
 
 
@@ -1474,16 +1550,13 @@ class _SettingsSelfHeal:
             REPAIRS_PER_CALL,
             SELF_HEALED_KEY,
             SETTING_REJECTION_ERROR_TYPE,
-            apply_setting_repair,
-            load_parameter_facts,
-            plan_setting_repair,
-        )
-
-        from matrx_ai.providers.setting_rejection import (
             apply_safe_minimum,
+            apply_setting_repair,
             config_as_sent_before_safe_minimum,
+            load_parameter_facts,
             net_candidate,
             plan_safe_minimum,
+            plan_setting_repair,
         )
 
         info = classify_for_report(exc, self.provider)
@@ -1622,6 +1695,7 @@ _WIRE_CAPTURED_CLIENT_ATTRS: frozenset[str] = frozenset(
         "google_chat",
         "huggingface_chat",
         "moonshot_chat",
+        "device_chat",
         "mock_chat",
         "generic_openai_chat",
     }
@@ -1678,6 +1752,8 @@ class UnifiedAIClient:
         "elevenlabs_music": "ElevenLabsMusic",
         "mock_chat": "MockChat",
         "moonshot_chat": "MoonshotChat",
+        # A model on a person's own Matrx 2 computer (served_via) — providers/device/.
+        "device_chat": "DeviceChat",
     }
 
     # The dispatch attr for OpenAI-compatible endpoints resolved from the
@@ -1836,6 +1912,7 @@ class UnifiedAIClient:
             config.model,
             getattr(config, "tts_quality", None),
             offering_id=getattr(config, "routing_offering_id", None),
+            **served_via_kwargs(config),
         )
         # THE FREE-TIER MODEL CEILING (FREE-ALLOWANCE.md): a guest or free account never runs a
         # premium model, whatever the client asked for. This is the one place every chat/media
@@ -1849,6 +1926,7 @@ class UnifiedAIClient:
                 config.model,
                 getattr(config, "tts_quality", None),
                 offering_id=getattr(config, "routing_offering_id", None),
+                **served_via_kwargs(config),
             )
 
         model_name = profile.model_name
@@ -2279,9 +2357,13 @@ class UnifiedAIClient:
                 # CAPTURE MODE (request_capture.py): nothing is sent, nothing is
                 # spent — the spend gates have nothing to admit or refuse.
                 raise _SkipSpendGates
-            from matrx_ai.providers.usage_gate import admit_paid_call
+            from matrx_ai.providers.usage_gate import admit_paid_call, costs_nothing_on_a_device
 
-            await admit_paid_call()
+            # A call served by the person's own computer costs 0.0 and spends no points
+            # (TokenUsage.device_served): the AI usage limit neither refuses it nor warns
+            # "You're close to your AI usage limit." on it (L5, 2026-10-24).
+            if not costs_nothing_on_a_device(profile):
+                await admit_paid_call()
             # THE RUN-APPROVAL GATE — same seam, same once-per-request memory read: an agent,
             # mandate or automation that cost more than the approval threshold in one run waits
             # for a person's approval before its next non-interactive run. See
@@ -2357,9 +2439,11 @@ class UnifiedAIClient:
             except Exception as exc:
                 if await heal.handle_failure(exc, streamed_before=streamed_before):
                     continue  # repaired: send once more, now, no backoff
+                # A device-served call is never re-sent (providers/device/route_guard.py).
                 info = (
                     transient_unbilled_failure(exc, provider)
                     if attempt < transient_retries
+                    and getattr(profile, "route_kind", None) != "device"
                     else None
                 )
                 if info is None:
@@ -2533,6 +2617,24 @@ class UnifiedAIClient:
         usage object (some media paths) is returned untouched.
         """
         usage = getattr(response, "usage", None)
+        # WHERE IT RAN (L5 R5): a device-served call says which device, on the usage
+        # metadata that lands in cx_request.metadata (no schema change).
+        served_via = getattr(profile, "served_via", None)
+        if (
+            usage is not None
+            and served_via is not None
+            and getattr(profile, "route_kind", None) == "device"
+            and isinstance(getattr(usage, "metadata", None), dict)
+        ):
+            usage.metadata["served_via"] = {
+                "provider": served_via.provider,
+                "app_instance_id": served_via.app_instance_id,
+                "local_model_id": served_via.local_model_id,
+                # The key the computer ran it under (the device run key) and its name.
+                "model_key": getattr(profile, "provider_model_id", None),
+                "model_name": getattr(profile, "model_name", None),
+            }
+            usage.metadata["device_served"] = True
         if usage is not None and hasattr(usage, "offering_id"):
             usage.offering_id = profile.offering_id
             usage.offering_route = (
@@ -2724,6 +2826,7 @@ class UnifiedAIClient:
             labels,
             threshold=threshold,
             offering_id=getattr(config, "routing_offering_id", None),
+            **served_via_kwargs(config),
         )
 
         entities: dict[str, list[dict[str, Any]]] = {}
@@ -2813,7 +2916,9 @@ class UnifiedAIClient:
 
         config = request.config
         profile = await resolve_call_profile(
-            config.model, offering_id=getattr(config, "routing_offering_id", None)
+            config.model,
+            offering_id=getattr(config, "routing_offering_id", None),
+            **served_via_kwargs(config),
         )
 
         # One translator per wire route. Route through build_request (the validated
@@ -2831,6 +2936,7 @@ class UnifiedAIClient:
             "xai_chat": XAITranslator,
             "huggingface_chat": GenericOpenAITranslator,
             "generic_openai_chat": GenericOpenAITranslator,
+            "device_chat": GenericOpenAITranslator,
         }
         # A speech model shares its vendor's CHAT wire route (groq_tts and groq_standard are
         # both `groq_chat`; likewise openai_tts, google_tts, xai_tts, elevenlabs_tts). The

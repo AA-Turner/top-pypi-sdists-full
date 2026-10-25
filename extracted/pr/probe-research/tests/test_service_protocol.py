@@ -176,7 +176,7 @@ def test_response_shapes(service_home):
         listing = conn.call(Method.SESSION_LIST)
         assert set(listing) == {"sessions", "harnesses"}
         (listed,) = listing["sessions"]
-        assert set(listed) == {"sid", "harness", "mode", "alive", "owner", "generation", "registered_at", "receipts"}
+        assert set(listed) == {"sid", "harness", "mode", "alive", "owner", "generation", "registered_at", "agent_live", "receipts"}
         assert listed["receipts"] is None  # no journal in this HOME
         assert listing["harnesses"] == [{
             "harness": "test", "scope": None, "sessions": 1, "alive": 1, "received_at": None, "pending_bytes": None,
@@ -184,7 +184,7 @@ def test_response_shapes(service_home):
         }]
         # A caller that only counts asks for none: the listing as it always was.
         (bare,) = conn.call(Method.SESSION_LIST, {"receipts": False})["sessions"]
-        assert set(bare) == {"sid", "harness", "mode", "alive", "owner", "generation", "registered_at"}
+        assert set(bare) == {"sid", "harness", "mode", "alive", "owner", "generation", "registered_at", "agent_live"}
         assert conn.call(Method.EVENTS_SUBSCRIBE, {"topics": sorted(protocol.TOPICS)}) == {}
         assert conn.call(Method.SESSION_END, {"sid": "s-shape", "generation": 1}) == {}
         ended = conn.next_event(2.0)
@@ -298,3 +298,14 @@ def test_client_errors_carry_the_code(service_home):
     with pytest.raises(client.ServiceError) as raised:
         service_home.call("no.such.method", {})
     assert raised.value.code == -32601
+
+
+def test_workspace_limit_is_a_service_action_and_its_picker_a_read():
+    """`action.run workspace_limit` (the app's Settings → Workspace) is a change,
+    one at a time like every action; `desktop.request workspaces` (its list) is a read."""
+    from probe.core.requests import ActionName
+    from probe.service import protocol
+
+    assert protocol.Action.WORKSPACE_LIMIT in protocol.ACTIONS
+    assert protocol.ACTIONS <= {a.value for a in ActionName}
+    assert protocol.DesktopOp.WORKSPACES in protocol.DESKTOP_READS

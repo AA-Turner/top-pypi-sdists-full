@@ -71,6 +71,9 @@ class SettingFamilies(BaseModel):
     positions: dict[str, dict[str, float]] = {}
     value_types: dict[str, str] = {}
     vocab: dict[str, tuple[str, ...]] = {}
+    # ai.setting.default_value per key (only rows that carry one) — the DATA
+    # home of a platform default (e.g. reasoning_effort = "low").
+    defaults: dict[str, Any] = {}
 
     @classmethod
     def from_settings(cls, settings: dict[str, CatalogSetting]) -> SettingFamilies | None:
@@ -99,6 +102,9 @@ class SettingFamilies(BaseModel):
                 key: tuple(str(v) for v in s.canonical_values)
                 for key, s in settings.items()
                 if s.canonical_values
+            },
+            defaults={
+                key: s.default_value for key, s in settings.items() if s.default_value is not None
             },
         )
 

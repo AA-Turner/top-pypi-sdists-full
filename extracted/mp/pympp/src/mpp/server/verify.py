@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
@@ -15,10 +17,12 @@ from mpp import (
     _constant_time_equal,
     generate_challenge_id,
 )
-from mpp._parsing import ParseError, _b64_decode
+from mpp._parsing import MAX_AUTHORIZATION_SIZE, ParseError, _b64_decode
 from mpp._units import transform_units
 from mpp.errors import (
+    InternalPaymentError,
     InvalidChallengeError,
+    InvalidPayloadError,
     MalformedCredentialError,
     PaymentError,
     PaymentExpiredError,
@@ -26,6 +30,7 @@ from mpp.errors import (
 )
 from mpp.events import CHALLENGE_CREATED, PAYMENT_FAILED, PAYMENT_SUCCESS, EventDispatcher
 from mpp.server.intent import broadcast_credential
+from mpp.x402._server import X402Input, X402Intent, x402_credential
 
 DEFAULT_EXPIRES_MINUTES = 5
 
@@ -47,8 +52,12 @@ async def verify_or_challenge(
     body: str | bytes | dict[str, Any] | None = None,
     events: EventDispatcher | None = None,
     header: str | None = None,
+    unique_challenges: bool = True,
+    x402: X402Input | None = None,
 ) -> Challenge | tuple[Credential, Receipt]:
     """Verify a payment credential or generate a new challenge.
+
+    Set ``unique_challenges=False`` only for a verifier-first rolling upgrade.
 
     This is the core server-side function for handling payment authentication.
     It checks for an Authorization header, verifies the credential if present,
@@ -79,6 +88,10 @@ async def verify_or_challenge(
         header: Optional HTTP field for the Payment credential. When set to
             ``Payment-Authorization``, issued challenges advertise that field
             so ``Authorization`` can carry application authentication.
+        x402: Optional x402 request context. When the intent supports x402
+            (:class:`~mpp.x402.X402Intent`) and the request carries no Payment
+            credential, its ``PAYMENT-SIGNATURE`` value is bound to this route
+            and verified instead.
 
     Returns:
         If no valid Authorization header:
@@ -122,6 +135,7 @@ async def verify_or_challenge(
             expires,
             body,
             header,
+            unique_challenges,
         )
         if events is not None:
             await events.emit(
@@ -160,11 +174,82 @@ async def verify_or_challenge(
                 },
             )
 
-    if authorization is None:
-        return await new_challenge()
+    async def verify_x402(x402_input: X402Input) -> tuple[Credential, Receipt]:
+        assert isinstance(intent, X402Intent)
+        assert x402_input.payment_signature is not None
+        try:
+            credential = x402_credential(
+                x402_input.payment_signature,
+                intent,
+                method=method_name,
+                request=request,
+                realm=realm,
+                resource_url=x402_input.resource_url,
+                http_method=x402_input.http_method,
+                digest=_body_digest.compute(body) if body is not None else None,
+                meta=meta,
+            )
+        except PaymentError as error:
+            error.retry_challenge = await new_challenge()
+            await emit_failure(error, error.retry_challenge)
+            raise
+        submitted_challenge = Challenge(
+            id=credential.challenge.id,
+            realm=realm,
+            method=method_name,
+            intent=intent.name,
+            request=request,
+            request_b64=credential.challenge.request,
+        )
+        try:
+            receipt = await broadcast_credential(
+                intent=intent,
+                credential=credential,
+                request=request,
+            )
+        except (InternalPaymentError, PaymentOutcomeUnknownError) as error:
+            # The payment may have landed; a retryable 402 would invite a second one.
+            await emit_failure(error, submitted_challenge, credential)
+            raise
+        except PaymentError as error:
+            if error.status != 403:
+                error.retry_challenge = await new_challenge()
+            await emit_failure(error, submitted_challenge, credential)
+            raise
+        except Exception as error:
+            await emit_failure(error, submitted_challenge, credential)
+            raise
+        if events is not None:
+            await events.emit(
+                PAYMENT_SUCCESS,
+                {
+                    "challenge": submitted_challenge,
+                    "credential": credential,
+                    "intent": intent.name,
+                    "method": method_name,
+                    "receipt": receipt,
+                    "request": request,
+                },
+            )
+        return (credential, receipt)
 
-    payment_scheme = _extract_payment_scheme(authorization)
+    payment_scheme = None
+    if authorization is not None:
+        # Reject oversized values before extraction. Report them as a rejected
+        # credential only when they carry a Payment scheme, so oversized
+        # non-payment auth (e.g. a large Bearer token) stays a silent challenge.
+        if len(authorization) > MAX_AUTHORIZATION_SIZE:
+            if _PAYMENT_SCHEME_RE.search(authorization) is not None:
+                return await fail(
+                    MalformedCredentialError("Authorization header exceeds maximum size")
+                )
+        else:
+            payment_scheme = _extract_payment_scheme(authorization)
     if payment_scheme is None:
+        # A Payment credential takes precedence; otherwise accept an x402
+        # payment for intents that support it, like mppx (MPP, then x402).
+        if x402 is not None and x402.payment_signature and isinstance(intent, X402Intent):
+            return await verify_x402(x402)
         return await new_challenge()
 
     try:
@@ -197,7 +282,7 @@ async def verify_or_challenge(
             credential,
         )
 
-    if echo_opaque != meta:
+    if _application_meta(echo_opaque) != (meta or None):
         return await fail(
             InvalidChallengeError(echo.id, "credential opaque does not match this route"),
             credential,
@@ -219,7 +304,7 @@ async def verify_or_challenge(
         # it to an aware "now" raises TypeError. Reject it like any other
         # unparseable value so the route still fails closed.
         return await fail(InvalidChallengeError(echo.id, "invalid expires"), credential)
-    if expires_dt < datetime.now(UTC):
+    if expires_dt <= datetime.now(UTC):
         return await fail(PaymentExpiredError(echo.expires), credential)
 
     submitted_challenge = _challenge_from_echo(echo, echo_request, echo_opaque)
@@ -229,11 +314,19 @@ async def verify_or_challenge(
             credential=credential,
             request=request,
         )
-    except PaymentOutcomeUnknownError as error:
+    except (InternalPaymentError, PaymentOutcomeUnknownError) as error:
+        # The payment may have landed; a retryable 402 would invite a second one.
         await emit_failure(error, submitted_challenge, credential)
         raise
     except PaymentError as error:
-        error.retry_challenge = await new_challenge()
+        # 403 means the payment was valid but cannot pay for this request, so a
+        # fresh challenge would only invite the client to pay again.
+        if error.status != 403:
+            error.retry_challenge = (
+                await new_challenge()
+                if isinstance(error, (InvalidPayloadError, PaymentExpiredError))
+                else submitted_challenge
+            )
         await emit_failure(error, submitted_challenge, credential)
         raise
     except Exception as error:
@@ -277,6 +370,8 @@ def _authenticate_echo(
     try:
         echo_request = _b64_decode(echo.request) if echo.request else {}
         echo_opaque = _b64_decode(echo.opaque) if echo.opaque else None
+        if echo_opaque is not None and not isinstance(echo_opaque, dict):
+            raise MalformedCredentialError("Challenge opaque must be an object")
     except ParseError as error:
         raise MalformedCredentialError(str(error)) from error
 
@@ -310,6 +405,7 @@ def _create_challenge(
     expires: str | None = None,
     body: str | bytes | dict[str, Any] | None = None,
     header: str | None = None,
+    unique_challenges: bool = True,
 ) -> Challenge:
     """Create a new payment challenge with HMAC-bound ID.
 
@@ -325,7 +421,18 @@ def _create_challenge(
         expires_dt = datetime.now(UTC) + timedelta(minutes=DEFAULT_EXPIRES_MINUTES)
         expires = expires_dt.isoformat().replace("+00:00", "Z")
 
+    if method == "tempo" and intent_name == "charge":
+        from mpp.methods.tempo.schemas import reject_fixed_attribution_memos
+
+        reject_fixed_attribution_memos(request)
+        _assert_sponsored_challenge_lifetime(request, expires)
+
     digest = _body_digest.compute(body) if body is not None else None
+    if meta is not None and "_mpp_nonce" in meta:
+        raise ValueError("_mpp_nonce is reserved for challenge issuance")
+    issued_meta = (
+        {**(meta or {}), "_mpp_nonce": secrets.token_hex(32)} if unique_challenges else meta
+    )
 
     return Challenge.create(
         secret_key=secret_key,
@@ -336,9 +443,35 @@ def _create_challenge(
         expires=expires,
         digest=digest,
         description=description,
-        meta=meta,
+        meta=issued_meta,
         header=header,
     )
+
+
+def _assert_sponsored_challenge_lifetime(request: dict[str, Any], expires: str) -> None:
+    """Refuse to issue a sponsored Tempo charge that expires too soon to cosign.
+
+    Clients cap the transaction's ``valid_before`` at the challenge expiry and
+    the sponsoring server needs ``MIN_REMAINING_VALIDITY_SECONDS`` of remaining
+    validity, so a shorter-lived sponsored challenge could never be paid.
+    """
+    from mpp.methods.tempo.fee_payer_policy import MIN_REMAINING_VALIDITY_SECONDS
+
+    details = request.get("methodDetails")
+    if not isinstance(details, dict) or not details.get("feePayer"):
+        return
+    try:
+        expires_dt = datetime.fromisoformat(expires.replace("Z", "+00:00"))
+    except ValueError:
+        return
+    if expires_dt.tzinfo is None:
+        return
+    if expires_dt - datetime.now(UTC) < timedelta(seconds=MIN_REMAINING_VALIDITY_SECONDS):
+        raise ValueError(
+            "Sponsored (feePayer) charge challenges must expire at least "
+            f"{MIN_REMAINING_VALIDITY_SECONDS} seconds after issuance; "
+            "increase expires or expires_in"
+        )
 
 
 def _body_digest_error(
@@ -372,7 +505,11 @@ def _challenge_from_echo(
         digest=echo.digest,
         opaque=opaque,
         header=echo.header,
+        description=echo.description,
     )
+
+
+_PAYMENT_SCHEME_RE = re.compile(r"(?:^|,)[ \t]*payment ", re.IGNORECASE)
 
 
 def _extract_payment_scheme(header: str) -> str | None:
@@ -380,9 +517,19 @@ def _extract_payment_scheme(header: str) -> str | None:
 
     Supports comma-separated multiple schemes per RFC 9110.
     Returns the full ``Payment ...`` string, or None if not found.
+    Headers longer than 64 KiB are rejected before splitting.
     """
+    if len(header) > MAX_AUTHORIZATION_SIZE:
+        return None
     for scheme in header.split(","):
         scheme = scheme.strip()
         if scheme.lower().startswith("payment "):
             return scheme
     return None
+
+
+def _application_meta(meta: dict[str, str] | None) -> dict[str, str] | None:
+    """Remove the HMAC-authenticated issuance nonce for route comparison."""
+    if not isinstance(meta, dict):
+        return None
+    return {key: value for key, value in meta.items() if key != "_mpp_nonce"} or None

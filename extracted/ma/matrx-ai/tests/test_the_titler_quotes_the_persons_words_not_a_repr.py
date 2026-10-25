@@ -7,7 +7,7 @@ executor passed ``str(content)`` for a block-list message.
 
 from __future__ import annotations
 
-import inspect
+from matrx_utils.source_guard import stable_source
 
 from matrx_ai.config.typed_text_last import typed_words_of
 from matrx_ai.config.unified_content import TextContent
@@ -28,6 +28,6 @@ def test_attachments_carry_no_words_and_text_objects_count() -> None:
 def test_the_executor_never_stringifies_the_persons_message_for_the_titler() -> None:
     from matrx_ai.orchestrator import executor
 
-    source = inspect.getsource(executor)
+    source = stable_source(executor)
     assert "user_prompt = typed_words_of(" in source
     assert "else str(content)" not in source

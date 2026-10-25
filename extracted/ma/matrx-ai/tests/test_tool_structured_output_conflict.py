@@ -4,9 +4,23 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+import pytest
+
 from matrx_ai.config import UnifiedConfig
 from matrx_ai.providers.resolved_capabilities import resolve_model_capabilities
 from matrx_ai.providers.unified_client import _resolve_tool_structured_output_conflict
+
+
+@pytest.fixture(autouse=True)
+def _restore_gate_findings_context():
+    """Direct gate tests do not own a provider call to flush their findings."""
+    from matrx_ai.providers.structured_output_findings import _GATE_PENDING
+
+    token = _GATE_PENDING.set(None)
+    try:
+        yield
+    finally:
+        _GATE_PENDING.reset(token)
 
 
 def _caps(name: str = "test-model"):

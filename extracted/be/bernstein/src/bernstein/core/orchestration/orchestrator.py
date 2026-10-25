@@ -361,6 +361,26 @@ def has_terminal_task(tasks_by_status: Mapping[str, list[Task]]) -> bool:
     return bool(tasks_by_status.get("done") or tasks_by_status.get("failed") or tasks_by_status.get("closed"))
 
 
+def has_inflight_task(tasks_by_status: Mapping[str, list[Task]]) -> bool:
+    """Is any task still held by a worker, local or remote?
+
+    Step-8b quiescence read only ``open`` and this orchestrator's own agents.
+    In cluster mode a remote ``bernstein worker`` claims tasks from the same
+    task server, and those claims belong to no local agent: the run read
+    ``open=0 agents=0`` while a remote worker was still running a retry, the
+    orchestrator self-stopped, and when the retry finished the dependents it
+    unblocked had no spawner left. A step for a role the remote worker does
+    not poll then stayed ``open`` for good.
+
+    Read on the settle-window refetch, not the top-of-tick snapshot: a task a
+    dead local agent held is auto-completed by ``reap_dead_agents`` within the
+    tick, so the snapshot still shows it ``claimed`` when it no longer is. A
+    claim held by a dead local agent does not keep the run alive forever
+    either: ``_release_stale_claims`` retries or fails it on a normal tick.
+    """
+    return bool(tasks_by_status.get("claimed") or tasks_by_status.get("in_progress"))
+
+
 def _model_identity(
     model: str | None,
     provider: str | None,
@@ -755,6 +775,7 @@ class Orchestrator:
         from bernstein.core.cost_anomaly import CostAnomalyDetector
 
         self._anomaly_detector = CostAnomalyDetector(config.cost_anomaly, workdir)
+        self._stop_spawning: bool = False
 
         # Context degradation detector: flags agents whose cross-model review
         # verdicts decline (N consecutive rejects).  Degraded sessions are
@@ -1814,6 +1835,7 @@ class Orchestrator:
             if all(dep in done_ids or (t.id, dep) in broken_deps for dep in t.depends_on)
             # Skip tasks with future created_at (retry backoff)
             and t.created_at <= now
+            and not t.metadata.get("administrative_run_id")
         ]
         result.open_tasks = len(open_tasks)
 
@@ -2461,10 +2483,10 @@ class Orchestrator:
                 try:
                     _chain_result = TickResult()
                     # Pass both done and failed - process_completed_tasks
-                    # filters to ``_processed_done_tasks`` itself so a
-                    # failed task gets registered the same way as a done
-                    # task. A pure done-only filter here would strand
-                    # failed tasks in the drain tracker.
+                    # registers every task in ``_processed_done_tasks`` and
+                    # runs the post-/complete chain for the done ones only.
+                    # A pure done-only filter here would strand failed tasks
+                    # in the drain tracker.
                     process_completed_tasks(
                         self,
                         _newly_terminal_for_chain.copy(),
@@ -2600,7 +2622,8 @@ class Orchestrator:
                 if settled is not None:
                     settled_open = len(settled["open"])
                     settled_agents = sum(1 for a in self._agents.values() if a.status != "dead")
-                    if settled_open == settled_agents == 0:
+                    settled_inflight = has_inflight_task(settled)
+                    if settled_open == settled_agents == 0 and not settled_inflight:
                         # Hold/release API (supplements the settle-timer
                         # self-stop above): external callers can call
                         # POST /orchestrator/holds to keep this orchestrator
@@ -2654,11 +2677,12 @@ class Orchestrator:
                     else:
                         logger.info(
                             "Quiescence NOT confirmed after %.1fs settle window (tick #%d): "
-                            "open=%d agents=%d - run continues",
+                            "open=%d agents=%d in_flight=%s - run continues",
                             _settle_s,
                             self._tick_count,
                             settled_open,
                             settled_agents,
+                            settled_inflight,
                         )
 
         # 9. Log summary
@@ -4391,6 +4415,16 @@ class Orchestrator:
         else:
             logger.info("Anomaly [%s]: %s", signal.rule, signal.message)
 
+    def resume_spawning(self) -> None:
+        """Clear the anomaly-detector stop-spawning flag to allow new agent spawns.
+
+        The cost-anomaly detector sets this flag when burn rate crosses the
+        stop threshold.  Call this once the operator has acknowledged the
+        anomaly and wishes to resume the run.
+        """
+        self._stop_spawning = False
+        logger.info("Spawning resumed by operator call")
+
     def _run_liveness_watchdog(self) -> None:
         """Run one liveness-watchdog pass over current adapter sessions.
 
@@ -5016,10 +5050,21 @@ class Orchestrator:
             if agent_dead:
                 # Agent confirmed gone — reclaim immediately, no timeout wait.
                 try:
-                    self._retry_or_fail_task(
-                        task.id,
-                        reason=("Dead agent: claimed task held by agent no longer tracked (or confirmed dead)"),
-                    )
+                    if task.id in self._retried_task_ids:
+                        # Claimed again after its retry was queued: retry_or_fail_task
+                        # skips a task it has already retried, which left this claim,
+                        # and the files it owns, held by no one.
+                        fail_task(
+                            self._client,
+                            self._config.server_url,
+                            task.id,
+                            reason="Dead agent: claim released; this task's retry is already queued",
+                        )
+                    else:
+                        self._retry_or_fail_task(
+                            task.id,
+                            reason=("Dead agent: claimed task held by agent no longer tracked (or confirmed dead)"),
+                        )
                     released += 1
                     logger.warning(
                         "Immediately reclaimed task %s (%s) from dead/gone agent",
@@ -7382,6 +7427,9 @@ if __name__ == "__main__":
             # Context policy configuration (loads from bernstein.yaml context: section)
             context_policy_config=getattr(seed, "context", None) if seed else None,
         )
+        _tier_adapters = getattr(seed, "tier_adapters", None) if seed else None
+        if _tier_adapters:
+            spawner.set_tier_adapters(_tier_adapters)
         run_config_budget_usd: float | None = None
         dry_run = False
         approval_mode = "auto"

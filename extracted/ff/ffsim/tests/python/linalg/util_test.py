@@ -30,6 +30,12 @@ from ffsim.linalg.util import (
     df_tensors_from_params,
     df_tensors_from_params_jax,
     df_tensors_to_params,
+    real_antisymmetric_from_parameters,
+    real_antisymmetric_from_parameters_jax,
+    real_antisymmetric_to_parameters,
+    real_antisymmetrics_from_parameters,
+    real_antisymmetrics_from_parameters_jax,
+    real_antisymmetrics_to_parameters,
     real_matrices_from_parameters,
     real_matrices_from_parameters_jax,
     real_matrices_to_parameters,
@@ -41,6 +47,12 @@ from ffsim.linalg.util import (
     real_symmetrics_to_parameters,
     rotate_one_body_tensor,
     rotate_two_body_tensor,
+    special_orthogonal_from_parameters,
+    special_orthogonal_from_parameters_jax,
+    special_orthogonal_to_parameters,
+    special_orthogonals_from_parameters,
+    special_orthogonals_from_parameters_jax,
+    special_orthogonals_to_parameters,
     unitaries_from_parameters,
     unitaries_from_parameters_jax,
     unitaries_to_parameters,
@@ -53,55 +65,82 @@ RNG = np.random.default_rng(203074816663819213199997065366693085494)
 
 
 @pytest.mark.parametrize("dim", range(5))
-@pytest.mark.parametrize("real", [True, False])
-def test_antihermitian_parameters(dim: int, real: bool):
+def test_antihermitian_parameters(dim: int):
     """Test parameterizing antihermitian matrix."""
     mat = ffsim.random.random_antihermitian(dim, seed=RNG)
-    if real:
-        mat = mat.real
-    params = antihermitian_to_parameters(mat, real=real)
-    mat_roundtrip = antihermitian_from_parameters(params, dim, real=real)
+    params = antihermitian_to_parameters(mat)
+    mat_roundtrip = antihermitian_from_parameters(params, dim)
     np.testing.assert_allclose(mat_roundtrip, mat)
 
-    n_params = dim * (dim - 1) // 2 if real else dim**2
-    params = RNG.normal(size=n_params)
-    mat = antihermitian_from_parameters(params, dim, real=real)
-    params_roundtrip = antihermitian_to_parameters(mat, real=real)
+    params = RNG.normal(size=dim**2)
+    mat = antihermitian_from_parameters(params, dim)
+    params_roundtrip = antihermitian_to_parameters(mat)
     np.testing.assert_allclose(params_roundtrip, params)
     assert ffsim.linalg.is_antihermitian(mat)
 
 
+@pytest.mark.parametrize("dim", range(5))
+def test_real_antisymmetric_parameters(dim: int):
+    """Test parameterizing real antisymmetric matrix."""
+    mat = ffsim.random.random_antihermitian(dim, seed=RNG).real
+    params = real_antisymmetric_to_parameters(mat)
+    assert params.shape == (dim * (dim - 1) // 2,)
+    mat_roundtrip = real_antisymmetric_from_parameters(params, dim)
+    np.testing.assert_allclose(mat_roundtrip, mat)
+
+    params = RNG.normal(size=dim * (dim - 1) // 2)
+    mat = real_antisymmetric_from_parameters(params, dim)
+    params_roundtrip = real_antisymmetric_to_parameters(mat)
+    np.testing.assert_allclose(params_roundtrip, params)
+    params_roundtrip = real_antisymmetric_to_parameters(mat.astype(complex))
+    np.testing.assert_allclose(params_roundtrip, params)
+
+
+def test_real_antisymmetric_parameters_invalid():
+    """Test parameterizing complex antisymmetric matrix raises an error."""
+    mat = ffsim.random.random_antihermitian(3, seed=RNG)
+    with pytest.raises(ValueError, match="nonzero imaginary part"):
+        real_antisymmetric_to_parameters(mat)
+
+
 @pytest.mark.parametrize("dim", range(1, 5))
-@pytest.mark.parametrize("real", [True, False])
-def test_antihermitian_parameters_jax_consistent(dim: int, real: bool):
+def test_antihermitian_parameters_jax_consistent(dim: int):
     """Test JAX and NumPy versions of parameterizing antihermitian give same results."""
-    n_params = dim * (dim - 1) // 2 if real else dim**2
-    params = RNG.normal(size=n_params)
-    mat_numpy = antihermitian_from_parameters(params, dim, real=real)
-    mat_jax = antihermitian_from_parameters_jax(params, dim, real=real)
+    params = RNG.normal(size=dim**2)
+    mat_numpy = antihermitian_from_parameters(params, dim)
+    mat_jax = antihermitian_from_parameters_jax(params, dim)
     np.testing.assert_allclose(mat_jax, mat_numpy)
+
+
+@pytest.mark.parametrize("dim", range(1, 5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_real_antisymmetric_parameters_jax_consistent(dim: int, n_mats: int):
+    """Test JAX and NumPy versions of parameterizing real antisymmetric agree."""
+    n_params_per_mat = dim * (dim - 1) // 2
+    params = RNG.normal(size=n_params_per_mat)
+    mat_numpy = real_antisymmetric_from_parameters(params, dim)
+    mat_jax = real_antisymmetric_from_parameters_jax(params, dim)
+    np.testing.assert_allclose(mat_jax, mat_numpy)
+    params = RNG.normal(size=n_mats * n_params_per_mat)
+    mats_numpy = real_antisymmetrics_from_parameters(params, dim, n_mats)
+    mats_jax = real_antisymmetrics_from_parameters_jax(params, dim, n_mats)
+    np.testing.assert_allclose(mats_jax, mats_numpy)
 
 
 @pytest.mark.parametrize("dim", range(5))
 @pytest.mark.parametrize("n_mats", range(1, 4))
-@pytest.mark.parametrize("real", [True, False])
-def test_antihermitians_parameters(dim: int, n_mats: int, real: bool):
+def test_antihermitians_parameters(dim: int, n_mats: int):
     """Test parameterizing batch of antihermitian matrices."""
     mats = np.stack(
         [ffsim.random.random_antihermitian(dim, seed=RNG) for _ in range(n_mats)]
     )
-    if real:
-        mats = mats.real
-
-    params = antihermitians_to_parameters(mats, real=real)
-    mats_roundtrip = antihermitians_from_parameters(params, dim, n_mats, real=real)
+    params = antihermitians_to_parameters(mats)
+    mats_roundtrip = antihermitians_from_parameters(params, dim, n_mats)
     np.testing.assert_allclose(mats_roundtrip, mats)
 
-    n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
-    n_params_total = n_mats * n_params_per_mat
-    params = RNG.normal(size=n_params_total)
-    mats = antihermitians_from_parameters(params, dim, n_mats, real=real)
-    params_roundtrip = antihermitians_to_parameters(mats, real=real)
+    params = RNG.normal(size=n_mats * dim**2)
+    mats = antihermitians_from_parameters(params, dim, n_mats)
+    params_roundtrip = antihermitians_to_parameters(mats)
     np.testing.assert_allclose(params_roundtrip, params)
     for i in range(n_mats):
         assert ffsim.linalg.is_antihermitian(mats[i])
@@ -109,98 +148,167 @@ def test_antihermitians_parameters(dim: int, n_mats: int, real: bool):
 
 @pytest.mark.parametrize("dim", range(5))
 @pytest.mark.parametrize("n_mats", range(1, 4))
-@pytest.mark.parametrize("real", [True, False])
-def test_antihermitians_parameters_jax_consistent(dim: int, n_mats: int, real: bool):
+def test_real_antisymmetrics_parameters(dim: int, n_mats: int):
+    """Test parameterizing batch of real antisymmetric matrices."""
+    mats = np.stack(
+        [ffsim.random.random_antihermitian(dim, seed=RNG).real for _ in range(n_mats)]
+    )
+    params = real_antisymmetrics_to_parameters(mats)
+    mats_roundtrip = real_antisymmetrics_from_parameters(params, dim, n_mats)
+    np.testing.assert_allclose(mats_roundtrip, mats)
+
+    params = RNG.normal(size=n_mats * dim * (dim - 1) // 2)
+    mats = real_antisymmetrics_from_parameters(params, dim, n_mats)
+    params_roundtrip = real_antisymmetrics_to_parameters(mats)
+    np.testing.assert_allclose(params_roundtrip, params)
+
+
+@pytest.mark.parametrize("dim", range(5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_antihermitians_parameters_jax_consistent(dim: int, n_mats: int):
     """Test JAX and NumPy versions of parameterizing antihermitian give same results."""
-    n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
-    params = RNG.normal(size=n_mats * n_params_per_mat)
-    mat_numpy = antihermitians_from_parameters(params, dim, n_mats, real=real)
-    mat_jax = antihermitians_from_parameters_jax(params, dim, n_mats, real=real)
+    params = RNG.normal(size=n_mats * dim**2)
+    mat_numpy = antihermitians_from_parameters(params, dim, n_mats)
+    mat_jax = antihermitians_from_parameters_jax(params, dim, n_mats)
     np.testing.assert_allclose(mat_jax, mat_numpy)
 
 
 @pytest.mark.parametrize("dim", range(5))
 @pytest.mark.parametrize("n_mats", range(1, 4))
-@pytest.mark.parametrize("real", [True, False])
-def test_antihermitians_consistent(dim: int, n_mats: int, real: bool):
+def test_antihermitians_consistent(dim: int, n_mats: int):
     """Test that batch function gives same result as single matrix functions."""
     mats = np.array(
         [ffsim.random.random_antihermitian(dim, seed=RNG) for _ in range(n_mats)]
     )
-    if real:
-        mats = mats.real
-
-    params_batch = antihermitians_to_parameters(mats, real=real)
+    params_batch = antihermitians_to_parameters(mats)
     params_individual = np.concatenate(
-        [antihermitian_to_parameters(mats[i], real=real) for i in range(n_mats)]
+        [antihermitian_to_parameters(mats[i]) for i in range(n_mats)]
     )
     np.testing.assert_allclose(params_batch, params_individual)
 
-    n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
-    n_params_total = n_mats * n_params_per_mat
-    params = RNG.normal(size=n_params_total)
-    mats_batch = antihermitians_from_parameters(params, dim, n_mats, real=real)
+    n_params_per_mat = dim**2
+    params = RNG.normal(size=n_mats * n_params_per_mat)
+    mats_batch = antihermitians_from_parameters(params, dim, n_mats)
     mats_individual = np.zeros_like(mats_batch)
     for i in range(n_mats):
         mats_individual[i] = antihermitian_from_parameters(
-            params[i * n_params_per_mat : (i + 1) * n_params_per_mat], dim, real=real
+            params[i * n_params_per_mat : (i + 1) * n_params_per_mat], dim
+        )
+    np.testing.assert_allclose(mats_batch, mats_individual)
+
+
+@pytest.mark.parametrize("dim", range(5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_real_antisymmetrics_consistent(dim: int, n_mats: int):
+    """Test that batch function gives same result as single matrix functions."""
+    mats = np.array(
+        [ffsim.random.random_antihermitian(dim, seed=RNG).real for _ in range(n_mats)]
+    )
+    params_batch = real_antisymmetrics_to_parameters(mats)
+    params_individual = np.concatenate(
+        [real_antisymmetric_to_parameters(mats[i]) for i in range(n_mats)]
+    )
+    np.testing.assert_allclose(params_batch, params_individual)
+
+    n_params_per_mat = dim * (dim - 1) // 2
+    params = RNG.normal(size=n_mats * n_params_per_mat)
+    mats_batch = real_antisymmetrics_from_parameters(params, dim, n_mats)
+    mats_individual = np.zeros_like(mats_batch)
+    for i in range(n_mats):
+        mats_individual[i] = real_antisymmetric_from_parameters(
+            params[i * n_params_per_mat : (i + 1) * n_params_per_mat], dim
         )
     np.testing.assert_allclose(mats_batch, mats_individual)
 
 
 @pytest.mark.parametrize("dim", range(1, 5))
-@pytest.mark.parametrize("real", [True, False])
-def test_unitary_parameters(dim: int, real: bool):
+def test_unitary_parameters(dim: int):
     """Test parameterizing unitary matrix."""
-    n_params = dim * (dim - 1) // 2 if real else dim**2
+    mat = ffsim.random.random_unitary(dim, seed=RNG)
+    params = unitary_to_parameters(mat)
+    mat_roundtrip = unitary_from_parameters(params, dim)
+    np.testing.assert_allclose(mat_roundtrip, mat)
 
-    if not real:
-        # Unitary doesn't roundtrip for real orthogonal matrices because the
-        # matrix logarithm has both real and imaginary parts
-        mat = ffsim.random.random_unitary(dim, seed=RNG)
-        params = unitary_to_parameters(mat, real=real)
-        mat_roundtrip = unitary_from_parameters(params, dim, real=real)
-        np.testing.assert_allclose(mat_roundtrip, mat)
-
-    params = RNG.normal(size=n_params, scale=0.1)
-    mat = unitary_from_parameters(params, dim, real=real)
-    params_roundtrip = unitary_to_parameters(mat, real=real)
+    params = RNG.normal(size=dim**2, scale=0.1)
+    mat = unitary_from_parameters(params, dim)
+    params_roundtrip = unitary_to_parameters(mat)
     np.testing.assert_allclose(params_roundtrip, params)
     assert ffsim.linalg.is_unitary(mat)
 
 
 @pytest.mark.parametrize("dim", range(1, 5))
-@pytest.mark.parametrize("real", [True, False])
-def test_unitary_parameters_jax_consistent(dim: int, real: bool):
+def test_special_orthogonal_parameters(dim: int):
+    """Test parameterizing special orthogonal matrix."""
+    mat = ffsim.random.random_special_orthogonal(dim, seed=RNG)
+    params = special_orthogonal_to_parameters(mat)
+    assert params.shape == (dim * (dim - 1) // 2,)
+    mat_roundtrip = special_orthogonal_from_parameters(params, dim)
+    np.testing.assert_allclose(mat_roundtrip, mat, atol=1e-12)
+
+    params = RNG.normal(size=dim * (dim - 1) // 2, scale=0.1)
+    mat = special_orthogonal_from_parameters(params, dim)
+    params_roundtrip = special_orthogonal_to_parameters(mat)
+    np.testing.assert_allclose(params_roundtrip, params)
+
+
+@pytest.mark.parametrize("dim", range(2, 6))
+def test_special_orthogonal_parameters_negative_eigenvalues(dim: int):
+    """Test parameterizing special orthogonal matrix with -1 eigenvalues."""
+    eigs = np.ones(dim)
+    eigs[:2] = -1
+    basis = ffsim.random.random_orthogonal(dim, seed=RNG)
+    mat = basis @ np.diag(eigs) @ basis.T
+    params = special_orthogonal_to_parameters(mat)
+    mat_roundtrip = special_orthogonal_from_parameters(params, dim)
+    np.testing.assert_allclose(mat_roundtrip, mat, atol=1e-12)
+
+
+def test_special_orthogonal_parameters_invalid():
+    """Test parameterizing invalid special orthogonal matrix raises an error."""
+    mat = np.diag([-1.0, 1.0, 1.0])
+    with pytest.raises(ValueError, match="odd number of -1 eigenvalues"):
+        special_orthogonal_to_parameters(mat)
+    with pytest.raises(ValueError, match="nonzero imaginary part"):
+        special_orthogonal_to_parameters(ffsim.random.random_unitary(3, seed=RNG))
+
+
+@pytest.mark.parametrize("dim", range(1, 5))
+def test_unitary_parameters_jax_consistent(dim: int):
     """Test JAX and NumPy versions of parameterizing unitary give same results."""
-    n_params = dim * (dim - 1) // 2 if real else dim**2
-    params = RNG.normal(size=n_params)
-    mat_numpy = unitary_from_parameters(params, dim, real=real)
-    mat_jax = unitary_from_parameters_jax(params, dim, real=real)
+    params = RNG.normal(size=dim**2)
+    mat_numpy = unitary_from_parameters(params, dim)
+    mat_jax = unitary_from_parameters_jax(params, dim)
     np.testing.assert_allclose(mat_jax, mat_numpy)
 
 
 @pytest.mark.parametrize("dim", range(1, 5))
 @pytest.mark.parametrize("n_mats", range(1, 4))
-@pytest.mark.parametrize("real", [True, False])
-def test_unitaries_parameters(dim: int, n_mats: int, real: bool):
+def test_special_orthogonal_parameters_jax_consistent(dim: int, n_mats: int):
+    """Test JAX and NumPy versions of parameterizing special orthogonal agree."""
+    n_params_per_mat = dim * (dim - 1) // 2
+    params = RNG.normal(size=n_params_per_mat)
+    mat_numpy = special_orthogonal_from_parameters(params, dim)
+    mat_jax = special_orthogonal_from_parameters_jax(params, dim)
+    np.testing.assert_allclose(mat_jax, mat_numpy)
+    assert ffsim.linalg.is_special_orthogonal(mat_numpy)
+    params = RNG.normal(size=n_mats * n_params_per_mat, scale=0.1)
+    mats_numpy = special_orthogonals_from_parameters(params, dim, n_mats)
+    mats_jax = special_orthogonals_from_parameters_jax(params, dim, n_mats)
+    np.testing.assert_allclose(mats_jax, mats_numpy)
+
+
+@pytest.mark.parametrize("dim", range(1, 5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_unitaries_parameters(dim: int, n_mats: int):
     """Test parameterizing batch of unitary matrices."""
     mats = np.stack([ffsim.random.random_unitary(dim, seed=RNG) for _ in range(n_mats)])
-    if real:
-        mats = mats.real
+    params = unitaries_to_parameters(mats)
+    mats_roundtrip = unitaries_from_parameters(params, dim, n_mats)
+    np.testing.assert_allclose(mats_roundtrip, mats)
 
-    if not real:
-        # Unitary doesn't roundtrip for real orthogonal matrices because the
-        # matrix logarithm has both real and imaginary parts
-        params = unitaries_to_parameters(mats, real=real)
-        mats_roundtrip = unitaries_from_parameters(params, dim, n_mats, real=real)
-        np.testing.assert_allclose(mats_roundtrip, mats)
-
-    n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
-    n_params_total = n_mats * n_params_per_mat
-    params = RNG.normal(size=n_params_total, scale=0.1)
-    mats = unitaries_from_parameters(params, dim, n_mats, real=real)
-    params_roundtrip = unitaries_to_parameters(mats, real=real)
+    params = RNG.normal(size=n_mats * dim**2, scale=0.1)
+    mats = unitaries_from_parameters(params, dim, n_mats)
+    params_roundtrip = unitaries_to_parameters(mats)
     np.testing.assert_allclose(params_roundtrip, params)
     for i in range(n_mats):
         assert ffsim.linalg.is_unitary(mats[i])
@@ -208,13 +316,33 @@ def test_unitaries_parameters(dim: int, n_mats: int, real: bool):
 
 @pytest.mark.parametrize("dim", range(1, 5))
 @pytest.mark.parametrize("n_mats", range(1, 4))
-@pytest.mark.parametrize("real", [True, False])
-def test_unitaries_parameters_jax_consistent(dim: int, n_mats: int, real: bool):
-    """Test JAX and NumPy versions of parameterizing antihermitian give same results."""
-    n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
-    params = RNG.normal(size=n_mats * n_params_per_mat, scale=0.1)
-    mat_numpy = unitaries_from_parameters(params, dim, n_mats, real=real)
-    mat_jax = unitaries_from_parameters_jax(params, dim, n_mats, real=real)
+def test_special_orthogonals_parameters(dim: int, n_mats: int):
+    """Test parameterizing batch of special orthogonal matrices."""
+    mats = np.stack(
+        [ffsim.random.random_special_orthogonal(dim, seed=RNG) for _ in range(n_mats)]
+    )
+    params = special_orthogonals_to_parameters(mats)
+    mats_roundtrip = special_orthogonals_from_parameters(params, dim, n_mats)
+    np.testing.assert_allclose(mats_roundtrip, mats, atol=1e-12)
+
+    n_params_total = n_mats * dim * (dim - 1) // 2
+    params = RNG.normal(size=n_params_total, scale=0.1)
+    mats = special_orthogonals_from_parameters(params, dim, n_mats)
+    params_roundtrip = special_orthogonals_to_parameters(mats)
+    np.testing.assert_allclose(params_roundtrip, params)
+    params_individual = np.concatenate(
+        [special_orthogonal_to_parameters(mats[i]) for i in range(n_mats)]
+    )
+    np.testing.assert_allclose(params_individual, params_roundtrip)
+
+
+@pytest.mark.parametrize("dim", range(1, 5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_unitaries_parameters_jax_consistent(dim: int, n_mats: int):
+    """Test JAX and NumPy versions of parameterizing unitaries give same results."""
+    params = RNG.normal(size=n_mats * dim**2, scale=0.1)
+    mat_numpy = unitaries_from_parameters(params, dim, n_mats)
+    mat_jax = unitaries_from_parameters_jax(params, dim, n_mats)
     np.testing.assert_allclose(mat_jax, mat_numpy)
 
 
@@ -223,24 +351,41 @@ def test_unitaries_parameters_jax_consistent(dim: int, n_mats: int, real: bool):
 @pytest.mark.parametrize("real", [True, False])
 def test_unitaries_consistent(dim: int, n_mats: int, real: bool):
     """Test that batch function gives same result as single matrix functions."""
-    mats = np.array([ffsim.random.random_unitary(dim, seed=RNG) for _ in range(n_mats)])
     if real:
-        mats = mats.real
-
-    params_batch = unitaries_to_parameters(mats, real=real)
-    params_individual = np.concatenate(
-        [unitary_to_parameters(mats[i], real=real) for i in range(n_mats)]
-    )
+        mats = np.array(
+            [
+                ffsim.random.random_special_orthogonal(dim, seed=RNG)
+                for _ in range(n_mats)
+            ]
+        )
+        params_batch = special_orthogonals_to_parameters(mats)
+        params_individual = np.concatenate(
+            [special_orthogonal_to_parameters(mats[i]) for i in range(n_mats)]
+        )
+    else:
+        mats = np.array(
+            [ffsim.random.random_unitary(dim, seed=RNG) for _ in range(n_mats)]
+        )
+        params_batch = unitaries_to_parameters(mats)
+        params_individual = np.concatenate(
+            [unitary_to_parameters(mats[i]) for i in range(n_mats)]
+        )
     np.testing.assert_allclose(params_batch, params_individual)
 
     n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
     n_params_total = n_mats * n_params_per_mat
     params = RNG.normal(size=n_params_total, scale=0.1)
-    mats_batch = unitaries_from_parameters(params, dim, n_mats, real=real)
+    if real:
+        batch_from_parameters = special_orthogonals_from_parameters
+        from_parameters = special_orthogonal_from_parameters
+    else:
+        batch_from_parameters = unitaries_from_parameters
+        from_parameters = unitary_from_parameters
+    mats_batch = batch_from_parameters(params, dim, n_mats)
     mats_individual = np.zeros_like(mats_batch)
     for i in range(n_mats):
-        mats_individual[i] = unitary_from_parameters(
-            params[i * n_params_per_mat : (i + 1) * n_params_per_mat], dim, real=real
+        mats_individual[i] = from_parameters(
+            params[i * n_params_per_mat : (i + 1) * n_params_per_mat], dim
         )
     np.testing.assert_allclose(mats_batch, mats_individual)
 
@@ -284,6 +429,17 @@ def test_real_symmetric_parameters_custom_indices(dim: int):
     assert ffsim.linalg.is_real_symmetric(mat)
 
 
+@pytest.mark.parametrize("dim", range(1, 5))
+def test_real_symmetric_parameters_empty_indices(dim: int):
+    """Test parameterizing real symmetric matrix with an empty list of indices."""
+    mat = ffsim.random.random_real_symmetric_matrix(dim, seed=RNG)
+    params = real_symmetric_to_parameters(mat, [])
+    assert params.shape == (0,)
+
+    mat = real_symmetric_from_parameters(np.array([]), dim, [])
+    np.testing.assert_allclose(mat, np.zeros((dim, dim)))
+
+
 @pytest.mark.parametrize("dim", range(5))
 def test_real_symmetric_parameters_jax_consistent(dim: int):
     """Test JAX and NumPy versions of parameterizing symmetric mat give same results."""
@@ -303,6 +459,15 @@ def test_real_symmetric_parameters_custom_indices_jax_consistent(dim: int):
     params = RNG.normal(size=n_params)
     mat_numpy = real_symmetric_from_parameters(params, dim, triu_indices)
     mat_jax = real_symmetric_from_parameters_jax(params, dim, triu_indices)
+    np.testing.assert_allclose(mat_jax, mat_numpy)
+
+
+@pytest.mark.parametrize("dim", range(1, 5))
+def test_real_symmetric_parameters_empty_indices_jax_consistent(dim: int):
+    """Test JAX and NumPy versions with empty indices give same results."""
+    params = np.array([])
+    mat_numpy = real_symmetric_from_parameters(params, dim, [])
+    mat_jax = real_symmetric_from_parameters_jax(params, dim, [])
     np.testing.assert_allclose(mat_jax, mat_numpy)
 
 
@@ -348,6 +513,24 @@ def test_df_tensors_parameters_custom_indices(n_tensors: int, norb: int, real: b
 @pytest.mark.parametrize("n_tensors", range(1, 4))
 @pytest.mark.parametrize("norb", range(1, 5))
 @pytest.mark.parametrize("real", [True, False])
+def test_df_tensors_parameters_empty_indices(n_tensors: int, norb: int, real: bool):
+    """Test parameterizing double factorization tensors with empty indices."""
+    n_params_per_orb_rot = norb * (norb - 1) // 2 if real else norb**2
+    n_params_total = n_tensors * n_params_per_orb_rot
+    params = RNG.normal(size=n_params_total, scale=0.1)
+    diag_coulomb_mats, orbital_rotations = df_tensors_from_params(
+        params, n_tensors, norb, [], real=real
+    )
+    np.testing.assert_allclose(diag_coulomb_mats, np.zeros((n_tensors, norb, norb)))
+    params_roundtrip = df_tensors_to_params(
+        diag_coulomb_mats, orbital_rotations, [], real=real
+    )
+    np.testing.assert_allclose(params_roundtrip, params)
+
+
+@pytest.mark.parametrize("n_tensors", range(1, 4))
+@pytest.mark.parametrize("norb", range(1, 5))
+@pytest.mark.parametrize("real", [True, False])
 def test_df_tensors_alpha_beta_parameters_all_indices(
     n_tensors: int, norb: int, real: bool
 ):
@@ -388,6 +571,29 @@ def test_df_tensors_alpha_beta_parameters_custom_indices(
         diag_coulomb_mats, orbital_rotations, diag_coulomb_indices, real=real
     )
     np.testing.assert_allclose(params, params_roundtrip)
+
+
+@pytest.mark.parametrize("n_tensors", range(1, 4))
+@pytest.mark.parametrize("norb", range(1, 5))
+@pytest.mark.parametrize("real", [True, False])
+def test_df_tensors_alpha_beta_parameters_empty_indices(
+    n_tensors: int, norb: int, real: bool
+):
+    """Test parameterizing double factorization tensors with empty indices."""
+    empty_pairs: list[tuple[int, int]] = []
+    diag_coulomb_indices = (empty_pairs, empty_pairs, empty_pairs)
+
+    n_params_per_orb_rot = norb * (norb - 1) // 2 if real else norb**2
+    n_params_total = n_tensors * 2 * n_params_per_orb_rot
+    params = RNG.normal(size=n_params_total, scale=0.1)
+    diag_coulomb_mats, orbital_rotations = df_tensors_alpha_beta_from_params(
+        params, n_tensors, norb, diag_coulomb_indices, real=real
+    )
+    np.testing.assert_allclose(diag_coulomb_mats, np.zeros((n_tensors, 3, norb, norb)))
+    params_roundtrip = df_tensors_alpha_beta_to_params(
+        diag_coulomb_mats, orbital_rotations, diag_coulomb_indices, real=real
+    )
+    np.testing.assert_allclose(params_roundtrip, params)
 
 
 @pytest.mark.parametrize("dim", range(5))
@@ -446,6 +652,23 @@ def test_real_symmetrics_parameters_custom_indices(dim: int, n_mats: int):
         assert ffsim.linalg.is_real_symmetric(mats[i])
 
 
+@pytest.mark.parametrize("dim", range(1, 5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_real_symmetrics_parameters_empty_indices(dim: int, n_mats: int):
+    """Test parameterizing batch of real symmetric matrices with empty indices."""
+    mats = np.stack(
+        [
+            ffsim.random.random_real_symmetric_matrix(dim, seed=RNG)
+            for _ in range(n_mats)
+        ]
+    )
+    params = real_symmetrics_to_parameters(mats, [])
+    assert params.shape == (0,)
+
+    mats = real_symmetrics_from_parameters(np.array([]), dim, n_mats, triu_indices=[])
+    np.testing.assert_allclose(mats, np.zeros((n_mats, dim, dim)))
+
+
 @pytest.mark.parametrize("dim", range(5))
 @pytest.mark.parametrize("n_mats", range(1, 4))
 def test_real_symmetrics_parameters_jax_consistent(dim: int, n_mats: int):
@@ -468,6 +691,16 @@ def test_real_symmetrics_parameters_custom_indices_jax_consistent(
     params = RNG.normal(size=n_mats * n_params_per_mat)
     mats_numpy = real_symmetrics_from_parameters(params, dim, n_mats, triu_indices)
     mats_jax = real_symmetrics_from_parameters_jax(params, dim, n_mats, triu_indices)
+    np.testing.assert_allclose(mats_jax, mats_numpy)
+
+
+@pytest.mark.parametrize("dim", range(1, 5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_real_symmetrics_parameters_empty_indices_jax_consistent(dim: int, n_mats: int):
+    """Test JAX and NumPy versions with empty indices give same results."""
+    params = np.array([])
+    mats_numpy = real_symmetrics_from_parameters(params, dim, n_mats, [])
+    mats_jax = real_symmetrics_from_parameters_jax(params, dim, n_mats, [])
     np.testing.assert_allclose(mats_jax, mats_numpy)
 
 
@@ -540,6 +773,18 @@ def test_real_matrices_parameters_custom_indices(dim: int, n_mats: int):
     np.testing.assert_allclose(params_roundtrip, params)
 
 
+@pytest.mark.parametrize("dim", range(1, 5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_real_matrices_parameters_empty_indices(dim: int, n_mats: int):
+    """Test parameterizing batch of real matrices with an empty list of indices."""
+    mats = np.stack([RNG.normal(size=(dim, dim)) for _ in range(n_mats)])
+    params = real_matrices_to_parameters(mats, [])
+    assert params.shape == (0,)
+
+    mats = real_matrices_from_parameters(np.array([]), dim, n_mats, indices=[])
+    np.testing.assert_allclose(mats, np.zeros((n_mats, dim, dim)))
+
+
 @pytest.mark.parametrize("dim", range(1, 4))
 @pytest.mark.parametrize("n_mats", range(1, 4))
 def test_real_matrices_parameters_jax_consistent(dim: int, n_mats: int):
@@ -558,6 +803,16 @@ def test_real_matrices_parameters_custom_indices_jax_consistent(dim: int, n_mats
     params = RNG.normal(size=n_mats * len(indices))
     mats_numpy = real_symmetrics_from_parameters(params, dim, n_mats, indices)
     mats_jax = real_symmetrics_from_parameters_jax(params, dim, n_mats, indices)
+    np.testing.assert_allclose(mats_jax, mats_numpy)
+
+
+@pytest.mark.parametrize("dim", range(1, 5))
+@pytest.mark.parametrize("n_mats", range(1, 4))
+def test_real_matrices_parameters_empty_indices_jax_consistent(dim: int, n_mats: int):
+    """Test JAX and NumPy versions with empty indices give same results."""
+    params = np.array([])
+    mats_numpy = real_matrices_from_parameters(params, dim, n_mats, [])
+    mats_jax = real_matrices_from_parameters_jax(params, dim, n_mats, [])
     np.testing.assert_allclose(mats_jax, mats_numpy)
 
 
@@ -607,6 +862,25 @@ def test_df_tensors_parameters_custom_indices_jax_consistency(
 @pytest.mark.parametrize("n_tensors", range(1, 4))
 @pytest.mark.parametrize("norb", range(1, 5))
 @pytest.mark.parametrize("real", [True, False])
+def test_df_tensors_parameters_empty_indices_jax_consistency(
+    n_tensors: int, norb: int, real: bool
+):
+    """Test JAX and NumPy versions of DF tensors with empty indices agree."""
+    n_params_per_orb_rot = norb * (norb - 1) // 2 if real else norb**2
+    params = RNG.normal(size=n_tensors * n_params_per_orb_rot)
+    diag_coulomb_numpy, orb_rot_numpy = df_tensors_from_params(
+        params, n_tensors, norb, [], real=real
+    )
+    diag_coulomb_jax, orb_rot_jax = df_tensors_from_params_jax(
+        params, n_tensors, norb, [], real=real
+    )
+    np.testing.assert_allclose(diag_coulomb_jax, diag_coulomb_numpy)
+    np.testing.assert_allclose(orb_rot_jax, orb_rot_numpy)
+
+
+@pytest.mark.parametrize("n_tensors", range(1, 4))
+@pytest.mark.parametrize("norb", range(1, 5))
+@pytest.mark.parametrize("real", [True, False])
 def test_df_tensors_alpha_beta_parameters_jax_consistency(
     n_tensors: int, norb: int, real: bool
 ):
@@ -641,6 +915,28 @@ def test_df_tensors_alpha_beta_parameters_custom_indices_jax_consistency(
     n_params_per_diag_coulomb = sum(len(pairs) for pairs in diag_coulomb_indices)
     n_params_total = n_tensors * (2 * n_params_per_orb_rot + n_params_per_diag_coulomb)
     params = RNG.normal(size=n_params_total)
+    diag_coulomb_numpy, orb_rot_numpy = df_tensors_alpha_beta_from_params(
+        params, n_tensors, norb, diag_coulomb_indices, real=real
+    )
+    diag_coulomb_jax, orb_rot_jax = df_tensors_alpha_beta_from_params_jax(
+        params, n_tensors, norb, diag_coulomb_indices, real=real
+    )
+    np.testing.assert_allclose(diag_coulomb_jax, diag_coulomb_numpy)
+    np.testing.assert_allclose(orb_rot_jax, orb_rot_numpy)
+
+
+@pytest.mark.parametrize("n_tensors", range(1, 4))
+@pytest.mark.parametrize("norb", range(1, 5))
+@pytest.mark.parametrize("real", [True, False])
+def test_df_tensors_alpha_beta_parameters_empty_indices_jax_consistency(
+    n_tensors: int, norb: int, real: bool
+):
+    """Test JAX and NumPy versions of DF tensors with empty indices agree."""
+    empty_pairs: list[tuple[int, int]] = []
+    diag_coulomb_indices = (empty_pairs, empty_pairs, empty_pairs)
+
+    n_params_per_orb_rot = norb * (norb - 1) // 2 if real else norb**2
+    params = RNG.normal(size=n_tensors * 2 * n_params_per_orb_rot)
     diag_coulomb_numpy, orb_rot_numpy = df_tensors_alpha_beta_from_params(
         params, n_tensors, norb, diag_coulomb_indices, real=real
     )

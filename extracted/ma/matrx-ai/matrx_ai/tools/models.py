@@ -1468,11 +1468,30 @@ _FORWARDED_CONSTRAINT_KEYS: tuple[str, ...] = (
 )
 
 
+#: Schema translations that CHANGE what a tool accepts (a required property lost, a property
+#: removed): the only ones the person is told about. Every other translation (min/max, pattern,
+#: length, an enum moved out of a strict schema) is our own per-provider plumbing — the executor
+#: still enforces the constraint when the tool runs — so it is logged, never announced
+#: (main's ruling, 2026-10-24).
+_MEANING_CHANGING_SCHEMA_DROPS: frozenset[str] = frozenset({"required", "property"})
+
+
 def _publish_dropped_constraints(tool: str, dropped: list[tuple[str, str, Any]]) -> None:
-    """Tell the person (and the stored request snapshot) which tool-schema
-    constraints the provider's strict mode could not carry. Never raises."""
+    """Log every tool-schema translation; announce (settings adjustment) only the ones that
+    change what the tool accepts. Never raises."""
     if not dropped:
         return
+    try:
+        vcprint(
+            f"[tool schema] {tool}: translated for this provider's schema — "
+            + ", ".join(f"{path}.{keyword}" for path, keyword, _ in dropped),
+            color="cyan",
+            log_level="INFO",
+        )
+    except Exception:  # noqa: BLE001 - a log line never breaks the request
+        pass
+    # Recorded on the request snapshot every time; SHOWN only when the tool's meaning changed.
+    announce = any(d[1] in _MEANING_CHANGING_SCHEMA_DROPS for d in dropped)
     try:
         from matrx_ai.catalog.models import Adjustment
         from matrx_ai.providers.outbound_params import publish_settings_adjustments
@@ -1493,14 +1512,19 @@ def _publish_dropped_constraints(tool: str, dropped: list[tuple[str, str, Any]])
                 canonical_value=value,
                 sent_value=None,
                 reason=(
-                    "this provider's strict tool schema cannot carry the keyword; it was removed "
-                    "from the schema (the platform still enforces it when the tool runs)"
+                    "this provider's tool schema cannot carry it; the tool now accepts calls "
+                    "without it"
+                    if keyword in _MEANING_CHANGING_SCHEMA_DROPS
+                    else "this provider's strict tool schema cannot carry the keyword; it was "
+                    "removed from the schema (the platform still enforces it when the tool runs)"
                 ),
-                expected=True,
+                expected=keyword not in _MEANING_CHANGING_SCHEMA_DROPS,
             )
             for path, keyword, value in dropped
         ]
-        publish_settings_adjustments(adjustments, model=f"tool {tool}", seam="tool_schema")
+        publish_settings_adjustments(
+            adjustments, model=f"tool {tool}", seam="tool_schema", announce=announce
+        )
     except Exception:  # noqa: BLE001 - telling must never break the request
         return
 

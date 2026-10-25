@@ -116,5 +116,14 @@ def test_the_declared_field_count_the_plan_rests_on():
     send by the send boundary — config/cache_plan.py; never stored), twinned.
 
     116 since 2026-10-22: hosted_tool_options (provider-run tool settings narrowed for one
-    call; config/unified_config.py), twinned."""
-    assert len(dataclasses.fields(UnifiedConfig)) == 116
+    call; config/unified_config.py), twinned.
+
+    117 since 2026-10-23: served_via (the device a chat model runs on — a person's own
+    Matrx 2 computer; config/served_via.py, L5), twinned.
+
+    118 since 2026-10-24: conversation_instructions (a conversation's own instructions, sent
+    after the agent's by the send boundary — L3 one-chat G1), twinned.
+
+    119 since 2026-10-24: authored_settings (the agent's own settings layer a removed override
+    falls back to — model default < agent < the person's override, L5), twinned."""
+    assert len(dataclasses.fields(UnifiedConfig)) == 119

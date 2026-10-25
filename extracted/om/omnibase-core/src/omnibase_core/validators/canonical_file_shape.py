@@ -2,105 +2,32 @@
 # SPDX-License-Identifier: MIT
 """Canonical-file-shape ratchet (OMN-20304).
 
-Operator ruling 2026-10-01 (ledger RULING lane=ratchet-ruling, OMN-20297): no
-new scripts, no new plugins, no new exceptions, in any repository. Every
-capability is a contract, a node and its handlers
-(``docs/architecture/ONEX_CANONICAL_ARCHITECTURE.md`` in omni_home). The gates
-before this one only matched words inside ``src/``, so a new file under
-``scripts/``, ``plugins/``, ``tools/``, ``bin/`` or a skill directory was never
-looked at.
+Operator ruling 2026-10-01 (OMN-20297): no new scripts, plugins or exceptions in
+any repository; every capability is a contract, a node and its handlers.
 
-This ratchet looks at every tracked file in the repository and refuses:
+Refused rules: noncanonical-file (a code file outside a canonical location
+and not in the baseline), baseline-stale (an entry whose file was removed,
+moved or made canonical), baseline-growth, skill-imperative (more
+imperative-pattern lines in a SKILL.md), new-exception-file,
+exception-entry-growth, suppression-growth and baselined-file-growth
+(a baselined code file with more code lines than at base; OMN-21331).
 
-``noncanonical-file``
-    a code file outside a canonical location that is not in the repo's
-    baseline. Canonical locations: ``src/<pkg>/{nodes,handlers,models,
-    protocols,contracts,enums}/``, any ``tests/`` or ``test/`` directory,
-    ``conftest.py``, and ``docs/``. A code file is one with a code extension,
-    or an extensionless file that starts with ``#!``.
-``baseline-stale``
-    a baseline entry whose file was removed, moved or made canonical. The
-    entry must be deleted in the same change, so the baseline only shrinks.
-    The old path of a detected rename (below) is not stale.
-``baseline-growth``
-    a baseline entry that the base revision's baseline did not have, except
-    the new path of a detected rename (below).
-``skill-imperative``
-    a ``SKILL.md`` with more imperative-pattern lines than at the base
-    revision. The patterns are the omniclaude thin-shim gate's
-    (``.pre-commit-hooks/reject-imperative-skill-patterns.sh``, OMN-12237);
-    its ``imperative-ok`` escape is not honoured here.
-``new-exception-file``
-    a new allowlist, baseline, waiver, exemption or suppression file.
-``exception-entry-growth``
-    an existing allowlist, baseline, waiver, exemption or suppression file
-    with more entries than at the base revision.
-``suppression-growth``
-    a changed code or config file carrying more suppression comments than at
-    the base revision.
-``mod-file-growth``
-    a baselined code file on a mod surface (``plugins/``, ``.claude/`` or a
-    ``hooks/`` directory) with more code lines than at the base revision, a
-    comment or blank line not counting. Operator ruling 2026-10-15T08:14:15Z
-    (OMN-20864): canonical shapes for all mod work. A baselined hook or plugin
-    script is legacy shape that may shrink or stay; new behaviour goes in a
-    contract, a node and its handler, and the legacy file loses the code it
-    replaces.
+Python canonical locations: src/<pkg>/{nodes,handlers,models,protocols,
+contracts,enums}/, tests/, test/, conftest.py and docs/.
+TypeScript/React and shell location rules live in
+handlers.handler_canonical_location_rules (OMN-21332).
 
-A declared shrink-only gate baseline is not an exception. The
-``check-direct-model-call`` (OMN-20295), ``check-node-boundary-imports``
-(OMN-17427), ``check-hardcoded-model-config-compute`` (OMN-21147),
-``check-dependency-direction`` (OMN-19998) and ``check-ci-inheritance``
-(OMN-21277) hooks
-declare paths via ``--baseline`` in the repository's own
-``.pre-commit-config.yaml``. Only hooks taken from omnibase_core count; local
-hooks do not, except in the repository that provides the hook: there a local
-hook of a gate id counts when the head ``.pre-commit-hooks.yaml`` exports that
-id and the local ``entry`` runs the same module. The node-boundary hook without
-``--baseline`` declares ``.onex_ratchets/node_boundary_import_baseline.yaml``;
-the model-config hook with no ``args`` declares its manifest default
-``config/hardcoded_model_config_baseline.yaml``. The configuration is read from
-the head revision, and each gate enforces that its list only shrinks.
-A workflow job in a ``.github/workflows/*.yml`` or ``*.yaml`` file whose
-``uses:`` is omnibase_core's own imperative contract guard reusable
-(``OmniNode-ai/omnibase_core/.github/workflows/imperative-contract-guard.yml@<ref>``,
-OMN-20918) declares its ``with.allowlist-path`` the same way (OMN-20946); that
-reusable enforces the allowlist shrink-only. A local workflow or another
-repository's reusable declares nothing, and an unparseable workflow file
-declares nothing. A baseline-named file nothing declares is still refused.
-The node-home gate (OMN-20702) has a fixed baseline path,
-admitted in every repository without a declaration; that gate enforces its own
-shrink-only list of node directories.
+Declared shrink-only gate baselines (--baseline of the gate hooks, the
+imperative contract guard reusable's allowlist-path, the fixed node-home
+baseline) are not exceptions; each gate enforces its own list only shrinks. A
+git rename inherits the old path's baseline entry, by swap or untouched; copies
+never do. No allowlist, suppression comment or option widens the canonical
+locations; the only state is .onex_ratchets/canonical_file_shape_baseline.txt.
 
-Renames. A baselined file may be renamed (``git diff -M`` from base to head,
-default similarity, so a rename plus an edit counts). The renamed path inherits
-its old path's entry from the BASE baseline. Two forms are accepted:
+Revisions: by default the head is the index and the base is HEAD;
+--base/--head name revisions. Without a base only the first three rules
+run. Usage::
 
-* swap (preferred): the same change removes the old entry and adds the new
-  path, so the baseline count does not grow and the baseline stays true;
-* untouched: the change leaves the baseline alone. The old entry reads as
-  satisfied by the rename and the new path is covered. The old entry is then
-  stale in the next change, which must delete it, so the swap is the cleaner
-  form.
-
-Nothing is inherited when no rename is detected (a delete plus an add), when
-the old path was not in the base baseline, when the new path is not itself a
-non-canonical code file, or when the swap keeps the old entry and adds the new
-one (growth). Another new script in the same change is still refused. Only
-renames count, never copies.
-
-There is no allowlist, no suppression comment and no option that widens the
-canonical locations. The only state is the shrink-only baseline file, default
-``.onex_ratchets/canonical_file_shape_baseline.txt``.
-
-Revisions. By default the head is the index and the base is ``HEAD``, which
-is what a pre-commit hook sees. CI soft-resets to the merge base, so the index
-holds the change and the same hook checks it; ``--base``/``--head`` name the
-revisions directly. Without a base revision only the first three rules run.
-
-Usage::
-
-    python -m omnibase_core.validators.canonical_file_shape
     python -m omnibase_core.validators.canonical_file_shape --base origin/dev --head HEAD
     python -m omnibase_core.validators.canonical_file_shape --write-baseline
     python -m omnibase_core.validators.canonical_file_shape --prune-baseline
@@ -119,6 +46,13 @@ from pathlib import Path, PurePosixPath
 
 import yaml
 
+from omnibase_core.handlers.handler_canonical_location_rules import (
+    TYPESCRIPT_EXTENSIONS,
+    is_shell_script,
+    is_typescript_canonical_location,
+    typescript_noncanonical_file_reason,
+    typescript_workspace_roots,
+)
 from omnibase_core.models.validation.model_canonical_file_shape_finding import (
     ModelCanonicalFileShapeFinding,
 )
@@ -183,11 +117,6 @@ CANONICAL_SRC_DIRS: frozenset[str] = frozenset(
     ("nodes", "handlers", "models", "protocols", "contracts", "enums")
 )
 TEST_DIRS: frozenset[str] = frozenset(("tests", "test"))
-# Path parts that mark Claude Code mod work: a plugin tree, the project's own
-# ``.claude`` directory, or a hooks directory anywhere.
-MOD_SURFACE_ROOTS: frozenset[str] = frozenset(("plugins", ".claude"))
-MOD_SURFACE_DIRS: frozenset[str] = frozenset(("hooks",))
-
 # The omniclaude thin-shim gate's patterns (OMN-12237), verbatim in meaning.
 SKILL_IMPERATIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^[^`]*\bAgent\("),
@@ -346,7 +275,13 @@ def is_code_file(path: str, head_bytes: bytes | None) -> bool:
     return False
 
 
-def is_canonical_location(path: str) -> bool:
+def is_canonical_location(
+    path: str, workspace_roots: frozenset[str] = frozenset()
+) -> bool:
+    if is_shell_script(path, None):
+        return False
+    if _suffix(path) in TYPESCRIPT_EXTENSIONS:
+        return is_typescript_canonical_location(path, workspace_roots)
     parts = PurePosixPath(path).parts
     if not parts:
         return False
@@ -355,16 +290,6 @@ def is_canonical_location(path: str) -> bool:
     if any(part in TEST_DIRS for part in parts[:-1]):
         return True
     return len(parts) >= 4 and parts[0] == "src" and parts[2] in CANONICAL_SRC_DIRS
-
-
-def is_mod_surface(path: str) -> bool:
-    """A path under a plugin tree, ``.claude/`` or any ``hooks/`` directory."""
-    parts = PurePosixPath(path).parts
-    if not parts:
-        return False
-    return parts[0] in MOD_SURFACE_ROOTS or any(
-        part in MOD_SURFACE_DIRS for part in parts[:-1]
-    )
 
 
 def _entry_module(entry: object) -> str | None:
@@ -564,12 +489,29 @@ def _decode(blob: bytes | None) -> str | None:
 
 def noncanonical_code_files(repo: GitRepo, head: str) -> list[str]:
     files = repo.list_files(head)
+    workspace_roots = typescript_workspace_roots(files)
     extensionless = [f for f in files if _suffix(f) == ""]
     first_bytes = repo.read_blobs(head, extensionless)
     return sorted(
         f
         for f in files
-        if is_code_file(f, first_bytes.get(f)) and not is_canonical_location(f)
+        if is_code_file(f, first_bytes.get(f))
+        and (
+            is_shell_script(f, first_bytes.get(f))
+            or not is_canonical_location(f, workspace_roots)
+        )
+    )
+
+
+def _noncanonical_file_reason(path: str, head_bytes: bytes | None) -> str:
+    if is_shell_script(path, head_bytes):
+        return "shell scripts have no canonical location in any repository (OMN-21332)."
+    if _suffix(path) in TYPESCRIPT_EXTENSIONS:
+        return typescript_noncanonical_file_reason()
+    return (
+        "new code file outside a canonical location "
+        "(src/<pkg>/{nodes,handlers,models,protocols,contracts,enums}/, "
+        "tests/, docs/). Build it as a contract + node + handler."
     )
 
 
@@ -608,17 +550,21 @@ def check(
     }
     renamed_from = set(renames.values())
 
+    extensionless = repo.read_blobs(
+        head,
+        [
+            path
+            for path in noncanonical
+            if not _suffix(path) and path not in baselined and path not in renames
+        ],
+    )
     for path in noncanonical:
         if path not in baselined and path not in renames:
             findings.append(
                 ModelCanonicalFileShapeFinding(
                     path=path,
                     rule="noncanonical-file",
-                    reason=(
-                        "new code file outside a canonical location "
-                        "(src/<pkg>/{nodes,handlers,models,protocols,contracts,enums}/, "
-                        "tests/, docs/). Build it as a contract + node + handler."
-                    ),
+                    reason=_noncanonical_file_reason(path, extensionless.get(path)),
                 )
             )
     for path in sorted(baselined - noncanonical_set - renamed_from):
@@ -657,15 +603,19 @@ def check(
         findings.extend(
             _diff_findings(path, new_text, old_text, baseline_path, declared)
         )
-        findings.extend(_mod_growth_findings(path, new_text, old_text, baselined))
+        findings.extend(
+            _baselined_growth_findings(
+                path, new_text, old_text, baselined | set(renames)
+            )
+        )
     return findings
 
 
-def _mod_growth_findings(
+def _baselined_growth_findings(
     path: str, new_text: str, old_text: str | None, baselined: set[str]
 ) -> list[ModelCanonicalFileShapeFinding]:
-    """A baselined mod-surface code file may shrink or stay, never grow."""
-    if old_text is None or path not in baselined or not is_mod_surface(path):
+    """A baselined code file may shrink or stay, never grow."""
+    if old_text is None or path not in baselined:
         return []
     new_n, old_n = count_code_lines(new_text), count_code_lines(old_text)
     if new_n <= old_n:
@@ -673,11 +623,11 @@ def _mod_growth_findings(
     return [
         ModelCanonicalFileShapeFinding(
             path=path,
-            rule="mod-file-growth",
+            rule="baselined-file-growth",
             reason=(
-                f"code lines {old_n} -> {new_n}; a baselined mod script only "
-                "shrinks. Put the new behaviour in a contract + node + handler "
-                "and call it from the script (ruling 2026-10-15T08:14:15Z)"
+                f"code lines {old_n} -> {new_n}; a baselined file only shrinks. "
+                "Put the new behaviour in a contract + node + handler "
+                "(rulings 2026-10-01T12:36:54Z, 2026-10-15T08:14:15Z)"
             ),
         )
     ]
@@ -759,7 +709,7 @@ def _parse_args(argv: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Refuse new code files outside canonical locations, new imperative "
-            "code in skills, growth of a baselined mod script and any new "
+            "code in skills, growth of a baselined file and any new "
             f"exception entry ({TICKET})."
         )
     )

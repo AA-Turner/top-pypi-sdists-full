@@ -227,16 +227,26 @@ class RPC(Base):
             future.set_exception(exc or Exception)
 
     @classmethod
-    async def create(cls, channel: AbstractChannel, **kwargs: Any) -> "RPC":
+    async def create(
+        cls,
+        channel: AbstractChannel,
+        *,
+        host_exceptions: Optional[bool] = None,
+        **kwargs: Any,
+    ) -> "RPC":
         """Creates a new instance of :class:`aio_pika.patterns.RPC`.
         You should use this method instead of :func:`__init__`,
         because :func:`create` returns coroutine and makes async initialize
 
         :param channel: initialized instance of :class:`aio_pika.Channel`
+        :param host_exceptions: override logging of exceptions raised by RPC
+            handlers, or keep the constructor setting when omitted
         :returns: :class:`RPC`
 
         """
         rpc = cls(channel)
+        if host_exceptions is not None:
+            rpc.host_exceptions = host_exceptions
         await rpc.initialize(**kwargs)
         return rpc
 
@@ -431,31 +441,38 @@ class RPC(Base):
 
         future, correlation_id = self.create_future()
 
-        message = await self.serialize_message(
-            payload=kwargs or {},
-            message_type=RPCMessageType.CALL,
-            correlation_id=correlation_id,
-            delivery_mode=delivery_mode,
-            reply_to=self.result_queue.name,
-            headers={"From": self.result_queue.name},
-            priority=priority,
-        )
+        try:
+            message = await self.serialize_message(
+                payload=kwargs or {},
+                message_type=RPCMessageType.CALL,
+                correlation_id=correlation_id,
+                delivery_mode=delivery_mode,
+                reply_to=self.result_queue.name,
+                headers={"From": self.result_queue.name},
+                priority=priority,
+            )
 
-        if expiration is not None:
-            message.expiration = expiration
+            if expiration is not None:
+                message.expiration = expiration
 
-        routing_key = self._format_routing_key(method_name)
+            routing_key = self._format_routing_key(method_name)
 
-        log.debug("Publishing calls for %s(%r)", routing_key, kwargs)
-        exchange = self.rpc_exchange or self.channel.default_exchange
-        await exchange.publish(
-            message,
-            routing_key=routing_key,
-            mandatory=True,
-        )
+            log.debug("Publishing calls for %s(%r)", routing_key, kwargs)
+            exchange = self.rpc_exchange or self.channel.default_exchange
+            await exchange.publish(
+                message,
+                routing_key=routing_key,
+                mandatory=True,
+            )
 
-        log.debug("Waiting RPC result for %s(%r)", routing_key, kwargs)
-        return await future
+            log.debug("Waiting RPC result for %s(%r)", routing_key, kwargs)
+            return await future
+        finally:
+            if not future.done():
+                future.cancel()
+            elif not future.cancelled():
+                # Publishing may fail after a close callback rejects the future.
+                future.exception()
 
     async def register(
         self,

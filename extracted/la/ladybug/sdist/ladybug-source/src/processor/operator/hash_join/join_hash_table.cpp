@@ -1,5 +1,8 @@
 #include "processor/operator/hash_join/join_hash_table.h"
 
+#include <algorithm>
+#include <cstring>
+
 #include "common/utils.h"
 #include "function/hash/vector_hash_functions.h"
 #include "processor/result/factorized_table.h"
@@ -21,20 +24,62 @@ JoinHashTable::JoinHashTable(MemoryManager& memoryManager, logical_type_vec_t ke
     factorizedTable = std::make_unique<FactorizedTable>(&memoryManager, std::move(tableSchema));
 }
 
+// Returns false if no tuple has all keys non-null. Only the unflat keys' state is compacted
+// (appendVectors and the probe operator restore it); a flat key's state is left alone, since its
+// producer keeps writing through that selection vector.
 static bool discardNullFromKeys(const std::vector<ValueVector*>& vectors) {
-    bool hasNonNullKeys = true;
     for (auto& vector : vectors) {
-        if (!ValueVector::discardNull(*vector)) {
-            hasNonNullKeys = false;
-            break;
+        if (vector->state->isFlat()) {
+            const auto& selVector = vector->state->getSelVector();
+            if (selVector.getSelSize() == 0 || vector->isNull(selVector[0])) {
+                return false;
+            }
+        } else if (!ValueVector::discardNull(*vector)) {
+            return false;
         }
     }
-    return hasNonNullKeys;
+    return true;
+}
+
+static bool mayHaveNullUnflatKeys(const std::vector<ValueVector*>& keyVectors) {
+    return std::any_of(keyVectors.begin(), keyVectors.end(), [](const ValueVector* vector) {
+        return !vector->state->isFlat() && !vector->hasNoNullsGuarantee();
+    });
+}
+
+static void copySelVector(const SelectionVector& from, SelectionVector& to) {
+    if (from.isUnfiltered()) {
+        to.setToUnfiltered(from.getSelSize());
+    } else {
+        std::memcpy(to.getMutableBuffer().data(), from.getSelectedPositions().data(),
+            from.getSelSize() * sizeof(sel_t));
+        to.setToFiltered(from.getSelSize());
+    }
 }
 
 uint64_t JoinHashTable::appendVectors(const std::vector<ValueVector*>& keyVectors,
     const std::vector<ValueVector*>& payloadVectors, DataChunkState* keyState) {
-    discardNullFromKeys(keyVectors);
+    // Discarding null keys compacts the unflat key state's selection vector, which the child
+    // writes its next batch through. Compact a copy and give the child's back afterwards.
+    if (!mayHaveNullUnflatKeys(keyVectors)) {
+        return appendVectorsDiscardingNulls(keyVectors, payloadVectors, keyState);
+    }
+    if (nullFreeSelVector == nullptr) {
+        nullFreeSelVector = std::make_shared<SelectionVector>(DEFAULT_VECTOR_CAPACITY);
+    }
+    auto childSelVector = keyState->getSelVectorShared();
+    copySelVector(*childSelVector, *nullFreeSelVector);
+    keyState->setSelVector(nullFreeSelVector);
+    const auto numAppended = appendVectorsDiscardingNulls(keyVectors, payloadVectors, keyState);
+    keyState->setSelVector(std::move(childSelVector));
+    return numAppended;
+}
+
+uint64_t JoinHashTable::appendVectorsDiscardingNulls(const std::vector<ValueVector*>& keyVectors,
+    const std::vector<ValueVector*>& payloadVectors, DataChunkState* keyState) {
+    if (!discardNullFromKeys(keyVectors)) {
+        return 0;
+    }
     auto numTuplesToAppend = keyState->getSelVector().getSelSize();
     auto appendInfos = factorizedTable->allocateFlatTupleBlocks(numTuplesToAppend);
     computeVectorHashes(keyVectors);
@@ -133,6 +178,8 @@ void JoinHashTable::probe(const std::vector<ValueVector*>& keyVectors, ValueVect
         return;
     }
     if (!discardNullFromKeys(keyVectors)) {
+        // A null flat key keeps its selection size, so drop the chain left by the previous probe.
+        probedTuples[0] = nullptr;
         return;
     }
     hashSelVec.setSelSize(keyVectors[0]->state->getSelVector().getSelSize());

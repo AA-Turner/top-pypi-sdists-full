@@ -118,6 +118,36 @@ def test_correlation_disabled_returns_empty(tmp_path):
     assert result == ({}, {})
 
 
+def _load_configuration(default_overrides):
+    """Run Geocif._load_configuration on a minimal parser."""
+    import configparser
+
+    parser = configparser.ConfigParser()
+    parser.read_dict({
+        "LOGGING": {"log_level": "INFO"},
+        "DEFAULT": {
+            "method": "monthly_r", "db": "x.db", "countries": "['testland']",
+            "update_input_file": "False", "national_correlation": "False",
+            "plot_map_for_correlation_plot": "False",
+            "correlation_plot_groupby": "Region", "run_ml": "True",
+            "use_cumulative_features": "False",
+            **default_overrides,
+        },
+        "ML": {},
+    })
+    obj = geocif_mod.Geocif.__new__(geocif_mod.Geocif)
+    obj.parser = parser
+    obj._load_configuration()
+    return obj
+
+
+def test_correlation_plots_defaults_off_when_unset():
+    """A config without correlation_plots must not raise and must leave the
+    correlation pre-screen off; an explicit True still turns it on."""
+    assert _load_configuration({}).correlation_plots is False
+    assert _load_configuration({"correlation_plots": "True"}).correlation_plots is True
+
+
 def test_cache_key_differs_by_simulation_stages(tmp_path):
     """Different simulation_stages must produce different cache paths so
     multi-step / pre-season pipelines don't corrupt each other's cache."""

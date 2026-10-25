@@ -127,12 +127,18 @@
 /** @brief Default marker length when aligning on a prefix of the truth.
  *
  * 256 symbols gives `sqrt(2*256) = 22.6` of detection statistic against a
- * threshold near 6.5 for a 1e-6 Pfa over 401 lags — roughly 11 dB of margin,
- * so the alignment is decided, not guessed. */
+ * threshold of 6.3 for a 1e-6 Pfa over 401 lags at m >= 3 -- 11 dB of
+ * margin -- and 8.4 at m = 2, whose null is rank-one (doppler#2496): 8.6
+ * dB. Either way the alignment is decided, not guessed. */
 #define DP_BER_SYNC_SYMS 256u
 
 /** @brief Whole-experiment false-alarm probability for the alignment gate. */
 #define DP_BER_SYNC_PFA 1e-6
+
+/** @brief How far, in dB, dp_ber_report() lets the blind M2M4 Es/N0 sit from
+ * the stated one before it calls the stimulus wrong. A name, so a record
+ * can show how close a measurement sits to it. */
+#define DP_BER_M2M4_AGREE_DB 3.0
 
 /** @brief Largest lag search the fixed-size scratch supports. */
 #define DP_BER_MAX_LAGS 2048
@@ -631,7 +637,7 @@ dp_ber_report (const dp_ber_t *b, double esn0_db, const dp_ber_sync_t *sy,
       r.why  = "SER interval sits entirely below the coherent bound";
       r.sane = 0;
     }
-  else if (fabs (r.m2m4_db - esn0_db) > 3.0)
+  else if (fabs (r.m2m4_db - esn0_db) > DP_BER_M2M4_AGREE_DB)
     {
       r.why  = "blind M2M4 Es/N0 disagrees with the stimulus";
       r.sane = 0;

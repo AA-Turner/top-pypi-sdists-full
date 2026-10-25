@@ -479,6 +479,17 @@ def test_the_readers_session_command_has_its_four_ops(tmp_path):
     assert "op 'status' is not one of: open, outline, search, logbook" in _sh(deps, "probe daemon session status")
 
 
+@pytest.mark.parametrize("op", ["search", "logbook"])
+def test_a_search_with_no_words_is_told_the_command_line_form(tmp_path, op):
+    """Bucket 2026-10-24: `logbook` with no words answered the tool's "needs
+    `query`", and the reader's next round tried `--query`."""
+    deps = _deps(tmp_path, reader=True)
+    _with_events(deps)
+    said = _sh(deps, f"probe daemon session {op}")
+    assert said.startswith("[exit 2]") and f'probe daemon session {op} "<words>"' in said
+    assert "`query`" not in said
+
+
 # ---------------------------------------------------------------------------
 # The reader's bash reads only.
 # ---------------------------------------------------------------------------

@@ -422,8 +422,14 @@ def former_link_dirs() -> list[tuple[str, Path]]:
     out too: a sweep there walks the store.
     """
     known = known_agents()
-    current = {str(d) for d in unlinking_agents().values()}
-    native = {str(s["dir"]) for s in known.values() if not s["links_skills"]}
+    # By identity, not spelling: ``~/.claude/skills`` and the
+    # ``~/dotfiles/claude-skills`` it links to, or one dir remembered as
+    # ``/private/tmp/...`` and walked now as ``/tmp/...``, are one dir. Kept
+    # apart, every sweep walked it twice — doctor counted each broken link
+    # twice and heal crashed unlinking one it had already removed.
+    current = {dir_identity(d) for d in unlinking_agents().values()}
+    native = {dir_identity(s["dir"]) for s in known.values()
+              if not s["links_skills"]}
     found: dict[str, str] = {}
     defaults: dict[str, dict] = config.DEFAULTS["agents"]  # type: ignore[assignment]
     for agent, spec in defaults.items():
@@ -433,9 +439,47 @@ def former_link_dirs() -> list[tuple[str, Path]]:
         for d in dirs:
             found.setdefault(d, agent)
     # A dir that is the store holds the store's own skills, never a link.
-    return [(agent, Path(d)) for d, agent in found.items()
-            if d not in current and d not in native
-            and not aliases_store(Path(d))]
+    out: list[tuple[str, Path]] = []
+    seen = current | native
+    for d, agent in found.items():
+        key = dir_identity(Path(d))
+        if key in seen or aliases_store(Path(d)):
+            continue
+        seen.add(key)
+        out.append((agent, Path(d)))
+    return out
+
+
+def dir_identity(adir: Path) -> object:
+    """What makes two spellings of a directory the same directory.
+
+    ``(st_dev, st_ino)`` for a dir that exists — which also catches a
+    case-insensitive volume spelling it two ways — else its ``realpath``,
+    normalised, so a dir not created yet still compares by where it would be.
+
+    A zero ``st_ino`` is no identity: Windows reports one on volumes with no
+    file index (FAT, exFAT, some shares), and keying on it made every dir on
+    that volume one dir, so the sweep walked the first and skipped the rest.
+    """
+    try:
+        st = Path(adir).stat()
+    except OSError:
+        st = None
+    if st is None or not st.st_ino:
+        return os.path.normcase(os.path.realpath(adir))
+    return (st.st_dev, st.st_ino)
+
+
+def unique_dirs(dirs) -> list[Path]:
+    """``dirs`` in order, each physical directory once (:func:`dir_identity`)."""
+    seen: set[object] = set()
+    out: list[Path] = []
+    for d in dirs:
+        key = dir_identity(d)
+        if key not in seen:
+            seen.add(key)
+            out.append(d)
+    return out
 
 
 def remembered_native_dirs() -> list[tuple[str, Path]]:
@@ -519,9 +563,14 @@ def relocated_to(kind: str, name: str, entry: dict, m: dict) -> Path | None:
 
 def sweep_dirs() -> list[Path]:
     """Every skills dir a broken-link sweep walks: each linking agent's
-    current dir, enabled or not, then :func:`former_link_dirs`."""
-    return [*unlinking_agents().values(),
-            *(d for _agent, d in former_link_dirs())]
+    current dir, enabled or not, then :func:`former_link_dirs`.
+
+    Each physical directory once: two agents can share one dir
+    (``~/.cursor/skills -> ../.claude/skills``), and a sweep that walked it
+    twice reported every broken link in it twice and unlinked each twice.
+    """
+    return unique_dirs([*unlinking_agents().values(),
+                        *(d for _agent, d in former_link_dirs())])
 
 
 def project_agents() -> dict[str, Path]:
@@ -609,11 +658,22 @@ def materialization_is_written(kind: str, base, agent) -> bool:
     the name there is nothing to test, and reporting a real gap is better than
     silently dropping one. ``base`` is the row's own scope, so a project rule
     is judged against :func:`project_agents` rather than the user-scope set.
+
+    A *skill* is asked too, of the set its install writes: a user-scope skill
+    links into :func:`linking_agents`, a project one copies into
+    :func:`project_agents`. A link left in a disabled agent's dir is kept (it
+    is what an uninstall removes, see :func:`unlinking_agents`), but boost no
+    longer writes it -- the same answer a rule's row gets, so `boost list`
+    stops naming the agent for one kind and not the others.
     """
     if not agent:
         return True
-    writes = (workflow_agents(base) if kind == "workflow"
-              else materializing_agents(base))
+    if kind == "skill":
+        writes = linking_agents() if base is None else project_agents()
+    elif kind == "workflow":
+        writes = workflow_agents(base)
+    else:
+        writes = materializing_agents(base)
     return agent in writes
 
 
@@ -676,7 +736,9 @@ def materialization_skip_reason(kind: str, base, agent) -> str | None:
     spec = known_agents().get(agent)
     if spec is None:
         return REASON_UNCONFIGURED
-    if spec["skills_only"]:
+    # A skill is the one kind a skills-only agent takes, and needs no
+    # command format, so neither rung can be its reason.
+    if kind != "skill" and spec["skills_only"]:
         return REASON_SKILLS_ONLY
     if kind == "workflow" and not spec["workflows"]:
         return REASON_NO_COMMAND_FORMAT

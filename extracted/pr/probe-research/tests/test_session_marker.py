@@ -674,6 +674,7 @@ def test_the_third_state_is_distinguishable_from_off_without_colour() -> None:
         "halted",
         "not paired",
         "not started",
+        "not recording",
         "disabled path",
         "no session file",
         "interpreter too old",

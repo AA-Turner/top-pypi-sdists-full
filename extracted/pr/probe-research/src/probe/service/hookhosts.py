@@ -18,6 +18,11 @@
                          as a fresh `hooks/dispatch.sh <lane>`, and the host is
                          started for the next event.
 
+Every event handed to a host carries the host's key (`host_key_path`, written
+by the host beside its socket): a host runs nothing for a client without it,
+so a process that merely reaches the socket cannot hand it a forged event
+(#3355). A host from before keys ignores the field.
+
 The host is the plugin's own code, run by the system `python3` the way every
 hook runs, never the CLI's environment: what a hook does is unchanged, only
 where it starts from. The service owns the processes: it starts them, keeps
@@ -113,6 +118,32 @@ def host_socket(root: str) -> Path:
     """The host's socket: `hooks/dispatch.py` `host_socket`, the same bytes."""
     digest = hashlib.sha256(os.fsencode(os.path.realpath(root))).hexdigest()[:16]
     return Path("/tmp") / f"probe-{os.getuid()}" / f"hooks-{digest}.sock"
+
+
+def host_key_path(root: str) -> Path:
+    """The host's key beside its socket (`hooks/zygote.py` `key_path`, `dispatch.py` `host_key_path`)."""
+    return host_socket(root).with_suffix(".key")
+
+
+def _host_key(root: str) -> str | None:
+    """The folder's host key, which every event this service hands the host must
+    carry (#3355), or None: a host from before keys (it ignores the field).
+    Never waits (`read_plugin_file`'s open: non-blocking, no symlink, a regular
+    file only), so a FIFO at the key's path never stalls a `hooks.run`."""
+    try:
+        fd = os.open(host_key_path(root), os.O_RDONLY | getattr(os, "O_NONBLOCK", 0)
+                     | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NOCTTY", 0))
+    except OSError:
+        return None
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return None
+        key = os.read(fd, 130).decode("ascii", "replace").strip()
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+    return key if len(key) == 64 and all(c in "0123456789abcdef" for c in key) else None
 
 
 def read_plugin_file(path: Path) -> str | None:
@@ -532,6 +563,9 @@ def _via_host(request: dict, parent: int | None, deadline: float) -> dict | None
                 "deadline": time.time() + LANE_BUDGET_S[request["lane"]] + HOST_MARGIN_S,
                 "payload": len(request["payload"]),
             }
+            key = _host_key(request["root"])
+            if key is not None:
+                header["key"] = key  # the host runs nothing without it (#3355)
             data = json.dumps(header).encode("utf-8") + b"\n" + request["payload"]
             # The fds ride the first send, which may take less than it was given.
             sent = socket.send_fds(sock, [data[:65536]], [out_w, err_w])

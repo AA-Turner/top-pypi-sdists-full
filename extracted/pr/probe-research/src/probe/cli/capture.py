@@ -438,17 +438,19 @@ def _looks_like_the_uploader(pid: int) -> bool:
     return capture_plugin_name() in completed.stdout or "tap" in completed.stdout.split()
 
 
-#: Overrides where `_stop_daemon()` looks for pid files. The tap's hooks always
-#: write them to `/tmp` (session-start.sh, `capture_state.pid_file`), so this
-#: exists ONLY so a test suite can aim the stop away from the machine's real
-#: uploaders: the glob matches EVERY live session's daemon, and tests calling
-#: `turn_off()` SIGTERMed all of them on a shared box (2026-09-28).
-#: `agent/tests/conftest.py` sets it for every test.
+#: Overrides where `_stop_daemon()` looks for pid files. The tap's hooks write
+#: them to the watcher folder (`/tmp`, or PROBE_TAP_WATCHER_DIR: session-start.sh,
+#: `capture_state.pid_file`), so this exists ONLY so a test suite can aim the
+#: stop away from the machine's real uploaders: the glob matches EVERY live
+#: session's daemon, and tests calling `turn_off()` SIGTERMed all of them on a
+#: shared box (2026-09-28). `agent/tests/conftest.py` sets it for every test.
 PID_DIR_ENV = "PROBE_TEST_TAP_PID_DIR"
 
 
 def _pid_dir() -> str:
-    return os.environ.get(PID_DIR_ENV) or "/tmp"
+    from probe.cli import capture_state
+
+    return os.environ.get(PID_DIR_ENV) or str(capture_state._watcher_dir())  # noqa: SLF001
 
 
 def _stop_daemon() -> tuple[bool, list[str]]:
@@ -478,11 +480,13 @@ def _stop_daemon() -> tuple[bool, list[str]]:
     for pid_file in glob.glob(f"{glob.escape(_pid_dir())}/{prefix}-watcher-*.pid"):
         try:
             stat = os.stat(pid_file)
-            if stat.st_uid != os.getuid():
+            # Windows has no uid (`os.getuid`): its pid files are in the user's
+            # own temp folder, and `_looks_like_the_uploader` refuses there.
+            if hasattr(os, "getuid") and stat.st_uid != os.getuid():
                 warnings.append(f"ignoring {pid_file}: not owned by this user")
                 continue
             pid = int(open(pid_file).read().strip())  # noqa: SIM115
-        except (OSError, ValueError):
+        except (OSError, ValueError, AttributeError):
             continue
         if pid <= 1 or not _looks_like_the_uploader(pid):
             # Stale file or an impostor. Do not signal it.

@@ -161,8 +161,10 @@ def test_what_the_daemon_profile_keeps_and_drops():
     for event, _matcher, hook in _commands(_hooks(LEAN)):
         by_event.setdefault(event, set()).update(_scripts(hook["command"]))
     assert by_event == {
+        # tap_handover.py: a session open on a `tap watch` too old to hand it to
+        # the Probe service moves to the service at a prompt (plan C0).
         "UserPromptSubmit": {"tracking_guard.py", "statusline_refresh.py", "note_audit.py", "approvals_hook.py",
-                             "reads_hook.py"},
+                             "reads_hook.py", "tap_handover.py"},
         "SessionStart": {"session-start.sh", "statusline_refresh.py", "approvals_hook.py"},
         "PreCompact": {"session-start.sh"},
         # root_skills_sync.py: a Skill call in a session open across an update

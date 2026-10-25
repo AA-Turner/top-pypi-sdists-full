@@ -20,8 +20,15 @@ when it is over, it is made to fit:
      sentence. Every pass is announced and recorded on ``SendPrep.fit``.
 
 The host's budget comes through ONE injected resolver (``set_input_budget_resolver``): this package
-never imports the host. The resolver returns ``(limit_tokens, estimated_tokens)`` measured with the
-HOST's own estimator, so the fit decision and the host's refusal can never disagree.
+never imports the host. It is called ``resolver(ctx, config, prompt_tokens)`` — ``prompt_tokens``
+is THIS package's estimate of the call, measured once per measurement and shared, so a host that
+needs no estimate of its own never re-walks the prompt — and may be sync or async. It returns
+``(limit_tokens, estimated_tokens)`` measured with the HOST's own estimator when the host refuses
+over it (so the fit decision and the host's refusal can never disagree), or
+``(limit_tokens, estimated_tokens, False)`` for a CONDENSE-ONLY limit (2026-10-24: a person's own
+chat is condensed at the conversation's cap, never trimmed or refused for it): over such a limit
+only step 1 runs; step 2 runs only while an ENFORCED limit (the model's window, an enforced host
+budget) is over.
 """
 
 from __future__ import annotations
@@ -35,8 +42,10 @@ from matrx_utils import vcprint
 
 logger = logging.getLogger(__name__)
 
-#: ``(ctx, config) -> (limit_tokens, estimated_tokens) | None``. ``None`` = no host budget applies.
-InputBudgetResolver = Callable[[Any, Any], "tuple[int, int] | None"]
+#: ``(ctx, config, prompt_tokens) -> (limit_tokens, estimated_tokens[, enforced]) | None`` (sync or
+#: async). ``None`` = no host budget applies; a third item ``False`` = a condense-only limit
+#: (compaction, never the forced trim).
+InputBudgetResolver = Callable[[Any, Any, int], Any]
 #: ``(config, *, limit_tokens, estimated_tokens, ctx, conversation_id) -> bool`` — True when it
 #: compacted something. ``conversation_id`` is the SEND's conversation (the ambient ``ctx`` may name
 #: another one); the compactor refuses a mismatch.
@@ -70,8 +79,11 @@ def set_compactor(compactor: Compactor | None) -> None:
     _compactor = compactor
 
 
-def _limits(config: Any) -> list[dict[str, Any]]:
-    """Every limit that applies to this call, each with its own measurement."""
+async def _limits(config: Any) -> list[dict[str, Any]]:
+    """Every limit that applies to this call, each with its own measurement. The prompt is
+    estimated ONCE here and shared with the host's resolver."""
+    import inspect
+
     from matrx_ai.config.context_preflight import (
         _POLICY,
         _declared_window,
@@ -79,24 +91,31 @@ def _limits(config: Any) -> list[dict[str, Any]]:
     )
 
     found: list[dict[str, Any]] = []
+    prompt_tokens: int | None = None
     if _POLICY.enabled:
         model_ref = str(
             getattr(config, "matrx_model_name", None) or getattr(config, "model", "") or ""
         )
         window = _declared_window(model_ref) if model_ref else None
         if window:
+            prompt_tokens = estimate_prompt_tokens(config)
             found.append(
                 {
                     "limit": "context_window",
                     "limit_tokens": int(window * _POLICY.trip_fraction),
-                    "estimated_tokens": estimate_prompt_tokens(config),
+                    "estimated_tokens": prompt_tokens,
+                    "enforced": True,
                 }
             )
     if _budget_resolver is not None:
         from matrx_ai.context.app_context import try_get_app_context
 
+        if prompt_tokens is None:
+            prompt_tokens = estimate_prompt_tokens(config)
         try:
-            budget = _budget_resolver(try_get_app_context(), config)
+            budget = _budget_resolver(try_get_app_context(), config, prompt_tokens)
+            if inspect.isawaitable(budget):
+                budget = await budget
         except Exception as exc:  # noqa: BLE001 — a broken read never blocks; the host guard still runs
             vcprint(
                 f"[input_fit] host input budget unreadable ({type(exc).__name__}: {exc})",
@@ -105,12 +124,14 @@ def _limits(config: Any) -> list[dict[str, Any]]:
             logger.error("input_fit: host input budget resolver raised", exc_info=True)
             budget = None
         if budget:
-            limit_tokens, estimated = budget
+            limit_tokens, estimated = budget[0], budget[1]
+            enforced = bool(budget[2]) if len(budget) > 2 else True
             found.append(
                 {
                     "limit": "host_input_budget",
                     "limit_tokens": int(limit_tokens),
                     "estimated_tokens": int(estimated),
+                    "enforced": enforced,
                 }
             )
     return found
@@ -118,6 +139,11 @@ def _limits(config: Any) -> list[dict[str, Any]]:
 
 def _over(limits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [lim for lim in limits if lim["estimated_tokens"] > lim["limit_tokens"]]
+
+
+def _enforced(limits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The over-limits the forced trim answers to (a condense-only limit is never one)."""
+    return [lim for lim in limits if lim.get("enforced", True)]
 
 
 async def ensure_fits(
@@ -131,13 +157,19 @@ async def ensure_fits(
     """Detect an over-limit call and make it fit. Returns the record (``None`` = nothing applied).
 
     ``trim`` is ``send_boundary._forced_trim`` — the trim seam lives only in the send boundary."""
-    limits = _limits(config)
+    limits = await _limits(config)
     over = _over(limits)
     if not over:
         return {"fits": True, "limits": limits} if limits else None
 
     record: dict[str, Any] = {"fits": False, "before": over, "passes": []}
     worst = max(over, key=lambda lim: lim["estimated_tokens"] - lim["limit_tokens"])
+    if not _enforced(over) and (_compactor is None or stage != _STAGE_RESOLVE):
+        # Over only a condense-only limit, where nothing may condense: the send goes as it is
+        # (a person's own chat is never trimmed or refused for its cap; the turn end condenses).
+        record["fits"] = True
+        record["condense_only"] = True
+        return record
     vcprint(
         f"[input_fit/{stage}] {conversation_id or '-'}: ~{worst['estimated_tokens']:,} input tokens over "
         f"{worst['limit']} {worst['limit_tokens']:,} — making it fit",
@@ -181,10 +213,16 @@ async def ensure_fits(
             logger.error("input_fit: compactor raised", exc_info=True)
             compacted = False
         record["passes"].append({"pass": "compaction", "changed": bool(compacted)})
-        over = _over(_limits(config))
+        over = _over(await _limits(config))
         if not over:
             record["fits"] = True
             return record
+    if not _enforced(over):
+        # Still over only a condense-only limit: never trimmed or refused for it.
+        record["fits"] = True
+        record["condense_only"] = True
+        record["after"] = await _limits(config)
+        return record
 
     # FALLBACK — forced trim, cache gate ignored, stepping to more aggressive tiers.
     from matrx_ai.config.context_trim import TrimPolicy
@@ -210,12 +248,12 @@ async def ensure_fits(
                     "freed_chars": getattr(report, "freed_chars", 0),
                 }
             )
-            over = _over(_limits(config))
-            if not over:
+            over = _over(await _limits(config))
+            if not _enforced(over):
                 record["fits"] = True
                 break
 
-    record["after"] = _limits(config)
+    record["after"] = await _limits(config)
     if record["fits"]:
         vcprint(
             f"[input_fit/{stage}] {conversation_id or '-'}: fits now ({record['passes']})",

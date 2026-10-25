@@ -256,7 +256,10 @@ def source_missing_message(label: str, name: str, lk: dict) -> str:
         return ("%s not found in tap %s — skipped (try `boost update`)"
                 % (label, tap))
     url = lk.get("tap_url")
-    how = " with `boost tap %s`" % paths.tilde(str(url)) if url else ""
+    # `retap_hint` quotes the URL; a `~`-tilded path would be one the shell
+    # no longer expands once it is quoted.
+    retap = registry.retap_hint(str(tap or ""), str(url)) if url else ""
+    how = " with `%s`" % retap if retap.startswith("boost tap ") else ""
     return ("%s: source missing — tap %s is no longer tapped and `boost "
             "update` can't restore it; re-tap it%s, or `boost uninstall %s`"
             % (label, tap, how, name))
@@ -524,7 +527,8 @@ def refuse_escape(tap: registry.Tap, path: Path, name: str) -> None:
         raise BoostError(
             "refusing %s from tap %s: its file links outside the clone"
             % (name, tap.name),
-            hint="run `boost update %s` to rescan the tap" % tap.name)
+            hint="run `boost update %s` to rescan the tap"
+                 % util.shell_arg(tap.name))
 
 
 def source_file_for(entry: dict) -> Path:
@@ -545,7 +549,7 @@ def source_file_for(entry: dict) -> Path:
     if not path.is_file():
         raise BoostError("source for %s %s vanished from tap %s"
                          % (kind, entry["name"], tap.name),
-                         hint="run `boost update %s`" % tap.name)
+                         hint="run `boost update %s`" % util.shell_arg(tap.name))
     refuse_escape(tap, path, entry["name"])
     return path
 
@@ -588,7 +592,7 @@ def source_dir_for(entry: dict) -> Path:
     gitutil.materialize(tap.path, entry["rel_dir"])
     if not (src / "SKILL.md").exists():
         raise BoostError("source for %s vanished from tap %s" % (entry["name"], tap.name),
-                        hint="run `boost update %s`" % tap.name)
+                        hint="run `boost update %s`" % util.shell_arg(tap.name))
     refuse_escape(tap, src / "SKILL.md", entry["name"])
     _materialize_link_targets(tap.path, src)
     return src
@@ -1824,8 +1828,31 @@ def unwritten_materializations() -> list[tuple[str, str, str, str]]:
     `boost sync` remedy cannot run -- the very failure this list exists to
     end. The ``reason`` is :func:`agents.materialization_skip_reason`, because
     *disabled* is only one of the ways a row stops being written.
+
+    Skills are named too, user scope and the current project's, because
+    :func:`integrity.written_agent_names` drops the same agents from their
+    ``agents`` list: a disabled cursor is gone from `boost list` for a skill as
+    for a rule, and doctor naming only the rule left the skill's links -- still
+    on disk, still read by Cursor -- accounted for nowhere. A quarantined or
+    sidelined skill is left out as a quarantined rule is: its links are
+    removed on purpose.
     """
-    return [(kind, name, m["agent"],
+    pbase = scopes.resolve_base(scopes.SCOPE_PROJECT)
+    project = projectlock.installed(pbase) if pbase is not None else {}
+    skills: list[tuple[str, dict, str | None]] = [
+        (name, entry, None)
+        for name, entry in sorted(lockfile.installed().items())
+        if not (is_held(entry) or entry.get("quarantined")
+                or entry.get("sidelined_by"))]
+    skills += [(name, entry, scopes.SCOPE_PROJECT)
+               for name, entry in sorted(project.items())]
+    unlinked = [("skill", name, agent,
+                 agents.materialization_skip_reason("skill", base, agent)
+                 or agents.REASON_UNKNOWN)
+                for name, entry, base in skills
+                for agent in lockfile.agent_names("skill", entry)
+                if not agents.materialization_is_written("skill", base, agent)]
+    return unlinked + [(kind, name, m["agent"],
              agents.materialization_skip_reason(kind, entry.get("base"),
                                                 m["agent"])
              or agents.REASON_UNKNOWN)
@@ -3078,8 +3105,9 @@ def check_existing(entry: dict, *, force: bool = False, scope: str = "user",
                     "%s is already installed in this project (v%s) from %s, "
                     "not %s" % (name, existing.get("version"), other,
                                 entry.get("tap")),
-                    hint="`boost install %s:%s --local --force` to replace it"
-                         % (entry.get("tap"), name), wrap=True)
+                    hint="`boost install %s --local --force` to replace it"
+                         % util.shell_arg("%s:%s" % (entry.get("tap"), name)),
+                    wrap=True)
             # `reinstall --local` reads this repo's lock, so it reaches the
             # recorded tap even where a bare `install x` would stop at "exists
             # in multiple taps".
@@ -3104,8 +3132,9 @@ def check_existing(entry: dict, *, force: bool = False, scope: str = "user",
             raise BoostError(
                 "%s is already installed (v%s) from %s, not %s"
                 % (name, existing.get("version"), other, entry.get("tap")),
-                hint="`boost install %s:%s --force` to replace it"
-                     % (entry.get("tap"), name), wrap=True)
+                hint="`boost install %s --force` to replace it"
+                     % util.shell_arg("%s:%s" % (entry.get("tap"), name)),
+                wrap=True)
         raise BoostError("%s is already installed (v%s)" % (name, existing.get("version")),
                         hint="`boost reinstall %s` to force, `boost update` to upgrade" % name)
     return existing
@@ -3208,7 +3237,7 @@ def _refuse_unrecorded(name: str, existing: dict | None, force: bool,
     if not os.path.lexists(dest):
         return None
     integ = lockfile.check()
-    if integ.problem in ("corrupt", "schema"):
+    if integ.problem in ("corrupt", "unreadable", "schema"):
         hint = ("the lock file cannot be read — %s, and it will know whose "
                 "it is" % lockfile.remedy(integ))
     else:
@@ -3228,7 +3257,11 @@ def _refuse_self_installing(entry: dict) -> None:
     the upstream command is the whole point — a refusal that only says "no"
     leaves the user exactly where `boost install` pretending would have.
     """
-    cmd = config.self_installing_command(entry.get("tap") or "")
+    tap = entry.get("tap") or ""
+    # The configured URL is what says which repository a tap is; its name is
+    # only the URL's tail, and a local `~/work/gstack` is named `gstack` too.
+    url = next((t.url for t in registry.list_taps() if t.name == tap), "")
+    cmd = config.self_installing_command(tap, url)
     if not cmd:
         return
     raise BoostError(
@@ -3639,6 +3672,7 @@ def _install_project_skill(entry: dict, force: bool = False,
     # Before anything is copied: projectlock.write refuses a corrupt lock too,
     # but by then the copies would be on disk unrecorded.
     projectlock.refuse_corrupt(resolved_base)
+    projectlock.refuse_unwritable(resolved_base, "install", name)
 
     existing = check_existing(entry, force=force, scope=scopes.SCOPE_PROJECT,
                               base=resolved_base, kind="skill")
@@ -3974,6 +4008,9 @@ def uninstall_project(name: str, base=None) -> dict:
             return (_uninstall_rule if owned_kind == "rule"
                     else _uninstall_workflow)(name, owned_entry)
         raise _not_in_this_project(name)
+    # After the rule/workflow fall-through, which records in the user lock:
+    # only a skill's row lives in `.boost/`, so only it can be stranded there.
+    projectlock.refuse_unwritable(resolved_base, "uninstall", name)
     removed: list[str] = []
     refused: list[str] = []
     redirected: list[str] = []
@@ -4265,7 +4302,7 @@ def project_intact_copy(entry: dict, base) -> Path | None:
     if not recorded:
         return None
     for copy in integrity.project_skill_dirs(entry, base):
-        if (util.sha256_dir(copy) == recorded
+        if (util.sha256_matches(copy, recorded)
                 and not integrity.exec_drifted(copy, entry)):
             return copy
     return None
@@ -4724,7 +4761,7 @@ def _install_rule(entry: dict, force: bool = False,
     src = tap.path / entry.get("skill_md", "")
     if not src.is_file():
         raise BoostError("source for rule %s vanished from tap %s" % (name, tap.name),
-                        hint="run `boost update %s`" % tap.name)
+                        hint="run `boost update %s`" % util.shell_arg(tap.name))
     refuse_escape(tap, src, name)
     _enforce_capability_policy(name, src)
     raw = src.read_text(encoding="utf-8", errors="replace")
@@ -5688,7 +5725,7 @@ def _install_workflow(entry: dict, force: bool = False,
     src = tap.path / source_rel
     if not src.is_file():
         raise BoostError("source for workflow %s vanished from tap %s" % (name, tap.name),
-                        hint="run `boost update %s`" % tap.name)
+                        hint="run `boost update %s`" % util.shell_arg(tap.name))
     refuse_escape(tap, src, name)
     _enforce_capability_policy(name, src)
     raw = src.read_text(encoding="utf-8", errors="replace")
@@ -7086,6 +7123,13 @@ def uninstall(name: str, *, project_fallback: bool = True,
                 hint="it was installed into %s — `boost uninstall --local %s` "
                      "from there" % (paths.tilde(Path(str(rec.get("base") or
                                                           "a repo"))), name))
+        if rec:
+            # The lock lives in the store dir, and so does a workflow's skill
+            # copy: under a read-only store the files went first and the lock
+            # save failed after, so `list` still showed the item installed
+            # with every file of it gone. The skill branch's refusal, asked
+            # before anything is removed.
+            _check_store_removable(name)
         if rule:
             return _uninstall_rule(name, rule)
         if workflow:
@@ -7228,14 +7272,63 @@ def points_into_store(link: Path) -> bool:
         return False
     if not target.is_absolute():
         target = link.parent / target
-    target_s = normalize_link_target(target)
-    root_s = normalize_link_target(paths.store_dir())
+    store = paths.store_dir()
+    # Spelled form first: a link boost made carries the store's own path, so
+    # this settles the ordinary case without resolving anything.
+    if _contains(normalize_link_target(store), normalize_link_target(target)):
+        return True
+    # Resolved form second, both sides as far as they exist, for a store
+    # reached through a symlinked parent: macOS ``/tmp`` -> ``/private/tmp``,
+    # Silverblue ``/home`` -> ``/var/home``. Comparing only the spelling left
+    # every link made under one spelling of HOME foreign under the other, so
+    # uninstall left them all dangling and clean called it nothing to clean.
+    # The target's own last component is NOT followed: a live link to another
+    # agent's link (``~/.gemini/skills/x -> ~/.claude/skills/x``) is one hop
+    # into someone else's dir, and this predicate gates deletion.
+    target = Path(os.path.abspath(str(target)))
+    real = resolve_as_far_as_it_exists(target.parent) / target.name
+    return _contains(normalize_link_target(resolve_as_far_as_it_exists(store)),
+                     normalize_link_target(real))
+
+
+def _contains(root_s: str, target_s: str) -> bool:
+    """Whether normalised ``target_s`` is ``root_s`` or sits under it."""
     try:
         # ValueError for paths with no common root — on Windows, two different
         # drives — which means "outside", not "crash out of the delete guard".
-        return os.path.commonpath([target_s, root_s]) == root_s
+        # Compare like with like: on Windows `commonpath` hands back
+        # backslashes (and folds nothing), so a forward-slash or mixed-case
+        # root never equalled it and a path was not within itself.
+        common = os.path.commonpath([target_s, root_s])
     except ValueError:
         return False
+    return os.path.normcase(common) == os.path.normcase(
+        os.path.normpath(root_s))
+
+
+def resolve_as_far_as_it_exists(path: Path) -> Path:
+    """Absolute ``path``, symlinks resolved down to its deepest real ancestor.
+
+    Plain ``resolve()`` is wrong on both sides of an ownership comparison. A
+    broken link's target does not exist — that is what makes it broken — and
+    the store dir does, so resolving only the one that can be resolved
+    compares a real path against a nominal one. On macOS ``/tmp`` is itself a
+    symlink to ``/private/tmp``, so a genuine boost link read as foreign.
+    """
+    path = Path(os.path.abspath(str(path)))
+    tail: list[str] = []
+    cur = path
+    while cur != cur.parent and not cur.exists():
+        tail.append(cur.name)
+        cur = cur.parent
+    # RuntimeError is not redundant with OSError here: Python 3.12's
+    # `Path.resolve()` raises RuntimeError("Symlink loop from ...") for a
+    # cycle even in non-strict mode, and RuntimeError is NOT an OSError
+    # subclass — 3.13+ raises OSError for the same input. See
+    # resolves_into_store for the identical split, caught the same way.
+    with contextlib.suppress(OSError, RuntimeError):
+        cur = cur.resolve()
+    return cur.joinpath(*reversed(tail))
 
 
 def is_boost_link(link: Path) -> bool:
@@ -7263,8 +7356,8 @@ def resolves_into_store(path: Path) -> bool:
     second hop reaches the store.
 
     **Both sides are resolved.** Comparing a resolved target against a nominal
-    ``store_dir()`` is the bug `_resolve_as_far_as_it_exists` documents in
-    ``commands/quality.py``: a $HOME under macOS's ``/var/folders`` resolves to
+    ``store_dir()`` is the bug :func:`resolve_as_far_as_it_exists` documents:
+    a $HOME under macOS's ``/var/folders`` resolves to
     ``/private/var/...``, so a genuine hit never prefix-matches. Containment is
     `commonpath`, not `startswith`, so ``~/.agents/skills-backup`` stays out.
 
@@ -8143,12 +8236,16 @@ def stale_links(lock: dict, vouches: bool) -> list[str]:
     # A native-store dir boost once linked into gives up its dangling links
     # into the store only: a live one there is duplicate discovery's to
     # report, whoever made it (`agents.remembered_native_dirs`).
+    sweep = agents.sweep_dirs()
+    swept = {agents.dir_identity(d) for d in sweep}
     for _agent, adir in agents.remembered_native_dirs():
-        if os.path.isdir(adir):  # noqa: FURB146
+        # One the sweep below walks too, through another spelling, once.
+        if (os.path.isdir(adir)  # noqa: FURB146
+                and agents.dir_identity(adir) not in swept):
             found.extend(str(link) for link in adir.iterdir()
                          if link.is_symlink() and points_into_store(link)
                          and _dangles(link))
-    for adir in agents.sweep_dirs():
+    for adir in sweep:
         if not os.path.isdir(adir):  # noqa: FURB146
             continue
         # Ownership first, for broken links too: the old test short-circuited
@@ -8649,7 +8746,7 @@ def sync_preview(plan: dict[str, list]) -> list[str]:
             else:
                 lines.append("would leave %s unrecorded (no SKILL.md to record)"
                              % name)
-    lines += [_adoption_preview(name) for name in plan.get("adoptable_store", [])]
+    lines += [adoption_preview(name) for name in plan.get("adoptable_store", [])]
     repairs = [plan_missing_store(name) for name in plan.get("missing_store", [])]
     for kind, name in plan.get("missing_materializations", []):
         repair = plan_missing_materialization(kind, name)
@@ -8671,24 +8768,43 @@ def sync_preview(plan: dict[str, list]) -> list[str]:
     return lines
 
 
-def _adoption_preview(name: str) -> str:
+def adoption_preview(name: str) -> str:
     """What :func:`adopt_unrecorded` will do with ``name``, worded ahead of it.
 
-    It names an agent whose link something else is in the way of, since the
-    run will leave that agent unlinked; saying "and link it" alone promised a
-    link the run then refused.
+    Built from the decisions the run makes. The scope is
+    :func:`_adoption_scope`'s: a skill already linked into fewer agents than
+    link is kept to those, and saying only "and link it" read as a promise of
+    every agent. An agent boost already links it into needs nothing, so a
+    link is promised only into the agents left over; one whose link something
+    else is in the way of is named, since the run leaves it unlinked.
     """
-    _linked, _unseen, narrowed = _adoption_scope(name)
+    linked, _unseen, narrowed = _adoption_scope(name)
     scope = scoped_agents({"only_agents": narrowed}, agents.linking_agents())
     blocked = _in_the_way(name, scope)
+    todo = [a for a in scope if a not in blocked and a not in linked]
     head = "would record %s, which boost did not install" % name
-    if not blocked:
-        return head + ", and link it"
-    why = "; ".join("not into %s: %s is in the way" % (a, paths.tilde(p))
-                    for a, p in blocked.items())
-    if len(blocked) < len(scope):
-        return "%s, and link it (%s)" % (head, why)
-    return "%s, and leave it unlinked (%s)" % (head, why)
+    keep = "" if narrowed is None else ", ".join(narrowed)
+    if todo:
+        # Named once anything is linked or kept to: "and link it" alone,
+        # over a skill linked into Cursor, reads as relinking Cursor too.
+        act = ("link it into %s" % ", ".join(todo) if linked or keep
+               else "link it")
+        if keep:
+            act = "keep it to %s, and %s" % (keep, act)
+    elif linked and keep:
+        act = "keep it to %s, where it is already linked (nothing to link)" \
+            % keep
+    elif linked:
+        act = "leave its links as they are (already linked into %s, " \
+              "nothing to link)" % ", ".join(linked)
+    else:
+        act = "leave it unlinked"
+    line = "%s, and %s" % (head, act)
+    if blocked:
+        line += " (%s)" % "; ".join(
+            "not into %s: %s is in the way" % (a, paths.tilde(p))
+            for a, p in blocked.items())
+    return line
 
 
 def recover_unrecorded(name: str) -> str | None:

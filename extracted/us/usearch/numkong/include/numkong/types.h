@@ -113,9 +113,10 @@
 #define NK_INTERNAL inline static
 #endif // defined(__GNUC__) || defined(__clang__)
 
+#ifndef NK_DYNAMIC
 #if NK_DYNAMIC_DISPATCH
 #if defined(_WIN32) || defined(__CYGWIN__)
-#define NK_DYNAMIC __declspec(dllexport)
+#define NK_DYNAMIC __declspec(dllimport)
 #elif defined(__GNUC__) || defined(__clang__)
 #define NK_DYNAMIC __attribute__((visibility("default")))
 #else
@@ -124,6 +125,7 @@
 #else
 #define NK_DYNAMIC NK_PUBLIC
 #endif // NK_DYNAMIC_DISPATCH
+#endif // !defined(NK_DYNAMIC)
 
 // Vector union types use type punning by design (write as f16, read as f32, etc.).
 // Without this, GCC at -O2 assumes strict aliasing and may optimize away valid accesses.
@@ -463,30 +465,30 @@
 #endif // !defined(NK_TARGET_SMEBI32) || ...
 
 #if !defined(NK_TARGET_SMEHALF) || (NK_TARGET_SMEHALF && !NK_TARGET_ARM64_)
-#if defined(__ARM_FEATURE_SME_F16F16) || nk_has_builtin_(__builtin_sme_svmopa_za32_f16_m)
+#if defined(__ARM_FEATURE_SME_F16F16) || nk_has_builtin_(__builtin_sme_svmopa_za16_f16_m)
 #define NK_TARGET_SMEHALF 1
 #else
 #undef NK_TARGET_SMEHALF
 #define NK_TARGET_SMEHALF 0
-#endif // nk_has_builtin_(__builtin_sme_svmopa_za32_f16_m)
+#endif // nk_has_builtin_(__builtin_sme_svmopa_za16_f16_m)
 #endif // !defined(NK_TARGET_SMEHALF) || ...
 
 #if !defined(NK_TARGET_SMEBF16) || (NK_TARGET_SMEBF16 && !NK_TARGET_ARM64_)
-#if nk_has_builtin_(__builtin_sme_svmopa_za32_bf16_m)
+#if defined(__ARM_FEATURE_SME_B16B16) || nk_has_builtin_(__builtin_sme_svmopa_za16_bf16_m)
 #define NK_TARGET_SMEBF16 1
 #else
 #undef NK_TARGET_SMEBF16
 #define NK_TARGET_SMEBF16 0
-#endif // nk_has_builtin_(__builtin_sme_svmopa_za32_bf16_m)
+#endif // nk_has_builtin_(__builtin_sme_svmopa_za16_bf16_m)
 #endif // !defined(NK_TARGET_SMEBF16) || ...
 
 #if !defined(NK_TARGET_SMELUT2) || (NK_TARGET_SMELUT2 && !NK_TARGET_ARM64_)
-#if nk_has_builtin_(__builtin_sme_svluti2_lane_zt_u8)
+#if nk_has_builtin_(__builtin_sme_svluti4_zt_u8_x4)
 #define NK_TARGET_SMELUT2 1
 #else
 #undef NK_TARGET_SMELUT2
 #define NK_TARGET_SMELUT2 0
-#endif // nk_has_builtin_(__builtin_sme_svluti2_lane_zt_u8)
+#endif // nk_has_builtin_(__builtin_sme_svluti4_zt_u8_x4)
 #endif // !defined(NK_TARGET_SMELUT2) || ...
 
 // Compiling for Arm: NK_TARGET_SMEFA64 (FEAT_SME_FA64, full SVE2 in streaming mode)
@@ -585,7 +587,8 @@
 #endif // !defined(NK_TARGET_SAPPHIRE) || ...
 
 #if !defined(NK_TARGET_SAPPHIREAMX) || (NK_TARGET_SAPPHIREAMX && !NK_TARGET_X8664_)
-#if (defined(__AMX_TILE__) && defined(__AMX_BF16__) && defined(__AMX_INT8__)) || (defined(_MSC_VER) && _MSC_VER >= 1944)
+#if (defined(__AMX_TILE__) && defined(__AMX_BF16__) && defined(__AMX_INT8__) && defined(__AVX512FP16__)) || \
+    (defined(_MSC_VER) && _MSC_VER >= 1944)
 #define NK_TARGET_SAPPHIREAMX 1
 #else
 #undef NK_TARGET_SAPPHIREAMX
@@ -603,7 +606,7 @@
 #endif // !defined(NK_TARGET_GRANITEAMX) || ...
 
 #if !defined(NK_TARGET_TURIN) || (NK_TARGET_TURIN && !NK_TARGET_X8664_)
-#if defined(__AVX512VP2INTERSECT__) || (defined(_MSC_VER) && _MSC_VER >= 1944)
+#if (defined(__AVX512VP2INTERSECT__) && defined(__AVX512BF16__)) || (defined(_MSC_VER) && _MSC_VER >= 1944)
 #define NK_TARGET_TURIN 1
 #else
 #undef NK_TARGET_TURIN
@@ -694,6 +697,7 @@
  *  ARM Streaming attributes (require SME-capable compiler: GCC 14+, Clang 16+).
  *  NK_STREAMING_ marks functions that require streaming SVE mode (e.g. FCVTLT).
  *  NK_STREAMING_COMPATIBLE_ marks helpers callable from both streaming and non-streaming mode.
+ *  NK_STREAMING_OUTLINED_ replaces `static` where GCC would frame an inlined body by VL, spilling at SVL.
  */
 #if NK_TARGET_ARM64_ && NK_TARGET_SME
 #define NK_STREAMING_            __arm_streaming
@@ -701,6 +705,11 @@
 #else
 #define NK_STREAMING_
 #define NK_STREAMING_COMPATIBLE_
+#endif
+#if NK_TARGET_ARM64_ && NK_TARGET_SME && defined(__GNUC__) && !defined(__clang__)
+#define NK_STREAMING_OUTLINED_ __attribute__((noinline)) static
+#else
+#define NK_STREAMING_OUTLINED_ static
 #endif
 
 /**
@@ -1547,6 +1556,18 @@ NK_INTERNAL nk_u64_t nk_u64_abs_(nk_u64_t x) { return x; }
 NK_INTERNAL nk_i64_t nk_i32_abs_(nk_i32_t x) { return x < 0 ? -x : x; }
 NK_INTERNAL nk_u32_t nk_u32_abs_(nk_u32_t x) { return x; }
 
+/** @brief Adds the compensation to the sum, returning the bare sum when overflow turned the compensation NaN. */
+NK_INTERNAL nk_f32_t nk_f32_compensated_sum_(nk_f32_t sum, nk_f32_t compensation) NK_STREAMING_COMPATIBLE_ {
+    nk_f32_t total = sum + compensation;
+    return total == total ? total : sum;
+}
+
+/** @brief Adds the compensation to the sum, returning the bare sum when overflow turned the compensation NaN. */
+NK_INTERNAL nk_f64_t nk_f64_compensated_sum_(nk_f64_t sum, nk_f64_t compensation) NK_STREAMING_COMPATIBLE_ {
+    nk_f64_t total = sum + compensation;
+    return total == total ? total : sum;
+}
+
 /** @brief Extract low (bits 0-3) unsigned nibble from packed u4x2 byte. */
 NK_INTERNAL nk_u8_t nk_u4x2_low_(nk_u4x2_t byte_val) { return byte_val & 0x0F; }
 /** @brief Extract high (bits 4-7) unsigned nibble from packed u4x2 byte. */
@@ -1655,28 +1676,37 @@ NK_INTERNAL void nk_sme_stop_streaming_(void) { __asm__ __volatile__("smstop sm"
  *  - __arm_tpidr2_save / __arm_tpidr2_restore: lazy ZA save/restore protocol
  *    used in __arm_new("za") prologues. Always no-ops in NumKong because no
  *    NK_PUBLIC function carries ZA state (TPIDR2_EL0 is always null at entry).
+ *    `used` is load-bearing under LTO: the prologue call is synthesized by the
+ *    backend, long after IPA would drop these as unreferenced.
  *
  *  - __arm_sc_memset / __arm_sc_memcpy / __arm_sc_memmove: streaming-compatible
  *    memory routines the compiler may emit inside __arm_streaming functions.
- *    Apple Clang provides these in its runtime; upstream LLVM does not.
+ *    Apple Clang provides these in its runtime; upstream LLVM does not. GCC
+ *    needs no stub because it never emits calls to them — and must not get one,
+ *    as its `arm_sme.h` declares them with C++ linkage. Their stores are volatile
+ *    so that the compiler can't turn the loops back into a call: upstream LLVM
+ *    would call the stub itself, and Apple Clang calls `__sme_memset`, which
+ *    only macOS 15 and later provide.
  */
-__attribute__((weak)) void __arm_tpidr2_save(void) {}
-__attribute__((weak)) void __arm_tpidr2_restore(void *blk) { nk_unused_(blk); }
-__attribute__((weak, target("+sme"))) void *__arm_sc_memset(void *d, int c, __SIZE_TYPE__ n) __arm_streaming_compatible {
-    unsigned char *p = (unsigned char *)d;
+__attribute__((weak, used)) void __arm_tpidr2_save(void) {}
+__attribute__((weak, used)) void __arm_tpidr2_restore(void *blk) { nk_unused_(blk); }
+#if defined(__clang__) // GCC's `arm_sme.h` declares these with C++ linkage, which collides here
+__attribute__((weak, target("+sme"))) void *__arm_sc_memset(void *d, int c,
+                                                            __SIZE_TYPE__ n) __arm_streaming_compatible {
+    unsigned char volatile *p = (unsigned char volatile *)d;
     for (__SIZE_TYPE__ i = 0; i < n; i++) p[i] = (unsigned char)c;
     return d;
 }
 __attribute__((weak, target("+sme"))) void *__arm_sc_memcpy(void *d, void const *s,
-                                                           __SIZE_TYPE__ n) __arm_streaming_compatible {
-    unsigned char *dp = (unsigned char *)d;
+                                                            __SIZE_TYPE__ n) __arm_streaming_compatible {
+    unsigned char volatile *dp = (unsigned char volatile *)d;
     unsigned char const *sp = (unsigned char const *)s;
     for (__SIZE_TYPE__ i = 0; i < n; i++) dp[i] = sp[i];
     return d;
 }
 __attribute__((weak, target("+sme"))) void *__arm_sc_memmove(void *d, void const *s,
-                                                            __SIZE_TYPE__ n) __arm_streaming_compatible {
-    unsigned char *dp = (unsigned char *)d;
+                                                             __SIZE_TYPE__ n) __arm_streaming_compatible {
+    unsigned char volatile *dp = (unsigned char volatile *)d;
     unsigned char const *sp = (unsigned char const *)s;
     if (dp < sp) {
         for (__SIZE_TYPE__ i = 0; i < n; i++) dp[i] = sp[i];
@@ -1686,6 +1716,7 @@ __attribute__((weak, target("+sme"))) void *__arm_sc_memmove(void *d, void const
     }
     return d;
 }
+#endif
 #endif
 
 #ifdef __cplusplus

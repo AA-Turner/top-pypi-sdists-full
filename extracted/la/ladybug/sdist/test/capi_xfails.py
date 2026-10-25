@@ -69,12 +69,23 @@ CAPI_XFAILS = frozenset(
         # C API scan rewriting uses temporary Arrow-backed tables, which cannot be
         # created through a read-only connection.
         "test/test_scan_pyarrow.py::test_pyarrow_basic",
+        # Ctrl-C interrupts a running query only on the pybind backend.
+        "test/test_keyboard_interrupt.py::test_keyboard_interrupt_stops_the_query[execute_with_parameters]",
+        "test/test_keyboard_interrupt.py::test_keyboard_interrupt_stops_the_query[query]",
+        "test/test_keyboard_interrupt.py::test_keyboard_interrupt_stops_the_query[query_as_arrow]",
+        "test/test_keyboard_interrupt.py::test_keyboard_interrupt_after_close_from_another_thread",
+        "test/test_keyboard_interrupt.py::test_failed_handler_check_is_reported_not_raised",
         # UDF registration is still routed through pybind.
         "test/test_blob_parameter.py::test_bytes_param_udf",
         "test/test_udf.py::test_udf",
         "test/test_udf.py::test_udf_null",
         "test/test_udf.py::test_udf_except",
         "test/test_udf.py::test_udf_remove",
+        "test/test_connection_close.py::test_close_with_query_in_flight[close_from_a_folded_udf]",
+        "test/test_connection_close.py::test_close_with_query_in_flight[close_from_a_udf]",
+        "test/test_udf_reentrancy.py::test_udf_calling_a_connection[idle_other_connection]",
+        "test/test_udf_reentrancy.py::test_udf_calling_a_connection[same_connection_on_a_worker]",
+        "test/test_udf_reentrancy.py::test_udf_calling_a_connection[same_connection_while_binding]",
         # C API Arrow export for JSON types is not yet implemented.  get_as_df()
         # tests that need the pybind NPArrayWrapper path are xfailed.
         "test/test_json.py::test_get_as_df_json_scalar",

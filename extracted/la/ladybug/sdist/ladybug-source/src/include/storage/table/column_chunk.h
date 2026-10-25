@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "common/assert.h"
 #include "common/cast.h"
@@ -90,6 +91,19 @@ common::offset_t genericRangeSegmentsFromIt(std::span<SegmentView> segments,
     }
     return lengthScanned;
 }
+
+class ColumnChunk;
+
+// Staged retention state for one column chunk: chain plans plus pre-rewrite base values
+// for rows needing synthetic horizon nodes. Captured before the checkpoint page rewrite,
+// applied after, so the captured values observe pre-checkpoint pages.
+struct UpdateRetentionCapture {
+    common::transaction_t horizon = common::INVALID_TRANSACTION;
+    std::vector<VectorRetentionPlan> plans;
+    // Parallel to plans; null when the vector stages nothing. Values live at chunk-row
+    // coordinates within the vector (sparse; only synthetic rows are read).
+    std::vector<std::unique_ptr<ColumnChunkData>> baseStaging;
+};
 
 class ColumnChunk;
 struct ColumnCheckpointState {
@@ -222,12 +236,50 @@ public:
         RUNTIME_CHECK(for (auto& chunk : data) { DASSERT(chunk->getResidencyState() == state); });
         return state;
     }
-    bool hasUpdates() const { return updateInfo.isSet(); }
+    bool hasUpdates() const { return updateInfo->isSet(); }
+    // A scan snapshot keeps the UpdateInfo this chunk had when the scan started.
+    void shareUpdateInfo(const ColumnChunk& other) { updateInfo = other.updateInfo; }
     // Moves pending updates from `other`'s chunk (see UpdateInfo::adoptUpdates).
-    void adoptUpdateInfo(ColumnChunk& other) { updateInfo.adoptUpdates(other.updateInfo); }
+    void adoptUpdateInfo(ColumnChunk& other) {
+        // An in-flight scan holds the other reference. Share the object instead of
+        // stealing the updates out from under it.
+        if (other.updateInfo.use_count() > 1) {
+            updateInfo = other.updateInfo;
+            return;
+        }
+        updateInfo->adoptUpdates(*other.updateInfo);
+    }
     bool hasUpdates(const transaction::Transaction* transaction, common::row_idx_t startRow,
         common::length_t numRows) const;
-    void resetUpdateInfo() { updateInfo.reset(); }
+    // Plans retention against the horizon without mutating or reading pages.
+    std::vector<VectorRetentionPlan> planUpdateRetention(common::transaction_t horizon) const;
+    // True when any chain node still filters readers at the horizon. Plan-only.
+    bool hasRetainedUpdates(common::transaction_t horizon) const;
+    // Applies a capture taken earlier: drops sub-horizon chains in place and stages
+    // synthetic horizon base nodes from the captured values. Safe on chunks shared with
+    // in-flight scans: every removed node is invisible to all live scans (startTS is
+    // always >= the horizon), and empty vector shells are pruned only when unshared.
+    void applyUpdateRetention(UpdateRetentionCapture&& capture);
+    // Copies retained chains (kept nodes, kept newest-below nodes, synthetic horizon base
+    // nodes) from an in-memory source chunk whose rows land `rowDelta` rows later in this
+    // chunk. The source stays intact; base values are read from it directly.
+    void transplantRetainedUpdates(const ColumnChunk& src, common::row_idx_t rowDelta,
+        common::transaction_t horizon);
+    // Reads the base segment value at the row (ignoring update chains) into `out`.
+    // In-memory chunks only: on-disk segments must be read through their Column (page
+    // path), since their chunk-level buffers and null masks are not positionally valid.
+    void readBaseValue(common::row_idx_t rowInChunk, ColumnChunkData& out,
+        common::row_idx_t outPos) const;
+
+    // Clears the pending updates. If a scan shares them, drops only this chunk's reference
+    // and the scan keeps the pre-checkpoint updates.
+    void resetUpdateInfo() {
+        if (updateInfo.use_count() > 1) {
+            updateInfo = std::make_shared<UpdateInfo>();
+        } else {
+            updateInfo->reset();
+        }
+    }
 
     MergedColumnChunkStats getMergedColumnChunkStats() const;
 
@@ -337,7 +389,11 @@ private:
     // dbConfig.
     bool enableCompression;
     std::vector<std::unique_ptr<ColumnChunkData>> data;
-    UpdateInfo updateInfo;
+    // Shared with a scan across a checkpoint, so checkpoint can drop this chunk's reference
+    // without destroying updates the scan is still applying. Never null, and only replaced
+    // on a chunk no reader holds (checkpoint's own copy of a pinned group): readers load the
+    // pointer without a lock while a writer may be adding the chunk's first update.
+    std::shared_ptr<UpdateInfo> updateInfo = std::make_shared<UpdateInfo>();
 };
 
 } // namespace storage

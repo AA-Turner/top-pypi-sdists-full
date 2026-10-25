@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 from mpp import AUTHORIZATION_HEADER, PAYMENT_AUTHORIZATION_HEADER, Challenge, Credential
+from mpp._defaults import DEFAULT_PAID_RETRY_TIMEOUT
 from mpp._parsing import ParseError
 from mpp.errors import (
     InvalidChallengeError,
@@ -36,12 +37,45 @@ from mpp.events import (
 from mpp.runtime import Method, PaymentRuntime
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
 
 _DEFAULT_MAX_PAYMENT_RETRIES = 3
 _ORIGINAL_ORIGIN_EXTENSION = "mpp.original_origin"
+_PAYMENT_ATTEMPTED_EXTENSION = "mpp.payment_attempted"
 _CREDENTIAL_HEADERS = (AUTHORIZATION_HEADER, PAYMENT_AUTHORIZATION_HEADER)
+_MAX_BUFFERED_ERROR_BODY = 64 * 1024
+_ERROR_BODY_TIMEOUT = 2.0
+_BODY_TRUNCATED_EXTENSION = "mpp.body_truncated"
+
+
+class _PaidRetryTimeoutUnset:
+    def __repr__(self) -> str:
+        return f"<inherited, read >= {DEFAULT_PAID_RETRY_TIMEOUT:g}s>"
+
+
+_PAID_RETRY_TIMEOUT_UNSET: Any = _PaidRetryTimeoutUnset()
+
+
+def _paid_retry_extensions(
+    extensions: dict[str, Any], paid_retry_timeout: float | None
+) -> dict[str, Any]:
+    """Return request extensions for a paid retry.
+
+    An explicit ``paid_retry_timeout`` replaces the request's timeout and
+    ``None`` keeps it. When unset, the inherited read timeout is raised to at
+    least ``DEFAULT_PAID_RETRY_TIMEOUT``, since the read is where the server's
+    confirmation wait shows up; connect, write and pool timeouts are kept.
+    """
+    timeout = extensions.get("timeout")
+    if paid_retry_timeout is _PAID_RETRY_TIMEOUT_UNSET:
+        if not isinstance(timeout, dict) or timeout.get("read") is None:
+            return extensions
+        read = max(timeout["read"], DEFAULT_PAID_RETRY_TIMEOUT)
+        return {**extensions, "timeout": {**timeout, "read": read}}
+    if paid_retry_timeout is None:
+        return extensions
+    return {**extensions, "timeout": httpx.Timeout(paid_retry_timeout).as_dict()}
 
 
 def _set_payment_credential(headers: httpx.Headers, header: str, value: str) -> None:
@@ -60,7 +94,42 @@ def _set_payment_credential(headers: httpx.Headers, header: str, value: str) -> 
 
 
 def _origin(url: httpx.URL) -> tuple[str, str, int | None]:
-    return (url.scheme, url.host, url.port)
+    port = url.port if url.port is not None else {"http": 80, "https": 443}.get(url.scheme)
+    return (url.scheme, url.raw_host.decode("ascii"), port)
+
+
+def _is_zero_tempo_charge(challenge: Challenge) -> bool:
+    if challenge.method != "tempo" or challenge.intent != "charge":
+        return False
+    try:
+        return int(challenge.request["amount"]) == 0
+    except (KeyError, TypeError, ValueError, OverflowError):
+        return False
+
+
+def _payment_origins(
+    origins: Sequence[str] | None,
+    *,
+    parameter: str = "allowed_origins",
+) -> frozenset[tuple[str, str, int | None]] | None:
+    if origins is None:
+        return None
+    result = set()
+    for value in origins:
+        url = httpx.URL(value)
+        if (
+            url.scheme not in {"http", "https"}
+            or not url.host
+            or url.userinfo
+            or url.path not in {"", "/"}
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError(
+                f"{parameter} entries must be HTTP(S) origins without credentials or paths"
+            )
+        result.add(_origin(url))
+    return frozenset(result)
 
 
 def _accept_payment(methods: Sequence[Method]) -> str:
@@ -70,6 +139,50 @@ def _accept_payment(methods: Sequence[Method]) -> str:
         for intent in getattr(method, "intents", ("charge",))
     )
     return ", ".join(dict.fromkeys(capabilities))
+
+
+async def _buffer_error_body(response: httpx.Response) -> None:
+    """Buffer a paid-retry error body within a size and time bound, then release it.
+
+    The body is diagnostic only. One larger than 64 KiB, or still arriving after
+    2 seconds, is cut to what arrived (or dropped if compressed, since a partial
+    encoding cannot be decoded reliably) and flagged with
+    ``response.extensions["mpp.body_truncated"] = True``.
+    """
+    stream = response.stream
+    if not isinstance(stream, httpx.AsyncByteStream):
+        return
+    body = bytearray()
+    truncated = True
+    try:
+        async with asyncio.timeout(_ERROR_BODY_TIMEOUT):
+            async for chunk in stream:
+                body += chunk
+                if len(body) > _MAX_BUFFERED_ERROR_BODY:
+                    break
+            else:
+                truncated = False
+    except TimeoutError:
+        pass
+    finally:
+        with suppress(Exception):
+            await stream.aclose()
+    if truncated:
+        if response.headers.pop("content-encoding", "identity").lower() != "identity":
+            body.clear()
+        response.headers.pop("content-length", None)
+        response.extensions = {**response.extensions, _BODY_TRUNCATED_EXTENSION: True}
+    response.stream = httpx.ByteStream(bytes(body[:_MAX_BUFFERED_ERROR_BODY]))
+
+
+def _transaction_hash(method: Method, credential: Credential) -> str | None:
+    """Return the credential's on-chain hash if the method can derive it."""
+    try:
+        derive = getattr(method, "transaction_hash", None)
+        return None if derive is None else derive(credential)
+    except Exception:
+        # Reconciliation metadata must never mask the payment outcome itself.
+        return None
 
 
 def _client_payment_failed_payload(
@@ -102,6 +215,12 @@ class PaymentTransport(httpx.AsyncBaseTransport):
     3. Creates credentials and retries the request
     4. Returns the final response (success or failure)
 
+    The paid retry may legitimately wait up to the server's confirmation
+    window (30s by default in pympp and mppx) while the payment settles. By
+    default it inherits the request's timeout with the read timeout raised to
+    at least 35s; an explicit ``paid_retry_timeout`` should be at least as long
+    as the server's window. Every other request uses the client's timeout.
+
     Example:
         transport = PaymentTransport(
             methods=[tempo(...)],
@@ -119,8 +238,26 @@ class PaymentTransport(httpx.AsyncBaseTransport):
         events: EventDispatcher | None = None,
         *,
         runtime: PaymentRuntime | None = None,
+        allowed_origins: Sequence[str] | None = None,
+        trusted_tempo_realms: Mapping[str, str] | None = None,
         max_payment_retries: int = _DEFAULT_MAX_PAYMENT_RETRIES,
+        paid_retry_timeout: float | None = _PAID_RETRY_TIMEOUT_UNSET,
     ) -> None:
+        """Initialize the transport.
+
+        Args:
+            allowed_origins: Exact HTTP(S) origins authorized for automatic payments.
+                Includes scheme and port. An empty sequence denies all payments;
+                ``None`` preserves unrestricted origin selection. Configure method
+                amount and recipient limits separately. Challenge realms are not
+                authenticated origins and are not compared with this allowlist.
+            trusted_tempo_realms: Explicit origin-to-realm pins for zero-amount
+                Tempo charges when a server uses a realm other than its hostname.
+            paid_retry_timeout: Timeout in seconds for the paid retry request,
+                used exactly when set. ``None`` inherits the request's timeout
+                unchanged. When unset, the inherited read timeout is raised to
+                at least 35s (``DEFAULT_PAID_RETRY_TIMEOUT``).
+        """
         if (methods is None) == (runtime is None):
             raise TypeError("Provide exactly one of methods or runtime")
         if runtime is not None and events is not None:
@@ -128,9 +265,15 @@ class PaymentTransport(httpx.AsyncBaseTransport):
         self._runtime = (
             runtime if runtime is not None else PaymentRuntime(methods or (), events=events)
         )
+        self._allowed_origins = _payment_origins(allowed_origins)
+        self._trusted_tempo_realms: dict[tuple[str, str, int | None], str] = {}
+        for origin, realm in (trusted_tempo_realms or {}).items():
+            _payment_origins([origin], parameter="trusted_tempo_realms")
+            self._trusted_tempo_realms[_origin(httpx.URL(origin))] = realm
         self._inner = inner or httpx.AsyncHTTPTransport()
         self._events = self._runtime.events
         self._max_payment_retries = max_payment_retries
+        self._paid_retry_timeout = paid_retry_timeout
 
     def on(self, name: str, handler: EventHandler) -> Unsubscribe:
         """Register a client payment event handler."""
@@ -154,15 +297,23 @@ class PaymentTransport(httpx.AsyncBaseTransport):
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         """Handle request, automatically retrying on 402 with credentials."""
+        current_origin = _origin(request.url)
+        original_origin = request.extensions.setdefault(_ORIGINAL_ORIGIN_EXTENSION, current_origin)
+        supplied_payment = any(
+            request.headers.get(header, "").lower().startswith("payment ")
+            for header in _CREDENTIAL_HEADERS
+        )
+        if supplied_payment:
+            if current_origin != original_origin:
+                raise PaymentError("Refusing to send payment credential across redirect")
+            request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
+        if supplied_payment or request.extensions.get(_PAYMENT_ATTEMPTED_EXTENSION):
+            return await self._inner.handle_async_request(request)
+
         accept_payment = _accept_payment(self._runtime.methods)
         if accept_payment and "accept-payment" not in request.headers:
             request.headers["Accept-Payment"] = accept_payment
 
-        current_origin = _origin(request.url)
-        original_origin = request.extensions.setdefault(
-            _ORIGINAL_ORIGIN_EXTENSION,
-            current_origin,
-        )
         replayable = not (
             isinstance(request.stream, httpx.AsyncByteStream)
             and not isinstance(request.stream, httpx.SyncByteStream)
@@ -225,6 +376,58 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                         )
                     return response
 
+                if (
+                    self._allowed_origins is not None
+                    and current_origin not in self._allowed_origins
+                ):
+                    error = PaymentError("Payment origin is not allowed")
+                    await self._events.emit(
+                        PAYMENT_FAILED,
+                        _client_payment_failed_payload(
+                            challenge=challenge,
+                            challenges=challenges,
+                            credential=None,
+                            error=error,
+                            method=matched_method,
+                            request=request,
+                            response=response,
+                        ),
+                    )
+                    raise error
+
+                # A zero-value Tempo transaction still signs the challenge realm
+                # into its memo. Do not let a different host obtain a transaction
+                # that it can relay to the server named by that realm.
+                remaining = challenges
+                while (
+                    _is_zero_tempo_charge(challenge)
+                    and challenge.realm.lower() != request.url.host.lower()
+                    and challenge.realm.lower() != request.url.raw_host.decode("ascii").lower()
+                    and challenge.realm != self._trusted_tempo_realms.get(current_origin)
+                ):
+                    error = PaymentError(
+                        f"Zero-amount Tempo realm {challenge.realm!r} differs from "
+                        f"request host {request.url.host!r}; configure trusted_tempo_realms "
+                        "for a known server origin"
+                    )
+                    remaining = [offer for offer in remaining if offer is not challenge]
+                    try:
+                        challenge, matched_method = self._runtime.match_challenge(remaining)
+                    except ValueError:
+                        await self._events.emit(
+                            PAYMENT_FAILED,
+                            _client_payment_failed_payload(
+                                challenge=challenge,
+                                challenges=challenges,
+                                credential=None,
+                                error=error,
+                                method=matched_method,
+                                request=request,
+                                response=response,
+                            ),
+                        )
+                        raise error from None
+
                 if not replayable:
                     raise PaymentError(
                         "Streaming request bodies cannot be replayed after a payment challenge. "
@@ -282,17 +485,26 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                     url=request.url,
                     headers=headers,
                     content=request.content,
-                    extensions=request.extensions,
+                    extensions=_paid_retry_extensions(request.extensions, self._paid_retry_timeout),
                 )
 
+                # HTTPX redirects from the original request, not the inner retry.
+                request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
+                retry_request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
                 try:
                     payment_response = await self._inner.handle_async_request(retry_request)
+                    response = payment_response
+                    if payment_response.is_server_error:
+                        # Release the connection before failure hooks can make auxiliary
+                        # requests; the buffered body stays readable for the caller.
+                        await _buffer_error_body(payment_response)
                 except (Exception, asyncio.CancelledError) as cause:
                     error = PaymentOutcomeUnknownError(
                         challenge,
                         cause,
                         credential=credential,
                         request=request,
+                        transaction_hash=_transaction_hash(matched_method, credential),
                     )
                     await self._events.emit(
                         PAYMENT_FAILED,
@@ -308,7 +520,6 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                     )
                     raise error from cause
 
-                response = payment_response
                 if payment_response.is_success:
                     await self._events.emit(
                         PAYMENT_RESPONSE,
@@ -320,6 +531,37 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                             "response": payment_response,
                         },
                     )
+                elif payment_response.is_server_error:
+                    # The server may have settled before failing. Report the
+                    # credential for reconciliation, return the response, and
+                    # never retry: a second attempt could pay twice.
+                    error = PaymentOutcomeUnknownError(
+                        challenge,
+                        httpx.HTTPStatusError(
+                            f"Paid retry returned HTTP {payment_response.status_code}",
+                            request=request,
+                            response=payment_response,
+                        ),
+                        credential=credential,
+                        request=request,
+                        transaction_hash=_transaction_hash(matched_method, credential),
+                    )
+                    try:
+                        await self._events.emit(
+                            PAYMENT_FAILED,
+                            _client_payment_failed_payload(
+                                challenge=challenge,
+                                challenges=challenges,
+                                credential=credential,
+                                error=error,
+                                method=matched_method,
+                                request=request,
+                                response=payment_response,
+                            ),
+                        )
+                    except asyncio.CancelledError as cancelled:
+                        # Like a cancelled paid request, surface the credential.
+                        raise error from cancelled
 
             return response
         except BaseException:
@@ -336,6 +578,10 @@ class PaymentTransport(httpx.AsyncBaseTransport):
 class Client:
     """HTTP client with automatic payment handling.
 
+    The paid retry may wait up to the server's confirmation window, so unless
+    ``paid_retry_timeout`` is set its read timeout is at least 35s; see
+    ``PaymentTransport``.
+
     Example:
         async with Client(methods=[tempo(...)]) as client:
             response = await client.get("https://api.example.com/resource")
@@ -346,12 +592,18 @@ class Client:
         methods: Sequence[Method] | None = None,
         *,
         runtime: PaymentRuntime | None = None,
+        allowed_origins: Sequence[str] | None = None,
+        trusted_tempo_realms: Mapping[str, str] | None = None,
         max_payment_retries: int = _DEFAULT_MAX_PAYMENT_RETRIES,
+        paid_retry_timeout: float | None = _PAID_RETRY_TIMEOUT_UNSET,
     ) -> None:
         self._transport = PaymentTransport(
             methods,
             runtime=runtime,
+            allowed_origins=allowed_origins,
+            trusted_tempo_realms=trusted_tempo_realms,
             max_payment_retries=max_payment_retries,
+            paid_retry_timeout=paid_retry_timeout,
         )
         self._client = httpx.AsyncClient(transport=self._transport)
 
@@ -413,6 +665,8 @@ async def request(
     url: str,
     *,
     methods: Sequence[Method],
+    paid_retry_timeout: float | None = _PAID_RETRY_TIMEOUT_UNSET,
+    trusted_tempo_realms: Mapping[str, str] | None = None,
     **kwargs: Any,
 ) -> httpx.Response:
     """Send an HTTP request with automatic payment handling.
@@ -427,7 +681,11 @@ async def request(
             methods=[tempo(...)],
         )
     """
-    async with Client(methods) as client:
+    async with Client(
+        methods,
+        paid_retry_timeout=paid_retry_timeout,
+        trusted_tempo_realms=trusted_tempo_realms,
+    ) as client:
         return await client.request(method, url, **kwargs)
 
 

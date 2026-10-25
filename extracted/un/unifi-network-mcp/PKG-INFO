@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: unifi-network-mcp
-Version: 0.39.3
+Version: 0.40.0
 Summary: Unifi Network MCP Server
 Requires-Python: >=3.13
 Requires-Dist: aiohttp==3.14.5
@@ -19,7 +19,7 @@ Requires-Dist: python-multipart>=0.0.31
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: starlette>=1.7.0
 Requires-Dist: typing-extensions>=4.16.0
-Requires-Dist: unifi-core[network]<0.5,>=0.4.77
+Requires-Dist: unifi-core[network]<0.5,>=0.4.79
 Requires-Dist: unifi-mcp-shared<0.7,>=0.6.35
 Description-Content-Type: text/markdown
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apprise
-Version: 2.0.1
+Version: 2.1.0
 Summary: Push Notifications that work with just about every platform!
 Author-email: Chris Caron <lead2gold@gmail.com>
 License: BSD-2-Clause
@@ -8,7 +8,7 @@ Project-URL: Homepage, https://appriseit.com
 Project-URL: Source, https://github.com/caronc/apprise
 Project-URL: Tracker, https://github.com/caronc/apprise/issues
 Project-URL: Documentation, https://appriseit.com
-Keywords: 46elks,800.com,Africas Talking,Alerts,Apprise API,Automated Packet Reporting System,Amazon Chime,AWS,Bark,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,Delta Chat,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Flowtriq,Fluxer,Form,Free Mobile,Gnome,Google Chat,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kook,Kumulos,LaMetric,Lark,Lauther,Line,MacOSX,Mailgun,MailerSend,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,MobileMessage,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,Notifiarr,Notifico,Notifyre,Ntfy,Office365,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Pinglet,Pingram,Plivo,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,PushWard,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SerwerSMS,Session Open Group Server,SES,Seven,SFR,Signal,Signalgrid,SIGNL4,Simplepush,Sinch,Slack,SMPP,SMS Manager,SMSC,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Stackfield,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Telnyx,Threema Gateway,Trigv,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WPUSH,WxPusher,XBMC,XML,XMPP,YouLMK,Zoom,Zulip
+Keywords: 46elks,800.com,Africas Talking,Alerts,AMQP,Apprise API,Automated Packet Reporting System,AWS,Bark,Better Stack,Blink(1),BlueSky,Brevo,BulkSMS,BulkVS,Burst SMS,Chanify,Chat,CLI,Clickatell,ClickSend,D7Networks,Dapnet,DBus,Delta Chat,DingTalk,Discord,Dot,Email,Emby,Enigma2,Evolution API,Exotel,FCM,Feishu,Flock,Flowtriq,Fluxer,Form,Free Mobile,GitHub,Gnome,GoAlert,Google Chat,Gorush,Gotify,GroupMe,Growl,Guilded,Home Assistant,httpSMS,HumHub,IFTTT,ilert,incident.io,IRC,Jellyfin,Jira,Join,JSON,Kavenegar,KODI,Kook,Kumulos,LaMetric,Lark,Lauther,LFG Alarm,Line,MacOSX,Mailgun,MailerSend,Mastodon,Matrix,Mattermost,MessageBird,Microsoft,MobileMessage,Misskey,MQTT,MSG91,MSTeams,Nextcloud,NextcloudTalk,Notica,Notifiarr,Notifico,Notifyre,Ntfy,Office365,OneBot,OneSignal,Opsgenie,PagerDuty,PagerTree,ParsePlatform,Pinglet,Pingram,Plivo,Postmark,Power Automate,Prowl,Push Notifications,PushBullet,PushDeer,Pushed,Pushjet,PushMe,Pushover,Pushplus,PushSafer,PushWard,Pushy,QQ Push,Quote/0,Reddit,Resend,Revolt,RingCentral,Rocket.Chat,RSyslog,Ryver,SendGrid,SendPulse,ServerChan,SerwerSMS,Session Open Group Server,SES,Seven,SFR,Signal,Signalgrid,SIGNL4,Simplepush,Sinch,Slack,SMPP,SMS Manager,SMSC,SMSEagle,SMTP2Go,SNS,SparkPost,Spike,Splunk,SpugPush,Squadcast,Stackfield,Streamlabs,Stride,Synology Chat,Syslog,Techulus,Telegram,Telnyx,Threema Gateway,Trigv,Twilio,Twist,Twitter,Vapid,Viber,VictorOps,Voipms,Vonage,Webex,Webpush,WeChat (WeCom),WeCom Bot,WhatsApp,Windows,Workflows,WPUSH,WxPusher,XBMC,XML,XMPP,YouLMK,Zalo,Zoho Cliq,Zoom,Zulip
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
@@ -51,6 +51,7 @@ Requires-Dist: validate-pyproject; extra == "dev"
 Provides-Extra: all-plugins
 Requires-Dist: cryptography; extra == "all-plugins"
 Requires-Dist: PyNaCl; extra == "all-plugins"
+Requires-Dist: pika; extra == "all-plugins"
 Requires-Dist: gntp; extra == "all-plugins"
 Requires-Dist: paho-mqtt>=2.1.0; extra == "all-plugins"
 Requires-Dist: PGPy; extra == "all-plugins"
@@ -131,14 +132,15 @@ The table below identifies the services this tool supports and some example serv
 
 | Notification Service | Service ID | Default Port | Example Syntax |
 | -------------------- | ---------- | ------------ | -------------- |
+| [AMQP](https://appriseit.com/services/amqp/) | amqp:// or amqps:// | (TCP) 5672 or 5671 | amqp://hostname/queue<br />amqp://user:pass@hostname/queue1/queue2<br />amqps://user:pass@hostname/?exchange=alerts<br />amqps://user:pass@hostname/?version=1.0&to=/queues/name
 | [Apprise API](https://appriseit.com/services/apprise_api/)  | apprise:// or apprises:// | (TCP) 80 or 443 | apprise://hostname/Token<br/>apprise://:password@hostname/Token<br/>apprise://user:password@hostname/Token
 | [AWS SES](https://appriseit.com/services/ses/)  | ses://   | (TCP) 443   | ses://user@domain/AccessKeyID/AccessSecretKey/RegionName<br/>ses://user@domain/AccessKeyID/AccessSecretKey/RegionName/email1/email2/emailN
 | [Bark](https://appriseit.com/services/bark/)  | bark://   | (TCP) 80 or 443   | bark://hostname<br />bark://hostname/device_key<br />bark://hostname/device_key1/device_key2/device_keyN<br/>barks://hostname<br />barks://hostname/device_key<br />barks://hostname/device_key1/device_key2/device_keyN
+| [Better Stack](https://appriseit.com/services/betterstack/) | betterstack:// | (TCP) 443 | betterstack://token/email<br />betterstack://token/email/team<br />betterstack://token/email/team1/team2/teamN<br />betterstack://source_token@ingesting_host
 | [Blink(1)](https://appriseit.com/services/blink1/) | blink1:// | USB | blink1://<br />blink1://serial/
 | [BlueSky](https://appriseit.com/services/bluesky/) | bluesky://  | (TCP) 443   | bluesky://Handle:AppPw<br />bluesky://Handle:AppPw/TargetHandle<br />bluesky://Handle:AppPw/TargetHandle1/TargetHandle2/TargetHandleN
 | [Brevo](https://appriseit.com/services/brevo/) | brevo://  | (TCP) 443   | brevo://APIToken:FromEmail/<br />brevo://APIToken:FromEmail/ToEmail<br />brevo://APIToken:FromEmail/ToEmail1/ToEmail2/ToEmailN/
 | [Chanify](https://appriseit.com/services/chanify/) | chantify://    | (TCP) 443    | chantify://token
-| [Amazon Chime](https://appriseit.com/services/chime/) | chime://   | (TCP) 443   | chime://WebhookID/Token
 | [Delta Chat](https://appriseit.com/services/deltachat/) | deltachat:// or deltachats:// | (TCP) 25 or 587 | deltachat://user:pass@smtp.example.com/friend@example.org<br />deltachats://user:pass@smtp.example.com/friend1@example.org/friend2@example.org
 | [Discord](https://appriseit.com/services/discord/)  | discord://   | (TCP) 443   | discord://webhook_id/webhook_token<br />discord://avatar@webhook_id/webhook_token
 | [Dot.](https://appriseit.com/services/dot/)  | dot:// | (TCP) 443 | dot://apikey@device_id/text/<br />dot://apikey@device_id/image/<br />**Note**: `device_id` is the Quote/0 hardware serial
@@ -149,7 +151,10 @@ The table below identifies the services this tool supports and some example serv
 | [Feishu](https://appriseit.com/services/feishu/) | feishu://    | (TCP) 443    | feishu://token
 | [Flock](https://appriseit.com/services/flock/) | flock://    | (TCP) 443    | flock://token<br/>flock://botname@token<br/>flock://app_token/u:userid<br/>flock://app_token/g:channel_id<br/>flock://app_token/u:userid/g:channel_id
 | [Flowtriq](https://appriseit.com/services/flowtriq/) | flowtriq:// or flowtriqs://    | (TCP) 80 or 443    | flowtriq://apikey@hostname/webhook/path<br />flowtriqs://apikey@hostname/webhook/path
+| [GitHub](https://appriseit.com/services/github/) | github://    | (TCP) 443    | github://token@owner/repo<br />github://token@owner/repo/issues/42<br />github://token@owner/repo/pull/1807<br />github://token@owner/repo/discussions/7
+| [GoAlert](https://appriseit.com/services/goalert/) | goalert:// or goalerts://    | (TCP) 80 or 443    | goalert://hostname/integration_key<br />goalerts://hostname/integration_key1/integration_key2<br />goalerts://hostname/path/integration_key
 | [Google Chat](https://appriseit.com/services/googlechat/) | gchat://    | (TCP) 443    | gchat://workspace/key/token
+| [Gorush](https://appriseit.com/services/gorush/) | gorush:// or gorushs://   | (TCP) 8088, 80 or 443    | gorush://hostname:8088/device_token<br />gorush://hostname:8088/device_token1/device_token2?platform=ios<br />gorushs://user:password@hostname/device_token
 | [Gotify](https://appriseit.com/services/gotify/) | gotify:// or gotifys://   | (TCP) 80 or 443    | gotify://hostname/token<br />gotifys://hostname/token?priority=high
 | [GroupMe](https://appriseit.com/services/groupme/) | groupme://   | (TCP) 443   | groupme://bot_id<br />groupme://bot_id/access_token
 | [Growl](https://appriseit.com/services/growl/)  | growl://   | (UDP) 23053   | growl://hostname<br />growl://hostname:portno<br />growl://password@hostname<br />growl://password@hostname:port</br>**Note**: you can also use the get parameter _version_ which can allow the growl request to behave using the older v1.x protocol. An example would look like: growl://hostname?version=1
@@ -157,6 +162,8 @@ The table below identifies the services this tool supports and some example serv
 | [Home Assistant](https://appriseit.com/services/homeassistant/)       | hassio:// or hassios://   | (TCP) 8123 or 443 | hassio://hostname/accesstoken<br />hassio://user@hostname/accesstoken<br />hassio://user:password@hostname:port/accesstoken<br />hassio://hostname/optional/path/accesstoken
 | [HumHub](https://appriseit.com/services/humhub/) | humhub:// or humhubs:// | (TCP) 80 or 443 | humhubs://token@hostname/container_id<br />humhubs://user:password@hostname/container_id<br />humhubs://token@hostname/id1/id2/id3
 | [IFTTT](https://appriseit.com/services/ifttt/) | ifttt://    | (TCP) 443    | ifttt://webhooksID/Event<br />ifttt://webhooksID/Event1/Event2/EventN<br/>ifttt://webhooksID/Event1/?+Key=Value<br/>ifttt://webhooksID/Event1/?-Key=value1
+| [ilert](https://appriseit.com/services/ilert/) | ilert://  | (TCP) 443 | ilert://IntegrationKey<br />ilert://IntegrationKey?priority=high<br />ilert://IntegrationKey?action=resolve&dedup=key
+| [incident.io](https://appriseit.com/services/incidentio/) | incidentio://  | (TCP) 443 | incidentio://source_id/token<br />incidentio://source_id/token?action=resolve&dedup=key
 | [IRC](https://appriseit.com/services/irc/) | irc:// or ircs://   | (TCP) 6667 or 6697 | ircs://user:pass@irc.server/@user<br /> ircs://user:pass@irc.server/#channel?join=true&mode=nickserv<br/>ircs://user:pass@znc.server/@user1/@user2/@user3/#channel1
 | [Jellyfin](https://appriseit.com/services/jellyfin/)  | jellyfin:// or jellyfins:// | (TCP) 8096 | jellyfin://user@hostname/<br />jellyfins://user:password@hostname
 | [Jira](https://appriseit.com/services/jira/) | jira:// | (TCP) 443 | jira://APIKey<br/>jira://APIKey/@UserID<br/>jira://APIKey/#Team<br/>jira://APIKey/\*Schedule<br/>jira://APIKey/^Escalation
@@ -167,6 +174,7 @@ The table below identifies the services this tool supports and some example serv
 | [LaMetric Time](https://appriseit.com/services/lametric/) | lametric:// | (TCP) 443 | lametric://apikey@device_ipaddr<br/>lametric://apikey@hostname:port<br/>lametric://client_id@client_secret
 | [Lark](https://appriseit.com/services/lark/) | lark://  | (TCP) 443   | lark://BotToken
 | [Lauther](https://appriseit.com/services/lauther/) | lauther:// | (TCP) 443 | lauther://Token
+| [LFG Alarm](https://appriseit.com/services/lfgalarm/) | lfg:// | (TCP) 443 | lfg://Token
 | [Line](https://appriseit.com/services/line/) | line:// | (TCP) 443 | line://Token@User<br/>line://Token/User1/User2/UserN
 | [Mailgun](https://appriseit.com/services/mailgun/) | mailgun:// | (TCP) 443 | mailgun://user@hostname/apikey<br />mailgun://user@hostname/apikey/email<br />mailgun://user@hostname/apikey/email1/email2/emailN<br />mailgun://user@hostname/apikey/?name="From%20User"
 | [MailerSend](https://appriseit.com/services/mailersend/) | mailersend://  | (TCP) 443   | mailersend://APIToken:FromEmail/<br />mailersend://APIToken:FromEmail/ToEmail<br />mailersend://APIToken:FromEmail/ToEmail1/ToEmail2/ToEmailN/
@@ -184,6 +192,7 @@ The table below identifies the services this tool supports and some example serv
 | [ntfy](https://appriseit.com/services/ntfy/) | ntfy://  | (TCP) 80 or 443   | ntfy://topic/<br/>ntfys://topic/
 | [Octopush](https://appriseit.com/services/octopush/) | octopush:// | (TCP) 443 | octopush://APILogin/APIKey/TargetPhoneNo<br />octopush://Sender:APILogin/APIKey/TargetPhoneNo<br />octopush://Sender:APILogin/APIKey/TargetPhoneNo1/TargetPhoneNo2/TargetPhoneNoN
 | [Office 365](https://appriseit.com/services/office365/) | o365://  | (TCP) 443   | o365://TenantID:AccountEmail/ClientID/ClientSecret<br />o365://TenantID:AccountEmail/ClientID/ClientSecret/TargetEmail<br />o365://TenantID:AccountEmail/ClientID/ClientSecret/TargetEmail1/TargetEmail2/TargetEmailN
+| [OneBot (QQ)](https://appriseit.com/services/onebot/) | onebot:// or onebots:// | (TCP) 80 or 443 | onebot://hostname:port/UserID<br/>onebot://token@hostname:port/@UserID/#GroupID<br/>onebots://token@hostname:port/@UserID1/@UserID2/#GroupID1/#GroupIDN
 | [OneSignal](https://appriseit.com/services/onesignal/) | onesignal:// | (TCP) 443 | onesignal://AppID@APIKey/PlayerID<br/>onesignal://TemplateID:AppID@APIKey/UserID<br/>onesignal://AppID@APIKey/#IncludeSegment<br/>onesignal://AppID@APIKey/Email
 | [Opsgenie](https://appriseit.com/services/opsgenie/) | opsgenie:// | (TCP) 443 | opsgenie://APIKey<br/>opsgenie://APIKey/UserID<br/>opsgenie://APIKey/#Team<br/>opsgenie://APIKey/\*Schedule<br/>opsgenie://APIKey/^Escalation
 | [PagerDuty](https://appriseit.com/services/pagerduty/) | pagerduty:// | (TCP) 443 | pagerduty://IntegrationKey@ApiKey<br/>pagerduty://IntegrationKey@ApiKey/Source/Component
@@ -225,6 +234,7 @@ The table below identifies the services this tool supports and some example serv
 | [Spike.sh](https://appriseit.com/services/spike/) | spike://  | (TCP) 443   | spike://Token
 | [Splunk](https://appriseit.com/services/splunk/) | splunk:// or victorops:/ | (TCP) 443 | splunk://route_key@apikey<br />splunk://route_key@apikey/entity_id
 | [Spug Push](https://appriseit.com/services/spugpush/) | spugpush://  | (TCP) 443   | spugpush://Token
+| [Squadcast](https://appriseit.com/services/squadcast/) | squadcast://  | (TCP) 443   | squadcast://WebhookKey<br />squadcast://WebhookKey?region=eu<br />squadcast://WebhookKey?action=resolve&dedup=key
 | [Stackfield](https://appriseit.com/services/stackfield/) | stackfield://  | (TCP) 443   | stackfield://WebhookToken
 | [Streamlabs](https://appriseit.com/services/streamlabs/) | strmlabs:// | (TCP) 443 | strmlabs://AccessToken/<br/>strmlabs://AccessToken/?name=name&identifier=identifier&amount=0&currency=USD
 | [Synology Chat](https://appriseit.com/services/synology_chat/) | synology:// or synologys:// |  (TCP) 80 or 443 | synology://hostname/token<br />synology://hostname:port/token
@@ -243,6 +253,8 @@ The table below identifies the services this tool supports and some example serv
 | [XBMC](https://appriseit.com/services/xbmc/) | xbmc:// or xbmcs://    | (TCP) 8080 or 443   | xbmc://hostname<br />xbmc://user@hostname<br />xbmc://user:password@hostname:port
 | [XMPP](https://appriseit.com/services/xmpp/) | xmpp:// or xmpps://    | (TCP) 5222 or 5223   | xmpp://user:pass@hostname<br />xmpps://user:pass@hostname/jid<br />xmpps://user:pass@hostname/jid1/jid2@example.ca
 | [YouLMK](https://appriseit.com/services/youlmk/) | youlmk://  | (TCP) 443   | youlmk://ylk_token<br/>youlmk://k_key<br/>youlmk://ylk_token?priority=critical<br/>youlmk://ylk_token?failure=critical&url=https://example.com/runs/1
+| [Zalo](https://appriseit.com/services/zalo/) | zalo://  | (TCP) 443   | zalo://BotToken/ChatID<br/>zalo://BotToken/ChatID1/ChatID2/ChatIDN
+| [Zoho Cliq](https://appriseit.com/services/cliq/) | cliq:// or zcliq:// or zohocliq://  | (TCP) 443   | cliq://Token/Channel<br />cliq://Token/@Bot<br />cliq://BotName@Token/Channel1/Channel2/@Bot?region=eu
 | [Zoom](https://appriseit.com/services/zoom/) | zoom://  | (TCP) 443   | zoom://WebhookID/Token
 | [Zulip Chat](https://appriseit.com/services/zulip/) | zulip://  | (TCP) 443   | zulip://botname@Organization/Token<br />zulip://botname@Organization/Token/Stream<br />zulip://botname@Organization/Token/Email
 

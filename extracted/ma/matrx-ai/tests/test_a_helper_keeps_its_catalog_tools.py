@@ -16,7 +16,7 @@ then drop what is truly retired.
 from __future__ import annotations
 
 import ast
-import inspect
+from matrx_utils.source_guard import stable_source
 import uuid
 
 import pytest
@@ -77,7 +77,7 @@ async def test_a_stored_catalog_id_resolves_to_its_name_and_is_pinned(registry) 
 
 def test_the_direct_execution_edge_resolves_catalog_tools_before_dropping() -> None:
     """``Agent.execute`` must use the one resolver, never the bare drop."""
-    source = inspect.getsource(definition_module)
+    source = stable_source(definition_module)
     tree = ast.parse(source)
     bare_drops: list[int] = []
     resolves = False

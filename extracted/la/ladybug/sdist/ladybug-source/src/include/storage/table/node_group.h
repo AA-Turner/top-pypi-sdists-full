@@ -24,12 +24,24 @@ class NodeGroup;
 struct NodeGroupScanState {
     // Index of committed but not yet checkpointed chunked group to scan.
     common::idx_t chunkedGroupIdx = 0;
+    // Batches to scan without filtering on predicates first, after a batch where that kept too
+    // many rows, and the length of the last such pause. Reset on entering a node group, not a
+    // chunked group: an in-memory chunked group holds a single batch.
+    uint8_t numBatchesWithoutEarlyFilter = 0;
+    uint8_t earlyFilterBackoff = 0;
     common::row_idx_t nextRowToScan = 0;
     // State of each chunk in the checkpointed chunked group.
     std::vector<ChunkState> chunkStates;
+    // Value of NodeGroup::numCheckpoints when chunkStates was initialized.
+    uint64_t numCheckpoints = 0;
 
     explicit NodeGroupScanState() {}
     explicit NodeGroupScanState(common::idx_t numChunks) { chunkStates.resize(numChunks); }
+
+    void resetEarlyFilterBackoff() {
+        numBatchesWithoutEarlyFilter = 0;
+        earlyFilterBackoff = 0;
+    }
 
     virtual ~NodeGroupScanState() = default;
     DELETE_COPY_DEFAULT_MOVE(NodeGroupScanState);
@@ -51,6 +63,14 @@ struct NodeGroupCheckpointState {
     MemoryManager* mm;
 
     const transaction::Transaction* transaction;
+    // Snapshot-horizon floor for MVCC version retention (INVALID_TRANSACTION = none open:
+    // checkpoint wipes version metadata as before). Ignored by CSR groups in this phase.
+
+    common::transaction_t retentionHorizon = common::INVALID_TRANSACTION;
+    // Open-reader start timestamps captured alongside the horizon (before the write gate).
+    // CSR groups use the set to cover and prune retained pre-checkpoint snapshots;
+    // regular groups ignore it.
+    std::vector<common::transaction_t> openStartTSs;
 
     NodeGroupCheckpointState(std::vector<common::column_id_t> columnIDs,
         std::vector<Column*> columns, PageAllocator& pageAllocator, MemoryManager* mm,
@@ -114,6 +134,8 @@ public:
     virtual ~NodeGroup() = default;
 
     virtual bool isEmpty() const { return numRows.load() == 0; }
+    // In memory or, for a CSR node group, in its persistent chunked group.
+    virtual bool hasRows() const { return numRows.load() != 0; }
     virtual common::row_idx_t getNumRows() const { return numRows.load(); }
     void moveNextRowToAppend(common::row_idx_t numRowsToAppend) {
         nextRowToAppend += numRowsToAppend;
@@ -173,7 +195,7 @@ public:
 
     void applyFuncToChunkedGroups(version_record_handler_op_t func, common::row_idx_t startRow,
         common::row_idx_t numRows, common::transaction_t commitTS) const;
-    void rollbackInsert(common::row_idx_t startRow);
+    virtual void rollbackInsert(common::row_idx_t startRow);
     void reclaimStorage(PageAllocator& pageAllocator) const;
     virtual void reclaimStorage(PageAllocator& pageAllocator, const common::UniqLock& lock) const;
 
@@ -193,6 +215,10 @@ public:
         const auto lock = chunkedGroups.lock();
         return chunkedGroups.getGroup(lock, groupIdx);
     }
+    // True when any chunked group still carries a retention horizon from an earlier
+    // pinned checkpoint. Used to force a reclaiming checkpoint after the readers drain,
+    // even when the table epoch is unchanged.
+    bool hasRetainedHorizon() const;
 
     template<class TARGET>
     TARGET& cast() {
@@ -233,7 +259,24 @@ private:
     std::unique_ptr<ChunkedNodeGroup> checkpointInMemAndOnDisk(MemoryManager& memoryManager,
         const common::UniqLock& lock, NodeGroupCheckpointState& state) const;
     std::unique_ptr<VersionInfo> checkpointVersionInfo(const common::UniqLock& lock,
-        const transaction::Transaction* transaction) const;
+        const transaction::Transaction* transaction,
+        common::transaction_t retentionHorizon = common::INVALID_TRANSACTION) const;
+    // Retention helpers (all under the group lock; writers are drained by the gate).
+    // True when any update chain still filters readers at the horizon.
+    bool hasRetainedUpdateNodes(const common::UniqLock& lock, common::transaction_t horizon) const;
+    // Captures retention state (plans + pre-rewrite base values) for the persistent
+    // group's chunks, indexed by column. Must run before the page-rewrite phase. Base
+    // values are read through the columns (page path): on-disk chunk buffers and null
+    // masks are not positionally readable.
+    std::vector<UpdateRetentionCapture> capturePersistentUpdateRetention(
+        const common::UniqLock& lock, MemoryManager& memoryManager,
+        const NodeGroupCheckpointState& state, common::transaction_t horizon) const;
+    // Retains update chains on the checkpointed group: in-place filtering for the
+    // persistent region plus transplants from in-memory sources for appended rows.
+    void applyRetainedUpdates(const common::UniqLock& lock, ChunkedNodeGroup& checkpointedGroup,
+        const NodeGroupCheckpointState& state, common::transaction_t horizon,
+        std::vector<UpdateRetentionCapture>&& persistentCaptures, bool hadPersistentData,
+        common::row_idx_t numPersistentRows) const;
 
     template<ResidencyState SCAN_RESIDENCY_STATE>
     common::row_idx_t getNumResidentRows(const common::UniqLock& lock) const;
@@ -249,6 +292,9 @@ private:
 
     common::row_idx_t getStartRowIdxInGroupNoLock() const;
     common::row_idx_t getStartRowIdxInGroup(const common::UniqLock& lock) const;
+
+    void refreshScanStateIfCheckpointed(const common::UniqLock& lock,
+        const TableScanState& state) const;
 
     void scanCommittedUpdatesForColumn(std::vector<ChunkCheckpointState>& chunkCheckpointStates,
         MemoryManager& memoryManager, const common::UniqLock& lock, common::column_id_t columnID,
@@ -268,6 +314,10 @@ protected:
     common::row_idx_t capacity;
     std::vector<common::LogicalType> dataTypes;
     GroupCollection<ChunkedNodeGroup> chunkedGroups;
+    // Number of times this node group has been checkpointed. A checkpoint replaces the chunked
+    // groups and rewrites their on-disk metadata, so scan states initialized before it are stale.
+    // Protected by the chunkedGroups lock.
+    uint64_t numCheckpoints = 0;
 };
 
 } // namespace storage

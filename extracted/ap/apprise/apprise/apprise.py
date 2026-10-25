@@ -28,7 +28,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator, Mapping
+import codecs
+from collections.abc import Iterator, Mapping, Sequence, Set as AbstractSet
 import concurrent.futures as cf
 import contextvars
 from functools import partial
@@ -36,6 +37,7 @@ from itertools import chain
 import json
 import logging
 import os
+import re
 import threading
 import time
 from typing import Any, Callable, Optional, Union
@@ -93,6 +95,33 @@ N_MGR = NotificationManager()
 
 # Extra seconds of patience for notify() calls.
 _ABANDON_GRACE_SECONDS = 0.1
+
+# The backslash escapes interpret_escapes turns into characters. Anything
+# else after a backslash is kept as written, so a Windows path such as
+# C:\Users does not make the whole message fail.
+ESCAPE_SEQUENCE_RE = re.compile(
+    r"\\(?:U[0-9a-fA-F]{8}|u[0-9a-fA-F]{4}|x[0-9a-fA-F]{2}|N\{[^{}\\]+\}"
+    r"|[0-7]{1,3}|[\\'\"abfnrtv\n])"
+)
+
+
+def decode_escapes(content: str) -> str:
+    """Return ``content`` with its backslash escapes interpreted."""
+
+    def _decode(match: re.Match) -> str:
+        """Return one escape as its character, or as written if invalid."""
+        try:
+            # Let Python turn the single escape into its character
+            return codecs.decode(match.group(0), "unicode_escape")
+
+        except UnicodeDecodeError:
+            # An unknown name such as \N{NOPE}, or a \U value past the
+            # last Unicode character, is kept as written
+            return match.group(0)
+
+    # Only well-formed escapes change, so all other text is left alone
+    return ESCAPE_SEQUENCE_RE.sub(_decode, content)
+
 
 # Shared pool for service calls. Coordinators use a separate pool so they
 # cannot occupy the workers needed by the service calls they await.
@@ -198,7 +227,10 @@ class Apprise:
                 NotifyBase,
                 AppriseConfig,
                 ConfigBase,
-                list[Union[str, dict, NotifyBase, AppriseConfig, ConfigBase]],
+                Sequence[
+                    Union[str, dict, NotifyBase, AppriseConfig, ConfigBase]
+                ],
+                AbstractSet[Union[str, NotifyBase, AppriseConfig, ConfigBase]],
             ]
         ] = None,
         asset: Optional[AppriseAsset] = None,
@@ -270,7 +302,7 @@ class Apprise:
     def instantiate(
         url: Union[str, dict],
         asset: Optional[AppriseAsset] = None,
-        tag: Optional[Union[str, list[str]]] = None,
+        tag: Optional[Union[str, Sequence[str], AbstractSet[str]]] = None,
         suppress_exceptions: bool = True,
     ) -> Optional[NotifyBase]:
         """Create a notification service from a URL or URL dictionary.
@@ -430,10 +462,11 @@ class Apprise:
             NotifyBase,
             AppriseConfig,
             ConfigBase,
-            list[Union[str, dict, NotifyBase, AppriseConfig, ConfigBase]],
+            Sequence[Union[str, dict, NotifyBase, AppriseConfig, ConfigBase]],
+            AbstractSet[Union[str, NotifyBase, AppriseConfig, ConfigBase]],
         ],
         asset: Optional[AppriseAsset] = None,
-        tag: Optional[Union[str, list[str]]] = None,
+        tag: Optional[Union[str, Sequence[str], AbstractSet[str]]] = None,
     ) -> bool:
         """Add one or more notification services or configuration sources.
 
@@ -1442,18 +1475,10 @@ class Apprise:
                         #
 
                         try:
-                            # Added overhead required due to Python 3
-                            # Encoding Bug identified here:
-                            # https://bugs.python.org/issue21331
-                            source_body = source_body.encode(
-                                "ascii", "backslashreplace"
-                            ).decode("unicode-escape")
+                            source_body = decode_escapes(source_body)
+                            source_title = decode_escapes(source_title)
 
-                            source_title = source_title.encode(
-                                "ascii", "backslashreplace"
-                            ).decode("unicode-escape")
-
-                        except AttributeError:
+                        except TypeError:
                             # Must be of string type
                             msg = "Failed to escape message body"
                             logger.error(msg)

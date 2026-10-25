@@ -61,6 +61,12 @@ CI_IMAGE_BASES        = ubuntu:22.04 ubuntu:24.04
 CI_IMAGE_GROUPS       = dev docs clang-rt
 CI_IMAGE_LANDING      = branch
 CI_IMAGE_SMOKE_TARGET = build
+# The packager image: rpm-build baked into a manylinux_2_28 base, so the
+# package build never reaches a distro mirror at CI time (#2544). Its bases
+# are canonical's defaults; its package list is bootstrap.toml's [packager.dnf].
+HAS_PACKAGER_IMAGE    = 1
+PACKAGER_IMAGE_REPO   = ghcr.io/doppler-dsp/doppler-packager
+PACKAGER_GROUPS       = packager
 
 # ── Layout ───────────────────────────────────────────────────────────────────
 BUILD_DIR   ?= build
@@ -1114,6 +1120,7 @@ $(UV) run python scripts/check_c_api_link_refs.py
 $(UV) run python docs/design/spectrogram-measurements/u1u4.py --check
 $(UV) run python docs/design/spectrogram-measurements/b2094.py --check
 $(UV) run python docs/design/async-dsss-parallel-measurements/record.py --check
+$(UV) run python docs/design/acq-surface-measurements/record.py --check
 $(UV) run python docs/design/spectrogram-measurements/b2062.py --check
 endef
 
@@ -1522,7 +1529,8 @@ LLVM_PROFILE_FILE="$(CURDIR)/$(COV_DIR)/prof/py-%p-%m.profraw" \
     PATH="$(CURDIR)/$(COV_DIR)/pkg/doppler/wfm/_bin:$(dir $(PYTHON_EXECUTABLE)):$$PATH" \
     $(COV_GUARD) $(PYTHON_EXECUTABLE) -m pytest $(COV_DIR)/pkg/doppler \
     -q -p no:cacheprovider --ignore-glob='*/benchmarks/*' \
-    -m "not examples_serial and not validation_limits" -n auto
+    -m "not examples_serial and not examples_wallclock and not validation_limits" \
+    -n auto
 # The SERIAL pass, and the reason this job needs one at all: `-n auto` is 4
 # workers on CI's runner and 20 on a dev box, and `.examples-serial` exists
 # precisely because some examples cannot share the machine -- ddc_fn_scaling
@@ -1544,10 +1552,10 @@ set +e; \
     PATH="$(CURDIR)/$(COV_DIR)/pkg/doppler/wfm/_bin:$(dir $(PYTHON_EXECUTABLE)):$$PATH" \
     $(COV_GUARD) $(PYTHON_EXECUTABLE) -m pytest $(COV_DIR)/pkg/doppler \
     -q -p no:cacheprovider --ignore-glob='*/benchmarks/*' \
-    -m "examples_serial"; \
+    -m "(examples_serial or examples_wallclock) and not validation_limits"; \
     rc=$$?; \
     if [ $$rc -eq 5 ]; then \
-        echo "coverage: no examples_serial items — nothing needs a serial pass"; \
+        echo "coverage: no examples_serial/examples_wallclock items — nothing needs a serial pass"; \
     elif [ $$rc -ne 0 ]; then exit $$rc; fi
 -DOPPLER_BUILD_DIR="$(CURDIR)/$(COV_DIR)" \
     LLVM_PROFILE_FILE="$(CURDIR)/$(COV_DIR)/prof/rs-%p-%m.profraw" \
@@ -1754,7 +1762,8 @@ endef
 # Named here so they land in `.PHONY` and in generated `help`, and so the same
 # gates cover them: criterion 2 is "help lists EVERY target", not "every
 # standard target" — a local target help omits is exactly as invisible.
-LOCAL_TARGETS = specan record-demo parallel-record-write gallery blazing \
+LOCAL_TARGETS = specan record-demo parallel-record-write acq-surface-record \
+                gallery blazing \
                 gen-c-api just-build docs-invariants \
                 jm-apply jm-apply-downstream jm-adopt jm-revendor \
                 jm-upgrade changelog-assemble changelog-assembled-check \
@@ -1777,7 +1786,7 @@ LOCAL_TARGETS = specan record-demo parallel-record-write gallery blazing \
                 validate validate-py validate-c validate-check \
                 validate-async-receiver-sweep validate-spellings-check \
                 test-sweep validation-time-baseline \
-                characterize characterization-check pool-telemetry \
+                characterize characterization-check \
                 doxygen-warn-gate \
                 test-examples-c test-examples-python test-example-downstream \
                 test-example-downstream-python \
@@ -2257,6 +2266,13 @@ parallel-record-write: ## Re-render the parallel record's blocks from its data
 	$(UV) run python docs/design/async-dsss-parallel-measurements/record.py \
 	    --write
 
+# docs/design/acq-surface.md §8 is one run of validate_acq_surface. The run
+# is stamped with the commit it was taken at and refused from a dirty tree,
+# so commit the validator first, then run this, then commit the data.
+acq-surface-record: build ## Re-run the acq surface's validator; rewrite its §8 tables
+	$(UV) run python docs/design/acq-surface-measurements/record.py measure
+	$(UV) run python docs/design/acq-surface-measurements/record.py --write
+
 # Run all plot-generating examples and copy output PNGs to docs/assets/.
 # Run before releasing whenever src/doppler/examples/ has changed.
 #
@@ -2319,12 +2335,13 @@ GALLERY_SCRIPTS := \
     src/doppler/examples/dsss_burst_ber_demo.py \
     src/doppler/examples/async_dsss_receiver_spec_demo.py \
     src/doppler/examples/async_dsss_receiver_lifecycle.py \
+    src/doppler/examples/async_dsss_pool_scene.py \
+    src/doppler/examples/async_dsss_pool_demo.py \
     src/doppler/examples/dsss_receiver_demo.py \
     src/doppler/examples/carrier_acq_rrc_demo.py \
     src/doppler/examples/mpsk_receiver_demo.py \
     src/doppler/examples/mpsk_receiver_performance_demo.py \
     src/doppler/examples/async_despread_demo.py \
-    src/doppler/examples/async_dsss_pool_demo.py \
     src/doppler/examples/coding_demo.py \
     src/doppler/examples/costas_demo.py \
     src/doppler/examples/costas_theory_demo.py \
@@ -2348,20 +2365,6 @@ GALLERY_SCRIPTS := \
 # writes straight to docs/assets/ instead of the gallery's mv dance.
 plot-rx-dynamics: build ## Render docs/assets/rx-dynamics.png from the C harness's telemetry
 	$(UV) run python scripts/plot_rx_dynamics.py
-
-# The pool speed-up's instrument, a characterization of the async DSSS
-# receiver (phase 7, docs/dev/contributing/adding-algorithms.md): one
-# AsyncDsssReceiver and one AsyncDsssPool timed (telemetry detached), then
-# watched (attached), on the same wfm Gold capture; filed captures, a run
-# record and plot_capture.py's figures in build/pool-telemetry/. Deliberate,
-# never per push: its fast twin is in test_async_dsss_pool.py. POOL_TLM_ARGS
-# passes the script's own flags.
-POOL_TLM_ARGS ?=
-POOL_TLM_PY   := src/doppler/dsss/tests/characterization/async_dsss_receiver/telemetry.py
-.PHONY: pool-telemetry
-pool-telemetry: pyext ## Time + capture telemetry for AsyncDsssReceiver and AsyncDsssPool on one capture (POOL_TLM_ARGS=)
-	$(UV) run python $(POOL_TLM_PY) \
-	    --out $(BUILD_DIR)/pool-telemetry $(POOL_TLM_ARGS)
 
 # The direction a derived move list cannot close: an example whose plot is
 # committed under docs/assets/ but which nothing re-renders, because it was
@@ -2747,16 +2750,28 @@ test-tsan: ## Run the C suite under TSan; any data race fails
 # the hand-owned `<mod>_ext_<obj>.c` fragments carry the glue's remaining
 # warnings and jm never re-renders them, so the list may only SHRINK -- see
 # scripts/check_warnings.py.
+#
+# The throwaway trees build the Python extensions too, since the glue is
+# where most warnings live, so their PYTHON_PACKAGE_DIR points INSIDE each
+# tree. The default is src/doppler/, where the editable install imports
+# from: until #2518 the clang tree's extensions and wfmgen overwrote the
+# checkout's own there, and every later gate measured that build instead
+# -- a STALE certification, disagreeing twins and a wfmgen byte-parity miss,
+# each reading like a real defect. scripts/check_src_untouched.py snapshots
+# every compiled artifact under src/ before the builds and fails on one
+# added, changed or removed after; both verdicts are reported either way.
 WARN_DIR   ?= build-warnings
 WARN_CCS   ?= gcc clang
 WARN_FLAGS ?= -Wall -Wextra
 
 warnings-check: ## Build under -Wall -Wextra with gcc AND clang; a warning off the exempt list fails
-	@set -e; args=""; \
+	@set -e; args=""; snap=$(WARN_DIR)-src-artifacts.json; \
+	 $(UV) run python scripts/check_src_untouched.py snapshot $$snap; \
 	 for cc in $(WARN_CCS); do \
 	   d=$(WARN_DIR)-$$cc; rm -rf $$d; \
 	   $(CMAKE) -B $$d -S . -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
 	       $(CMAKE_FLAGS) -DBUILD_PYTHON=ON \
+	       -DPYTHON_PACKAGE_DIR=$(CURDIR)/$$d/pkg/doppler \
 	       -DCMAKE_C_COMPILER=$$cc "-DCMAKE_C_FLAGS=$(WARN_FLAGS)" \
 	       > $$d.configure.log 2>&1 || { cat $$d.configure.log; exit 1; }; \
 	   if ! LC_ALL=C MAKEFLAGS=--output-sync=target \
@@ -2767,7 +2782,10 @@ warnings-check: ## Build under -Wall -Wextra with gcc AND clang; a warning off t
 	   fi; \
 	   args="$$args --compiler $$cc $$d.log $$d"; \
 	 done; \
-	 $(UV) run python scripts/check_warnings.py $$args
+	 rc=0; \
+	 $(UV) run python scripts/check_warnings.py $$args || rc=1; \
+	 $(UV) run python scripts/check_src_untouched.py compare $$snap || rc=1; \
+	 exit $$rc
 
 blazing: ## Clean + Release + -march=native (max speed; never packaged)
 	@$(MAKE) --no-print-directory clean
@@ -2986,7 +3004,6 @@ CPACK           ?= cpack
 PKG_BUILD_DIR   ?= build-pkg
 PKG_OUT_DIR     ?= $(DIST_DIR)/linux-packages
 DEB_MULTIARCH   ?= $(shell uname -m)-linux-gnu
-PKG_IMAGE       ?= quay.io/pypa/manylinux_2_28_$(shell uname -m)
 
 define PKG_BUILD
 	$(CMAKE) -S . -B $(PKG_BUILD_DIR) -DCMAKE_BUILD_TYPE=Release \
@@ -3008,15 +3025,33 @@ package-rpm: ## Build the .rpm packages into $(PKG_OUT_DIR)/ (needs rpmbuild)
 	    exit 1; }
 	$(call PKG_BUILD,lib64,RPM,rpm)
 
-# As the caller, not root, for the reason glibc-gate gives: the build tree
-# lands in the bind-mounted checkout. rpm-build therefore cannot be installed
-# at run time, so it is a one-line derived image.
-PKG_BUILDER_IMAGE ?= doppler-pkg-builder:local
-package-linux: ## Build the .deb and .rpm packages inside the manylinux_2_28 image
-	printf 'FROM %s\nRUN dnf install -y rpm-build && dnf clean all\n' \
-	    "$(PKG_IMAGE)" | docker build -q -t $(PKG_BUILDER_IMAGE) - >/dev/null
+# The packages are built in the PINNED packager image (CI_PACKAGER_IMAGE in
+# .github/ci-images.env, #2544): rpm-build is baked in, so no package manager
+# runs here, and the build runs with NO network (--network=none). A dnf step
+# reintroduced anywhere in this path fails at once, because there is no
+# network to reach a mirror. The pin is canonical's: `make ci-image-check`
+# and the weekly refresh own it, and this target never builds an image.
+#
+# The pull and the build are each one attempt through the repo's shared
+# with-deadline.sh, no retries: a hung pull or a stuck build fails with the
+# phase named, rather than eating the job's timeout. The build's deadline is
+# longer than the pull's: the packages take minutes, a pull seconds.
+PKG_BUILDER_IMAGE ?= $(CI_PACKAGER_IMAGE)
+PKG_BUILDER_DEADLINE ?= 1200
+PKG_BUILD_DEADLINE ?= 2400
+package-linux: ## Build the .deb and .rpm packages in the pinned packager image, offline
+	@test -n '$(PKG_BUILDER_IMAGE)' || { \
+	    echo "package-linux: no CI_PACKAGER_IMAGE pin in .github/ci-images.env"; \
+	    echo "  (dispatch the CI image workflow on this branch to build and pin it)"; \
+	    exit 1; }
+	@echo "package-linux: phase 1/2 -- pulling $(PKG_BUILDER_IMAGE) (deadline $(PKG_BUILDER_DEADLINE)s)"
+	./scripts/with-deadline.sh $(PKG_BUILDER_DEADLINE) 1 \
+	    docker pull $(PKG_BUILDER_IMAGE)
+	@echo "package-linux: phase 2/2 -- building the packages offline (deadline $(PKG_BUILD_DEADLINE)s)"
 	@rm -rf $(PKG_OUT_DIR)
-	docker run --rm -e HOME=/tmp $(call CONTAINER_CHECKOUT,$(PKG_BUILD_DIR)) \
+	./scripts/with-deadline.sh $(PKG_BUILD_DEADLINE) 1 \
+	    docker run --rm --init --pull=never --network=none -e HOME=/tmp \
+	    $(call CONTAINER_CHECKOUT,$(PKG_BUILD_DIR)) \
 	    $(PKG_BUILDER_IMAGE) \
 	    make package-deb package-rpm PKG_BUILD_DIR=$(PKG_BUILD_DIR)
 	@ls -1 $(PKG_OUT_DIR)
@@ -3049,13 +3084,28 @@ PKG_SMOKE_DISTROS ?= $(STOCK_REGISTRY)/debian:stable $(CI_IMAGE_2404) \
 # leg to the mirror it was moved off (doppler#1524). Offline, an
 # `apt-get update` only warns, so it can never fetch a newer candidate for
 # an install to upgrade to: the 404's other route is closed, not just seen.
+#
+# Each leg's stock pull and its `docker run` have their own deadline (#2541).
+# A stalled leg used to run to the job's 45-minute timeout while the other
+# legs waited; now it fails after PKG_SMOKE_DEADLINE seconds, and the FAILED
+# line names the distro. One attempt through the shared with-deadline.sh --
+# no retries. The pull is bounded too: stock-pull retries only errors docker
+# reports, so a silent pull hang was unbounded. `--init` is required: the
+# leg's PID 1 is bash, which ignores SIGTERM, so without an init the deadline
+# kills the docker CLI, the container keeps running, and the leg exits 137
+# ten seconds late rather than 124 (measured on cachyos, Docker 29). With
+# --init the container exits 124 and is removed.
+PKG_SMOKE_DEADLINE ?= 600
 PKG_SMOKE_RUN = for d in $(PKG_SMOKE_DISTROS); do \
 	    echo ">> $$d"; \
 	    net=; [ "$$d" = "$(CI_IMAGE_2404)" ] && net=--network=none; \
-	    $(STOCK_PULL) $$d || { echo "$(1): could not pull $$d"; exit 1; }; \
-	    docker run --rm --pull=never $$net -v "$(CURDIR)":/w:ro -w /w $$d \
+	    ./scripts/with-deadline.sh $(PKG_SMOKE_DEADLINE) 1 \
+	        env $(STOCK_PULL) $$d \
+	        || { echo "$(1): could not pull $$d"; exit 1; }; \
+	    ./scripts/with-deadline.sh $(PKG_SMOKE_DEADLINE) 1 \
+	        docker run --rm --init --pull=never $$net -v "$(CURDIR)":/w:ro -w /w $$d \
 	        bash tests/install/linux-package-smoke.sh /w/$(2) \
-	        || { echo "$(1): FAILED in $$d"; exit 1; }; \
+	        || { echo "$(1): FAILED in $$d (the line above says why: a deadline names itself, $(PKG_SMOKE_DEADLINE)s; any other exit is the leg's own)"; exit 1; }; \
 	 done; \
 	 echo "$(1): PASS in $(PKG_SMOKE_DISTROS)"
 
@@ -3429,12 +3479,13 @@ validate-py: ## Regenerate the Python validation reports only (VALIDATORS=<valid
 	    $(UV) run python $$v || exit 1; \
 	 done
 
-# The AsyncDsssReceiver certification commits its full sweep as
-# data/sweep.txt and renders it, never re-running it on a push (it takes
-# about 45 s against the --check run's 3). This re-runs the sweep on purpose,
-# after the receiver, the harness or the toolchain changes, then the report.
-# It needs `make build` first: the sweep is the C harness's.
-validate-async-receiver-sweep: ## Re-run the AsyncDsssReceiver certification's full sweep into its data/sweep.txt, then its report
+# The AsyncDsssReceiver certification commits its two full sweeps as
+# data/sweep.txt (lock and EVM, about 45 s) and data/ber_sweep.txt (the error
+# rate against the BPSK bound, about 30 s) and renders them, never re-running
+# them on a push. This re-runs both on purpose, after the receiver, a harness
+# or the toolchain changes, then the report. It needs `make build` first: the
+# sweeps are the C harnesses'.
+validate-async-receiver-sweep: ## Re-run the AsyncDsssReceiver certification's full sweeps into its data/, then its report
 	$(UV) run python src/doppler/dsss/tests/validation/async_dsss_receiver/validate.py --sweep
 
 # Runs the real `validate-py` and `validate` with stub validators, so it runs
@@ -4836,7 +4887,8 @@ test-snippets: ## Run the python/C/shell doc-fence gates (PAGE=<path> to narrow)
 # self-skips without either.
 test-examples-python: ## Run the Python example gate (requires pyext)
 	$(MEM_GUARD_CMD) $(LEAK_CHECK) -- $(UV) run pytest \
-	    -m "examples and not examples_serial" -q -n auto \
+	    -m "examples and not examples_serial and not examples_wallclock" \
+	    -q -n auto \
 	    $(PYTEST_ARGS) src/doppler/tests/test_examples.py \
 	    src/doppler/tests/test_c_example_pairs.py
 	@# Exit 5 is pytest's "no tests collected", which is what an EMPTY
@@ -4853,6 +4905,11 @@ test-examples-python: ## Run the Python example gate (requires pyext)
 	 if [ $$rc -eq 5 ]; then \
 	     echo "test-examples-python: .examples-serial is empty — nothing needs a serial pass"; \
 	 elif [ $$rc -ne 0 ]; then exit $$rc; fi
+	@# The wall-clock tests' serial pass (examples_wallclock, pyproject.toml):
+	@# a subprocess under a time limit that sharing the machine can break.
+	@# Never empty while the C-twin pairs exist, so exit 5 here is a failure.
+	@$(LEAK_CHECK) -- $(UV) run pytest -m "examples and examples_wallclock" \
+	     -q $(PYTEST_ARGS) src/doppler/tests/test_c_example_pairs.py
 	@$(MAKE) --no-print-directory test-example-downstream-python
 
 # The Python half of the downstream example: build its extension against the

@@ -89,11 +89,26 @@ async def _client(env: dict[str, str]) -> httpx.AsyncClient:
         "Authorization": f"Bearer {env.get('PROBE_TOKEN', '')}",
         **client_version_headers("cli", __version__),
     }
+    from probe.sdk import workspace_limit
+
+    if not workspace_limit.suppressed():
+        # The researcher's workspace limit holds for the daemon's own reads as for
+        # its `probe` commands. In a thread: an environment slug is looked up once.
+        import asyncio
+
+        headers.update(
+            await asyncio.to_thread(workspace_limit.ambient_headers, base, bearer=env.get("PROBE_TOKEN") or None)
+        )
     return httpx.AsyncClient(base_url=base, timeout=TIMEOUT_S, verify=ssl_context(), headers=headers)
 
 
 async def whoami(env: dict[str, str]) -> dict:
-    async with await _client(env) as client:
+    # Is the KEY accepted? Never limited: a stale limit must not read as a refused key.
+    from probe.sdk.workspace_limit import without_limit
+
+    with without_limit():
+        client = await _client(env)
+    async with client:
         resp = await client.get("/v1/me")
         _refuse_key(resp)
         resp.raise_for_status()

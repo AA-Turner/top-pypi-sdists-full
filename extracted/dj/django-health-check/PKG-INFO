@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-health-check
-Version: 4.10.0
+Version: 4.11.1
 Summary: Monitor the health of your Django app and its connected services.
 Keywords: django,postgresql
 Author-email: Kristian Ollegaard <kristian@oellegaard.com>, Johannes Maron <johannes@maron.family>
@@ -8,14 +8,12 @@ Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
@@ -24,18 +22,17 @@ Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Utilities
 License-File: LICENSE
-Requires-Dist: Django>=5.2
-Requires-Dist: dnspython>=2.0.0
-Requires-Dist: httpx>=0.27.0 ; extra == "atlassian"
-Requires-Dist: celery>=5.0.0 ; extra == "celery"
-Requires-Dist: django-crontask[redis]>=2.0.0 ; extra == "crontask"
+Requires-Dist: django>=6
+Requires-Dist: dnspython>=2
+Requires-Dist: httpx>=0.27
+Requires-Dist: celery>=5 ; extra == "celery"
+Requires-Dist: django-crontask[redis]>=2 ; extra == "crontask"
 Requires-Dist: redis>=5.0.1 ; extra == "crontask"
-Requires-Dist: confluent-kafka>=2.0.0 ; extra == "kafka"
-Requires-Dist: psutil>=7.2.0 ; extra == "psutil"
-Requires-Dist: aio-pika>=9.0.0 ; extra == "rabbitmq"
+Requires-Dist: confluent-kafka>=2 ; extra == "kafka"
+Requires-Dist: psutil>=7.2 ; extra == "psutil"
+Requires-Dist: aio-pika>=9 ; extra == "rabbitmq"
 Requires-Dist: redis>=5.0.1 ; extra == "redis"
-Requires-Dist: httpx>=0.27.0 ; extra == "rss"
-Requires-Dist: feedparser>=6.0.0 ; extra == "rss"
+Requires-Dist: feedparser>=6 ; extra == "rss"
 Requires-Dist: threadmill[redis]>=0.7.3 ; extra == "threadmill"
 Project-URL: Changelog, https://github.com/codingjoe/django-health-check/releases
 Project-URL: Documentation, https://codingjoe.dev/django-health-check/

@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-__version__ = "1.19.6"
+__version__ = "1.21.0"
 
 import asyncio
 from typing import TYPE_CHECKING, Any, TypeVar, overload
@@ -110,6 +110,7 @@ from cwsandbox.exceptions import (
     SandboxValidationError,
     SnapshotBackendThrottledError,
     SnapshotBucketMismatchError,
+    SnapshotBucketProvisioningError,
     SnapshotNotFoundError,
     SnapshotNotReadyError,
     SnapshotNotSupportedError,
@@ -405,6 +406,7 @@ __all__ = [
     "SandboxValidationError",
     "SnapshotBackendThrottledError",
     "SnapshotBucketMismatchError",
+    "SnapshotBucketProvisioningError",
     "SnapshotNotFoundError",
     "SnapshotNotReadyError",
     "SnapshotNotSupportedError",

@@ -40,10 +40,15 @@ from matrx_scraper.web_crawl.broker import (
 )
 from matrx_scraper.web_crawl.candidates import (
     DiscoveredCandidate,
+    SiteIdentity,
     derive_site_identity,
     extract_homepage_candidates,
+    forwarded_candidates,
+    landing_page_names,
+    offsite_landing,
 )
 from matrx_scraper.rate_limiter import host_key
+from matrx_scraper.utils.proxy import redact_url_secrets
 from matrx_scraper.web_crawl.pacing_memory import (
     load_remembered_pacing,
     save_learned_pacing,
@@ -2427,13 +2432,35 @@ class WebCrawlService:
                 try:
                     capture = prepared.state.homepage_capture
                     assert capture is not None
-                    candidates = extract_homepage_candidates(
-                        capture.html,
-                        base_url=capture.final_url,
-                        summary=capture.summary,
+                    # A homepage that forwarded to somebody else's page (a branded short domain landing on its
+                    # vendor, a domain forwarding to its Yelp listing or Facebook page) is not the brand's site: only
+                    # where it forwards is recorded, at its full address (offsite_landing). A forward that stays the
+                    # same brand (its new domain, a franchise parent's location page) is read as usual.
+                    landed = offsite_landing(
+                        prepared.root_url,
+                        capture.final_url,
+                        page_names=landing_page_names(capture.summary),
                     )
+                    if landed:
+                        logger.info(
+                            "web_crawl: %s forwards to %s (%s); its page is not read as the brand's",
+                            redact_url_secrets(prepared.root_url),
+                            redact_url_secrets(capture.final_url),
+                            landed,
+                        )
+                        candidates = forwarded_candidates(capture.final_url, root_url=prepared.root_url)
+                    else:
+                        candidates = extract_homepage_candidates(
+                            capture.html,
+                            base_url=capture.final_url,
+                            summary=capture.summary,
+                        )
                     extraction_succeeded = True
-                    identity = derive_site_identity(candidates, summary=capture.summary)
+                    identity = (
+                        SiteIdentity()
+                        if landed
+                        else derive_site_identity(candidates, summary=capture.summary)
+                    )
                     identity_result = await prepared.repository.update_site_identity(
                         prepared.site_id,
                         identity,

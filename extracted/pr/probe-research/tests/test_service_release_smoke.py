@@ -43,6 +43,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 import uuid
 from dataclasses import dataclass
@@ -424,3 +425,67 @@ def test_the_current_tap_has_its_service_record_a_session(release, service_home,
         assert wait_for(lambda: tap("recording", "--session-id", sid).returncode == 1, 10)
     finally:
         marker.unlink(missing_ok=True)
+
+
+# -- the tap's own Probe-off gate standing down in a service from before it (tap 0.10.19) ------
+
+#: A released service from before the tap gated itself (CLIs 0.307.0 to the one
+#: before the service learned `capture_gate.native`): it wraps the tap's drains
+#: itself, and tap 0.10.19 stands its own gate down there. What every machine
+#: runs once the tap merges, until the next CLI release.
+STANDDOWN_RELEASE = os.environ.get("PROBE_RELEASE_SMOKE_STANDDOWN", "0.309.1")
+
+
+@pytest.fixture(scope="module")
+def standdown(tmp_path_factory) -> Release:
+    python, probe = _install(STANDDOWN_RELEASE, tmp_path_factory.mktemp(f"standdown-{STANDDOWN_RELEASE}"))
+    return Release("standdown", STANDDOWN_RELEASE, python, probe, None)
+
+
+@_from_pypi
+@pytest.mark.parametrize("case", ["on-off-on", "ends-while-off"])
+def test_this_tap_in_a_service_from_before_its_own_gate_sends_nothing_written_while_off(standdown, service_home,
+                                                                                       case):
+    """This checkout's tap recorded by the released service: on, off, on
+    captures from the flip back on and never the stretch; a session that
+    ends while off is finalized without it."""
+    from tests import test_probe_off_capture as off
+    from tests.capture_stub import IngestStub
+
+    client.write_runtime(str(standdown.python), standdown.version)
+    status = service_home.start(timeout=30)
+    assert status["service_version"] == standdown.version
+    home = service_home.home
+    stub = IngestStub().start()
+    proc, owner = spawn_agent()
+    try:
+        sid = str(uuid.uuid4())
+        transcript = off.CLAUDE.start(home, sid)
+        off._switch(home, sid, "full")
+        off._write(off.CLAUDE, transcript, sid, "on-before-1")
+        answer = service_home.call(Method.SESSION_RECORD, off.CLAUDE.params(home, sid, owner, stub))
+        assert answer["recording"] is True, answer
+        assert off._sent(stub, sid, "on-before-1"), service_home.log()
+        assert f"recorder: tap {off.TAP_VERSION} loaded" in service_home.log()
+
+        off._switch(home, sid, "off")
+        service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+        off._write(off.CLAUDE, transcript, sid, "SECRET-while-off-1", "SECRET-while-off-2")
+        time.sleep(3)
+        assert "SECRET" not in stub.sent_text(sid)
+        if case == "on-off-on":
+            off._switch(home, sid, "full")
+            service_home.call(Method.SESSION_RECORDING, {"sid": sid})
+            off._write(off.CLAUDE, transcript, sid, "on-after-1")
+            assert off._sent(stub, sid, "on-after-1"), service_home.log()
+            assert off._covers(stub, sid, transcript)
+        else:
+            finished = service_home.call(Method.SESSION_FINISH, {"sid": sid, "wait": 15})
+            assert finished["finished"] is True, service_home.log()
+            stream = stub.stream(sid) or {}
+            assert stream.get("finalized") is True, service_home.log()
+            assert stream.get("source_byte_end") == transcript.stat().st_size
+        assert "SECRET" not in stub.sent_text(sid)
+    finally:
+        kill_agent(proc)
+        stub.stop()

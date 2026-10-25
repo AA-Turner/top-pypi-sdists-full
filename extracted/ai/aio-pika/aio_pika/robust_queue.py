@@ -1,7 +1,18 @@
 import asyncio
 import uuid
 import warnings
-from typing import Any, Awaitable, Callable, Dict, Optional, Tuple, Union
+from typing import (
+    Literal,
+    overload,
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import aiormq
 from aiormq import ChannelInvalidStateError
@@ -149,7 +160,13 @@ class RobustQueue(Queue, AbstractRobustQueue):
             arguments,
             timeout,
         )
-        self._bindings.pop((exchange, routing_key), None)
+        exchange_name = get_exchange_name(exchange)
+        for bound_exchange, bound_key in tuple(self._bindings):
+            if (
+                get_exchange_name(bound_exchange) == exchange_name
+                and bound_key == routing_key
+            ):
+                self._bindings.pop((bound_exchange, bound_key), None)
 
         return result
 
@@ -182,12 +199,36 @@ class RobustQueue(Queue, AbstractRobustQueue):
 
         return consumer_tag
 
+    @overload
+    async def cancel(
+        self,
+        consumer_tag: ConsumerTag,
+        timeout: TimeoutType = None,
+        nowait: Literal[False] = False,
+    ) -> aiormq.spec.Basic.CancelOk: ...
+
+    @overload
+    async def cancel(
+        self,
+        consumer_tag: ConsumerTag,
+        timeout: TimeoutType = None,
+        nowait: Literal[True] = True,
+    ) -> None: ...
+
+    @overload
     async def cancel(
         self,
         consumer_tag: ConsumerTag,
         timeout: TimeoutType = None,
         nowait: bool = False,
-    ) -> aiormq.spec.Basic.CancelOk:
+    ) -> aiormq.spec.Basic.CancelOk | None: ...
+
+    async def cancel(
+        self,
+        consumer_tag: ConsumerTag,
+        timeout: TimeoutType = None,
+        nowait: bool = False,
+    ) -> aiormq.spec.Basic.CancelOk | None:
         # A requested cancellation must also prevent restoration if the RPC
         # times out or is cancelled before Basic.CancelOk arrives.
         self._consumers.pop(consumer_tag, None)
@@ -217,7 +258,10 @@ class RobustQueueIterator(QueueIterator):
         channel = self._amqp_queue.channel
         if hasattr(channel, "_connection"):
             connection = channel._connection
-            connection.closed().add_done_callback(self._on_connection_closed)
+            self._wake_up_on(
+                cast(asyncio.Future, connection.closed()),
+                self._on_connection_closed,
+            )
 
     def _on_connection_closed(self, _: asyncio.Future) -> None:
         """Handle connection closed - set _closed to stop iteration."""

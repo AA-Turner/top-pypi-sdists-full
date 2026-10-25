@@ -140,6 +140,9 @@ struct FrontInputs {
     double wavelength = 22.0;
     bool extended_kernel = false;
     ExactKernel exact_kernel = ExactKernel::off;
+    // `exact_kernel_auto_skip` (momwire#1649): input wire indices whose
+    // segments "auto" does not ask (a deck seam's z = 0 cut pieces)
+    std::vector<int64_t> exact_auto_skip;
     // The three quadrature orders the constructor validates (`n_qp_path`
     // None = derived; razor-2p's path rule never reads it).
     bool n_qp_path_given = false;
@@ -263,6 +266,10 @@ class Front {
     int64_t n_qp_rem = 0;                     // `_remainder_qp`
     std::vector<double> rem_src, rem_t_src;   // (n_seg * n_qp_rem, 3)
     std::vector<double> rem_W;                // (2, n_seg, n_qp_rem)
+    // momwire#1688: a below remainder at per-segment orders lays its nodes
+    // segment-major, segment g at [rem_off[g], rem_off[g + 1]), and rem_W as
+    // (2, n_nodes); empty is the uniform (n_seg * n_qp_rem) layout.
+    std::vector<int64_t> rem_off;
     const somm_core::Grid *grid = nullptr;    // owned by get_grid's memo
     std::shared_ptr<somm_proj::GridView> grid_view;
     size_t n_reg = 0;
@@ -344,6 +351,9 @@ bool leggauss(int64_t n, std::vector<double> &x, std::vector<double> &w);
 double max_image_distance(const double *seg_l, const double *seg_r, size_t n, double ground_z);
 int64_t remainder_qp(const double *obs, size_t n_obs, const double *src_l, const double *src_r,
                      size_t n_src, double ground_z, int64_t base, int64_t cap, double c);
+std::vector<int64_t> remainder_qp_per_source(const double *obs, size_t n_obs, const double *src_l,
+                                             const double *src_r, size_t n_src, double ground_z,
+                                             int64_t base, int64_t cap, double c);
 // razor's `_REMAINDER_QP_CAP` / `_REMAINDER_QP_C`.
 constexpr int64_t REMAINDER_QP_CAP = 192;
 constexpr double REMAINDER_QP_C = 1.0;

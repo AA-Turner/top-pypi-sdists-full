@@ -80,6 +80,9 @@ def test_every_reason_is_in_the_closed_vocabulary():
         "no session file",
         "interpreter too old",
         "halted",
+        "not recording",
+        # Probe off: the session is not captured (`probe.service.capture_gate`).
+        "Probe is off",
     )
 
 
@@ -172,7 +175,7 @@ def test_a_running_daemon_is_left_alone(healable, monkeypatch):
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(True, 123, "running"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(True, 123, "running"),
     )
     spawned = _Spawned()
     monkeypatch.setattr(capture_state, "_run", spawned)

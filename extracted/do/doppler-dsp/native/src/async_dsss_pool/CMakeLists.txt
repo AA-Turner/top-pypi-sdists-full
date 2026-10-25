@@ -19,6 +19,8 @@ target_include_directories(
                               ${CMAKE_SOURCE_DIR}/native/inc/doppler/async_dsss_pool)
 target_link_libraries(async_dsss_pool_core PUBLIC
     Threads::Threads
+    wfm_dsp_core
+    gold_core
     async_dsss_receiver_core
     ber_core
     acq_core
@@ -55,12 +57,7 @@ target_link_libraries(async_dsss_pool_core PUBLIC
     nco_core
     farrow_core
     pn_core
-    doppler_channel_core
-    dp_event_log_core
-    wfm_writer_core
-    wfm_cjson_core
-    wfm_keywords_core
-    wfm_draw_core)
+    doppler_channel_core)
 if(TARGET ${PROJECT_NAME}_lib)
   target_link_libraries(${PROJECT_NAME}_lib PRIVATE
       Threads::Threads)
@@ -81,6 +78,8 @@ add_executable(test_async_dsss_pool_core
                ${CMAKE_SOURCE_DIR}/native/tests/test_async_dsss_pool_symbols.c)
 target_link_libraries(test_async_dsss_pool_core
                       PRIVATE async_dsss_pool_core Threads::Threads
+    wfm_dsp_core
+    gold_core
     async_dsss_receiver_core
     ber_core
     acq_core
@@ -118,11 +117,6 @@ target_link_libraries(test_async_dsss_pool_core
     farrow_core
     pn_core
     doppler_channel_core
-    dp_event_log_core
-    wfm_writer_core
-    wfm_cjson_core
-    wfm_keywords_core
-    wfm_draw_core
     ${JM_MATH_LIBRARY})
 target_include_directories(test_async_dsss_pool_core
                            PRIVATE ${CMAKE_SOURCE_DIR}/native/inc)
@@ -133,6 +127,8 @@ add_executable(
   ${CMAKE_SOURCE_DIR}/native/benchmarks/bench_async_dsss_pool_core.c)
 target_link_libraries(bench_async_dsss_pool_core
                       PRIVATE async_dsss_pool_core Threads::Threads
+    wfm_dsp_core
+    gold_core
     async_dsss_receiver_core
     ber_core
     acq_core
@@ -170,11 +166,6 @@ target_link_libraries(bench_async_dsss_pool_core
     farrow_core
     pn_core
     doppler_channel_core
-    dp_event_log_core
-    wfm_writer_core
-    wfm_cjson_core
-    wfm_keywords_core
-    wfm_draw_core
     ${JM_MATH_LIBRARY})
 target_include_directories(
   bench_async_dsss_pool_core PRIVATE ${CMAKE_SOURCE_DIR}/native/inc

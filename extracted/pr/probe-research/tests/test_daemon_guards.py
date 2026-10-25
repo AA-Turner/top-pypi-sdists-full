@@ -60,6 +60,7 @@ import asyncio
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -522,8 +523,9 @@ def test_old_settled_requests_and_their_answers_are_pruned(tmp_path):
     board.answer(req.id, req.question.no_label, channel="t")
     board.resolve(req, state=appr.DENIED, outcome="no")
     now[0] += appr.KEEP_RESOLVED_S + 1
-    assert board.prune() == 2
+    assert board.prune() == 3  # the request, its answer and its answer key (#3355)
     assert list((tmp_path / "requests").iterdir()) == [] and list((tmp_path / "answers").iterdir()) == []
+    assert list((tmp_path / appr.KEYS_DIRNAME).iterdir()) == []
 
 
 def test_a_bypass_auto_approval_writes_no_request_file(tmp_path):
@@ -688,6 +690,355 @@ def test_the_guard_refuses_the_agents_writes_into_the_approvals_folder(tmp_path)
                          input=json.dumps({"hook_event_name": "PreToolUse", "session_id": SID, "tool_name": "Write",
                                            "tool_input": {"file_path": str(answers), "content": "{}"}}), timeout=30)
     assert json.loads(out.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+# ---------------------------------------------------------------------------
+# #3355: the agent's shell calling the service's mailbox, or running Probe's
+# own hook programs by hand, is refused; everything else a shell does is not.
+# Every case runs the real tracking_guard.py as the harness does.
+# ---------------------------------------------------------------------------
+
+
+def _guard_says(command: str, cwd: Path, home: Path, *, profile: str = "agent", state: "str | None" = None,
+                tool: str = "Bash", tool_input: "dict | None" = None) -> "str | None":
+    """The guard's refusal of this Bash command, run in `cwd`, or None."""
+    from probe.sdk import session_marker
+
+    env = {"PATH": os.environ["PATH"], "HOME": str(home), "XDG_STATE_HOME": str(home / "state"),
+           "XDG_CONFIG_HOME": str(home / "config")}
+    if profile == "daemon":
+        env["PROBE_PLUGIN_PROFILE"] = "daemon"
+    if state is not None:
+        old = os.environ.get("XDG_STATE_HOME")
+        os.environ["XDG_STATE_HOME"] = env["XDG_STATE_HOME"]
+        try:
+            session_marker.set_session_state(SID, state)
+        finally:
+            if old is None:
+                os.environ.pop("XDG_STATE_HOME", None)
+            else:
+                os.environ["XDG_STATE_HOME"] = old
+    payload = {"hook_event_name": "PreToolUse", "session_id": SID, "tool_name": tool, "cwd": str(cwd),
+               "tool_input": tool_input if tool_input is not None else {"command": command}}
+    out = subprocess.run([sys.executable, str(HOOKS / "tracking_guard.py")], capture_output=True, text=True, env=env,
+                         input=json.dumps(payload), cwd=str(cwd), timeout=30)
+    assert out.returncode == 0, out.stderr
+    if not out.stdout.strip():
+        return None
+    decision = json.loads(out.stdout).get("hookSpecificOutput") or {}
+    return decision.get("permissionDecisionReason") if decision.get("permissionDecision") == "deny" else None
+
+
+@pytest.fixture
+def places(tmp_path):
+    """A researcher's project (with scripts named like Probe's hook programs), a
+    copy of a Probe plugin folder, and a plugin under the home's harness cache."""
+    home = tmp_path / "home"
+    project = tmp_path / "project"
+    (project / "scripts").mkdir(parents=True)
+    for name in ("dispatch.py", "dispatch.sh", "zygote.py", "approvals_hook.py", "scripts/dispatch.py",
+                 "scripts/dispatch.sh", "run.sh"):
+        (project / name).write_text("print('a researcher script')\n")
+    plugin = tmp_path / "plugin"
+    shutil.copytree(HOOKS, plugin / "hooks")
+    cached = home / ".claude" / "plugins" / "cache" / "p" / "probe-research" / "0.170.0"
+    shutil.copytree(HOOKS, cached / "hooks")
+    # A researcher's repository with a `hooks/` folder of its own (model hooks,
+    # an eval harness), named like Probe's programs.
+    lab = tmp_path / "lab"
+    (lab / ".git").mkdir(parents=True)
+    (lab / "hooks").mkdir()
+    for name in ("zygote.py", "harness_io.py", "approvals_hook.py", "tracking_guard.py", "dispatch.py"):
+        (lab / "hooks" / name).write_text("print('a researcher script')\n")
+    return {"home": home, "project": project, "plugin": plugin, "lab": lab}
+
+
+#: A researcher's own programs that share a name with one of Probe's hook programs.
+RESEARCHER_RUNS = [
+    "python scripts/dispatch.py --sweep cfg.yaml",
+    "uv run python dispatch.py",
+    "./dispatch.sh 8",
+    "bash scripts/dispatch.sh --gpus 4",
+    "python zygote.py",
+    "python3 approvals_hook.py --dry-run",
+    "nohup python -u scripts/dispatch.py > log.txt 2>&1 &",
+    "cd scripts && python dispatch.py --sweep cfg.yaml",
+    "bash -c 'python scripts/dispatch.py --sweep cfg.yaml'",
+    "(cd scripts; ./dispatch.sh 4)",
+    "eval \"python zygote.py\"",
+]
+
+
+#: A researcher's own `hooks/` programs, named through what the guard cannot
+#: follow (a command substitution, a variable it does not see, a quote its
+#: tokenizer cannot read): run from their repository, which has those files.
+LAB_RUNS = [
+    "python \"$(git rev-parse --show-toplevel)/hooks/harness_io.py\" --task mmlu",
+    "cd \"$(git rev-parse --show-toplevel)\" && python hooks/zygote.py",
+    "DIR=$(pwd); python $DIR/hooks/zygote.py",
+    "python $PROJECT_ROOT/hooks/harness_io.py --task arc",
+    "python ${SLURM_SUBMIT_DIR}/hooks/harness_io.py",
+    "cd $WORKDIR && python hooks/zygote.py",
+    "python $1/hooks/zygote.py",
+    "bash <<'EOF'\npython \"$PROJ/hooks/harness_io.py\" --task arc\nEOF",
+    "echo $'can\\'t load ckpt' && python hooks/zygote.py",
+    "python hooks/approvals_hook.py --dry-run",
+    "python \"$PWD/hooks/tracking_guard.py\"",
+]
+
+
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+@pytest.mark.parametrize("command", LAB_RUNS)
+def test_a_researchers_own_hooks_folder_runs_even_where_a_path_cannot_be_followed(places, command, profile):
+    assert _guard_says(command, places["lab"], places["home"], profile=profile) is None
+
+
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+@pytest.mark.parametrize("state", [None, "off"])
+@pytest.mark.parametrize("command", RESEARCHER_RUNS)
+def test_a_researchers_own_scripts_run_whatever_they_are_called(places, command, profile, state):
+    """Only a program inside a Probe plugin's hooks folder is Probe's."""
+    assert _guard_says(command, places["project"], places["home"], profile=profile, state=state) is None
+
+
+#: Probe's hook programs run by hand, with an event the agent wrote (run in the plugin's folder).
+HOOKS_BY_HAND = [
+    ("echo '{\"hook_event_name\": \"PostToolUse\"}' | python3 hooks/approvals_hook.py", "approvals_hook.py"),
+    ("python3 -I hooks/tracking_guard.py < prompt.json", "tracking_guard.py"),
+    ("cd . && ./hooks/dispatch.sh post-tool < event.json", "dispatch.sh"),
+    ("bash hooks/dispatch.sh prompt <<< '{}'", "dispatch.sh"),
+    ("uv run python hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("env X=1 /usr/bin/python3 hooks/harness_io.py --event TurnStarted", "harness_io.py"),
+    ("exec hooks/zygote.py /tmp/s 1", "zygote.py"),
+    ("python3 ~/.claude/plugins/cache/p/probe-research/0.170.0/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("python3 $HOME/.claude/plugins/cache/p/probe-research/0.170.0/hooks/tracking_guard.py", "tracking_guard.py"),
+]
+
+
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+@pytest.mark.parametrize(("command", "program"), HOOKS_BY_HAND)
+def test_running_probes_own_hook_programs_by_hand_is_refused(places, command, program, profile):
+    from probe.sdk import session_marker
+
+    said = _guard_says(command, places["plugin"], places["home"], profile=profile)
+    assert said == session_marker.DENY_REASON_HOOK_BY_HAND.format(matched=program)
+
+
+#: The same programs reached the other ways a shell has: a folder changed to
+#: first, a nested shell, eval, backticks, a variable, xargs, sudo, `env -C`,
+#: `uv run --directory`, a quote the tokenizer cannot read, an option with a
+#: value, another interpreter. `{P}` is the plugin's folder; each runs from the
+#: researcher's project.
+HOOKS_BY_HAND_ELSEWHERE = [
+    ("cd {P} && python3 hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("cd {P}/hooks && ./dispatch.sh post-tool < e.json", "dispatch.sh"),
+    ("(cd {P}/hooks; python3 approvals_hook.py < e.json)", "approvals_hook.py"),
+    ("pushd {P}/hooks && python3 tracking_guard.py < p.json", "tracking_guard.py"),
+    ("bash -c 'python3 {P}/hooks/approvals_hook.py < e.json'", "approvals_hook.py"),
+    ("sh -c \"cd {P} && python3 hooks/approvals_hook.py < e.json\"", "approvals_hook.py"),
+    ("eval \"python3 {P}/hooks/approvals_hook.py < e.json\"", "approvals_hook.py"),
+    ("echo `python3 {P}/hooks/approvals_hook.py < e.json`", "approvals_hook.py"),
+    ("H={P}/hooks; python3 $H/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("export H={P}/hooks && python3 ${{H}}/tracking_guard.py < p.json", "tracking_guard.py"),
+    ("ls e.json | xargs -n 1 python3 {P}/hooks/approvals_hook.py", "approvals_hook.py"),
+    ("sudo -u $USER python3 {P}/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("env -C {P} python3 hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("uv run --directory {P} python hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("echo $'\\'' ; python3 {P}/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("bash -o pipefail {P}/hooks/dispatch.sh post-tool < e.json", "dispatch.sh"),
+    ("python3 -Xpycache_prefix=/tmp/c {P}/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("pypy3 {P}/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("exec -a hook python3 {P}/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("python3 $NOT_SET_ANYWHERE/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("source {P}/hooks/dispatch.sh post-tool < e.json", "dispatch.sh"),
+    (". {P}/hooks/dispatch.sh post-tool < e.json", "dispatch.sh"),
+    ("{{ python3 {P}/hooks/approvals_hook.py; }} < e.json", "approvals_hook.py"),
+    ("if true; then python3 {P}/hooks/approvals_hook.py < e.json; fi", "approvals_hook.py"),
+    ("while true; do python3 {P}/hooks/approvals_hook.py < e.json; break; done", "approvals_hook.py"),
+    ("! python3 {P}/hooks/approvals_hook.py < e.json", "approvals_hook.py"),
+    ("cd \"$(dirname {P}/hooks/x)\" && python3 approvals_hook.py < e.json", "approvals_hook.py"),
+]
+
+
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+@pytest.mark.parametrize(("command", "program"), HOOKS_BY_HAND_ELSEWHERE)
+def test_probes_hook_programs_are_refused_however_the_shell_reaches_them(places, command, program, profile):
+    from probe.sdk import session_marker
+
+    said = _guard_says(command.format(P=places["plugin"]), places["project"], places["home"], profile=profile)
+    assert said == session_marker.DENY_REASON_HOOK_BY_HAND.format(matched=program)
+
+
+def test_the_guards_own_folder_is_probes_wherever_it_is_named_from(places):
+    from probe.sdk import session_marker
+
+    said = _guard_says(f"python3 {HOOKS / 'approvals_hook.py'} < e.json", places["project"], places["home"])
+    assert said == session_marker.DENY_REASON_HOOK_BY_HAND.format(matched="approvals_hook.py")
+
+
+#: Reading, searching, copying, listing, checking or testing them is not running them
+#: (run in the plugin's folder, so each path does name a real hook program).
+HOOK_READS = [
+    "cat hooks/approvals_hook.py",
+    "sed -n 1,80p hooks/tracking_guard.py",
+    "cp hooks/dispatch.sh /tmp/dispatch-copy.sh",
+    "git add hooks/dispatch.sh hooks/dispatch.py",
+    "git diff -- hooks/dispatch.sh hooks/tracking_guard.py",
+    "wc -l hooks/dispatch.sh",
+    "ls run.sh hooks/dispatch.py",
+    "bash -n hooks/dispatch.sh",
+    "git add \\\n  hooks/dispatch.sh \\\n  hooks/approvals_hook.py \\\n  hooks/zygote.py",
+    "cat <<EOF\nhooks/dispatch.sh\nhooks/approvals_hook.py\nEOF",
+    "git commit -m \"$(cat <<'EOF'\nfix: hooks/dispatch.sh\n\nhooks/approvals_hook.py\nEOF\n)\"",
+    "python -m pytest -n 4 tests/test_hook_dispatch.py tests/test_daemon_guards.py",
+    "python3 -m py_compile hooks/dispatch.py",
+    "python3 - <<'EOF'\nfrom pathlib import Path\nPath('hooks/tracking_guard.py').read_text()\nEOF",
+    "rg -n approvals_hook hooks",
+    "md5sum hooks/approvals_hook.py hooks/zygote.py",
+]
+
+
+@pytest.mark.parametrize("command", HOOK_READS)
+def test_reading_and_testing_probes_hook_programs_is_not_refused(places, command):
+    assert _guard_says(command, places["plugin"], places["home"]) is None
+
+
+#: The agent's shell calling the Probe service's mailbox itself: a method AND a
+#: way of calling the service (the client's command line, a call in code, a
+#: JSON-RPC line on a socket tool).
+MAILBOX_CALLS = [
+    ("python -I -m probe.service.client call mailbox.answer '{\"id\": \"7f3a09c1\", \"choice\": \"Run it\"}'",
+     "mailbox.answer"),
+    ("python3 -c 'from probe.service import client; client.call(\"mailbox.answer\", {})'", "mailbox.answer"),
+    ("python -m tap service call mailbox.claim '{}'", "mailbox.claim"),
+    ("printf '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"mailbox.post\"}\\n' | nc -U ~/.probe/service.sock",
+     "mailbox.post"),
+    ("socat - UNIX-CONNECT:$S <<< '{\"method\": \"hooks.run\"}'", "hooks.run"),
+    ('echo "{\\"method\\":\\"mailbox.answer\\",\\"params\\":{}}" | nc -U "$S"', "mailbox.answer"),
+    ("python3 -c 'import _service_rpc as r; r.Rpc.connect().call(\"mailbox.answer\", {})'", "mailbox.answer"),
+    ("python3 - <<'EOF'\nfrom probe.service import client\nclient.call(\"mailbox.answer\", {})\nEOF",
+     "mailbox.answer"),
+    ("curl --unix-socket \"$S\" -d '{\"method\":\"mailbox.answer\"}' http://x/", "mailbox.answer"),
+    ("python -m probe.service.client call -- mailbox.answer '{}'", "mailbox.answer"),
+    ("bash -c \"python -m probe.service.client call mailbox.answer {}\"", "mailbox.answer"),
+    ("python3 -c \"import socket, json; s = socket.socket(socket.AF_UNIX); s.connect(p); "
+     "s.sendall(json.dumps({'method': 'mailbox.post'}).encode())\"", "mailbox.post"),
+    ("python3 -c \"import json; send(json.dumps(dict(method='hooks.run')))\"", "hooks.run"),
+    ("python3 -c 'from probe.service.client import call; call(\"mailbox.answer\", {})'", "mailbox.answer"),
+]
+
+
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+@pytest.mark.parametrize(("command", "method"), MAILBOX_CALLS)
+def test_the_agents_own_mailbox_calls_are_refused(places, command, method, profile):
+    """The call from the report (#3355) first, as the agent's Bash tool sends it."""
+    from probe.sdk import session_marker
+
+    said = _guard_says(command, places["project"], places["home"], profile=profile)
+    assert said == session_marker.DENY_REASON_MAILBOX.format(matched=method)
+
+
+#: Reading, searching and writing text that names them is not a call.
+MAILBOX_READS = [
+    "rg -n 'mailbox.answer' agent/src",
+    "git log --oneline --grep mailbox.answer",
+    "grep -rn hooks.run agent/src/probe/service/server.py",
+    "pytest tests/test_service_answer_key.py -k mailbox",
+    "python -I -m probe.service.client call service.status",
+    'grep -n "mailbox.answer" agent/plugins/probe-research/hooks/_service_rpc.py',
+    'git grep -n "mailbox.post" -- agent/src/probe/service/client.py',
+    "grep -rn 'rpc.call(\"mailbox.answer\"' agent/",
+    "grep -nc mailbox.post agent/src/probe/service/mailhost.py",
+    "git commit -m 'refuse a mailbox.answer call without the key: client call, .call( and nc shapes'",
+    "gh pr create --title t --body 'The service refuses mailbox.answer from python -m probe.service.client call'",
+    "python -m pytest tests/ -q  # checks client.call( on mailbox.post",
+    "python -m pytest tests/test_service_answer_key.py && git commit -F - <<'EOF'\nrefuse hooks.run and client.call( on "
+    "mailbox.answer\nEOF",
+    "python -c \"from myproj import hooks; hooks.run(method='fit', ckpt='last.ckpt')\"",
+    "python -c \"from actors import mailbox; mailbox.post({'to': 'worker-1'}, method='sync')\"",
+    "python -c \"from myproj import hooks; x = hooks.run(); call(x)\"",
+    "python3 - <<'EOF'\n# drain the mailbox.post queue of our own actor system\nimport json\nreq = {'method': 'drain'}\n"
+    "print(json.dumps(req))\nEOF",
+    "curl -s http://localhost:3000/rpc -d '{\"jsonrpc\":\"2.0\",\"method\":\"mailbox.post\",\"params\":{\"to\":\"a\"}}'",
+]
+
+
+@pytest.mark.parametrize("command", MAILBOX_READS)
+def test_text_that_names_the_mailbox_is_not_a_call(places, command):
+    assert _guard_says(command, places["project"], places["home"]) is None
+
+
+def test_the_key_folder_is_named_in_the_approvals_tripwire():
+    from probe.sdk import session_marker
+
+    for command in ("cd ~/.local/state/probe && cat approvals/keys/*", "ls approvals/asked"):
+        assert session_marker.touches_approvals("Bash", {"command": command})
+
+
+#: A researcher's own folders named like it, for another number: never this user's hook hosts.
+HOST_FOLDER_LOOKALIKES = [
+    "python linear_probe.py --out /tmp/probe-1",
+    "mkdir -p /tmp/probe-42 && python train.py --save /tmp/probe-42/acts.pt",
+    "ls /tmp/probe-2024-10-23/",
+    "ls -lh /tmp/probe-*.pt",
+    "kubectl create secret tls admission-hooks-tls --cert=hooks-tls.crt --key=hooks-tls.key",
+    "openssl req -x509 -newkey rsa:2048 -nodes -keyout git-hooks-server.key -out git-hooks-server.crt -days 30",
+    "scp server:/etc/ssl/private/slack-hooks-bot.key ~/.secrets/",
+]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="the hook hosts are POSIX")
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+@pytest.mark.parametrize("state", [None, "off"])
+@pytest.mark.parametrize("command", HOST_FOLDER_LOOKALIKES)
+def test_a_researchers_own_probe_folders_are_not_the_hook_hosts(places, command, profile, state):
+    if os.getuid() in (1, 42, 2024):
+        pytest.skip("this user's uid is one of the look-alikes")
+    assert _guard_says(command, places["project"], places["home"], profile=profile, state=state) is None
+
+
+#: The folder named without its number: the uid spelled by the shell, or a glob.
+HOST_FOLDER_SPELLINGS = [
+    "cat /tmp/probe-$(id -u)/*.key",
+    "ls /tmp/probe-$UID/",
+    "ls /tmp/probe-${UID}/",
+    "cat /tmp/probe-$(id -ru)/x",
+    "ls /tmp/probe-*/",
+    "python3 -c \"import glob; print(glob.glob('/tmp/probe-*/hooks-*.key'))\"",
+    "du -sh /tmp/probe-*",
+    "rm -rf /tmp/probe-*",
+    "cat /tmp/probe-$EUID/x",
+    "cat /tmp/probe-${EUID}/x",
+    "cat /tmp/probe-`id -u`/x",
+    "cat /tmp/probe-$(id -u -r)/hooks-*.key",
+]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="the hook hosts are POSIX")
+@pytest.mark.parametrize("command", HOST_FOLDER_SPELLINGS)
+def test_the_hook_hosts_folder_is_refused_however_it_is_spelled(places, command):
+    from probe.sdk import session_marker
+
+    said = _guard_says(command, places["project"], places["home"])
+    assert said == session_marker.DENY_REASON_HOOK_HOST.format(tool="Bash", path=f"/tmp/probe-{os.getuid()}")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="the hook hosts are POSIX")
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+def test_the_hook_hosts_folder_is_guarded_like_the_approvals_folder(places, profile):
+    """`/tmp/probe-<uid>` holds each warm host's socket and its key: the agent's
+    shell naming it, or a file tool writing in it, is refused."""
+    from probe.sdk import session_marker
+
+    folder = f"/tmp/probe-{os.getuid()}"
+    for command in (f"cat {folder}/hooks-0123456789abcdef.key", f"ls {folder}/",
+                    "python3 -c 'import socket' hooks-0123456789abcdef.sock"):
+        said = _guard_says(command, places["project"], places["home"], profile=profile)
+        assert said is not None and said.startswith("`Bash` would touch"), (command, said)
+        assert said == session_marker.DENY_REASON_HOOK_HOST.format(tool="Bash", path=folder)
+    said = _guard_says("", places["project"], places["home"], profile=profile, tool="Write",
+                       tool_input={"file_path": f"{folder}/x.key", "content": "k"})
+    assert said == session_marker.DENY_REASON_HOOK_HOST.format(tool="Write", path=f"{folder}/x.key")
 
 
 # ---------------------------------------------------------------------------

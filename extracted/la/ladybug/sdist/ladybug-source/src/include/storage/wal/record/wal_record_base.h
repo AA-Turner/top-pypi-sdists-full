@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "common/cast.h"
 #include "common/copy_constructors.h"
@@ -31,6 +32,7 @@ enum class WALRecordType : uint8_t {
     DROP_CATALOG_ENTRY_RECORD = 16,
     ALTER_TABLE_ENTRY_RECORD = 17,
     UPDATE_SEQUENCE_RECORD = 18,
+    UPDATE_SEQUENCE_NAMED_RECORD = 19,
     TABLE_INSERTION_RECORD = 30,
     NODE_DELETION_RECORD = 31,
     NODE_UPDATE_RECORD = 32,
@@ -50,6 +52,7 @@ struct WALHeader {
 
 struct WALRecord {
     WALRecordType type = WALRecordType::INVALID_RECORD;
+    std::string ownerCatalogName;
 
     WALRecord() = default;
     explicit WALRecord(WALRecordType type) : type{type} {}

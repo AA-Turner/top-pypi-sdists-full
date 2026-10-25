@@ -25,6 +25,7 @@
 #include "storage/table/column_chunk_metadata.h"
 #include "storage/table/compression_flush_buffer.h"
 #include "storage/table/list_chunk_data.h"
+#include "storage/table/page_reclaim_deferral.h"
 #include "storage/table/string_chunk_data.h"
 #include "storage/table/struct_chunk_data.h"
 #include <format>
@@ -37,6 +38,10 @@ namespace lbug {
 namespace storage {
 
 void SegmentState::reclaimAllocatedPages(PageAllocator& pageAllocator) const {
+    if (auto* deferral = PageReclaimDeferral::current()) {
+        deferral->defer(*this, pageAllocator);
+        return;
+    }
     const auto& entry = metadata.pageRange;
     if (entry.startPageIdx != INVALID_PAGE_IDX) {
         pageAllocator.freePageRange(entry);
@@ -47,6 +52,46 @@ void SegmentState::reclaimAllocatedPages(PageAllocator& pageAllocator) const {
     for (const auto& child : childrenStates) {
         child.reclaimAllocatedPages(pageAllocator);
     }
+}
+
+std::shared_ptr<PageReclaimDeferral> PageReclaimDeferral::create() {
+    return std::make_shared<PageReclaimDeferral>();
+}
+
+void PageReclaimDeferral::defer(PageRange range, PageAllocator& pageAllocator) {
+    if (range.startPageIdx == INVALID_PAGE_IDX) {
+        return;
+    }
+    frees.push_back(Free{range, &pageAllocator});
+}
+
+void PageReclaimDeferral::defer(const SegmentState& state, PageAllocator& pageAllocator) {
+    defer(state.metadata.pageRange, pageAllocator);
+    if (state.nullState) {
+        defer(*state.nullState, pageAllocator);
+    }
+    for (const auto& child : state.childrenStates) {
+        defer(child, pageAllocator);
+    }
+}
+
+void PageReclaimDeferral::discard() {
+    frees.clear();
+    committed = false;
+}
+
+PageReclaimDeferral::~PageReclaimDeferral() {
+    if (!committed) {
+        return;
+    }
+    for (auto& freePage : frees) {
+        freePage.pageAllocator->freePageRange(freePage.range);
+    }
+}
+
+PageReclaimDeferral*& PageReclaimDeferral::current() {
+    static thread_local PageReclaimDeferral* currentDeferral = nullptr;
+    return currentDeferral;
 }
 
 static std::shared_ptr<CompressionAlg> getCompression(const LogicalType& dataType,
@@ -136,18 +181,21 @@ void ColumnChunkData::initializeBuffer(PhysicalTypeID physicalType, MemoryManage
 }
 
 void ColumnChunkData::initializeFunction() {
-    const auto compression = getCompression(dataType, enableCompression);
-    getMetadataFunction = GetCompressionMetadata(compression, dataType);
-    flushBufferFunction = initializeFlushBufferFunction(compression);
+    compressionAlg = getCompression(dataType, enableCompression);
 }
 
-ColumnChunkData::flush_buffer_func_t ColumnChunkData::initializeFlushBufferFunction(
-    std::shared_ptr<CompressionAlg> compression) const {
+ColumnChunkMetadata ColumnChunkData::getMetadataImpl(std::span<const uint8_t> buffer,
+    uint64_t numValues, StorageValue minValue, StorageValue maxValue) const {
+    return GetCompressionMetadata(compressionAlg, dataType)(buffer, numValues, minValue, maxValue);
+}
+
+ColumnChunkMetadata ColumnChunkData::flushBufferImpl(std::span<uint8_t> buffer, FileHandle* dataFH,
+    const PageRange& entry, const ColumnChunkMetadata& otherMetadata) const {
     switch (dataType.getPhysicalType()) {
     case PhysicalTypeID::BOOL: {
         // Since we compress into memory, storage is the same as fixed-sized
         // values, but we need to mark it as being boolean compressed.
-        return uncompressedFlushBuffer;
+        return uncompressedFlushBuffer(buffer, dataFH, entry, otherMetadata);
     }
     case PhysicalTypeID::STRING:
     case PhysicalTypeID::JSON:
@@ -163,16 +211,19 @@ ColumnChunkData::flush_buffer_func_t ColumnChunkData::initializeFlushBufferFunct
     case PhysicalTypeID::UINT16:
     case PhysicalTypeID::UINT8:
     case PhysicalTypeID::INT128: {
-        return CompressedFlushBuffer(compression, dataType);
+        return CompressedFlushBuffer(compressionAlg, dataType)(buffer, dataFH, entry,
+            otherMetadata);
     }
     case PhysicalTypeID::DOUBLE: {
-        return CompressedFloatFlushBuffer<double>(compression, dataType);
+        return CompressedFloatFlushBuffer<double>(compressionAlg, dataType)(buffer, dataFH, entry,
+            otherMetadata);
     }
     case PhysicalTypeID::FLOAT: {
-        return CompressedFloatFlushBuffer<float>(compression, dataType);
+        return CompressedFloatFlushBuffer<float>(compressionAlg, dataType)(buffer, dataFH, entry,
+            otherMetadata);
     }
     default: {
-        return uncompressedFlushBuffer;
+        return uncompressedFlushBuffer(buffer, dataFH, entry, otherMetadata);
     }
     }
 }
@@ -318,7 +369,7 @@ ColumnChunkMetadata ColumnChunkData::getMetadataToFlush() const {
         maxValue = max.value_or(StorageValue());
     }
     DASSERT(getBufferSize() == getBufferSize(capacity));
-    return getMetadataFunction(buffer->getBuffer(), numValues, minValue, maxValue);
+    return getMetadataImpl(buffer->getBuffer(), numValues, minValue, maxValue);
 }
 
 void ColumnChunkData::append(ValueVector* vector, const SelectionView& selView) {
@@ -370,7 +421,7 @@ ColumnChunkMetadata ColumnChunkData::flushBuffer(PageAllocator& pageAllocator,
     if (!otherMetadata.compMeta.isConstant() && bufferSizeToFlush != 0) {
         DASSERT(bufferSizeToFlush <= buffer->getBuffer().size_bytes());
         const auto bufferToFlush = buffer->getBuffer().subspan(0, bufferSizeToFlush);
-        return flushBufferFunction(bufferToFlush, pageAllocator.getDataFH(), entry, otherMetadata);
+        return flushBufferImpl(bufferToFlush, pageAllocator.getDataFH(), entry, otherMetadata);
     }
     DASSERT(otherMetadata.getNumPages() == 0);
     return otherMetadata;
@@ -1058,6 +1109,15 @@ SpillResult ColumnChunkData::spillToDisk() {
 }
 
 void ColumnChunkData::reclaimStorage(PageAllocator& pageAllocator) {
+    if (auto* deferral = PageReclaimDeferral::current()) {
+        if (nullData) {
+            nullData->reclaimStorage(pageAllocator);
+        }
+        if (residencyState == ResidencyState::ON_DISK) {
+            deferral->defer(metadata.pageRange, pageAllocator);
+        }
+        return;
+    }
     if (nullData) {
         nullData->reclaimStorage(pageAllocator);
     }
@@ -1088,7 +1148,7 @@ uint64_t ColumnChunkData::getSizeOnDiskInMemoryStats() const {
     if (nullData) {
         nullSize = nullData->getSizeOnDiskInMemoryStats();
     }
-    auto metadata = getMetadataFunction(buffer->getBuffer(), numValues,
+    auto metadata = getMetadataImpl(buffer->getBuffer(), numValues,
         inMemoryStats.min.value_or(StorageValue{}), inMemoryStats.max.value_or(StorageValue{}));
     return metadata.getNumDataPages(dataType.getPhysicalType()) * common::LBUG_PAGE_SIZE + nullSize;
 }

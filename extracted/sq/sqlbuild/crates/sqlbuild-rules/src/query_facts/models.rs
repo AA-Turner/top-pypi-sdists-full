@@ -89,6 +89,8 @@ pub(crate) struct ExpressionItem {
     pub(crate) direct_column: Option<String>,
     pub(crate) cast_type: Option<String>,
     pub(crate) start: Option<usize>,
+    /// The normalized characters from the expression's first token to its last, alias excluded.
+    pub(crate) span: Option<(usize, usize)>,
 }
 
 #[derive(Debug)]
@@ -223,10 +225,12 @@ pub(crate) struct ModelSource<'a> {
     bytes: Vec<usize>,
     lines: Vec<usize>,
     offsets: &'a [usize],
+    /// The lines of the model file above this SQL.
+    line_offset: u64,
 }
 
 impl<'a> ModelSource<'a> {
-    pub(crate) fn new(sql: &'a str, offsets: &'a [usize]) -> Self {
+    pub(crate) fn new(sql: &'a str, offsets: &'a [usize], line_offset: u64) -> Self {
         let mut bytes: Vec<usize> = Vec::with_capacity(sql.len() + 1);
         let mut lines: Vec<usize> = vec![0];
         for (character, (byte, value)) in sql.char_indices().enumerate() {
@@ -241,6 +245,7 @@ impl<'a> ModelSource<'a> {
             bytes,
             lines,
             offsets,
+            line_offset,
         }
     }
 
@@ -251,12 +256,20 @@ impl<'a> ModelSource<'a> {
             .unwrap_or_else(|| self.bytes.len() - 1)
     }
 
+    /// The model's byte range from normalized character `start` to the character before `end`.
+    pub(crate) fn byte_range(&self, start: usize, end: usize) -> (usize, usize) {
+        let last: usize = self.bytes.len() - 1;
+        let first: usize = self.bytes[self.original(start).min(last)];
+        let after: usize = self.bytes[(self.original(end.saturating_sub(1)) + 1).min(last)];
+        (first, after.max(first))
+    }
+
     /// The 1-based line and column of normalized character `offset`.
     pub(crate) fn line_column(&self, offset: usize) -> (u64, u64) {
         let character = self.original(offset);
         let line = self.lines.partition_point(|start| *start <= character);
         let column = character - self.lines[line - 1] + 1;
-        (line as u64, column as u64)
+        (line as u64 + self.line_offset, column as u64)
     }
 
     /// The model's own text between normalized characters `start` and `end`.

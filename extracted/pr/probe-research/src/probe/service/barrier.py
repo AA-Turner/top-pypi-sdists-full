@@ -15,9 +15,20 @@ then updates; every CLI start and every daemon worker start looks for it:
     present, and ours             go on: the update's own child processes
                                   (`probe --version` from `uv tool upgrade`'s
                                   checks) carry its token in TOKEN_ENV
+    present, replacing nothing    go on: an update side by side (D6) installs
+    a `probe` runs from           the new CLI in a folder of its own and
+                                  switches in one rename, one of the plugins
+                                  only leaves the CLI alone (`replaces_cli`
+                                  false), and a process pinned to a version
+                                  env (`probe-versions/<v>`, `pinned`) is
+                                  never replaced: the installed version runs
+                                  at once (plan C6; every `probe` waited ~10 s
+                                  and exited 75 during any update before)
 
-`<service dir>/update.barrier` = `{"pid", "start_time", "token", "created_at"}`,
-0600, written atomically. Fixed under `$HOME` like everything of the service's.
+`<service dir>/update.barrier` = `{"pid", "start_time", "token", "created_at",
+"replaces_cli"}`, 0600, written atomically. Fixed under `$HOME` like everything
+of the service's. A record without `replaces_cli` (a service before it) blocks
+as before.
 
 A caller with a deadline of its own (a hook: Claude Code and Codex kill it at
 its entry's timeout) says so in DEADLINE_ENV, and waits only until then (plan
@@ -70,6 +81,15 @@ DEADLINE_MARGIN_S = 0.5
 #: A deadline this far past was inherited by a process the hook left behind.
 STALE_DEADLINE_S = 60.0
 HOLD_NAME = "workers.hold"
+#: Touched when the hold ends: a worker that handed over for the update reads
+#: as handing over until DAEMON_HANDOVER_STALE_S after this
+#: (`session_marker.daemon_status`), not after its own release.
+HOLD_RELEASED_NAME = "workers.released"
+#: In the prefix of an interpreter that runs from a version env
+#: (`probe._shared.installs.running_from_versions`, VERSIONS_DIRNAME): nothing
+#: an update does replaces its files (tests/test_service_updater.py holds the
+#: two equal).
+PINNED_DIR = "/probe-versions/"
 #: A hold older than this is stale: the service waits for workers at most
 #: `updater.WORKER_STOP_S`, then updates (minutes), then lets go.
 HOLD_MAX_AGE_S = 45 * 60
@@ -84,12 +104,25 @@ def read(path=None) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
+def pinned(prefix: str | None = None) -> bool:
+    """Does this interpreter run from a version env (`probe-versions/<v>/...`,
+    D6)? Then no update replaces its files: a new version goes in a folder of
+    its own, and a version in use is never pruned."""
+    import sys
+
+    return PINNED_DIR in (prefix if prefix is not None else sys.prefix).replace(os.sep, "/")
+
+
 def _blocks(data: dict | None, now: float) -> bool:
-    """Does this record stop a start? Not when it is ours, stale or unreadable."""
+    """Does this record stop a start? Not when it is ours, stale or
+    unreadable, nor when the update replaces nothing this process runs from
+    (`replaces_cli` false, or a `pinned` interpreter)."""
     if data is None:
         return False
     token = os.environ.get(TOKEN_ENV)
     if token and data.get("token") == token:
+        return False
+    if data.get("replaces_cli") is False or pinned():
         return False
     try:
         if now - float(data.get("created_at", 0)) > MAX_AGE_S:
@@ -123,6 +156,20 @@ def budget(default: float | None = None) -> float:
     return max(0.0, min(default, left))
 
 
+def hook_deadline_live() -> bool:
+    """Is this process a hook's call: DEADLINE_ENV is set and is not long past
+    (a detached job that outlived its hook inherits the variable, and waits as
+    any command does: `budget`)? Never raises."""
+    raw = os.environ.get(DEADLINE_ENV)
+    if not raw:
+        return False
+    try:
+        left = float(raw) - time.time()
+    except ValueError:
+        return False
+    return left == left and left >= -STALE_DEADLINE_S
+
+
 def wait(timeout: float | None = None) -> bool:
     """True once no barrier stops this process (at once on the common path);
     False when one still does after `timeout` (default: WAIT_S, cut to the
@@ -151,15 +198,17 @@ def wait(timeout: float | None = None) -> bool:
         time.sleep(POLL_S)
 
 
-def raise_barrier(token: str, pid: int | None = None) -> None:
+def raise_barrier(token: str, pid: int | None = None, *, replaces_cli: bool = True) -> None:
     """Write the barrier for `pid` (default: this process, the service), which
     it lasts as long as. The update names its child once that runs, so a
     service stopped mid-update leaves the barrier up until `uv tool upgrade`
-    is done. Raises OSError."""
-    _write(paths.barrier_path(), token, pid)
+    is done. `replaces_cli`: does it replace the files a `probe` started now
+    runs from (an in-place CLI update); false for one side by side or of the
+    plugins only, which holds no start back. Raises OSError."""
+    _write(paths.barrier_path(), token, pid, replaces_cli=replaces_cli)
 
 
-def _write(target, token: str, pid: int | None) -> None:
+def _write(target, token: str, pid: int | None, *, replaces_cli: bool = True) -> None:
     from . import procid
 
     pid = os.getpid() if pid is None else pid
@@ -169,6 +218,7 @@ def _write(target, token: str, pid: int | None) -> None:
         "start_time": procid.start_time(pid) or "",
         "token": token,
         "created_at": time.time(),
+        "replaces_cli": replaces_cli,
     }
     tmp = target.with_name(f"{target.name}.{os.getpid()}.tmp")
     try:
@@ -209,6 +259,8 @@ def release_workers(token: str) -> None:
         return
     with contextlib.suppress(OSError):
         hold_path().unlink()
+    with contextlib.suppress(OSError):
+        (paths.service_dir() / HOLD_RELEASED_NAME).touch()
 
 
 def workers_held() -> bool:

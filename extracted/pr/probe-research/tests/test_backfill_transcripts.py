@@ -152,6 +152,58 @@ def test_sessions_the_tap_already_tracks_are_excluded(roots) -> None:
     assert census.captured_live == 1
 
 
+def test_sessions_switched_off_or_with_an_off_stretch_are_never_imported(roots) -> None:
+    """Probe off means the session is not captured, and an import never
+    backfills one: not a session whose switch reads off, and not one whose gap
+    file (`probe.service.capture_gate`) holds a stretch written while it was."""
+    from probe.sdk import session_marker
+    from probe.service import capture_gate
+
+    claude, _ = roots
+    off, gapped, fresh = (
+        "11111111-aaaa-4aaa-8aaa-111111111111", "22222222-bbbb-4bbb-8bbb-222222222222",
+        "33333333-cccc-4ccc-8ccc-333333333333",
+    )
+    for sid in (off, gapped, fresh):
+        _cc_session(claude, "-proj", sid, "/proj")
+    session_marker.set_session_state(off, session_marker.STATE_OFF)
+    session_marker.set_session_state(gapped, session_marker.STATE_FULL)
+    assert capture_gate.write_gap_file(session_marker.sessions_dir(), gapped, [[0, 100]], None)
+
+    census = bt.discover()
+
+    assert [t.session_id for t in census.candidates] == [fresh]
+    assert census.switched_off == 2
+    assert "2 switched off, or with a stretch written while off" in "\n".join(bt.gate_lines(census, {}))
+
+
+def test_a_machine_default_of_off_skips_no_session_from_an_import(roots, monkeypatch) -> None:
+    """The machine's default (or PROBE_SESSION_STATE in the importing shell)
+    says nothing about history written before it was set, nor about a session
+    whose `.state` was pruned: only a session's own `off`, or its gap file
+    (one that does not read included), keeps it out."""
+    from probe.sdk import session_marker
+    from probe.service import capture_gate
+
+    claude, _ = roots
+    plain, own_off, unreadable = (
+        "44444444-dddd-4ddd-8ddd-444444444444", "55555555-eeee-4eee-8eee-555555555555",
+        "66666666-ffff-4fff-8fff-666666666666",
+    )
+    for sid in (plain, own_off, unreadable):
+        _cc_session(claude, "-proj", sid, "/proj")
+    session_marker.write_default_state(session_marker.STATE_OFF)
+    monkeypatch.setenv("PROBE_SESSION_STATE", "off")
+    session_marker.set_session_state(own_off, session_marker.STATE_OFF)
+    sessions = session_marker.sessions_dir()
+    (sessions / f"{unreadable}{capture_gate.GAP_FILE_SUFFIX}").write_text('{"v": 9, "gaps": [[0, 4]]}')
+
+    census = bt.discover()
+
+    assert [t.session_id for t in census.candidates] == [plain]
+    assert census.switched_off == 2
+
+
 def test_tap_tracked_sessions_reads_the_plugin_sqlite_read_only(tmp_path) -> None:
     plugin = tmp_path / "plugin"
     plugin.mkdir()

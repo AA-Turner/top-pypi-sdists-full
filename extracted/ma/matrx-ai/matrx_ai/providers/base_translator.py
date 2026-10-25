@@ -452,23 +452,19 @@ class BaseTranslator(ABC):
         if config.custom_tools:
             declarations.extend(t.get_provider_format(provider) for t in config.custom_tools)
 
-        seen: set[str] = set()
+        # THE ONE NAME RULE (also the prompt estimator's): first declaration per name wins.
+        unique, dropped = first_declaration_per_name(declarations)
         deduped: list[dict[str, Any]] = []
-        dropped: list[str] = []
         # wire form → internal name, to catch two internal names collapsing
         # onto one wire name (e.g. ``a:b`` vs ``a__b``) — a duplicate the
         # name-level dedup above cannot see but the provider will 400 on.
         wire_owner: dict[str, str] = {}
         unsafe_dropped: list[str] = []
-        for decl in declarations:
+        for decl in unique:
             name = self._declaration_name(decl)
             if name is None:
                 deduped.append(decl)  # nameless native tool — never a dup
                 continue
-            if name in seen:
-                dropped.append(name)
-                continue
-            seen.add(name)
             wire = to_wire_name(name)
             prior_owner = wire_owner.get(wire)
             if prior_owner is not None:
@@ -929,3 +925,48 @@ def record_platform_text_placement(provider: str, where: str, text: str) -> None
             state.platform_text_placements = [entry]
     except Exception:  # noqa: BLE001
         pass
+
+
+#: The tool-declaration format each turn-based catalog wire format (``ai.api.translator_key``) sends:
+#: the string its translator passes to ``build_provider_tools``. Read by the prompt estimator so it
+#: measures declarations in the shape this request's wire will send. A wire format missing here is
+#: announced by the reader, never guessed. Guard: ``tests/test_prompt_estimate_reads_what_is_sent.py``.
+TOOL_FORMAT_BY_WIRE_FORMAT: dict[str, str] = {
+    "anthropic_chat": "anthropic",
+    "openai_chat": "openai",
+    "google_chat": "google",
+    "groq_chat": "groq",
+    "cerebras_chat": "cerebras",
+    "together_chat": "together",
+    "xai_chat": "xai",
+    "generic_openai_chat": "generic_openai",
+    "huggingface_chat": "generic_openai",
+    "moonshot_chat": "generic_openai",
+    "device_chat": "generic_openai",
+}
+
+
+def tool_format_for_wire_format(wire_format: str | None) -> str | None:
+    """The declaration format the wire uses for ``wire_format``, or None when it has no tools path."""
+    return TOOL_FORMAT_BY_WIRE_FORMAT.get(str(wire_format or ""))
+
+
+def first_declaration_per_name(
+    declarations: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """THE name rule of ``build_provider_tools``: across registered and inline declarations, the
+    FIRST one per name is kept (nameless native tools always are). Returns ``(kept, dropped)``."""
+    seen: set[str] = set()
+    kept: list[dict[str, Any]] = []
+    dropped: list[str] = []
+    for decl in declarations:
+        name = BaseTranslator._declaration_name(decl)
+        if name is None:
+            kept.append(decl)
+            continue
+        if name in seen:
+            dropped.append(name)
+            continue
+        seen.add(name)
+        kept.append(decl)
+    return kept, dropped

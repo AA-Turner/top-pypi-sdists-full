@@ -56,6 +56,7 @@ import asyncio
 import contextlib
 import itertools
 import os
+import re
 import select
 import signal
 import socket
@@ -85,6 +86,7 @@ from .manifest import ManifestRefresher
 from .notesync import MAX_AGENTS as MAX_NOTE_AGENTS
 from .notesync import NoteSync
 from .receipts import ReceiptCache, by_harness, journal_roots
+from .recorders import SETTLE_S as TAP_SETTLE_S
 from .recorders import RecorderHost
 from .runholds import RUNS_NAME, Hold, RunHolds
 from .statusline import StatuslineRefresher
@@ -149,6 +151,7 @@ from .protocol import (
     Mode,
 )
 from .registry import HEARTBEAT_TTL_S, Outcome, Registry, Session
+from .statepost import StatePost
 from .statuscache import StatusCache
 from .updater import Updater, preload
 from .watch import UPDATE_FAILED_STREAK, Family, Live, TracebackGate, Watch, log_traceback
@@ -183,6 +186,9 @@ ANSWER_GRACE_S = DRAIN_S + 0.05
 #: at most this many taken in at once.
 HOST_START_THREADS = 2
 MAX_PENDING_HOST_STARTS = 4
+#: After an update, how many times the follow-up asks again about a newer tap
+#: folder its agent may still be writing (`_follow_tap`), TAP_SETTLE_S apart.
+FOLLOW_TAP_TRIES = 3
 #: `hooks.queue` stores (a file write each) on one thread of their own, at
 #: most this many taken in at once: past it a dispatcher runs its routes itself.
 MAX_PENDING_QUEUE_STORES = 8
@@ -211,11 +217,30 @@ MAX_LOG_BYTES = 256 * 1024
 #: Created while the service stops, so a new instance that finds the lock still
 #: held waits for it instead of exiting (the old one is about to let go).
 STOPPING_NAME = "service.stopping"
+#: How long the next service's starter waits for a restarting one to exit
+#: (`Service._start_successor`): its recorders pause for at most PAUSE_JOIN_S.
+SUCCESSOR_WAIT_S = 30.0
 STOPPING_WAIT_S = 3.0
 #: While another process holds the pre-machine-key folder's lock (a service
 #: from before the key, still running), look again this often (plan D8).
 LEGACY_RETRY_S = 10.0
 LEGACY_RETRY_ENV = "PROBE_SERVICE_LEGACY_RETRY_S"
+#: `hooks.run` runs only the events pi sends it (plan D38, pi's `serviceGuard.ts`):
+#: the pre-tool lane, for the tools pi's guard reads (its `ClaudeTool` names, and
+#: Probe's own MCP tools, which routes.json's matcher takes by `probe[-_]research`).
+#: Any process of this user reaches the socket, and the payload is the caller's
+#: word: another lane or tool would run Probe's consent routes on a forged
+#: event -- a typed `/probe inline` on the prompt lane moves the switch, a
+#: question-tool pick on the post-tool lane records a yes with the answer key the
+#: hook reads, a question tool's pre-tool route records a permission mode the
+#: daemon reads as bypass (#3355).
+HOOK_RUN_LANES = frozenset({"pre-tool"})
+HOOK_RUN_TOOLS = frozenset({"Bash", "Write", "Edit", "MultiEdit"})
+PROBE_MCP_TOOL = "probe[-_]research"
+#: `mailbox.answer`'s `key` (a held question's answer key, 64 hex characters:
+#: `probe.daemon.approvals.KEY_HEX_CHARS`) is at most this long; checked in full
+#: on the mailbox thread (`Board.key_matches`).
+MAX_ANSWER_KEY = 128
 
 
 class Policy:
@@ -618,6 +643,13 @@ class Service:
             hosted_env=self._hosted_env, supervised=lambda sid: self.workers.supervised(sid),
             recorders=self._recorder_beats, receipts=self._watch_receipts,
         )
+        #: The service's own state in PostHog (`statepost`): started, hourly and
+        #: on a change, stopped; counts and enums only, with the machine's consent.
+        self.statepost = StatePost(
+            log=log, status=lambda: self._status(None, {}), consent=self.watch.machine_consent,
+            voters=self._voters, login_env=self.watch.last_login_env, login_reader=self.watch._login_env,
+            keys=self.watch.key_answers,
+        )
         #: `service_error`'s tracebacks in service.log: a few per site and type (`watch.TracebackGate`).
         self._tracebacks = TracebackGate()
         #: Warm hook hosts, one per plugin folder sessions use (plan A0).
@@ -650,7 +682,7 @@ class Service:
         #: Sessions this service records itself, one thread each (plan A2).
         self.recorders = RecorderHost(
             log=log, loop_getter=lambda: self._loop, changed=self._recorders_changed, workers=self.workers,
-            incident=self.watch.note,
+            incident=self.watch.note, claimed=self._recorder_claimed, held=self._recorder_held,
         )
         #: The runs a `probe exec` wraps here (`run.hold`), beside the registry.
         self.runs = RunHolds(registry.path.parent / RUNS_NAME)
@@ -693,6 +725,7 @@ class Service:
             app_target=self._app_target,
             send_app_check=self._send_app_check,
             app_alive=lambda serial: any(c.serial == serial for c in self._app_connections()),
+            followup=self._update_followup,
         )
         updater_mod.set_hosted(self.recorders.live)
         #: The reads mailboxes and approvals boards somebody waits on (plan Q2).
@@ -766,6 +799,7 @@ class Service:
             on_ready()
         # What fails from here on is watched (crash-report plan B2).
         self.watch.start()
+        self.statepost.start()
         # The sessions the last service recorded, from their saved progress
         # (after `on_ready`: the tap's import is no part of the start path).
         self._loop.call_soon(self._resume_recorders)
@@ -966,18 +1000,130 @@ class Service:
             resumed = self.recorders.resume(self._register_saved)
         except Exception as exc:  # noqa: BLE001 -- capture falls back to `tap watch` on the next prompt
             log(f"recorder: resuming failed: {exc!r}")
-            return
+            resumed = 0
         if resumed:
             log(f"recorder: {resumed} session(s) resumed")
             self.hints.changed()
         self.reevaluate()
+        # The service before this one installed a new CLI and restarted onto it:
+        # this one, the new code, follows the update up (its recorders resumed
+        # on the newest installed tap already: `RecorderHost.resume`).
+        with contextlib.suppress(Exception):
+            if self.updater.take_followup():
+                self._follow_update(tap=False)
+
+    # -- after an update ------------------------------------------------------
+
+    def _update_followup(self, restart: bool) -> None:
+        """An update installed something (`Updater.followup`): what open
+        sessions read follows it now (`followup.py`, plan C9). When this
+        service restarts onto a new CLI first, it only wants the newest
+        installed tap for the next one (`follow_installed`, saved); the next
+        service does the rest (`take_followup`). Else, on the loop's next turn
+        (never inside the cycle's own task): the renderer, the managed block,
+        and a restart onto a newer installed tap."""
+        if restart:
+            with contextlib.suppress(Exception):
+                wanted = self.recorders.follow_installed()
+                if wanted is not None:
+                    log(f"recorder: the next service loads tap {wanted[1]}, installed by this update")
+            return
+        if self._loop is not None:
+            self._loop.call_soon(self._follow_update, True)
+
+    def _follow_update(self, tap: bool = True) -> None:
+        """The follow-up itself (see `followup.py`): the status-line renderer
+        from the installed plugin copy (on a thread), the note sync with every
+        agent's `agent-rules refresh` in each context the recorded sessions run
+        in (`notes.sync` reconcile: the managed block), and, with `tap`, a
+        restart onto the newest installed tap when it is newer than the one
+        loaded (the recorders pause about a second and resume from their saved
+        progress: nothing is lost or sent twice). Never raises."""
+        if self.stop_reason is not None:
+            return
+        from . import followup
+        from .protocol import NotesMode, is_agent_id
+
+        recorded = self.recorders.contexts()
+        contexts = followup.contexts([r.get("env") for r in recorded])
+        # Each recorded agent's own instruction file; the CLI's default one
+        # when nothing is recorded here.
+        agents = sorted({r["harness"] for r in recorded if is_agent_id(r.get("harness"))})[:MAX_NOTE_AGENTS] or [""]
+
+        def renderer() -> None:
+            for context in contexts:
+                changed = followup.sync_renderer({"HOME": str(paths.home()), **context})
+                if changed:
+                    log(f"update follow-up: the status line renderer refreshed ({', '.join(changed)})")
+
+        task = asyncio.ensure_future(asyncio.to_thread(renderer))
+        self._warming.add(task)
+        task.add_done_callback(self._warming.discard)
+        for context in contexts:
+            with contextlib.suppress(Exception):
+                self.notes.request(context, NotesMode.RECONCILE, agents, False)
+        log(f"update follow-up: the managed block refreshes in {len(contexts)} context(s)")
+        if tap:
+            self._follow_tap()
+
+    def _follow_tap(self, tries: int = FOLLOW_TAP_TRIES) -> None:
+        """A restart onto the newest installed tap when it is newer than the
+        one loaded (`follow_installed`). A newer folder its agent may still be
+        writing (Codex: a few seconds after its install, `recorders._settled`)
+        is asked about again once it would have settled, at most `tries`
+        times. Never raises."""
+        if self.stop_reason is not None:
+            return
+        with contextlib.suppress(Exception):
+            wanted = self.recorders.follow_installed()
+            if wanted is not None:
+                log(f"recorder: tap {wanted[1]} is installed (this service runs {self.recorders.tap_version}): "
+                    "restarting onto it")
+                self._restart_for_update(StopReason.TAP_UPDATE)
+            elif self.recorders.settling and tries > 1 and self._loop is not None:
+                self._loop.call_later(TAP_SETTLE_S + 1.0, self._follow_tap, tries - 1)
+
+    def _recorder_claimed(self, sid: str) -> None:
+        """A recorder took (or let go of) its session's claim, on its own
+        thread: the hint lane looks again now. It reads only sessions whose
+        recorder holds the claim (`hints.followed`), and a lone session's
+        `session.record` woke it before the claim was taken: it then slept with
+        no timer, and that session's first prompt got its hint ~17 s late
+        (live test E, 2026-10-24)."""
+        loop = self._loop
+        if loop is not None:
+            with contextlib.suppress(RuntimeError):
+                loop.call_soon_threadsafe(self.hints.changed)
 
     def _register_saved(self, params: dict) -> None:
-        """A resumed recorder's session, unless the registry kept it."""
+        """A resumed recorder's session, unless the registry kept it. One that
+        is off is registered `off`: it never keeps this service alive."""
         sid = params.get("sid")
         if any(s.sid == sid for s in self.registry.sessions.values()):
             return
-        self._register(None, {**params, "generation": int(time.time() * 1000)})
+        mode = Mode.OFF if self._session_off(params) else params.get("mode")
+        self._register(None, {**params, "mode": mode, "generation": int(time.time() * 1000)})
+
+    def _session_off(self, params: dict) -> bool:
+        """Is Probe off for this session (`capture_gate`): its switch reads
+        `off`, or it was seen off and is not on again yet?"""
+        from . import capture_gate
+
+        with contextlib.suppress(Exception):
+            if capture_gate.is_open(capture_gate.gaps_of(params)):
+                return True
+            return self.recorders.off(params)
+        return False
+
+    def _recorder_held(self, params: dict) -> None:
+        """A recorded session's switch turned it off (its recorder holds it now):
+        registered `off` under a new generation, so `session.list` and `probe
+        doctor` say so and it keeps nothing alive. Its tap's own registration
+        ended with its loop; the tap registers it again once the switch is on."""
+        if self.stop_reason is not None:
+            return
+        with contextlib.suppress(Exception):
+            self._register(None, {**params, "mode": Mode.OFF, "generation": int(time.time() * 1000)})
 
     def _action_finished(self, action: str) -> None:
         if action == Action.UPDATE:
@@ -1010,6 +1156,8 @@ class Service:
         if self._grace_handle is None:
             self.state = State.GRACE
             self._grace_handle = self._loop.call_later(self.grace_s, self._grace_over)
+            # No session left: the login shell decides `service.stopped`'s consent; read it now.
+            self.statepost.prime()
 
     def _grace_over(self) -> None:
         self._grace_handle = None
@@ -1029,13 +1177,27 @@ class Service:
         with contextlib.suppress(Exception):
             self.workers.close()
         self._emit(Topic.SERVICE_STOPPING, {"reason": reason})
+        guarded = bool(getattr(self.updater, "guard_pending", None))
+        with contextlib.suppress(Exception):
+            self.statepost.stopped(reason, uptime_s=time.time() - self.started_at)
         with contextlib.suppress(Exception):
             self.updater.before_exit(reason)
         with contextlib.suppress(Exception):
             from . import guard
 
             guard.record_stop(reason, self.version)
-        if reason in (StopReason.UPDATE, StopReason.TAP_UPDATE):
+        if reason in (StopReason.UPDATE, StopReason.TAP_UPDATE) and not guarded:
+            with contextlib.suppress(Exception):
+                if self.recorders.alive():
+                    self._start_successor()
+        if reason in (StopReason.UPDATE, StopReason.TAP_UPDATE, StopReason.IDLE, StopReason.STOP):
+            # A stop on purpose is no start for `ensure` to back off from: only
+            # a service that dies is (three a minute). An idle exit or a
+            # `probe service stop` counted too, and a session starting right
+            # after two quick idle exits found no service for most of a minute
+            # (live test I, 2026-10-24). What a miss would start again after an
+            # idle exit, the hooks' dispatcher leaves alone for a while instead
+            # (`dispatch.idle_recently`, reading `guard.record_stop` above).
             with contextlib.suppress(Exception):
                 from . import client
 
@@ -1044,6 +1206,36 @@ class Service:
         self.updater.close()
         if not self._done.done():
             self._done.set_result(reason)
+
+    def _start_successor(self) -> None:
+        """This service restarts onto newer code or a newer tap while it records
+        sessions: the next one starts the moment this one is gone (a detached
+        `ensure` that waits for this pid), not at whatever asks next. Its
+        recorders pause about a second and resume there from their saved
+        progress. A switch's guard (D5) starts it itself. Never raises."""
+        import subprocess
+
+        from . import client
+
+        # Gone, or a zombie its parent has not reaped yet: its lock and socket
+        # went with its last file descriptor (`client._pid_runs`).
+        code = (
+            "import sys, time\n"
+            "from probe.service import client\n"
+            "pid, until = int(sys.argv[1]), time.monotonic() + float(sys.argv[2])\n"
+            "while client._pid_runs(pid) and time.monotonic() < until:\n"
+            "    time.sleep(0.1)\n"
+            "client.ensure()\n"
+        )
+        try:
+            subprocess.Popen(  # noqa: S603 -- the CLI's own interpreter, our own module
+                [client.runtime_python() or sys.executable, "-I", "-c", code, str(os.getpid()), str(SUCCESSOR_WAIT_S)],
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                cwd=str(paths.service_dir()), env=client._clean_env(), close_fds=True, **client._DETACHED,
+            )
+            log("the next service starts once this one has exited")
+        except OSError as exc:
+            log(f"could not start the next service: {exc}")
 
     async def _shutdown(self) -> None:
         for handle in (self._discovery_handle, self._grace_handle, self._expiry_handle):
@@ -1078,6 +1270,7 @@ class Service:
         with contextlib.suppress(Exception):
             self.workers.close()
         self.watch.close()
+        self.statepost.close()
         # Every recorder pauses (after the connections closed: a recorder's link
         # cannot end its session in the registry saved below).
         with contextlib.suppress(Exception):
@@ -1350,7 +1543,7 @@ class Service:
             Method.HOOKS_RUN: self._hooks_run,
             Method.HOOKS_QUEUE: self._hooks_queue,
             Method.SESSION_RECORD: self._record,
-            Method.SESSION_RECORDING: lambda conn, params: {"recording": self.recorders.recording(params.get("sid"))},
+            Method.SESSION_RECORDING: self._recording,
             Method.SESSION_FINISH: lambda conn, params: self.recorders.finish(params),
             Method.RECORDERS_FINISH: self._recorders_finish,
             Method.RUN_HOLD: self._run_hold,
@@ -1564,6 +1757,9 @@ class Service:
         ANSWER_GRACE_S."""
         request = need_hook_run(params)
         request["deadline"] = time.monotonic() + request["timeout_s"]
+        refused = _hook_run_refusal(request["lane"], params["payload"].get("tool_name"))
+        if refused is not None:
+            return {"refused": refused}
         if caller.sandboxed(conn.peer_pid):
             return {"refused": "a caller in a sandbox"}
         # The folder's check reads files the request names: on the thread too,
@@ -1684,14 +1880,31 @@ class Service:
             if refused.get("restart"):
                 self._restart_for_update(StopReason.TAP_UPDATE)
             return refused
+        # Probe off: taken (no `tap watch` records it instead), held, and
+        # registered `off`, which is never alive and never an owner gone: before
+        # this a `tap watch` of an off session asked every minute and was told
+        # `owner_gone` each time, while it recorded on (live test, bug F).
+        off = self._session_off(params)
         if not self.recorders.live(params.get("sid")):
             # Recorded here already: its link keeps the registration (a second
             # generation from here would make the link step back for good).
-            registered = self._register(conn, params)
-            if registered.get("alive") is False:
+            registered = self._register(conn, {**params, "mode": Mode.OFF} if off else params)
+            if registered.get("alive") is False and not off:
                 return {"recording": False, "reason": "owner_gone"}
         answer = self.recorders.record(params)
         self.hints.changed()
+        return answer
+
+    def _recording(self, conn: Connection, params: dict) -> dict:
+        """`session.recording`: is the session recorded here now? Its switch is
+        looked at first, so a CLI that just moved it (`probe session state`)
+        has its gap opened or closed at this moment (`capture_gate`). `off`:
+        Probe is off for it, so nothing of it is captured."""
+        sid = params.get("sid")
+        self.recorders.look(sid)
+        answer = {"recording": self.recorders.recording(sid)}
+        if self.recorders.held_off(sid):
+            answer["off"] = True
         return answer
 
     def _end(self, conn: Connection, params: dict) -> dict:
@@ -2038,11 +2251,24 @@ class Service:
 
     async def _mailbox_answer(self, conn: Connection, params: dict) -> dict:
         """`mailbox.answer`: the researcher's pick for a held question
-        (`mailhost.MailHost.answer`). Never for a caller in a sandbox."""
+        (`mailhost.MailHost.answer`). Never for a caller in a sandbox, and
+        never without the question's answer key (`key`, which the answer hook
+        reads beside the request; #3355): any process of this user reaches
+        this socket, and a yes recorded here is one the daemon acts on. A
+        refusal writes nothing, and its caller (an answer hook, of any
+        version) writes the answer file itself, which only a caller with the
+        approvals folder can. The caller's `channel` is checked (an older
+        service requires it) and never recorded: the service names it."""
         request = need_mailbox_answer(params)
+        key = params.get("key")
+        if key is not None and not (isinstance(key, str) and len(key) <= MAX_ANSWER_KEY):
+            raise invalid_params(f"key must be a string of at most {MAX_ANSWER_KEY} characters")
+        request["key"] = key
         await self._refuse_sandboxed(conn)
         request["state"] = request["state_dir"] or default_state()
         answer = self._mailbox_answered(await self.mailhost.run(MailHost.answer, request))
+        if "refused" in answer:
+            raise RpcError(ErrorCode.REFUSED, f"refused: {answer['refused']}")
         if answer.get("answered") and answer.get("sid"):
             self._emit(Topic.APPROVALS_CHANGED, {"sid": answer["sid"], "ids": [request["id"]]})
         return answer
@@ -2256,6 +2482,16 @@ class Service:
             raise RpcError(
                 ErrorCode.REFUSED, "refused: a caller in a sandbox", {"reason": RefusedReason.SANDBOXED}
             )
+
+
+def _hook_run_refusal(lane: str, tool: object) -> str | None:
+    """Why `hooks.run` will not run this event (`HOOK_RUN_LANES`, `HOOK_RUN_TOOLS`),
+    or None: only what pi's guard sends."""
+    if lane not in HOOK_RUN_LANES:
+        return f"hooks.run runs only pi's guard: lane {lane!r} is not served"
+    if not isinstance(tool, str) or not (tool in HOOK_RUN_TOOLS or re.search(PROBE_MCP_TOOL, tool)):
+        return "hooks.run runs only pi's guard: not a tool it reads"
+    return None
 
 
 def _settled(future: asyncio.Future, then: Callable[[object], None] | None = None) -> None:
@@ -2496,6 +2732,7 @@ def run_service() -> int:
     )
     if crashed is not None:
         why = crashed.pop("reason")
+        service.statepost.crashed = why
         log(f"the service before this one ended without stopping ({why}): reported once consent allows")
         service.watch.note(Family.SERVICE_CRASH, why, facts=crashed)
     # A thread's unhandled exception: logged with its traceback, and counted

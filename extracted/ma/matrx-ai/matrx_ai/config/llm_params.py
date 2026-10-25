@@ -33,6 +33,7 @@ from matrx_ai.config.llm_wire_types import (
     Verbosity,
 )
 from matrx_ai.config.response_format import ResponseFormat
+from matrx_ai.config.served_via import ServedVia
 from matrx_ai.config.validators import ModelReference, UuidString
 
 # Field aliases — provider-native control names that map to canonical
@@ -205,6 +206,17 @@ class LLMParams(BaseModel):
     # offering by priority. See UnifiedConfig.offering_id.
     offering_id: UuidString | None = None
 
+    # WHERE the model runs when it is not a cloud offering — a person's own Matrx 2 computer
+    # (config/served_via.py). Part of the model choice: an override naming a ``model`` without
+    # it is a cloud pick and clears the stored one. Only the caller's run request sets it.
+    served_via: ServedVia | None = None
+
+    # THIS CONVERSATION'S OWN INSTRUCTIONS, set by the person in the room (L3 one-chat G1). Sent
+    # after the agent's own instructions — never replacing them — by the send boundary
+    # (``send_boundary._apply_conversation_instructions``). Stored with the conversation; an
+    # explicit null clears it. Never rides ``user_input``.
+    conversation_instructions: str | None = None
+
     max_output_tokens: int | None = None
 
     @field_validator("max_output_tokens", mode="before")
@@ -323,6 +335,8 @@ def merge_llm_overrides(
     * an EXPLICIT ``offering_id: None`` in ``top`` clears the pin — the key is
       kept as ``None`` so the downstream ``apply_overrides`` clears the agent's
       own pin too;
+    * ``served_via`` (the device the model runs on) is part of the same choice:
+      ``top`` naming a ``model`` without its own ``served_via`` drops ``base``'s;
     * every other key: ``top`` wins (plain ``dict.update``).
 
     Every site that layers override dicts carrying a ``model`` key (mandate
@@ -336,6 +350,8 @@ def merge_llm_overrides(
     moved_model = top_model is not None and str(top_model) != str(merged.get("model"))
     if moved_model and "offering_id" not in top:
         merged.pop("offering_id", None)
+    if top_model is not None and "served_via" not in top:
+        merged.pop("served_via", None)
     merged.update(top)
     return merged
 

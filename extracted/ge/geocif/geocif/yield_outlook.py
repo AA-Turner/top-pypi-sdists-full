@@ -4667,6 +4667,56 @@ def _render_cone_figures(parser, path_config_files, db_path, dir_outlook,
     return written
 
 
+def snake_countries(parser, countries):
+    """Countries whose snake charts ``yield_outlook.run`` draws.
+
+    ``[ML] make_snake_plots`` set to True or False applies to every country.
+    Unset, it is on for countries modeled at admin_1 and off for those at
+    admin_2, where one figure per county would run into the hundreds.
+    """
+    if parser.has_option("ML", "make_snake_plots"):
+        return list(countries) if parser.getboolean("ML", "make_snake_plots") else []
+    out = []
+    for country in countries:
+        level = str(parser.get(country, "admin_level", fallback="admin_1")).strip().lower()
+        if level == "admin_2":
+            logger.info(f"make_snake_plots: {country} is admin_2, skipped by default; "
+                        f"set [ML] make_snake_plots = True to draw it")
+        else:
+            out.append(country)
+    return out
+
+
+def _render_snake_figures(parser, path_config_files, db_path, dir_outlook,
+                          countries, crops, models, current_year=None):
+    """Snake charts (forecast and indicator moves across issues) for the DB
+    this run just wrote, one per (country, crop, season, [snake] region).
+
+    The caller passes the countries :func:`snake_countries` keeps. Reads the DB and the
+    CID tables itself (``geocif.viz.snake_run``); model outputs are read only.
+    Output lands in ``<analysis>/snake`` beside ``outlook``.
+    """
+    from geocif.viz import snake_run as _snake
+
+    run_crops = sorted(crops) if crops else []
+    model = models[0] if models and len(set(models)) == 1 else None
+    written = []
+    for country in countries:
+        out_dir = dir_outlook.parent / "snake"
+        if len(countries) > 1:
+            out_dir = out_dir / country
+        for crop in run_crops:
+            try:
+                written += _snake.run(path_config_files, db=db_path,
+                                      table=f"{country}_{crop}", model=model,
+                                      year=current_year, out=out_dir) or []
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"make_snake_plots: {country} {crop} skipped: "
+                               f"{type(exc).__name__}: {exc}")
+    logger.info(f"make_snake_plots: wrote {len(written)} snake file(s)")
+    return written
+
+
 # ---------------------------------------------------------------------------
 # CID contribution ([ML] cid_contribution) -- training side. The figure itself
 # is drawn by viz/cid_contribution.py from the cidc_* rows written here.
@@ -6290,6 +6340,21 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"Cone figures failed (non-fatal): {exc}")
+
+    # Snake charts for the DB just written. [ML] make_snake_plots: unset =
+    # on for admin_1 countries, off for admin_2 (snake_countries); wrapped
+    # for the same reason as the cones.
+    snake_cc = snake_countries(parser, countries)
+    if snake_cc:
+        try:
+            _render_snake_figures(
+                parser, path_config_files, db_path, dir_outlook, snake_cc,
+                sorted({row[2] for row in inputs}) if inputs else crops,
+                sorted({row[4] for row in inputs}) if inputs else list(models),
+                current_year=current_year,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Snake figures failed (non-fatal): {exc}")
 
     # End-of-run signal + forced exit.
     #

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: winrt-runtime
-Version: 4.0.0
+Version: 4.0.3
 Summary: The runtime that every PyWinRT projection package runs on
 License-Expression: MIT
 Project-URL: Documentation, https://pywinrt.readthedocs.io

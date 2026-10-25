@@ -1124,13 +1124,15 @@ def test_with_its_timer_off_only_a_prompt_or_an_ask_wakes_the_reader(tmp_path, m
 
 @pytest.mark.parametrize("switch", ["server", "environment"])
 def test_with_prompt_wakes_off_a_prompt_alone_wakes_nothing(tmp_path, monkeypatch, switch):
-    """Plan probe-hints T5: the server (per team) or PROBE_READER_PROMPT_WAKE turns
-    the reader's prompt wakes off; an ask and the new-events timer still wake it."""
+    """A Probe hint that serves the session with the server's `off`, or
+    PROBE_READER_PROMPT_WAKE=off, turns the reader's prompt wakes off; an ask
+    and the new-events timer still wake it."""
     from probe.daemon import model as model_mod
 
     monkeypatch.setattr(model_mod, "_PUSHED", {})
     monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE, raising=False)
     if switch == "server":
+        monkeypatch.setattr(model_mod, "hints_live", lambda now=None: True)
         model_mod.remember_pushed_settings({model_mod.READER_PROMPT_WAKE_HEADER: "off"})
     else:
         monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "off")
@@ -1146,6 +1148,44 @@ def test_with_prompt_wakes_off_a_prompt_alone_wakes_nothing(tmp_path, monkeypatc
     mailbox.write_ask(SID, "q")
     lane.take_asks()
     assert lane.due() == "ask"
+
+
+def test_a_session_no_hint_serves_keeps_its_prompt_wakes(tmp_path, monkeypatch):
+    """The server's `off` alone is not enough: Probe read mode, a sandbox,
+    `PROBE_HINTS=off` or a stopped service leave no fresh hint marker, and the
+    researcher's prompt still wakes the reader."""
+    from probe.daemon import model as model_mod
+
+    monkeypatch.setattr(model_mod, "_PUSHED", {})
+    monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE, raising=False)
+    monkeypatch.setattr(model_mod, "hints_live", lambda now=None: False)
+    model_mod.remember_pushed_settings({model_mod.READER_PROMPT_WAKE_HEADER: "off"})
+    now = [1000.0]
+    w = _worker(tmp_path, clock=lambda: now[0])
+    lane = _lane(w, Reader())
+    lane.last_turn_at = now[0]
+    assert lane.due() == "prompt"
+
+
+def test_with_prompt_wakes_off_a_turn_reads_the_newest_window(tmp_path, monkeypatch):
+    """Nothing drains a busy session's backlog turn by turn once prompts stop
+    waking the reader: a check-in reads the newest window, and the older unread
+    events drop off (the cursor moves past them), never a window hours behind."""
+    from probe.daemon import model as model_mod
+
+    monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "off")
+    monkeypatch.setattr(rl, "READ_MAX_EVENTS", 3)
+    reader = Reader(end="")
+    w = _worker(tmp_path)
+    lane = _lane(w, reader)
+    for n in range(6):
+        _append_turn(w, f"backlog prompt {n}")
+    w.read_new()
+    newest = lane.store.newest_seq()
+    asyncio.run(lane.run_turn("events"))
+    shown = _prompt(reader.seen[0][0][-1])
+    assert "backlog prompt 5" in shown and "backlog prompt 0" not in shown
+    assert lane.cursor() == newest, "the skipped backlog is passed over, not read later"
 
 
 @pytest.mark.parametrize("raw,expected", [("0", 0.0), ("120", 120.0), ("", 1800.0), ("soon", 1800.0), ("-5", 0.0)])
@@ -1268,9 +1308,10 @@ def test_a_turn_stops_once_a_round_is_near_the_routes_ceiling(tmp_path, monkeypa
 
 
 @pytest.mark.parametrize("limit", ["rounds", "wall"])
-def test_a_turn_the_size_stop_did_not_end_still_pings(tmp_path, monkeypatch, limit):
+def test_a_turn_another_guard_wrapped_up_and_the_model_answered_pings_nobody(tmp_path, monkeypatch, limit):
     """The model ignored the size stop and called again past its rounds or its
-    time, then answered: that guard ended it, not the size guard."""
+    time, then answered when that guard told it to: nothing broke (Bucket
+    2026-10-24: "40 model rounds", answered at round 41, pinged)."""
     pings = []
     monkeypatch.setattr(rl.alerts, "report", lambda kind, **kw: pings.append((kind, kw.get("text"))))
     if limit == "rounds":
@@ -1284,9 +1325,10 @@ def test_a_turn_the_size_stop_did_not_end_still_pings(tmp_path, monkeypatch, lim
     outline = ("tool", ("session", {"op": "outline"}))
     sized = _sized([outline, outline], "digits-svm: best C=10.", agent_mod.READ_STOP_TOKENS)
     got = asyncio.run(_lane(w, sized).run_turn("prompt"))
-    assert len(sized.inner.seen) == 3 and got.outcome == rl.Outcome.SENT
-    assert pings == [(rl.alerts.Kind.READER_STOPPED, f"reader turn stopped: {why}")]
-    assert rl.Status.TURN_STOPPED in Path(mailbox.status_path(SID)).read_text()
+    assert len(sized.inner.seen) == 3 and got.outcome == rl.Outcome.SENT and "best C=10" in got.text
+    assert why in _text(sized.inner.seen[-1][0][-1:]), "the guard that told it to end"
+    assert pings == []
+    assert rl.Status.TURN_STOPPED not in Path(mailbox.status_path(SID)).read_text()
 
 
 def test_a_size_stopped_turn_that_ends_in_prose_still_pings(tmp_path, monkeypatch):

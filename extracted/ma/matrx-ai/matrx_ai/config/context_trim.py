@@ -359,44 +359,52 @@ async def resolve_trim_policy(organization_id: str | None) -> TrimPolicy:
 # THE CONDENSE DECISION — when older turns become one summary                  #
 # --------------------------------------------------------------------------- #
 #
-# Trimming only clears stale tool traffic; an ordinary chat still grows until
-# the pre-flight refuses it at the DECLARED window (1M on some models, while the
-# product limit is 200,000 tokens — conversation 9b224bf5 crashed there). The
-# cache law (execution-runtime VISION, Arman): nothing touches the cache except
-# through this one system, balancing context length against duplicate calls. So
-# WHEN to condense is decided here, beside the trim gate, from the same numbers:
+# Trimming only clears stale tool traffic; an ordinary chat still grows. The cache law
+# (execution-runtime VISION, Arman): nothing touches the cache except through this one system,
+# balancing context length against duplicate calls. So WHEN to condense is decided here, beside
+# the trim gate, from the same numbers. Arman, 2026-10-24: "trigger any major condensing at the
+# point where the message would put us over" the internal cap (200,000 today) — never earlier by a
+# fixed number ("that makes it such that we start losing conversations far too early").
 #
-#   * condensing rewrites the whole history after the authored template, so it
-#     is the most expensive cache event there is — it happens only near the
-#     limit, never as an optimisation (the trim gate's ``forced_near_limit``
-#     posture), and only when it frees at least ``cache_gate_min_saved_tokens``;
-#   * the trigger is the LOWER of the ``condense_trigger_tokens`` knob (the
-#     product ceiling for a conversation) and ``payback_force_window_percent`` of
-#     the model's effective window (its declared window, capped by a platform
-#     window ceiling when the caller names one), so a small-window model is
-#     condensed before its own limit too;
-#   * after a condense the prompt is ~keep + summary, far under the trigger, so
-#     one condense buys many turns — never a condense per turn;
-#   * below that ceiling a condense is taken only when it PAYS BACK, by the trim
-#     gate's own rule (``payback_pays``): the tokens it frees, read on each of the
-#     ``payback_expected_remaining_calls`` sends, against re-writing the kept tail
-#     + summary into the cache and the condenser reading the conversation once —
-#     at the model's catalog prices. Unpriced, only the ceiling decides.
+# THE LEVELS (the whole process: common-docs systems/intelligence/system-processes/CONDENSING.md
+# — this comment names them, the doc teaches them):
 #
-# Knobs: ``agents.context_trim`` / ``condense_trigger_tokens``,
-# ``condense_keep_recent_tokens``, ``condense_summary_target_tokens``
-# (org-overridable; read by the host — never on the send hot path, which is why
-# they are not in ``TRIM_POLICY_KNOB_KEYS``). The runner that acts on a "yes":
+#   * Level 0 ``tool_output_trim`` — always on, not decided here: the trim gate above reduces
+#     large, stale tool outputs to previews (``trim_messages_context``).
+#   * Level 1 ``early_payback`` — OFF unless the organization turns it on
+#     (``condense_early_payback_enabled``): below the cap, a condense is taken only when it PAYS
+#     BACK by the trim gate's own rule (``payback_pays``) at the model's catalog prices.
+#   * Level 2 ``at_cap`` — the major condense. The CAP is the conversation's effective limit: the
+#     LOWER of the model's declared window and the host's input cap as resolved for the
+#     conversation's person and organization (``automation.guardrails/max_input_tokens``,
+#     org- and user-overridable). At turn end it fires when the next send would cross the cap
+#     (the prompt plus ``condense_next_turn_reserve_tokens`` — the next person message and a
+#     typical turn); at the send itself (``at_send``) when this send is over the cap.
+#
+# Condensing rewrites the whole history after the authored template, the most expensive cache
+# event there is, so at the cap it is taken only when it frees at least
+# ``cache_gate_min_saved_tokens`` and leaves the conversation clear of the cap (one condense buys
+# many turns — never a condense per turn).
+#
+# Knobs: ``agents.context_trim`` / ``condense_next_turn_reserve_tokens``,
+# ``condense_early_payback_enabled``, ``condense_keep_recent_tokens``,
+# ``condense_summary_target_tokens`` (org-overridable; read by the host — never on the send hot
+# path, which is why they are not in ``TRIM_POLICY_KNOB_KEYS``). The runner that acts on a "yes":
 # aidream ``services/conversation_condense``.
 
-#: Starting values (agent-set 2026-10-22; the knob rows carry basis + review date).
-CONDENSE_TRIGGER_TOKENS = 120_000
+#: Starting values (agent-set 2026-10-24; the knob rows carry basis + review date).
+CONDENSE_NEXT_TURN_RESERVE_TOKENS = 20_000
+CONDENSE_EARLY_PAYBACK_ENABLED = False
 CONDENSE_KEEP_RECENT_TOKENS = 30_000
 CONDENSE_SUMMARY_TARGET_TOKENS = 4_000
 
-#: Integer knobs under ``TRIM_POLICY_KNOB_FEATURE`` that shape the condense decision.
+#: The named levels, in order (level 0 is the trim gate; the decision answers 1 and 2).
+CONDENSE_LEVELS: tuple[str, ...] = ("tool_output_trim", "early_payback", "at_cap")
+
+#: Knobs under ``TRIM_POLICY_KNOB_FEATURE`` that shape the condense decision.
 CONDENSE_KNOB_KEYS: tuple[str, ...] = (
-    "condense_trigger_tokens",
+    "condense_next_turn_reserve_tokens",
+    "condense_early_payback_enabled",
     "condense_keep_recent_tokens",
     "condense_summary_target_tokens",
 )
@@ -405,7 +413,6 @@ CONDENSE_KNOB_KEYS: tuple[str, ...] = (
 #: The trim knobs the condense decision shares (same rows, same values as the trim gate).
 CONDENSE_SHARED_TRIM_KEYS: tuple[str, ...] = (
     "cache_gate_min_saved_tokens",
-    "payback_force_window_percent",
     "payback_expected_remaining_calls",
 )
 
@@ -414,13 +421,14 @@ CONDENSE_SHARED_TRIM_KEYS: tuple[str, ...] = (
 class CondensePolicy:
     """The condense knobs, plus the two trim knobs the decision shares."""
 
-    trigger_tokens: int = CONDENSE_TRIGGER_TOKENS
+    #: Turn end: room left under the cap for the next person message plus a typical turn.
+    next_turn_reserve_tokens: int = CONDENSE_NEXT_TURN_RESERVE_TOKENS
+    #: Level 1: condense below the cap when it pays back. Off unless an organization turns it on.
+    early_payback_enabled: bool = CONDENSE_EARLY_PAYBACK_ENABLED
     keep_recent_tokens: int = CONDENSE_KEEP_RECENT_TOKENS
     summary_target_tokens: int = CONDENSE_SUMMARY_TARGET_TOKENS
     #: Shared with the trim gate: the smallest saving worth breaking a cache for.
     min_saved_tokens: int = CACHE_GATE_MIN_SAVED_TOKENS
-    #: Shared with the trim gate: the share of the window treated as "near the limit".
-    force_window_percent: int = PAYBACK_FORCE_WINDOW_PERCENT
     #: Shared with the trim gate: how many more sends a freed token is expected to be saved on.
     expected_remaining_calls: int = PAYBACK_EXPECTED_REMAINING_CALLS
     source: str = "package_default"
@@ -460,11 +468,11 @@ def condense_policy_from_knobs(values: dict[str, Any]) -> CondensePolicy:
     """Every key REQUIRED (``CONDENSE_KNOB_KEYS`` + ``CONDENSE_SHARED_TRIM_KEYS``) — a missing one
     raises ``KeyError`` naming it."""
     return CondensePolicy(
-        trigger_tokens=int(values["condense_trigger_tokens"]),
+        next_turn_reserve_tokens=int(values["condense_next_turn_reserve_tokens"]),
+        early_payback_enabled=bool(values["condense_early_payback_enabled"]),
         keep_recent_tokens=int(values["condense_keep_recent_tokens"]),
         summary_target_tokens=int(values["condense_summary_target_tokens"]),
         min_saved_tokens=int(values["cache_gate_min_saved_tokens"]),
-        force_window_percent=int(values["payback_force_window_percent"]),
         expected_remaining_calls=int(values["payback_expected_remaining_calls"]),
         source="org_knobs",
     )
@@ -475,27 +483,40 @@ class CondenseDecision:
     """One verdict of :func:`decide_condense` — the audit IS the decision."""
 
     condense: bool
-    #: below_trigger | too_little_to_free | remainder_at_trigger | payback | payback_hold |
-    #: at_trigger | forced_near_limit
+    #: no_cap | below_cap | too_little_to_free | remainder_at_cap | at_cap | over_cap |
+    #: early_payback | early_payback_hold
     rule: str
+    #: The level that decided: ``at_cap`` or ``early_payback`` (``None`` below the cap with level 1 off).
+    level: str | None
     estimated_prompt_tokens: int
-    trigger_tokens: int
-    effective_window_tokens: int | None
+    #: The conversation's effective cap (lower of the model window and the host input cap).
+    cap_tokens: int | None
+    #: Where level 2 fires: the cap less the reserve at turn end, the cap itself at the send.
+    trigger_tokens: int | None
+    reserve_tokens: int
     est_freed_tokens: int
     keep_recent_tokens: int
     summary_target_tokens: int
-    #: The payback audit (USD), when prices were known below the ceiling.
+    #: The payback audit (USD), when level 1 was asked with prices.
     benefit_usd: float | None = None
     cost_usd: float | None = None
     expected_remaining_calls: int | None = None
+
+    @property
+    def effective_window_tokens(self) -> int | None:
+        """The cap, under the name the queue payload and older snapshots read."""
+        return self.cap_tokens
 
     def to_snapshot(self) -> dict[str, Any]:
         return {
             "condense": self.condense,
             "rule": self.rule,
+            "level": self.level,
             "estimated_prompt_tokens": self.estimated_prompt_tokens,
+            "cap_tokens": self.cap_tokens,
+            "effective_window_tokens": self.cap_tokens,
             "trigger_tokens": self.trigger_tokens,
-            "effective_window_tokens": self.effective_window_tokens,
+            "reserve_tokens": self.reserve_tokens,
             "est_freed_tokens": self.est_freed_tokens,
             "keep_recent_tokens": self.keep_recent_tokens,
             "summary_target_tokens": self.summary_target_tokens,
@@ -514,8 +535,15 @@ def model_context_window(model_ref: str | None) -> int | None:
 
         window = ai_catalog_manager.context_window(model_ref)
         return int(window) if window else None
-    except Exception:  # noqa: BLE001 — an unknown window means "use the knob trigger"
+    except Exception:  # noqa: BLE001 — an unknown window: the host cap alone decides
         return None
+
+
+def condense_cap(model_window_tokens: int | None, window_ceiling_tokens: int | None) -> int | None:
+    """The conversation's effective cap: the lower of the model's declared window and the host's
+    input cap for the conversation's person and organization. ``None`` when neither is known."""
+    windows = [int(w) for w in (model_window_tokens, window_ceiling_tokens) if w and w > 0]
+    return min(windows) if windows else None
 
 
 def decide_condense(
@@ -527,35 +555,34 @@ def decide_condense(
     prices: CachePrices | None = None,
     fixed_prefix_tokens: int = 0,
     condensable_tokens: int | None = None,
+    at_send: bool = False,
 ) -> CondenseDecision:
     """Should this conversation's older turns be condensed now? Pure.
 
-    ``estimated_prompt_tokens`` is the prompt as the model will read it (the ONE
-    estimator, ``context_preflight.estimate_prompt_tokens``). The effective window
-    is the declared window capped by ``window_ceiling_tokens`` (the host's per-call
-    budget when one applies to the conversation's runs). At or past the ceiling
-    (``payback_force_window_percent`` of that window, or the ``condense_trigger_tokens``
-    product ceiling) a condense is taken whenever it frees enough; below it, only
-    when it pays back at ``prices`` (the trim gate's rule); unpriced, it holds.
+    ``estimated_prompt_tokens`` is the prompt as the model will read it (the ONE estimator,
+    ``context_preflight.estimate_prompt_tokens``, at turn end; the host's own estimate at the send).
+    ``window_ceiling_tokens`` is the host's input cap as resolved for the conversation's person and
+    organization; the cap is the lower of it and ``model_window_tokens``.
+
+    Level 2 (``at_cap``): at turn end it fires when ``estimated + next_turn_reserve_tokens`` reaches
+    the cap (the next send would cross it); with ``at_send`` when ``estimated`` is over the cap.
+    The trigger never drops below half the cap, so a small window is not condensed every turn by a
+    reserve larger than itself. Level 1 (``early_payback``), only when the policy turns it on:
+    below the trigger, when the condense pays back at ``prices``; unpriced, it holds.
 
     Only the HISTORY is condensable: the system prompt, the tools and the agent's authored
     template are not. ``condensable_tokens`` (the rows a condense would replace, known once the
     transcript is split) makes the freed tokens exact: ``condensable − summary target``;
     otherwise ``fixed_prefix_tokens`` (the uncondensable prefix, when known) is taken off the
     estimate before the kept turns and the summary are. A condense whose REMAINDER would still be
-    at the trigger is not taken (``remainder_at_trigger``) — a large fixed prefix would otherwise
-    buy a paid condense every few turns — unless the prompt is past the effective window itself,
-    where any condense that frees enough is needed to fit.
+    at the trigger is not taken (``remainder_at_cap``) — a large fixed prefix would otherwise buy
+    a paid condense every few turns — unless the prompt is past the cap itself, where any condense
+    that frees enough is needed to fit.
     """
     estimated = max(0, int(estimated_prompt_tokens))
-    windows = [w for w in (model_window_tokens, window_ceiling_tokens) if w and w > 0]
-    effective = min(windows) if windows else None
-    force_at = (
-        int(effective * max(1, int(policy.force_window_percent)) / 100) if effective else None
-    )
-    trigger = int(policy.trigger_tokens)
-    if force_at is not None:
-        trigger = min(trigger, force_at)
+    cap = condense_cap(model_window_tokens, window_ceiling_tokens)
+    reserve = 0 if at_send else max(0, int(policy.next_turn_reserve_tokens))
+    trigger = max(cap - reserve, cap // 2) if cap is not None else None
     keep_after = int(policy.keep_recent_tokens) + int(policy.summary_target_tokens)
     fixed = max(0, int(fixed_prefix_tokens or 0))
     if condensable_tokens is not None:
@@ -566,13 +593,17 @@ def decide_condense(
         freed = max(0, condensable - keep_after)
     remainder = estimated - freed
 
-    def verdict(condense: bool, rule: str, benefit: float | None = None, cost: float | None = None) -> CondenseDecision:
+    def verdict(
+        condense: bool, rule: str, level: str | None, benefit: float | None = None, cost: float | None = None
+    ) -> CondenseDecision:
         return CondenseDecision(
             condense=condense,
             rule=rule,
+            level=level,
             estimated_prompt_tokens=estimated,
+            cap_tokens=cap,
             trigger_tokens=trigger,
-            effective_window_tokens=effective,
+            reserve_tokens=reserve,
             est_freed_tokens=freed,
             keep_recent_tokens=int(policy.keep_recent_tokens),
             summary_target_tokens=int(policy.summary_target_tokens),
@@ -581,17 +612,19 @@ def decide_condense(
             expected_remaining_calls=int(policy.expected_remaining_calls) if benefit is not None else None,
         )
 
-    if estimated >= trigger:
+    if trigger is not None and estimated >= trigger:
         if freed < int(policy.min_saved_tokens):
-            return verdict(False, "too_little_to_free")
-        past_window = effective is not None and estimated > effective
-        if remainder >= trigger and not past_window:
-            return verdict(False, "remainder_at_trigger")
-        if force_at is not None and estimated >= force_at:
-            return verdict(True, "forced_near_limit")
-        return verdict(True, "at_trigger")
+            return verdict(False, "too_little_to_free", "at_cap")
+        past_cap = estimated > cap  # type: ignore[operator] — trigger is set only with a cap
+        if remainder >= trigger and not past_cap:
+            return verdict(False, "remainder_at_cap", "at_cap")
+        return verdict(True, "over_cap" if past_cap else "at_cap", "at_cap")
+    if cap is None and not policy.early_payback_enabled:
+        return verdict(False, "no_cap", None)
+    if not policy.early_payback_enabled:
+        return verdict(False, "below_cap", None)
     if prices is None or freed < int(policy.min_saved_tokens):
-        return verdict(False, "below_trigger")
+        return verdict(False, "below_cap", "early_payback")
     condenser_read = condensable * float(prices.input_price or 0.0) / 1_000_000
     pays, benefit, cost = payback_pays(
         freed_tokens=freed,
@@ -601,7 +634,7 @@ def decide_condense(
         expected_remaining_calls=int(policy.expected_remaining_calls),
         extra_cost_usd=condenser_read,
     )
-    return verdict(pays, "payback" if pays else "payback_hold", benefit, cost)
+    return verdict(pays, "early_payback" if pays else "early_payback_hold", "early_payback", benefit, cost)
 
 
 @dataclass

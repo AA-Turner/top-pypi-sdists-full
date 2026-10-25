@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-apache-livy
-Version: 4.6.3
+Version: 4.6.4
 Summary: Provider package apache-airflow-providers-apache-livy for Apache Airflow
 Keywords: airflow-provider,apache.livy,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -24,11 +24,11 @@ License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
 Requires-Dist: apache-airflow-providers-http>=6.0.1
-Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.23.0
 Requires-Dist: aiohttp>=3.14.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.3/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.3
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.4/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.4
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -63,7 +63,7 @@ Import-Namespace: airflow.providers.apache
 
 Package ``apache-airflow-providers-apache-livy``
 
-Release: ``4.6.3``
+Release: ``4.6.4``
 
 
 `Apache Livy <https://livy.apache.org/>`__
@@ -76,7 +76,7 @@ This is a provider package for ``apache.livy`` provider. All classes for this pr
 are in ``airflow.providers.apache.livy`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.3/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.4/>`_.
 
 Installation
 ------------
@@ -95,10 +95,10 @@ PIP package                                 Version required
 ==========================================  ==================
 ``apache-airflow``                          ``>=2.11.0``
 ``apache-airflow-providers-http``           ``>=6.0.1``
-``apache-airflow-providers-common-compat``  ``>=1.12.0``
+``apache-airflow-providers-common-compat``  ``>=1.23.0``
 ``aiohttp``                                 ``>=3.14.0``
 ==========================================  ==================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.3/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-livy/4.6.4/changelog.html>`_.
 

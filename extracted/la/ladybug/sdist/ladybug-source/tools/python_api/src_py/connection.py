@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import inspect
 import json
+import operator
 import re
 import threading
 import uuid
 import warnings
 import weakref
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 from weakref import WeakSet
 
 from ._backend import get_capi_module, get_pybind_module
@@ -308,6 +310,91 @@ def _pybind_param_signature(parameters: dict[str, Any]) -> tuple:
     )
 
 
+_Method = TypeVar("_Method", bound="Callable[..., Any]")
+
+# Per thread: the connections whose calls are running, innermost last, and a
+# marker for each Python UDF entered on top of them.
+_active = threading.local()
+_UDF = object()
+
+
+def _active_stack() -> list[object]:
+    stack: list[object] | None = getattr(_active, "stack", None)
+    if stack is None:
+        stack = _active.stack = []
+    return stack
+
+
+def _called_from_udf(conn: Connection) -> bool:
+    """Whether this thread is in a UDF entered after its last call on conn."""
+    for entry in reversed(_active_stack()):
+        if entry is conn:
+            return False
+        if entry is _UDF:
+            return True
+    return False
+
+
+def _tracks_call(method: _Method) -> _Method:
+    """Count the call as in flight so that close() can wait for it."""
+
+    @functools.wraps(method)
+    def wrapper(self: Connection, *args: Any, **kwargs: Any) -> Any:
+        with self._calls:
+            if self._closing:
+                msg = "Connection is closed."
+                raise RuntimeError(msg)
+            if self._calls_in_flight and _called_from_udf(self):
+                # UDFs run inside the query in flight, which holds the
+                # connection, so the call could wait for itself forever.
+                msg = "A UDF cannot use a connection while it runs a query."
+                raise RuntimeError(msg)
+            self._calls_in_flight += 1
+        stack = _active_stack()
+        stack.append(self)
+        try:
+            return method(self, *args, **kwargs)
+        finally:
+            stack.pop()
+            with self._calls:
+                self._calls_in_flight -= 1
+                self._calls.notify_all()
+
+    return cast("_Method", wrapper)
+
+
+def _stacklevel_outside_module() -> int:
+    """Return the warnings.warn() stacklevel of the first caller outside this module."""
+    frame, level = inspect.currentframe(), 0
+    while frame is not None and frame.f_code.co_filename == __file__:
+        frame, level = frame.f_back, level + 1
+    return level
+
+
+def _marks_udf_call(udf: Callable[..., Any]) -> Callable[..., Any]:
+    """Mark the thread as running a UDF so that calls into a busy connection raise."""
+
+    @functools.wraps(udf)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        stack = _active_stack()
+        stack.append(_UDF)
+        try:
+            return udf(*args, **kwargs)
+        finally:
+            stack.pop()
+
+    return wrapper
+
+
+def _setting_value(name: str, value: int) -> int:
+    """Validate a connection setting before it is queued; the engine takes a uint64."""
+    value = operator.index(value)
+    if not 0 <= value < 2**64:
+        msg = f"{name} must be between 0 and 2**64 - 1; found {value}."
+        raise ValueError(msg)
+    return value
+
+
 class Connection:
     """Connection to a database."""
 
@@ -329,8 +416,14 @@ class Connection:
         self.database = database
         self.num_threads = num_threads
         self.is_closed = False
+        self._closing = False
+        self._calls = threading.Condition()
+        self._calls_in_flight = 0
         self._prefer_pybind = False
-        self._query_timeout_ms = 0
+        # Native setter name -> value, applied before the next query.
+        self._pending_settings: dict[str, int] = {}
+        self._pending_settings_lock = threading.Lock()
+        self._apply_settings_lock = threading.Lock()
         self._query_results: WeakSet[QueryResult] = WeakSet()
         self._capi_scan_tables: set[str] = set()
         # Implicit prepared-statement cache, shared by the pybind and
@@ -379,18 +472,41 @@ class Connection:
             self.database._use_pybind_backend and get_pybind_module() is not None
         )
 
+    @_tracks_call
     def set_max_threads_for_exec(self, num_threads: int) -> None:
         """
         Set the maximum number of threads for executing queries.
 
+        The setting applies from the next query on this connection; this call
+        does not wait for a running query.
+
         Parameters
         ----------
         num_threads : int
-            Maximum number of threads to use for executing queries.
+            Maximum number of threads to use for executing queries; 0 uses the
+            database's limit.
+
+        Raises
+        ------
+        TypeError
+            If `num_threads` is not an integer.
+        ValueError
+            If `num_threads` is negative or does not fit in 64 bits.
 
         """
+        num_threads = _setting_value("num_threads", num_threads)
         self.init_connection()
-        self._connection.set_max_threads_for_exec(num_threads)
+        with self._pending_settings_lock:
+            self._pending_settings["set_max_threads_for_exec"] = num_threads
+
+    def _apply_pending_settings(self) -> None:
+        # The engine applies settings under the lock a running query holds, so
+        # they are applied here, before a query, rather than in the setters.
+        with self._apply_settings_lock:
+            with self._pending_settings_lock:
+                pending, self._pending_settings = self._pending_settings, {}
+            for setter, value in pending.items():
+                getattr(self._connection, setter)(value)
 
     def _register_query_result(self, query_result: QueryResult) -> None:
         self._query_results.add(query_result)
@@ -404,9 +520,44 @@ class Connection:
 
         Note: Call to this method is optional. The connection will be closed
         automatically when the object goes out of scope.
+
+        A query running on this connection in another thread is interrupted,
+        and close() returns once it has left the engine. Called from a UDF
+        while the connection runs a query, close() raises instead.
         """
-        if self.is_closed:
-            return
+        if any(x is self for x in _active_stack()):
+            # The engine may run a UDF on the thread that issued the query, so a
+            # UDF can find its own connection's call on this thread's stack.
+            if _called_from_udf(self):
+                msg = "close() cannot be called from a UDF while the connection runs a query."
+            else:
+                msg = "close() cannot be called from a call on the same connection."
+            raise RuntimeError(msg)
+
+        with self._calls:
+            # Idempotent under concurrent close(): check-and-set inside the
+            # lock so two threads cannot both run the teardown tail.
+            if self.is_closed or self._closing:
+                return
+            if self._calls_in_flight and _called_from_udf(self):
+                # UDFs run inside the query in flight, so waiting for it would
+                # never end.
+                msg = "close() cannot be called from a UDF while the connection runs a query."
+                raise RuntimeError(msg)
+            self._closing = True
+            try:
+                while self._calls_in_flight:
+                    # An interrupt that arrives while the query is still compiling is
+                    # cleared when execution starts, so repeat it until the call returns.
+                    with contextlib.suppress(RuntimeError):
+                        self.interrupt()
+                    self._calls.wait(timeout=0.05)
+            except BaseException:
+                # Don't brick the connection if the wait is aborted
+                # (KeyboardInterrupt, ...): teardown never ran, so allow reuse.
+                self._closing = False
+                self._calls.notify_all()
+                raise
 
         for query_result in list(self._query_results):
             query_result.close()
@@ -814,11 +965,9 @@ class Connection:
             return
 
         var_name = match.group(1)
-        frame = inspect.currentframe()
-        if frame is None or frame.f_back is None:
-            return
-
-        caller = frame.f_back.f_back
+        caller = inspect.currentframe()
+        while caller is not None and caller.f_code.co_filename == __file__:
+            caller = caller.f_back
         if caller is None:
             return
 
@@ -837,6 +986,7 @@ class Connection:
         )
         raise RuntimeError(msg)
 
+    @_tracks_call
     def execute(
         self,
         query: str | PreparedStatement,
@@ -865,6 +1015,7 @@ class Connection:
             parameters = {}
 
         self.init_connection()
+        self._apply_pending_settings()
         if not isinstance(parameters, dict):
             msg = f"Parameters must be a dict; found {type(parameters)}."
             raise RuntimeError(msg)  # noqa: TRY004
@@ -877,7 +1028,7 @@ class Connection:
 
         if (
             not self._using_pybind_backend()
-            and self._query_timeout_ms > 0
+            and self._connection._query_timeout_ms > 0
             and isinstance(query, str)
             and len(re.findall(r"(?i)\bUNWIND\s+RANGE\s*\(", query)) >= 2
         ):
@@ -932,7 +1083,7 @@ class Connection:
                     warnings.warn(
                         drop_result.getErrorMessage(),
                         RuntimeWarning,
-                        stacklevel=2,
+                        stacklevel=_stacklevel_outside_module(),
                     )
             finally:
                 self._capi_scan_tables.discard(table_name)
@@ -950,6 +1101,7 @@ class Connection:
             all_query_results.append(next_query_result)
         return all_query_results
 
+    @_tracks_call
     def query_as_arrow(self, query: str, chunk_size: int) -> ArrowQueryResult:
         """
         Execute a query with the native Arrow collector path.
@@ -957,6 +1109,7 @@ class Connection:
         This is the efficient path for CSR-aware Arrow export.
         """
         self.init_connection()
+        self._apply_pending_settings()
         if not self._using_pybind_backend():
             query_result_internal = self._connection.query(query)
         else:
@@ -971,6 +1124,7 @@ class Connection:
         self._register_query_result(current_query_result)
         return current_query_result
 
+    @_tracks_call
     def _prepare(
         self,
         query: str,
@@ -1069,19 +1223,31 @@ class Connection:
                 results.append({"name": name, "src": src_node, "dst": dst_node})
         return results
 
+    @_tracks_call
     def set_query_timeout(self, timeout_in_ms: int) -> None:
         """
         Set the query timeout value in ms for executing queries.
+
+        The timeout applies from the next query on this connection; this call
+        does not wait for a running query.
 
         Parameters
         ----------
         timeout_in_ms : int
             query timeout value in ms for executing queries.
 
+        Raises
+        ------
+        TypeError
+            If `timeout_in_ms` is not an integer.
+        ValueError
+            If `timeout_in_ms` is negative or does not fit in 64 bits.
+
         """
+        timeout_in_ms = _setting_value("timeout_in_ms", timeout_in_ms)
         self.init_connection()
-        self._query_timeout_ms = int(timeout_in_ms)
-        self._connection.set_query_timeout(timeout_in_ms)
+        with self._pending_settings_lock:
+            self._pending_settings["set_query_timeout"] = timeout_in_ms
 
     def interrupt(self) -> None:
         """
@@ -1089,8 +1255,11 @@ class Connection:
 
         If there is no currently executing query, this function does nothing.
         """
-        self._connection.interrupt()
+        for native in (self._connection, self._py_connection):
+            if native is not None:
+                native.interrupt()
 
+    @_tracks_call
     def create_function(
         self,
         name: str,
@@ -1124,12 +1293,16 @@ class Connection:
         catch_exceptions: Optional[bool]
             if true, when an exception is thrown from python, the function output will be null
             Otherwise, the exception will be rethrown
+
+        The UDF must not call a connection that is running a query: such calls raise
+        RuntimeError, because the query running the UDF may be on that connection.
         """
         if params_type is None:
             params_type = []
         parsed_params_type = [x if type(x) is str else x.value for x in params_type]
         if type(return_type) is not str:
             return_type = return_type.value
+        udf = _marks_udf_call(udf)
 
         try:
             self._connection.create_function(
@@ -1154,6 +1327,7 @@ class Connection:
                 catch_exceptions=catch_exceptions,
             )
 
+    @_tracks_call
     def remove_function(self, name: str) -> None:
         """
         Remove a User Defined Function (UDF).
@@ -1172,6 +1346,7 @@ class Connection:
             self._prefer_pybind = True
             py_connection.remove_function(name)
 
+    @_tracks_call
     def create_arrow_table(
         self,
         table_name: str,
@@ -1195,6 +1370,7 @@ class Connection:
 
         """
         self.init_connection()
+        self._apply_pending_settings()
         try:
             query_result_internal = self._connection.create_arrow_table(
                 table_name, dataframe
@@ -1211,6 +1387,7 @@ class Connection:
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)
 
+    @_tracks_call
     def drop_arrow_table(self, table_name: str) -> QueryResult:
         """
         Drop an Arrow memory-backed table.
@@ -1227,6 +1404,7 @@ class Connection:
 
         """
         self.init_connection()
+        self._apply_pending_settings()
         try:
             query_result_internal = self._connection.drop_arrow_table(table_name)
         except NotImplementedError:
@@ -1239,6 +1417,7 @@ class Connection:
             raise RuntimeError(query_result_internal.getErrorMessage())
         return QueryResult(self, query_result_internal)
 
+    @_tracks_call
     def create_arrow_rel_table(
         self,
         table_name: str,
@@ -1287,6 +1466,7 @@ class Connection:
 
         """
         self.init_connection()
+        self._apply_pending_settings()
         layout_value = (
             layout.value if isinstance(layout, ArrowRelTableLayout) else str(layout)
         ).upper()

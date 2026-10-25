@@ -1,10 +1,9 @@
-use std::cell::OnceCell;
-
-use sqlbuild_analysis::sql_macros::main::sql_macro_output_names::sql_macro_output_names;
+use sqlbuild_analysis::sql_macros::models::TypedCall;
+use sqlbuild_analysis::type_system::main::normalize_type::normalize_type;
 
 use crate::constants::ENFORCED_CONTRACT;
 use crate::models::{Column, Fault, Model, RuleMetadata};
-use crate::query_facts::models::{ItemFacts, QueryFacts, SelectFacts, SetFacts};
+use crate::query_facts::models::{ExpressionItem, ItemFacts, QueryFacts, SelectFacts, SetFacts};
 use crate::rules::_helpers::evaluation::{
     ParsedModel, plain_select, reads_dependency, sole_table_name,
 };
@@ -15,10 +14,6 @@ struct OutputScope<'a> {
     columns: &'a [Column],
     set_branch: bool,
     by_name: bool,
-    /// Where SQL macro call items are read: the main query (`Some(None)`), a CTE, or nowhere.
-    macro_scope: Option<Option<&'a str>>,
-    /// The first select's branch of the scope's set operation, left to right.
-    branch: usize,
 }
 
 struct OutputRule<'a> {
@@ -26,11 +21,15 @@ struct OutputRule<'a> {
     model: &'a Model,
     rule: &'a RuleMetadata,
     faults: &'a FaultCollector,
-    /// The main query's outputs that are one SQL macro call each, read when first needed.
-    sql_macro_outputs: OnceCell<Vec<(Option<String>, usize, String)>>,
+    dialect: &'a str,
 }
 
-pub(crate) fn evaluate(parsed: &ParsedModel<'_>, rule: &RuleMetadata, faults: &FaultCollector) {
+pub(crate) fn evaluate(
+    parsed: &ParsedModel<'_>,
+    rule: &RuleMetadata,
+    faults: &FaultCollector,
+    dialect: &str,
+) {
     let model = parsed.model;
     let query = parsed.facts;
     if model
@@ -54,18 +53,15 @@ pub(crate) fn evaluate(parsed: &ParsedModel<'_>, rule: &RuleMetadata, faults: &F
         model,
         rule,
         faults,
-        sql_macro_outputs: OnceCell::new(),
+        dialect,
     };
     if let Some((boundary, columns)) = final_cte_output_boundary(query, &model.columns) {
-        let final_cte: Option<&str> = query.ctes.last().map(|cte| cte.name.as_str());
         evaluator.evaluate_set(
             &boundary.body,
             OutputScope {
                 columns: &columns,
                 set_branch: false,
                 by_name: false,
-                macro_scope: final_cte.map(Some),
-                branch: 0,
             },
         );
         return;
@@ -77,8 +73,6 @@ pub(crate) fn evaluate(parsed: &ParsedModel<'_>, rule: &RuleMetadata, faults: &F
             columns: &columns,
             set_branch: false,
             by_name: false,
-            macro_scope: Some(None),
-            branch: 0,
         },
     );
 }
@@ -142,17 +136,9 @@ impl OutputRule<'_> {
                     columns: scope.columns,
                     set_branch: true,
                     by_name: *by_name,
-                    macro_scope: scope.macro_scope,
-                    branch: scope.branch,
                 };
                 self.evaluate_set(left, branch_scope);
-                self.evaluate_set(
-                    right,
-                    OutputScope {
-                        branch: scope.branch + set_branches(left),
-                        ..branch_scope
-                    },
-                );
+                self.evaluate_set(right, branch_scope);
             }
             SetFacts::Other => self.push(
                 None,
@@ -204,23 +190,49 @@ impl OutputRule<'_> {
                 continue;
             };
             let direct = expression.direct_column.is_some();
-            let explicit_cast = expression.cast_type.is_some();
             let cast_matches_contract = expression
                 .cast_type
                 .as_ref()
-                .is_some_and(|data_type| type_spelling_equal(data_type, &column.data_type));
-            let passes = cast_matches_contract
-                || column.type_proven && direct && !scope.set_branch
-                || column.type_proven
-                    && !explicit_cast
-                    && self.sql_macro_output(scope, output_name.as_deref());
+                .is_some_and(|data_type| same_type(data_type, &column.data_type, self.dialect));
+            let call: Option<&TypedCall> = self.whole_call(expression);
+            let passes = cast_matches_contract || column.type_proven && direct && !scope.set_branch;
             if passes {
                 continue;
             }
             let name = output_name.unwrap_or_else(|| column.name.clone());
-            let reason = if explicit_cast && !cast_matches_contract {
-                "has an outer cast that does not target its declared contract type"
-            } else if direct && scope.set_branch {
+            if let Some(cast_type) = expression
+                .cast_type
+                .as_ref()
+                .filter(|_| !cast_matches_contract)
+            {
+                self.push(
+                    expression.span.map(|(start, _)| start).or(expression.start),
+                    format!(
+                        "output {name:?} has an outer cast to {cast_type}, which is not its declared contract type {}",
+                        column.data_type
+                    ),
+                    format!(
+                        "Change the outer cast to CAST(... AS {}).",
+                        column.data_type
+                    ),
+                );
+                continue;
+            }
+            if let Some(call) =
+                call.filter(|call| call.returns.is_some() || call.returns_like.is_some())
+            {
+                self.push(
+                    expression.start,
+                    typed_call_message(&name, call, &column.data_type),
+                    format!(
+                        "Cast the result in the macro or at the call, as CAST(... AS {}); returns \
+                         types the call for checks but does not change the column's physical type.",
+                        call.returns.as_deref().unwrap_or(&column.data_type)
+                    ),
+                );
+                continue;
+            }
+            let reason = if direct && scope.set_branch {
                 "is in a set-operation branch that must cast each output explicitly"
             } else if direct {
                 "is a passthrough whose type is not proven against the declared contract"
@@ -233,31 +245,30 @@ impl OutputRule<'_> {
                     "output {:?} {reason}; declared type is {}",
                     name, column.data_type
                 ),
-                format!(
-                    "Wrap the complete expression in CAST(... AS {}) or establish that exact type on a direct upstream column.",
-                    column.data_type
-                ),
+                match call.filter(|call| call.returns.is_none() && call.returns_like.is_none()) {
+                    Some(call) => format!(
+                        "Declare returns {} in SQL macro {}(), or wrap the call in CAST(... AS {}).",
+                        column.data_type, call.macro_name, column.data_type
+                    ),
+                    None => format!(
+                        "Wrap the complete expression in CAST(... AS {}) or establish that exact type on a direct upstream column.",
+                        column.data_type
+                    ),
+                },
             );
         }
     }
 
-    /// Whether output `name` in `scope`'s select is one SQL macro call, typed by its `returns`.
-    fn sql_macro_output(&self, scope: OutputScope<'_>, name: Option<&str>) -> bool {
-        let (Some(macro_scope), Some(name)) = (scope.macro_scope, name) else {
-            return false;
-        };
-        self.sql_macro_outputs
-            .get_or_init(|| sql_macro_output_names(&self.model.authored_sql))
-            .iter()
-            .any(|(cte, branch, output)| {
-                output.eq_ignore_ascii_case(name)
-                    && *branch == scope.branch
-                    && match (cte.as_deref(), macro_scope) {
-                        (None, None) => true,
-                        (Some(cte), Some(scope)) => cte.eq_ignore_ascii_case(scope),
-                        _ => false,
-                    }
-            })
+    /// The expression SQL macro call `expression` is the whole of, found by its byte range.
+    fn whole_call(&self, expression: &ExpressionItem) -> Option<&TypedCall> {
+        let (start, end) = expression.span?;
+        let (start, end) = self.parsed.source.byte_range(start, end);
+        let sql: &str = &self.model.query_sql;
+        self.model.typed_calls.iter().rev().find(|call| {
+            call.start == start
+                && end <= call.end
+                && sql.get(end..call.end).is_some_and(only_trivia)
+        })
     }
 
     fn push(&self, offset: Option<usize>, message: String, remediation: String) {
@@ -274,11 +285,39 @@ impl OutputRule<'_> {
     }
 }
 
-/// The selects of `set_expr`'s set operation, a nested query counting as one.
-fn set_branches(set_expr: &SetFacts) -> usize {
-    match set_expr {
-        SetFacts::SetOperation { left, right, .. } => set_branches(left) + set_branches(right),
-        SetFacts::Select(_) | SetFacts::Query(_) | SetFacts::Other => 1,
+/// Why one call to a typed SQL macro does not establish its output's contract type.
+fn typed_call_message(name: &str, call: &TypedCall, declared: &str) -> String {
+    let macro_name: &str = &call.macro_name;
+    match call.returns.as_deref() {
+        Some(returns) => format!(
+            "output {name:?} is a call to SQL macro {macro_name}(), which declares returns \
+             {returns}, but its body isn't cast to it, so the column's physical type may differ; \
+             declared type is {declared}"
+        ),
+        None => format!(
+            "output {name:?} is a call to SQL macro {macro_name}(), whose returns TYPE OF does \
+             not set the column's physical type; declared type is {declared}"
+        ),
+    }
+}
+
+/// Whether `text` holds only whitespace and comments.
+fn only_trivia(mut text: &str) -> bool {
+    loop {
+        text = text.trim_start();
+        if text.is_empty() {
+            return true;
+        }
+        if let Some(comment) = text.strip_prefix("--") {
+            text = comment.split_once('\n').map_or("", |(_, rest)| rest);
+        } else if let Some(comment) = text.strip_prefix("/*") {
+            let Some((_, rest)) = comment.split_once("*/") else {
+                return false;
+            };
+            text = rest;
+        } else {
+            return false;
+        }
     }
 }
 
@@ -433,6 +472,24 @@ fn set_expression_output_names_with_missing(set_expr: &SetFacts) -> Option<Vec<O
             Some(names)
         }
         SetFacts::Other => None,
+    }
+}
+
+/// Whether two type spellings name one type in `dialect`, such as Snowflake `VARCHAR` and `STRING`.
+fn same_type(left: &str, right: &str, dialect: &str) -> bool {
+    if type_spelling_equal(left, right) {
+        return true;
+    }
+    match (
+        normalize_type(left, dialect),
+        normalize_type(right, dialect),
+    ) {
+        (Ok(left), Ok(right)) => {
+            left.parse_error.is_none()
+                && right.parse_error.is_none()
+                && left.normalized == right.normalized
+        }
+        _ => false,
     }
 }
 

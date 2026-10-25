@@ -8,8 +8,9 @@ The service decides when the app checks for its update and records what it
 did; the open app's own signed updater checks, downloads, verifies (minisign,
 the key it ships) and swaps the bundle (`updater.py`: `update.check_now`'s
 `app`, the `app.check` event, `update.app_result`). The service never launches
-the app: a closed app is checked at its next launch. This module only reads the
-installed bundle, to tell a closed app from none at all.
+the app: a closed app's update the service installs itself (`appinstall.py`,
+the same manifest, signature and key). This module only reads the installed
+bundle, to tell a closed app from none at all.
 
 Stdlib only; `plistlib` is imported when an app is found (the update cycle
 preloads it before it replaces the CLI's env, plan R2).

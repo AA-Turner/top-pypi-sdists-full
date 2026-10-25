@@ -283,10 +283,15 @@ class TestConst:
 # ── default / send_when_unset ────────────────────────────────────────────────
 class TestSendWhenUnset:
     def test_default_alone_keeps_legacy_semantics(self):
-        # Backward compat with seeded rows: default fills when unset...
+        # Seeded rows: a SHALLOWER cell default fills when unset (a deliberate cheaper
+        # choice); a DEEPER one no longer decides an unset run — the platform default
+        # ("low") does (owner ruling 2026-10-24, catalog/FEATURE.md §12)...
+        compiled = _compiled({"reasoning_effort": {"default": "minimal"}})
+        out, _ = compiled.outbound({})
+        assert out == {"reasoning_effort": "minimal"}
         compiled = _compiled({"reasoning_effort": {"default": "medium"}})
         out, _ = compiled.outbound({})
-        assert out == {"reasoning_effort": "medium"}
+        assert out == {"reasoning_effort": "low"}
         # ...and never overrides a set value.
         out, _ = compiled.outbound({"reasoning_effort": "high"})
         assert out == {"reasoning_effort": "high"}
@@ -327,10 +332,16 @@ class TestSendWhenUnset:
 
     def test_send_when_unset_fills_when_unset_too(self):
         compiled = _compiled(
+            {"verbosity": {"default": "medium", "send_when_unset": True}}
+        )
+        out, _ = compiled.outbound({})
+        assert out == {"verbosity": "medium"}
+        # On the depth key an unset run takes the platform default instead (ruling 2026-10-24).
+        compiled = _compiled(
             {"reasoning_effort": {"default": "medium", "send_when_unset": True}}
         )
         out, _ = compiled.outbound({})
-        assert out == {"reasoning_effort": "medium"}
+        assert out == {"reasoning_effort": "low"}
 
     def test_send_when_unset_never_overrides_a_sent_value(self):
         compiled = _compiled(

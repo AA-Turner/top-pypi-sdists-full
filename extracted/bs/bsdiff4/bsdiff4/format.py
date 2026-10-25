@@ -1,30 +1,33 @@
 import bz2
+import sys
 from io import BytesIO
+
+import bsdiff4.core as core
 
 
 MAGIC = b'BSDIFF40'
 
 
-import bsdiff4.core as core
+def check_size(size):
+    if size < 0:
+        raise ValueError("negative size in bsdiff4 patch")
+    if size > sys.maxsize:
+        raise ValueError("size too large in bsdiff4 patch")
 
 
-def _read_exact(fi, size):
+def read_exact(fi, size):
+    check_size(size)
     data = fi.read(size)
     if len(data) != size:
         raise ValueError("truncated bsdiff4 patch")
     return data
 
 
-def write_patch(fo, len_dst, tcontrol, bdiff, bextra):
+def write_patch(fo, len_dst, bcontrol, bdiff, bextra):
     "write a BSDIFF4-format patch to stream 'fo'"
     fo.write(MAGIC)
-    faux = BytesIO()
-    # write control tuples as series of offsets
-    for c in tcontrol:
-        for x in c:
-            faux.write(core.encode_int64(x))
     # compress each block
-    bcontrol = bz2.compress(faux.getvalue())
+    bcontrol = bz2.compress(bcontrol)
     bdiff = bz2.compress(bdiff)
     bextra = bz2.compress(bextra)
     for n in len(bcontrol), len(bdiff), len_dst:
@@ -43,22 +46,18 @@ def read_patch(fi, header_only=False):
     len_control = core.decode_int64(fi.read(8))
     len_diff = core.decode_int64(fi.read(8))
     len_dst = core.decode_int64(fi.read(8))
-    if min(len_control, len_diff, len_dst) < 0:
-        raise ValueError("negative size in bsdiff4 patch")
+    for size in len_control, len_diff, len_dst:
+        check_size(size)
     # read the control header
-    bcontrol = bz2.decompress(_read_exact(fi, len_control))
+    bcontrol = bz2.decompress(read_exact(fi, len_control))
     if len(bcontrol) % 24:
         raise ValueError("invalid control block")
-    tcontrol = [(core.decode_int64(bcontrol[i:i + 8]),
-                 core.decode_int64(bcontrol[i + 8:i + 16]),
-                 core.decode_int64(bcontrol[i + 16:i + 24]))
-                for i in range(0, len(bcontrol), 24)]
     if header_only:
-        return len_control, len_diff, len_dst, tcontrol
+        return len_control, len_diff, len_dst, bcontrol
     # read the diff and extra blocks
-    bdiff = bz2.decompress(_read_exact(fi, len_diff))
+    bdiff = bz2.decompress(read_exact(fi, len_diff))
     bextra = bz2.decompress(fi.read())
-    return len_dst, tcontrol, bdiff, bextra
+    return len_dst, bcontrol, bdiff, bextra
 
 
 def read_data(path):

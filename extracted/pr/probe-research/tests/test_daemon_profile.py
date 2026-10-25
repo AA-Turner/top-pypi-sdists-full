@@ -318,6 +318,8 @@ def test_no_run_read_is_a_write():
                                              ("probe context use other-team", "probe context"),
                                              ("probe context delete default", "probe context"),
                                              ("probe workspace use ws", "probe workspace"),
+                                             ("probe workspace limit ws --yes", "probe workspace"),
+                                             ("probe workspace limit --team", "probe workspace"),
                                              ("probe project use p1", "probe project use"),
                                              ("probe token revoke t1", "probe token"),
                                              ("probe session initialize --session s1 --cwd .", "probe session"),
@@ -378,7 +380,8 @@ DAEMONS = {
     "mcp token set", "mcp token unset",
     # What moves the key, account or folder the daemon records with, or holds
     # and drops its queued writes.
-    "login", "logout", "context use", "workspace use", "project use", "token revoke", "token create",
+    "login", "logout", "context use", "workspace use", "workspace limit", "project use", "token revoke",
+    "token create",
     "session initialize", "outbox adopt", "outbox discard", "outbox pause", "outbox resume",
     "snapshot-prune-refs",
     # The team's permissions and workspaces.

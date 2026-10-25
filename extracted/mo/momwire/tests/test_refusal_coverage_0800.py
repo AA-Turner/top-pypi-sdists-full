@@ -280,6 +280,21 @@ def test_every_allowance_holds(printed):
             f"{key} is ALLOWED as unreachable, but a fixture reaches it: "
             "drop the allowance"
         )
+        if why.startswith("declined:"):
+            from momwire import _accel
+            from momwire.eznec._shell import render
+
+            deck = OWN / why.split(":", 1)[1]
+            for seam in SEAMS.values():
+                answer = getattr(_accel.acc, seam)(deck.read_bytes())
+                assert answer["route"] == "declined", (deck, seam, answer["route"])
+                assert answer["message"] == "4nec2-cards", (
+                    deck,
+                    seam,
+                    answer["message"],
+                )
+            assert re.search(regex, render(deck.read_text()), re.S), deck
+            continue
         if why.startswith("reader:"):
             deck = OWN / why.split(":", 1)[1]
             reached = [

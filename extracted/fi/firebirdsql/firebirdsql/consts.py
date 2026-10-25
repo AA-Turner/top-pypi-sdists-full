@@ -204,6 +204,34 @@ SQL_TYPE_DEC128 = 32762
 SQL_TYPE_BOOLEAN = 32764
 SQL_TYPE_NULL = 32766
 
+# FB4 Batch API
+batchVersion1 = 1
+batchTagRecordCounts = 2
+batchTagBufferBytes = 3
+batchTagBlobPolicy = 4
+batchTagDetailedErrors = 5
+batchBlobIDUser = 2
+
+BATCH_SUPPORTED_SQL_TYPES = {
+    SQL_TYPE_TEXT,
+    SQL_TYPE_VARYING,
+    SQL_TYPE_SHORT,
+    SQL_TYPE_LONG,
+    SQL_TYPE_FLOAT,
+    SQL_TYPE_DOUBLE,
+    SQL_TYPE_D_FLOAT,
+    SQL_TYPE_TIMESTAMP,
+    SQL_TYPE_TIME,
+    SQL_TYPE_DATE,
+    SQL_TYPE_INT64,
+    SQL_TYPE_QUAD,
+    SQL_TYPE_BOOLEAN,
+    SQL_TYPE_TIMESTAMP_TZ,
+    SQL_TYPE_TIME_TZ,
+}
+
+
+
 
 ISOLATION_LEVEL_READ_COMMITED_LEGACY = 0
 ISOLATION_LEVEL_READ_COMMITED = 1
@@ -561,6 +589,48 @@ CNCT_client_crypt = 11
 
 DSQL_close = 1
 DSQL_drop = 2
+
+# Slice descriptor (SDL) node marks
+isc_sdl_version1 = 1
+isc_sdl_relation = 2
+isc_sdl_field = 4
+isc_sdl_struct = 6
+isc_sdl_variable = 7
+isc_sdl_scalar = 8
+isc_sdl_tiny_integer = 9
+isc_sdl_short_integer = 10
+isc_sdl_long_integer = 11
+isc_sdl_do2 = 34
+isc_sdl_do1 = 35
+isc_sdl_element = 36
+isc_sdl_schema = 37
+isc_sdl_eoc = 255
+
+# Element BLR type codes
+blr_type_short = 7
+blr_type_long = 8
+blr_type_quad = 9
+blr_type_float = 10
+blr_type_d_float = 11
+blr_type_date = 12
+blr_type_time = 13
+blr_type_text = 14
+blr_type_text2 = 15
+blr_type_int64 = 16
+blr_type_bool = 23
+blr_type_boolean = 23
+blr_type_dec64 = 24
+blr_type_dec128 = 25
+blr_type_int128 = 26
+blr_type_double = 27
+blr_type_time_tz = 28
+blr_type_ts_tz = 29
+blr_type_timestamp_tz = 29
+blr_type_timestamp = 35
+blr_type_varying = 37
+blr_type_varying2 = 38
+blr_type_cstring = 40
+blr_type_cstring2 = 41
 
 charset_map = {
     # DB CHAR SET NAME    :   PYTHON CODEC NAME (CANONICAL)

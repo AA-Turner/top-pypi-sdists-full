@@ -805,9 +805,12 @@ def _tool(event: str, tool: str, tool_input: dict, **fields) -> dict:
 def test_the_per_script_replica_renders_0_163_0(rel):
     """The old shape the parity checks compare against is the one that shipped:
     today's routes less the ones added since (the Skill route that refreshes
-    Claude Code's skill copies, a no-op under Kimi, which has none)."""
+    Claude Code's skill copies, a no-op under Kimi, which has none; the prompt
+    route that moves a session off an old `tap watch`, which leaves Kimi's
+    sessions alone)."""
     routes = {
-        e: [g for g in groups if g.get("matcher") != "^Skill$"]
+        e: [{**g, "hooks": [h for h in g["hooks"] if "tap_handover.py" not in h["command"]]}
+            for g in groups if g.get("matcher") != "^Skill$"]
         for e, groups in _routes(rel).items() if e != "TurnStarted"
     }
     assert _per_script_entries(routes) == _old_hooks(rel)
@@ -1137,8 +1140,9 @@ def warm_host(stand_in):
     yield stand_in
     proc.kill()
     proc.wait()
-    if os.path.exists(path):
-        os.unlink(path)
+    for leftover in (path, path[: -len(".sock")] + ".key"):  # its socket and its key (#3355)
+        if os.path.lexists(leftover):
+            os.unlink(leftover)
 
 
 @pytest.mark.parametrize("case", ["a prompt, several routes", "a refused tool call", "a prompt a route vetoes"])
@@ -1161,3 +1165,160 @@ def test_the_adapter_and_the_dispatcher_spell_unshown_alike():
     dispatch = _load("_test_kimi_unshown_dispatch", HOOKS / "dispatch.py")
     assert _io().UNSHOWN_FLAG == dispatch.UNSHOWN
     assert all(e in kimi_hooks.TOOL_EVENTS for e in kimi_hooks.UNSHOWN)
+
+
+# An update reaches an open Kimi session (plan C3). Kimi keeps the folder a
+# session started with ($KIMI_PLUGIN_ROOT) and its entries run that folder's
+# adapter; Probe installs each version into a folder of its own beside it. The
+# adapter hands each event to the copy Kimi's plugin list records
+# (`harness_io.hand_over`, `dispatch.kimi_installed_root`), and an entry whose
+# folder is gone runs the newest installed one instead of nothing.
+
+_SAYS = textwrap.dedent("""
+    import json, os, sys
+    sys.stdin.read()
+    with open(os.path.join(os.environ["XDG_STATE_HOME"], "ran.jsonl"), "a") as fh:
+        fh.write(json.dumps([sys.argv[1], os.environ.get("CLAUDE_PLUGIN_ROOT"), os.environ.get("KIMI_PLUGIN_ROOT"),
+                             os.environ.get("PROBE_HOOKS_HANDED_OVER")]) + "\\n")
+""")
+
+
+def _kimi_copy(kimi: Path, plugin: str, version: str) -> Path:
+    """A version folder of a tracking plugin as Probe installs it into Kimi
+    (`kimi_config.versioned_dir`): the real adapter and dispatcher, Kimi's
+    manifest, and one Stop route that says which copy ran it."""
+    root = kimi / "plugins" / "managed" / f"{plugin}@{version}"
+    hooks = root / "hooks"
+    hooks.mkdir(parents=True)
+    for name in _COPIED:
+        shutil.copy2(HOOKS / name, hooks / name)
+    (hooks / "says.py").write_text(_SAYS)
+    dispatch = _load(f"_test_kimi_copy_dispatch_{plugin}_{version}", hooks / "dispatch.py")
+    command = dispatch._plain_command([], "says.py", True, [version.replace(".", "-")])
+    (hooks / "routes.json").write_text(json.dumps({"hooks": {"Stop": [{"lane": "stop", "hooks": [
+        {"type": "command", "command": command, "timeout": 5}]}]}}))
+    (root / ".kimi-plugin").mkdir()
+    (root / ".kimi-plugin" / "plugin.json").write_text(json.dumps({"name": plugin, "version": version}))
+    return root
+
+
+def _kimi_records(kimi: Path, *records: "tuple[str, Path]") -> None:
+    path = kimi / "plugins" / "installed.json"
+    path.write_text(json.dumps({"version": 1, "plugins": [
+        {"id": plugin, "root": str(root), "source": "local-path", "enabled": True} for plugin, root in records
+    ]}, indent=2))
+
+
+def _stop(root: Path, env: dict) -> "tuple[subprocess.CompletedProcess, list]":
+    """The Stop entry of the session's own manifest (rendered from its folder),
+    run as Kimi runs it, from that folder."""
+    [entry] = [e for e in kimi_hooks.render_hooks(root, True) if e["event"] == "Stop"]
+    done = _kimi(entry, _payload("Stop", stop_hook_active=False), root, env)
+    path = Path(env["XDG_STATE_HOME"]) / "ran.jsonl"
+    return done, [json.loads(line) for line in path.read_text().splitlines()] if path.exists() else []
+
+
+@pytest.mark.parametrize("plugin", ["probe-research", "probe-research-daemon"])
+def test_an_open_kimi_session_runs_the_installed_copys_hooks(isolated, tmp_path, monkeypatch, plugin):
+    kimi = Path(os.environ["KIMI_CODE_HOME"])
+    old, new = _kimi_copy(kimi, plugin, "0.171.0"), _kimi_copy(kimi, plugin, "0.172.0")
+    _kimi_records(kimi, ("probe-research-tap", kimi / "plugins" / "managed" / "probe-research-tap@0.10.18"),
+                  (plugin, new))
+    done, ran = _stop(old, _fresh_state(tmp_path, monkeypatch, "s"))
+    assert done.returncode == 0, done.stderr
+    # The installed copy's routes, given its own folder; the hand-over marker
+    # never reaches a route.
+    assert ran == [["0-172-0", str(new), str(new), None]]
+
+
+def test_a_rolled_back_kimi_plugin_stops_running_in_open_sessions_too(isolated, tmp_path, monkeypatch):
+    kimi = Path(os.environ["KIMI_CODE_HOME"])
+    old, new = _kimi_copy(kimi, "probe-research", "0.171.0"), _kimi_copy(kimi, "probe-research", "0.172.0")
+    _kimi_records(kimi, ("probe-research", old))
+    _done, ran = _stop(new, _fresh_state(tmp_path, monkeypatch, "s"))
+    assert [row[:2] for row in ran] == [["0-171-0", str(old)]]
+
+
+@pytest.mark.parametrize("case", ["records-this-copy", "no-list", "two-records", "another-plugins-folder",
+                                  "recorded-outside-managed", "no-adapter-there", "routes-broken-there",
+                                  "no-manifest-there", "already-handed"])
+def test_otherwise_a_kimi_event_runs_in_the_sessions_own_copy(isolated, tmp_path, monkeypatch, case):
+    kimi = Path(os.environ["KIMI_CODE_HOME"])
+    old, new = _kimi_copy(kimi, "probe-research", "0.171.0"), _kimi_copy(kimi, "probe-research", "0.172.0")
+    env = _fresh_state(tmp_path, monkeypatch, "s")
+    if case == "records-this-copy":
+        _kimi_records(kimi, ("probe-research", old))
+    elif case == "two-records":
+        _kimi_records(kimi, ("probe-research", new), ("probe-research", old))
+    elif case == "another-plugins-folder":
+        _kimi_records(kimi, ("probe-research-daemon", _kimi_copy(kimi, "probe-research-daemon", "0.172.0")))
+    elif case == "recorded-outside-managed":
+        _kimi_records(kimi, ("probe-research", shutil.copytree(new, tmp_path / "elsewhere" / new.name)))
+    elif case == "no-adapter-there":
+        _kimi_records(kimi, ("probe-research", new))
+        (new / "hooks" / "harness_io.py").unlink()
+    elif case == "routes-broken-there":
+        _kimi_records(kimi, ("probe-research", new))
+        (new / "hooks" / "routes.json").write_text("{broken")
+    elif case == "no-manifest-there":
+        _kimi_records(kimi, ("probe-research", new))
+        shutil.rmtree(new / ".kimi-plugin")
+    elif case == "already-handed":
+        _kimi_records(kimi, ("probe-research", new))
+        env["PROBE_HOOKS_HANDED_OVER"] = str(tmp_path / "the-copy-it-came-from")
+    done, ran = _stop(old, env)
+    assert done.returncode == 0, done.stderr
+    assert ran == [["0-171-0", str(old), str(old), None]]
+
+
+def test_a_kimi_session_on_a_pruned_version_runs_the_kept_one(isolated, tmp_path, monkeypatch):
+    """A version folder older than a week becomes a link to the kept version
+    (`kimi_config._prune_versions`): the session's entries still find their
+    adapter, and the kept copy's routes run."""
+    kimi = Path(os.environ["KIMI_CODE_HOME"])
+    old, new = _kimi_copy(kimi, "probe-research", "0.171.0"), _kimi_copy(kimi, "probe-research", "0.172.0")
+    _kimi_records(kimi, ("probe-research", new))
+    [entry] = [e for e in kimi_hooks.render_hooks(old, True) if e["event"] == "Stop"]
+    shutil.rmtree(old)
+    old.symlink_to(new.name)
+    env = _fresh_state(tmp_path, monkeypatch, "s")
+    done = _kimi(entry, _payload("Stop", stop_hook_active=False), old, env)
+    assert done.returncode == 0, done.stderr
+    ran = [json.loads(line) for line in (Path(env["XDG_STATE_HOME"]) / "ran.jsonl").read_text().splitlines()]
+    assert [row[0] for row in ran] == ["0-172-0"]
+
+
+def test_a_kimi_session_whose_folder_is_gone_runs_the_newest_installed_copy(isolated, tmp_path, monkeypatch):
+    """No folder where the session started (an uninstall and a reinstall, a
+    prune that could make no link): the entry runs the newest-installed folder
+    of the plugin beside it, instead of nothing."""
+    kimi = Path(os.environ["KIMI_CODE_HOME"])
+    old = _kimi_copy(kimi, "probe-research", "0.171.0")
+    stale = _kimi_copy(kimi, "probe-research", "0.170.0")
+    new = _kimi_copy(kimi, "probe-research", "0.172.0")
+    os.utime(stale, (1, 1))
+    _kimi_records(kimi, ("probe-research", new))
+    [entry] = [e for e in kimi_hooks.render_hooks(old, True) if e["event"] == "Stop"]
+    shutil.rmtree(old)
+    env = _fresh_state(tmp_path, monkeypatch, "s")
+    done = _kimi(entry, _payload("Stop", stop_hook_active=False), tmp_path, {**env, "KIMI_PLUGIN_ROOT": str(old)})
+    assert done.returncode == 0, done.stderr
+    ran = [json.loads(line) for line in (Path(env["XDG_STATE_HOME"]) / "ran.jsonl").read_text().splitlines()]
+    assert [row[:2] for row in ran] == [["0-172-0", str(new)]]
+
+
+def test_every_kimi_entry_finds_a_folder_when_its_own_is_gone():
+    """Each rendered entry, of every plugin, falls back before its own check."""
+    for rel in kimi_hooks.PLUGINS:
+        for hook in json.loads((AGENT / rel / ".kimi-plugin" / "plugin.json").read_text())["hooks"]:
+            command = hook["command"]
+            own = re.search(r'\[ -[fx] "\$ROOT/hooks/([A-Za-z0-9_.-]+)" \] \|\| exit 0; ', command)
+            assert own, command
+            fallback = f'if [ ! -e "$ROOT/hooks/{own.group(1)}" ]; then '
+            assert command.index("unset PLUGIN_ROOT") < command.index(fallback) < own.start(), command
+            assert 'export KIMI_PLUGIN_ROOT="$ROOT"; fi; ' in command[command.index(fallback):own.start()]
+
+
+def test_the_adapter_and_the_dispatcher_spell_the_hand_over_alike():
+    dispatch = _load("_test_kimi_handed_over_dispatch", HOOKS / "dispatch.py")
+    assert _io().HANDED_OVER == dispatch.HANDED_OVER

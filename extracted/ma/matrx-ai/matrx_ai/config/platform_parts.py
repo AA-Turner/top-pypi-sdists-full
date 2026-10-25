@@ -140,6 +140,14 @@ MID_LOOP_PARTS: dict[str, PlatformPart] = {
             "an Orchestra declares members that must be consulted before the final answer",
         ),
         PlatformPart(
+            "answer_check",
+            "Answer format: correct the named problems",
+            "host_turn",
+            "matrx_ai/orchestrator/answer_checks.py correction_notice (executor finishing gate)",
+            "an answer breaks a rule of its declared format: once within the correction budget, "
+            "name the offending text and ask for a corrected answer before persistence",
+        ),
+        PlatformPart(
             "change_claim_gate",
             "Claimed changes without a write",
             "host_turn",

@@ -57,6 +57,7 @@ from .url import (
     _sanitize_url_value_with_rule,
     _strip_invisible_unicode,
 )
+from .values import Regex
 
 __all__ = [
     "CSS_PRESET_TEXT",
@@ -66,6 +67,7 @@ __all__ = [
     "_URL_LIKE_ATTRS",
     "CompiledSanitizationPolicy",
     "DisallowedTagHandling",
+    "Regex",
     "SanitizationPolicy",
     "UnsafeHandler",
     "UnsafeHandling",

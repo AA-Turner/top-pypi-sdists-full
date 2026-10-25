@@ -71,8 +71,27 @@ void PathsOutputWriter::write(FactorizedTable& fTable, table_id_t tableID, Limit
     for (auto& [offset, _] : sparseGraph.getCurrentData()) {
         write(fTable, {offset, tableID}, counter);
     }
+    // A zero lower bound must also yield the empty (source, source) walk. writeInternal only
+    // emits it when the source has no parent entry, so when the source reached itself take
+    // the covered-source path instead of re-running the DFS (which would duplicate every
+    // non-empty source-to-source walk instead of producing the single length-0 row).
     if (info.lowerBound == 0 && sourceNodeID_.tableID == tableID) {
-        write(fTable, sourceNodeID_, counter);
+        if (findFirstParent(sourceNodeID_.offset) == nullptr) {
+            // findFirstParent is predicate-filtered: null means either the source was
+            // never re-reached, or it was re-reached but every closed walk failed the
+            // node predicate. Only the former needs an emission here -- in the latter
+            // case the table scan above already visited the source (its raw parent
+            // list is non-empty) and writeInternal already emitted the single
+            // length-0 row, so emitting again would duplicate it (see #1128).
+            if (bfsGraph.getParentListHead(sourceNodeID_.offset) == nullptr) {
+                write(fTable, sourceNodeID_, counter);
+            }
+        } else if (inOutputNodeMask(sourceNodeID_.offset)) {
+            // Same preamble write(fTable, nodeID, counter) does, so writeCoveredSourceWalk
+            // only has to emit the row and cannot drift from the nodeID overload.
+            dstNodeIDVector->setValue<nodeID_t>(0, sourceNodeID_);
+            writeCoveredSourceWalk(fTable, counter);
+        }
     }
 }
 

@@ -2,11 +2,9 @@
 
 from concurrent.futures import Executor, Future, ThreadPoolExecutor
 from types import TracebackType
-from typing import Any, Callable, Dict, Optional, Tuple, Type
+from typing import Any, Callable, Dict, Optional, Self, Tuple, Type
 
 from pyee.base import EventEmitter
-
-Self = Any
 
 __all__ = ["ExecutorEventEmitter"]
 
@@ -44,6 +42,10 @@ class ExecutorEventEmitter(EventEmitter):
     non-blocking.
 
     No effort is made to ensure thread safety, beyond using an executor.
+
+    Args:
+        executor: Executor that runs handlers. `None` creates a
+            `ThreadPoolExecutor`.
     """
 
     def __init__(self: Self, executor: Optional[Executor] = None) -> None:
@@ -63,6 +65,8 @@ class ExecutorEventEmitter(EventEmitter):
 
         @future.add_done_callback
         def _callback(f: Future) -> None:
+            if f.cancelled():
+                return
             exc: Optional[BaseException] = f.exception()
             if isinstance(exc, Exception):
                 self.emit("error", exc)
@@ -70,7 +74,12 @@ class ExecutorEventEmitter(EventEmitter):
                 raise exc
 
     def shutdown(self: Self, wait: bool = True) -> None:
-        """Call `shutdown` on the internal executor."""
+        """Call `shutdown` on the internal executor.
+
+        Args:
+            wait: Passed through to `Executor.shutdown`. `True` waits until
+                queued work finishes. Defaults to `True`.
+        """
 
         self._executor.shutdown(wait=wait)
 

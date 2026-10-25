@@ -272,6 +272,9 @@ def service_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempP
     # Fast lifecycle by default; a test that measures the real defaults unsets these.
     monkeypatch.setenv("PROBE_SERVICE_DISCOVERY_S", "0")
     monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "30")
+    # Whatever a test service sends to PostHog goes nowhere (nothing listens on
+    # port 9): the suite's PROBE_TELEMETRY=off never reaches its clean env.
+    monkeypatch.setenv("PROBE_SERVICE_TELEMETRY_HOST", "http://127.0.0.1:9")
     paths.private_dir(paths.service_dir())
     client.write_runtime(sys.executable, "test")
     sh = ServiceHome(home)

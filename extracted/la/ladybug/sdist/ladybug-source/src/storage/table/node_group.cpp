@@ -1,12 +1,15 @@
 #include "storage/table/node_group.h"
 
 #include "common/assert.h"
+#include "common/data_chunk/data_chunk_state.h"
 #include "common/types/types.h"
 #include "common/uniq_lock.h"
+#include "common/vector/value_vector.h"
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/enums/residency_state.h"
 #include "storage/storage_utils.h"
 #include "storage/table/chunked_node_group.h"
+#include "storage/table/column.h"
 #include "storage/table/column_chunk.h"
 #include "storage/table/column_chunk_scanner.h"
 #include "storage/table/columnar_node_table_base.h"
@@ -179,6 +182,8 @@ void NodeGroup::initializeScanState(const Transaction*, const UniqLock& lock,
     TableScanState& state) const {
     auto& nodeGroupScanState = *state.nodeGroupScanState;
     nodeGroupScanState.chunkedGroupIdx = 0;
+    nodeGroupScanState.numCheckpoints = numCheckpoints;
+    nodeGroupScanState.resetEarlyFilterBackoff();
     ChunkedNodeGroup* firstChunkedGroup = chunkedGroups.getFirstGroup(lock);
     // A sub-node-group morsel may start after the first row of the group.
     nodeGroupScanState.nextRowToScan =
@@ -186,9 +191,28 @@ void NodeGroup::initializeScanState(const Transaction*, const UniqLock& lock,
     initializeScanStateForChunkedGroup(state, firstChunkedGroup);
 }
 
+// Read-only transactions keep running across a checkpoint, which merges all chunked groups into a
+// single persistent one and rewrites its column chunk metadata. A scan state initialized before
+// the checkpoint still holds the old chunked group index and the old metadata (page ranges,
+// compression metadata, dictionary sizes), so re-initialize it against the checkpointed group.
+// Row indices within the node group are stable across a checkpoint, so nextRowToScan is kept.
+void NodeGroup::refreshScanStateIfCheckpointed(const UniqLock& lock,
+    const TableScanState& state) const {
+    auto& nodeGroupScanState = *state.nodeGroupScanState;
+    if (nodeGroupScanState.numCheckpoints == numCheckpoints) {
+        return;
+    }
+    nodeGroupScanState.numCheckpoints = numCheckpoints;
+    nodeGroupScanState.chunkedGroupIdx = 0;
+    if (const auto* firstChunkedGroup = chunkedGroups.getFirstGroup(lock)) {
+        initializeScanStateForChunkedGroup(state, firstChunkedGroup);
+    }
+}
+
 NodeGroupScanResult NodeGroup::scan(const Transaction* transaction, TableScanState& state) const {
     // TODO(Guodong): Move the locked part of figuring out the chunked group to initScan.
     const auto lock = chunkedGroups.lock();
+    refreshScanStateIfCheckpointed(lock, state);
     auto& nodeGroupScanState = *state.nodeGroupScanState;
     DASSERT(nodeGroupScanState.chunkedGroupIdx < chunkedGroups.getNumGroups(lock));
     // A sub-node-group morsel may start several chunked groups past the beginning of the
@@ -243,17 +267,11 @@ NodeGroupScanResult NodeGroup::scan(const Transaction* transaction, TableScanSta
         numRowsToScan);
     const auto startRow = nodeGroupScanState.nextRowToScan;
     nodeGroupScanState.nextRowToScan += numRowsToScan;
-    if (enableSemiMask) {
-        // The chunk scan above resets the selection (visibility/zonemap), discarding the
-        // pre-check's subset. Intersect the mask with the surviving rows so only masked
-        // rows are materialized instead of the whole chunk. Like the pre-check above,
-        // report an empty chunk as {nextRow, 0} (not EMPTY) so the caller keeps scanning
-        // the rest of the node group.
-        NodeTable::applySemiMaskFilter(state, startNodeOffset, numRowsToScan,
-            state.outState->getSelVectorUnsafe());
-        if (state.outState->getSelVector().getSelSize() == 0) {
-            return NodeGroupScanResult{nodeGroupScanState.nextRowToScan, 0};
-        }
+    // The chunk scan applied the mask to the visible rows. Like the pre-check above, report an
+    // empty chunk as {nextRow, 0} (not EMPTY) so the caller keeps scanning the rest of the
+    // node group.
+    if (enableSemiMask && state.outState->getSelVector().getSelSize() == 0) {
+        return NodeGroupScanResult{nodeGroupScanState.nextRowToScan, 0};
     }
     return NodeGroupScanResult{startRow, numRowsToScan};
 }
@@ -285,12 +303,10 @@ NodeGroupScanResult NodeGroup::scan(Transaction* transaction, TableScanState& st
         scanResult = scanInternal(chunkedGroups.lock(), transaction, state, startOffsetInGroup,
             numRowsToScan);
     }
-    // scanInternal resets the selection (visibility/zonemap), clobbering the pre-check's
-    // subset even when outputVectors is empty (the anchor sel vector is rewritten before
-    // the column loop). Intersect the mask with the surviving rows in all cases so only
-    // masked rows are reported. Only the actually scanned prefix (scanResult.numRows) is
-    // valid: the requested range may span chunked groups while a single call scans the
-    // first one.
+    // The chunk scan applies the mask itself, but scanInternal can return before reaching it
+    // (rows before the group's first row), leaving the pre-check's selection over the whole
+    // requested range. Only the actually scanned prefix (scanResult.numRows) is valid: the
+    // requested range may span chunked groups while a single call scans the first one.
     if (enableSemiMask) {
         NodeTable::applySemiMaskFilter(state, startNodeOffset, scanResult.numRows,
             state.outState->getSelVectorUnsafe());
@@ -313,6 +329,7 @@ NodeGroupScanResult NodeGroup::scanInternal(const UniqLock& lock, Transaction* t
         return NodeGroupScanResult{startOffsetInGroup, numRowsToScan};
     }
 
+    refreshScanStateIfCheckpointed(lock, state);
     auto& nodeGroupScanState = *state.nodeGroupScanState;
     nodeGroupScanState.nextRowToScan = startOffsetInGroup;
 
@@ -356,6 +373,7 @@ bool NodeGroup::lookupNoLock(const Transaction* transaction, const TableScanStat
 
 bool NodeGroup::lookupMultiple(const UniqLock& lock, const Transaction* transaction,
     const TableScanState& state) const {
+    refreshScanStateIfCheckpointed(lock, state);
     idx_t numTuplesFound = 0;
     for (auto i = 0u; i < state.rowIdxVector->state->getSelVector().getSelSize(); i++) {
         auto& nodeGroupScanState = *state.nodeGroupScanState;
@@ -374,6 +392,7 @@ bool NodeGroup::lookupMultiple(const UniqLock& lock, const Transaction* transact
 bool NodeGroup::lookup(const Transaction* transaction, const TableScanState& state,
     sel_t posInSel) const {
     const auto lock = chunkedGroups.lock();
+    refreshScanStateIfCheckpointed(lock, state);
     return lookupNoLock(transaction, state, posInSel);
 }
 
@@ -419,6 +438,16 @@ bool NodeGroup::hasDeletions(const Transaction* transaction) const {
     return false;
 }
 
+bool NodeGroup::hasRetainedHorizon() const {
+    const auto lock = chunkedGroups.lock();
+    for (auto i = 0u; i < chunkedGroups.getNumGroups(lock); i++) {
+        if (chunkedGroups.getGroup(lock, i)->getRetentionHorizon() != INVALID_TRANSACTION) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void NodeGroup::addColumn(TableAddColumnState& addColumnState, PageAllocator* pageAllocator,
     ColumnStats* newColumnStats) {
     dataTypes.push_back(addColumnState.propertyDefinition.getType().copy());
@@ -431,6 +460,14 @@ void NodeGroup::addColumn(TableAddColumnState& addColumnState, PageAllocator* pa
 
 void NodeGroup::rollbackInsert(row_idx_t startRow) {
     const auto lock = chunkedGroups.lock();
+    // Version rollback truncates chunked groups, but a startRow of 0 means every
+    // in-memory row is undone. Drop all chunked groups so a later append cannot
+    // stack on stale physical rows while NodeGroup::numRows is already 0.
+    if (startRow == 0) {
+        chunkedGroups.clear(lock);
+        numRows = 0;
+        return;
+    }
     const auto numEmptyTrailingGroups = chunkedGroups.getNumEmptyTrailingGroups(lock);
     chunkedGroups.removeTrailingGroups(lock, numEmptyTrailingGroups);
     numRows = startRow;
@@ -452,14 +489,38 @@ void NodeGroup::checkpoint(MemoryManager& memoryManager, NodeGroupCheckpointStat
     const auto firstGroup = chunkedGroups.getFirstGroup(lock);
     const auto hasPersistentData = firstGroup->getResidencyState() == ResidencyState::ON_DISK;
     const auto* txn = state.transaction ? state.transaction : &DUMMY_CHECKPOINT_TRANSACTION;
+    // Snapshot-horizon floor for open readers (INVALID_TRANSACTION when none are open, in
+    // which case every path below behaves exactly as before).
+    const auto horizon = state.retentionHorizon;
     // Re-populate version info here first.
-    auto checkpointedVersionInfo = checkpointVersionInfo(lock, txn);
+    auto checkpointedVersionInfo = checkpointVersionInfo(lock, txn, horizon);
+    const auto allDeleted = checkpointedVersionInfo->getNumDeletions(txn, 0, numRows) ==
+                            numRows - firstGroup->getStartRowIdx();
+    // A group whose rows are all deleted may only be flushed empty when no open reader
+    // needs any of them: rows deleted at/after the horizon stay visible to older readers
+    // and must be physically retained with their markers.
+    auto useEmpty = allDeleted;
+    if (useEmpty && horizon != INVALID_TRANSACTION) {
+        useEmpty = !checkpointedVersionInfo->hasRetainedEntries(horizon) &&
+                   !hasRetainedUpdateNodes(lock, horizon);
+    }
+    // Capture persistent retention state before the page-rewrite phase below observes
+    // rewritten pages. In-memory sources stay intact until the group swap at the end, so
+    // their transplants read live state afterwards.
+    std::vector<UpdateRetentionCapture> persistentCaptures;
+    const auto numPersistentRows = firstGroup->getNumRows();
+    if (!useEmpty && horizon != INVALID_TRANSACTION && hasPersistentData) {
+        persistentCaptures = capturePersistentUpdateRetention(lock, memoryManager, state, horizon);
+    }
     std::unique_ptr<ChunkedNodeGroup> checkpointedChunkedGroup;
-    if (checkpointedVersionInfo->getNumDeletions(txn, 0, numRows) ==
-        numRows - firstGroup->getStartRowIdx()) {
+    if (useEmpty) {
         reclaimStorage(state.pageAllocator, lock);
+        std::vector<LogicalType> checkpointedTypes;
+        for (const auto columnID : state.columnIDs) {
+            checkpointedTypes.push_back(dataTypes[columnID].copy());
+        }
         checkpointedChunkedGroup =
-            ChunkedNodeGroup::flushEmpty(memoryManager, dataTypes, enableCompression,
+            ChunkedNodeGroup::flushEmpty(memoryManager, checkpointedTypes, enableCompression,
                 StorageConfig::CHUNKED_NODE_GROUP_CAPACITY, numRows, state.pageAllocator);
     } else {
         if (hasPersistentData) {
@@ -468,9 +529,15 @@ void NodeGroup::checkpoint(MemoryManager& memoryManager, NodeGroupCheckpointStat
             checkpointedChunkedGroup = checkpointInMemOnly(memoryManager, lock, state);
         }
         checkpointedChunkedGroup->setVersionInfo(std::move(checkpointedVersionInfo));
+        if (horizon != INVALID_TRANSACTION) {
+            applyRetainedUpdates(lock, *checkpointedChunkedGroup, state, horizon,
+                std::move(persistentCaptures), hasPersistentData, numPersistentRows);
+            checkpointedChunkedGroup->setRetentionHorizon(horizon);
+        }
     }
     chunkedGroups.clear(lock);
     chunkedGroups.appendGroup(lock, std::move(checkpointedChunkedGroup));
+    numCheckpoints++;
     checkpointDataTypesNoLock(state);
 }
 
@@ -521,6 +588,8 @@ std::unique_ptr<ChunkedNodeGroup> NodeGroup::checkpointInMemAndOnDisk(MemoryMana
     const auto insertChunkedGroup = scanAllInsertedAndVersions<ResidencyState::IN_MEMORY>(
         memoryManager, lock, state.columnIDs, columnPtrs, txn);
     const auto numInsertedRows = insertChunkedGroup->getNumRows();
+    // state.columns and the insert group are positional; the persistent group is indexed by
+    // column ID.
     for (auto i = 0u; i < state.columnIDs.size(); i++) {
         const auto columnID = state.columnIDs[i];
         // Scan updates from the persistent chunked group when persistent data exists.
@@ -533,10 +602,10 @@ std::unique_ptr<ChunkedNodeGroup> NodeGroup::checkpointInMemAndOnDisk(MemoryMana
         std::vector<ChunkCheckpointState> chunkCheckpointStates;
         if (columnHasUpdates) {
             scanCommittedUpdatesForColumn(chunkCheckpointStates, memoryManager, lock, columnID,
-                state.columns[columnID], txn);
+                state.columns[i], txn);
         }
         if (numInsertedRows > 0) {
-            chunkCheckpointStates.emplace_back(insertChunkedGroup->moveColumnChunk(columnID),
+            chunkCheckpointStates.emplace_back(insertChunkedGroup->moveColumnChunk(i),
                 numPersistentRows, numInsertedRows);
         }
         firstGroup->getColumnChunk(columnID).checkpoint(*state.columns[i],
@@ -546,7 +615,14 @@ std::unique_ptr<ChunkedNodeGroup> NodeGroup::checkpointInMemAndOnDisk(MemoryMana
         std::make_unique<ChunkedNodeGroup>(*chunkedGroups.getGroup(lock, 0), state.columnIDs);
     DASSERT(checkpointedChunkedGroup->getResidencyState() == ResidencyState::ON_DISK);
     checkpointedChunkedGroup->resetNumRowsFromChunks();
-    checkpointedChunkedGroup->resetVersionAndUpdateInfo();
+    if (state.retentionHorizon == INVALID_TRANSACTION) {
+        checkpointedChunkedGroup->resetVersionAndUpdateInfo();
+    } else {
+        // Retention path: the moved version info is discarded (the caller installs a
+        // horizon-aware fresh build), but the moved update chains are kept for the
+        // retention filter/transplant that runs after the page rewrite.
+        checkpointedChunkedGroup->setVersionInfo(nullptr);
+    }
     // The first chunked group is the only persistent one
     // The checkpointed columns have been moved to the checkpointedChunkedGroup, the
     // remaining must have been dropped
@@ -569,8 +645,11 @@ std::unique_ptr<ChunkedNodeGroup> NodeGroup::checkpointInMemOnly(MemoryManager& 
 }
 
 std::unique_ptr<VersionInfo> NodeGroup::checkpointVersionInfo(const UniqLock& lock,
-    const Transaction* transaction) const {
+    const Transaction* transaction, transaction_t retentionHorizon) const {
     auto checkpointVersionInfo = std::make_unique<VersionInfo>();
+    // The merge below keeps every source row (identity-concat in group order), so source
+    // row currRow + i lands at the same merged index the checkpointed group observes.
+    const bool retain = retentionHorizon != INVALID_TRANSACTION;
     row_idx_t currRow = 0;
     for (auto& chunkedGroup : chunkedGroups.getAllGroups(lock)) {
         if (chunkedGroup->hasVersionInfo()) {
@@ -578,12 +657,106 @@ std::unique_ptr<VersionInfo> NodeGroup::checkpointVersionInfo(const UniqLock& lo
             for (auto i = 0u; i < chunkedGroup->getNumRows(); i++) {
                 if (chunkedGroup->isDeleted(transaction, i)) {
                     checkpointVersionInfo->delete_(transaction->getID(), currRow + i);
+                    if (retain) {
+                        const auto deleteTS = chunkedGroup->getDeleteCommitTS(i);
+                        if (deleteTS != INVALID_TRANSACTION && deleteTS >= retentionHorizon) {
+                            checkpointVersionInfo->stampDeleteCommitTS(currRow + i, deleteTS);
+                        }
+                    }
+                } else if (retain) {
+                    const auto insertTS = chunkedGroup->getInsertCommitTS(i);
+                    if (insertTS != INVALID_TRANSACTION && insertTS >= retentionHorizon) {
+                        checkpointVersionInfo->stampInsertCommitTS(currRow + i, insertTS);
+                    }
                 }
             }
         }
         currRow += chunkedGroup->getNumRows();
     }
     return checkpointVersionInfo;
+}
+
+bool NodeGroup::hasRetainedUpdateNodes(const UniqLock& lock, transaction_t horizon) const {
+    for (auto& chunkedGroup : chunkedGroups.getAllGroups(lock)) {
+        for (auto columnID = 0u; columnID < chunkedGroup->getNumColumns(); columnID++) {
+            if (chunkedGroup->getColumnChunk(columnID).hasRetainedUpdates(horizon)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+std::vector<UpdateRetentionCapture> NodeGroup::capturePersistentUpdateRetention(
+    const UniqLock& lock, MemoryManager& memoryManager, const NodeGroupCheckpointState& state,
+    transaction_t horizon) const {
+    // Captures are indexed by column ID so the apply phase can address moved chunks, which
+    // hold only the checkpointed column subset.
+    const auto* firstGroup = chunkedGroups.getFirstGroup(lock);
+    std::vector<UpdateRetentionCapture> byColumn(firstGroup->getNumColumns());
+    for (auto i = 0u; i < state.columnIDs.size(); i++) {
+        const auto columnID = state.columnIDs[i];
+        const auto& chunk = firstGroup->getColumnChunk(columnID);
+        UpdateRetentionCapture capture;
+        capture.horizon = horizon;
+        capture.plans = chunk.planUpdateRetention(horizon);
+        for (const auto& plan : capture.plans) {
+            if (!plan.hasKept()) {
+                capture.baseStaging.push_back(nullptr);
+                continue;
+            }
+            const auto synthetic = plan.keptRows & ~plan.belowRows;
+            if (synthetic.none()) {
+                capture.baseStaging.push_back(nullptr);
+                continue;
+            }
+            auto staging = ColumnChunkFactory::createColumnChunkData(memoryManager,
+                chunk.getDataType().copy(), false /*enableCompression*/, DEFAULT_VECTOR_CAPACITY,
+                ResidencyState::IN_MEMORY);
+            ChunkState chunkState;
+            chunk.initializeScanState(chunkState, state.columns[i]);
+            ValueVector baseValue{chunk.getDataType().copy(), &memoryManager};
+            baseValue.setState(std::make_shared<DataChunkState>(DEFAULT_VECTOR_CAPACITY));
+            for (auto r = 0u; r < DEFAULT_VECTOR_CAPACITY; r++) {
+                if (!synthetic.test(r)) {
+                    continue;
+                }
+                state.columns[i]->lookupValue(chunkState,
+                    plan.vectorIdx * DEFAULT_VECTOR_CAPACITY + r, &baseValue, 0);
+                staging->write(&baseValue, 0, r);
+            }
+            capture.baseStaging.push_back(std::move(staging));
+        }
+        byColumn[columnID] = std::move(capture);
+    }
+    return byColumn;
+}
+
+void NodeGroup::applyRetainedUpdates(const UniqLock& lock, ChunkedNodeGroup& checkpointedGroup,
+    const NodeGroupCheckpointState& state, transaction_t horizon,
+    std::vector<UpdateRetentionCapture>&& persistentCaptures, bool hadPersistentData,
+    row_idx_t numPersistentRows) const {
+    if (hadPersistentData) {
+        for (auto i = 0u; i < state.columnIDs.size(); i++) {
+            const auto columnID = state.columnIDs[i];
+            checkpointedGroup.getColumnChunk(i).applyUpdateRetention(
+                std::move(persistentCaptures[columnID]));
+        }
+    }
+    // Transplant chains from in-memory sources, whose rows the merge appended in group
+    // order starting at numPersistentRows (zero when nothing was persistent).
+    row_idx_t mergedOffset = hadPersistentData ? numPersistentRows : 0;
+    for (auto& chunkedGroup : chunkedGroups.getAllGroups(lock)) {
+        if (chunkedGroup->getResidencyState() != ResidencyState::IN_MEMORY) {
+            continue;
+        }
+        for (auto i = 0u; i < state.columnIDs.size(); i++) {
+            const auto columnID = state.columnIDs[i];
+            checkpointedGroup.getColumnChunk(i).transplantRetainedUpdates(
+                chunkedGroup->getColumnChunk(columnID), mergedOffset, horizon);
+        }
+        mergedOffset += chunkedGroup->getNumRows();
+    }
 }
 
 uint64_t NodeGroup::getEstimatedMemoryUsage() const {

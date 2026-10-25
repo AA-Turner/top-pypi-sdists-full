@@ -897,6 +897,11 @@ class Store:
                                "ORDER BY seq DESC LIMIT ?", (int(after), int(last), int(limit)))
         return [StoredEvent.from_row(r) for r in rows][::-1]
 
+    def newest_seq(self) -> int:
+        """The newest event's seq number (0 with none)."""
+        row = self.db.execute("SELECT max(seq) AS s FROM events").fetchone()
+        return int(row["s"]) if row is not None and row["s"] is not None else 0
+
     def events_after(self, seq: int, limit: int) -> list[StoredEvent]:
         """At most `limit` events after `seq`, oldest first: one window, never
         the whole backlog."""

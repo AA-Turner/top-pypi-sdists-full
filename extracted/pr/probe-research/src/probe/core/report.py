@@ -57,7 +57,7 @@ import shlex
 import threading
 import time
 import uuid
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -359,7 +359,7 @@ PROBE_SUBCOMMANDS = frozenset({
     "project", "provenance", "recorder", "report", "run", "series", "service", "session", "session_default",
     "setup", "shared", "snapshot", "snapshot-prune-refs", "snapshot-restore", "snapshot-show", "source", "span",
     "status", "statusline", "summary", "sync", "token", "trial", "uninstall", "update", "version", "views",
-    "visuals", "wandb", "whoami", "wizard", "workspace",
+    "visuals", "wandb", "whoami", "wizard", "workspace", "workspace_limit",
 })
 #: `python`, `python3.12`, `pythonw.exe`: whose `-m <module>` names the program run.
 _PYTHON = re.compile(r"^python[0-9.]*w?(\.exe)?$", re.IGNORECASE)
@@ -1141,6 +1141,20 @@ def _write_private(path: Path, text: str) -> None:
             os.unlink(tmp)
 
 
+def newest_first(paths: Iterable[Path]) -> list[Path]:
+    """`paths`, the newest modified first (a tie: the later name first). One deleted since it was
+    listed (an agent pruning its sessions, another report pruning its copies) is left out: it
+    costs only itself, never the caller's whole listing."""
+    dated = []
+    for path in paths:
+        try:
+            dated.append((path.stat().st_mtime, path.name, path))
+        except OSError:
+            continue
+    dated.sort(key=lambda row: row[:2], reverse=True)
+    return [row[2] for row in dated]
+
+
 def keep_copy(body: dict, outcome: dict, path: Path | None = None) -> Path:
     """Write (or rewrite) this report's local copy, 0600, and keep only the
     newest `KEEP_REPORTS`."""
@@ -1151,7 +1165,7 @@ def keep_copy(body: dict, outcome: dict, path: Path | None = None) -> Path:
         path = folder / f"report-{stamp}-{unique}-{body.get('family', 'report').replace(':', '~')}.json"
     _write_private(path, json.dumps({"at": int(time.time()), "outcome": outcome, "body": body}, indent=1,
                                     ensure_ascii=False) + "\n")
-    copies = sorted(folder.glob("report-*.json"), key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+    copies = newest_first(folder.glob("report-*.json"))
     for old in copies[KEEP_REPORTS:]:
         with contextlib.suppress(OSError):
             old.unlink()

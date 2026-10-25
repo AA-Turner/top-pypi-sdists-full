@@ -137,6 +137,11 @@ struct wfm_writer_state
      has no name to derive from, so it never has one and leaves the metadata
      to its caller -- which is why the sidecar is a create()-only guarantee. */
   char *path;
+  /* The scene this capture renders, if the caller named one
+     (dp_wfm_writer_annotate): borrowed, and read at close -- not at the call
+     -- because a data source's annotation is final only once it has been
+     rendered (wfmgen reads its composer at close for the same reason). */
+  const dp_wfm_compose_state_t *scene;
 };
 
 /* Update the running peak. One fused max in the write loop.
@@ -699,16 +704,22 @@ dp_wfm_writer_get_clipped (const dp_wfm_writer_state_t *w)
    a sidecar would be a second copy of all three, free to drift.
 
    Written at close, not at open, because the annotations describe a completed
-   capture. A plain Writer has no scene to annotate, so `annotations` comes out
-   empty; wfmgen and Composer pass their segments and get the labelled version.
-   Returns 0 on success. */
+   capture. A writer with no scene has nothing to annotate, so `annotations`
+   comes out empty; one given a scene (dp_wfm_writer_annotate) reads its
+   resolved segments here and gets one row per source per instance, through
+   the builder wfmgen and Composer.to_sigmf use, with THIS writer's sample
+   type, rate, centre frequency and start: one source for every field
+   (doppler#2564). Returns 0 on success. */
 static int
 write_sigmf_sidecar (dp_wfm_writer_state_t *w)
 {
   char meta_path[1024];
   wfm_meta_path (w->path, meta_path, sizeof meta_path);
-  char *json
-      = dp_wfm_sigmf_meta_json (w->stype, w->be, w->fs, w->fc, w->t0, NULL, 0);
+  size_t               n_segs = 0;
+  const wfm_segment_t *segs
+      = w->scene ? dp_wfm_scene_segments (w->scene, &n_segs) : NULL;
+  char *json = dp_wfm_sigmf_meta_json (w->stype, w->be, w->fs, w->fc, w->t0,
+                                       segs, segs ? n_segs : 0);
   if (!json)
     return -1;
   FILE *mf = fopen (meta_path, "w");
@@ -799,6 +810,20 @@ dp_wfm_writer_close (dp_wfm_writer_state_t *w)
       free (w);
     }
   return rc;
+}
+
+int
+dp_wfm_writer_annotate (dp_wfm_writer_state_t        *w,
+                        const dp_wfm_compose_state_t *scene)
+{
+  /* Only a writer that owes a sidecar has anywhere to put the rows, and
+     `path` is set exactly then (never for BLUE, whose header has no
+     annotations, nor for an fp-opened or sidecar=false writer). Refused
+     rather than accepted and dropped at close. */
+  if (!w || !scene || !w->path)
+    return DP_ERR_INVALID;
+  w->scene = scene;
+  return DP_OK;
 }
 
 /* The object binding's fallible destructor (gh-541): jm generates a close()
@@ -1099,14 +1124,24 @@ dp_wfm_sigmf_meta_json_ex (int sample_type, int endian, double fs, double fc,
          * stream — only symbol_rate does. Emit it for a continuous source so
          * a scorer knows the outer symbol clock; mirror the JSON face's
          * data-source label ("none" for code-only, omitted for the
-         * data-modulated default). Burst dsss and every other type omit
-         * these keys (symbol_rate <= 0). */
+         * data-modulated default), and the code-only window when there is
+         * one. Burst dsss and every other type omit these keys
+         * (symbol_rate <= 0). */
         if (src->type == WFM_SYNTH_DSSS && src->symbol_rate > 0.0)
           {
             cJSON_AddNumberToObject (a, "wfmgen:symbol_rate",
                                      src->symbol_rate);
             if (src->dsss_code_only)
               cJSON_AddStringToObject (a, "wfmgen:data", "none");
+            /* The per-frame code-only window, when the stream has one: a
+               scorer needs it to know which symbols carry no data. */
+            if (src->frame_symbols)
+              {
+                cJSON_AddNumberToObject (a, "wfmgen:code_only_symbols",
+                                         (double)src->code_only_symbols);
+                cJSON_AddNumberToObject (a, "wfmgen:frame_symbols",
+                                         (double)src->frame_symbols);
+              }
           }
         /* The truth for scoring (payload-data-source.md 4.8): what the
          * source's data sent, as the record carries it -- frames, the fill

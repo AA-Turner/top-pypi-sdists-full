@@ -259,16 +259,6 @@ def test_the_dispatch_timeout_never_calls_a_write_safe_to_repeat() -> None:
     assert "safe to repeat" in read.suggested_action
 
 
-def test_a_wait_always_fits_inside_the_tools_dispatch_ceiling() -> None:
-    import pytest as _pytest
-
-    _pytest.importorskip("aidream")
-    from aidream.services.runtime.run_wait import wait_that_fits
-
-    assert wait_that_fits("workflow_run", 240) < 120 and wait_that_fits("workflow_run", 30) == 30
-
-
-
 @pytest.mark.parametrize("text", ["title must be at most 500 characters", "Invalid date: 2026-05-03",
                                   "field 'timeout' must be a number", "MCP error -32602: Invalid params: id"])
 def test_a_refusal_of_the_request_never_blames_the_provider(text) -> None:

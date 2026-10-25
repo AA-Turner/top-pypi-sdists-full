@@ -29,10 +29,11 @@ from __future__ import print_function
 import sys
 import os
 import socket
+import struct
 import datetime
 import decimal
 
-from firebirdsql.err import OperationalError
+from firebirdsql.err import OperationalError, DataError
 from firebirdsql.consts import *    # noqa
 from firebirdsql.utils import *     # noqa
 from firebirdsql import srp
@@ -49,6 +50,21 @@ def DEBUG_OUTPUT(*argv):
 
 INFO_SQL_SELECT_DESCRIBE_VARS = bytes([
     isc_info_sql_select,
+    isc_info_sql_describe_vars,
+    isc_info_sql_sqlda_seq,
+    isc_info_sql_type,
+    isc_info_sql_sub_type,
+    isc_info_sql_scale,
+    isc_info_sql_length,
+    isc_info_sql_null_ind,
+    isc_info_sql_field,
+    isc_info_sql_relation,
+    isc_info_sql_owner,
+    isc_info_sql_alias,
+    isc_info_sql_describe_end])
+
+INFO_SQL_BIND_DESCRIBE_VARS = bytes([
+    isc_info_sql_bind,
     isc_info_sql_describe_vars,
     isc_info_sql_sqlda_seq,
     isc_info_sql_type,
@@ -162,6 +178,10 @@ class WireProtocol(object):
     op_connect_request = 53
     op_open_blob2 = 56
     op_create_blob2 = 57
+    op_get_slice = 58
+    op_put_slice = 59
+    op_slice = 60
+    op_slice_response = 60
     op_allocate_statement = 62
     op_execute = 63
     op_exec_immediate = 64
@@ -192,6 +212,14 @@ class WireProtocol(object):
     op_crypt = 96
     op_crypt_key_callback = 97
     op_cond_accept = 98
+    # FB4
+    op_batch_create = 99
+    op_batch_msg = 100
+    op_batch_exec = 101
+    op_batch_rls = 102
+    op_batch_cs = 103
+    op_batch_cancel = 109
+    op_batch_sync = 110
 
     def str_to_bytes(self, s):
         "convert str to bytes"
@@ -200,7 +228,7 @@ class WireProtocol(object):
         return s
 
     def bytes_to_str(self, b):
-        return b.decode(charset_map.get(self.charset, self.charset))
+        return bytes(b).decode(charset_map.get(self.charset, self.charset))
 
     def _create_blob(self, trans_handle, b):
         self._op_create_blob2(trans_handle)
@@ -216,8 +244,17 @@ class WireProtocol(object):
         (h, oid, buf) = self._op_response()
         return blob_id
 
-    def params_to_blr(self, trans_handle, params):
+    def _is_array_param_null(self, p):
+        from firebirdsql.array import Array
+        if p is None:
+            return True
+        if isinstance(p, Array) and p.elements is None:
+            return True
+        return False
+
+    def params_to_blr(self, trans_handle, params, input_xsqlda=None):
         "Convert parameter array to BLR and values format."
+        from firebirdsql.array import Array, extract_array_elements, encode_slice_elements
         ln = len(params) * 2
         blr = bytes([5, 2, 4, 0, ln & 255, ln >> 8])
         if self.accept_version < PROTOCOL_VERSION13:
@@ -226,7 +263,7 @@ class WireProtocol(object):
             # start with null indicator bitmap
             null_indicator = 0
             for i, p in enumerate(params):
-                if p is None:
+                if self._is_array_param_null(p):
                     null_indicator |= (1 << i)
             n = len(params) // 8
             if len(params) % 8 != 0:
@@ -238,13 +275,24 @@ class WireProtocol(object):
                 null_indicator_bytes.append(null_indicator & 255)
                 null_indicator >>= 8
             values = bytes(null_indicator_bytes)
-        for p in params:
+        for i, p in enumerate(params):
             if isinstance(p, str):
                 p = self.str_to_bytes(p)
             t = type(p)
-            if p is None:
+            if self._is_array_param_null(p):
                 v = bytes([])
                 blr += bytes([14, 0, 0])
+            elif isinstance(p, (list, tuple, Array)):
+                meta = None
+                if input_xsqlda and i < len(input_xsqlda) and input_xsqlda[i]:
+                    meta = input_xsqlda[i].array_meta
+                if meta is None:
+                    raise OperationalError(f"array parameter {i+1}: column metadata unavailable")
+                elements = extract_array_elements(p)
+                data = encode_slice_elements(meta, elements, self.charset)
+                array_id = self._op_put_slice(trans_handle, meta, data, len(elements))
+                blr += bytes([9, 0])
+                v = array_id
             elif t == bytes:
                 if len(p) > MAX_CHAR_LENGTH:
                     v = self._create_blob(trans_handle, p)
@@ -311,7 +359,7 @@ class WireProtocol(object):
             blr += bytes([7, 0])
             values += v
             if self.accept_version < PROTOCOL_VERSION13:
-                values += bytes([0]) * 4 if p is not None else bytes([0xff, 0xff, 0xff, 0xff])
+                values += bytes([0]) * 4 if not self._is_array_param_null(p) else bytes([0xff, 0xff, 0xff, 0xff])
         blr += bytes([255, 76])    # [blr_end, blr_eoc]
         return blr, values
 
@@ -636,7 +684,7 @@ class WireProtocol(object):
     def _op_prepare_statement(self, stmt_handle, trans_handle, query, option_items=None):
         if option_items is None:
             option_items = bytes([])
-        desc_items = option_items + bytes([isc_info_sql_stmt_type])+INFO_SQL_SELECT_DESCRIBE_VARS
+        desc_items = option_items + bytes([isc_info_sql_stmt_type]) + INFO_SQL_SELECT_DESCRIBE_VARS + INFO_SQL_BIND_DESCRIBE_VARS
         p = Packer()
         p.pack_int(self.op_prepare_statement)
         p.pack_int(trans_handle)
@@ -658,7 +706,7 @@ class WireProtocol(object):
         self.sock.send(p.get_buffer())
 
     @wire_operation
-    def _op_execute(self, stmt_handle, trans_handle, params):
+    def _op_execute(self, stmt_handle, trans_handle, params, input_xsqlda=None, timeout=None):
         p = Packer()
         p.pack_int(self.op_execute)
         p.pack_int(stmt_handle)
@@ -670,17 +718,18 @@ class WireProtocol(object):
             p.pack_int(0)
             buf = p.get_buffer()
         else:
-            (blr, values) = self.params_to_blr(trans_handle, params)
+            (blr, values) = self.params_to_blr(trans_handle, params, input_xsqlda)
             p.pack_bytes(blr)
             p.pack_int(0)
             p.pack_int(1)
             buf = p.get_buffer() + values
         if self.accept_version >= PROTOCOL_VERSION16:
-            buf += int_to_bytes(0, 4)
+            timeout_ms = int(timeout * 1000) if timeout else 0
+            buf += bint_to_bytes(timeout_ms, 4)
         self.sock.send(buf)
 
     @wire_operation
-    def _op_execute2(self, stmt_handle, trans_handle, params, output_blr):
+    def _op_execute2(self, stmt_handle, trans_handle, params, output_blr, input_xsqlda=None, timeout=None):
         p = Packer()
         p.pack_int(self.op_execute2)
         p.pack_int(stmt_handle)
@@ -692,7 +741,7 @@ class WireProtocol(object):
             p.pack_int(0)
             p.pack_int(0)
         else:
-            (blr, values) = self.params_to_blr(trans_handle, params)
+            (blr, values) = self.params_to_blr(trans_handle, params, input_xsqlda)
             p.pack_bytes(blr)
             p.pack_int(0)
             p.pack_int(1)
@@ -702,8 +751,47 @@ class WireProtocol(object):
         q.pack_int(0)
         buf = p.get_buffer() + values + q.get_buffer()
         if self.accept_version >= PROTOCOL_VERSION16:
-            buf += int_to_bytes(0, 4)
+            timeout_ms = int(timeout * 1000) if timeout else 0
+            buf += bint_to_bytes(timeout_ms, 4)
         self.sock.send(buf)
+
+    @wire_operation
+    def _op_get_slice(self, trans_handle, array_id, meta):
+        from firebirdsql.array import array_slice_get_length, generate_sdl
+        app_len = array_slice_get_length(meta, meta.dimensions)
+        if app_len <= 0:
+            raise OperationalError(f"invalid array slice length {app_len}")
+        sdl = generate_sdl(meta, meta.dimensions, for_get=True)
+        p = Packer()
+        p.pack_int(self.op_get_slice)
+        p.pack_int(trans_handle)
+        p.buf += array_id
+        p.pack_int(app_len)
+        p.pack_bytes(sdl)
+        p.pack_bytes(b'')
+        p.pack_bytes(b'')
+        self.sock.send(p.get_buffer())
+        return self._op_slice_response(meta)
+
+    @wire_operation
+    def _op_put_slice(self, trans_handle, meta, data, actual_count):
+        from firebirdsql.array import array_slice_app_length, pad_slice_wire, generate_sdl
+        app_len = array_slice_app_length(meta, meta.dimensions)
+        if app_len <= 0:
+            raise OperationalError(f"invalid array slice length {app_len}")
+        wire = pad_slice_wire(meta, data, actual_count)
+        sdl = generate_sdl(meta, meta.dimensions, for_get=False)
+        p = Packer()
+        p.pack_int(self.op_put_slice)
+        p.pack_int(trans_handle)
+        p.buf += bint_to_bytes(0, 8)
+        p.pack_int(app_len)
+        p.pack_bytes(sdl)
+        p.pack_bytes(b'')
+        p.pack_int(app_len)
+        self.sock.send(p.get_buffer() + wire)
+        (h, oid, buf) = self._op_response()
+        return oid
 
     @wire_operation
     def _op_exec_immediate(self, trans_handle, query):
@@ -847,3 +935,208 @@ class WireProtocol(object):
         p.pack_int(0)
         self.sock.send(p.get_buffer())
 
+    def _calculate_batch_msg_len(self, xsqlda):
+        length = 0
+        for x in xsqlda:
+            field_len = x.sqllen
+            align = 1
+            if x.sqltype in (SQL_TYPE_TEXT, SQL_TYPE_NULL, SQL_TYPE_BOOLEAN):
+                align = 1
+            elif x.sqltype == SQL_TYPE_SHORT:
+                align = 2
+            elif x.sqltype == SQL_TYPE_VARYING:
+                align = 2
+                field_len += 2
+            elif x.sqltype in (
+                SQL_TYPE_FLOAT, SQL_TYPE_LONG, SQL_TYPE_DATE, SQL_TYPE_TIME,
+                SQL_TYPE_TIMESTAMP, SQL_TYPE_BLOB, SQL_TYPE_ARRAY, SQL_TYPE_QUAD,
+                SQL_TYPE_TIMESTAMP_TZ, SQL_TYPE_TIME_TZ
+            ):
+                align = 4
+            else:
+                align = 8
+            if align > 1:
+                length = (length + align - 1) & ~(align - 1)
+            length += field_len
+            length = ((length + 1) & ~1) + 2
+        return length
+
+    def _encode_batch_field(self, x, val):
+        if x.sqltype == SQL_TYPE_SHORT:
+            if x.sqlscale < 0:
+                if not isinstance(val, decimal.Decimal):
+                    val = decimal.Decimal(str(val))
+                v = int(val * (10 ** (-x.sqlscale)))
+            else:
+                v = int(val)
+            if v < -32768 or v > 32767:
+                raise DataError(f"Numeric value {v} out of range for SMALLINT")
+            return bint_to_bytes(v, 4)
+        elif x.sqltype == SQL_TYPE_LONG:
+            if x.sqlscale < 0:
+                if not isinstance(val, decimal.Decimal):
+                    val = decimal.Decimal(str(val))
+                v = int(val * (10 ** (-x.sqlscale)))
+            else:
+                v = int(val)
+            if v < -2147483648 or v > 2147483647:
+                raise DataError(f"Numeric value {v} out of range for INTEGER")
+            return bint_to_bytes(v, 4)
+        elif x.sqltype in (SQL_TYPE_INT64, SQL_TYPE_QUAD):
+            if x.sqlscale < 0:
+                if not isinstance(val, decimal.Decimal):
+                    val = decimal.Decimal(str(val))
+                v = int(val * (10 ** (-x.sqlscale)))
+            else:
+                v = int(val)
+            if v < -9223372036854775808 or v > 9223372036854775807:
+                raise DataError(f"Numeric value {v} out of range for BIGINT")
+            return bint_to_bytes(v, 8)
+        elif x.sqltype == SQL_TYPE_FLOAT:
+            try:
+                return struct.pack('>f', float(val))
+            except (OverflowError, struct.error) as e:
+                raise DataError(f"Numeric value {val!r} out of range for FLOAT") from e
+        elif x.sqltype in (SQL_TYPE_DOUBLE, SQL_TYPE_D_FLOAT):
+            try:
+                return struct.pack('>d', float(val))
+            except (OverflowError, struct.error) as e:
+                raise DataError(f"Numeric value {val!r} out of range for DOUBLE") from e
+        elif x.sqltype == SQL_TYPE_BOOLEAN:
+            if type(val) is not bool and val not in (0, 1):
+                raise DataError(f"Invalid boolean value for batch execution: {val!r}")
+            return b'\x01' if val else b'\x00'
+        elif x.sqltype in (SQL_TYPE_TEXT, SQL_TYPE_VARYING):
+            if isinstance(val, str):
+                b = self.str_to_bytes(val)
+            elif isinstance(val, bytes):
+                b = val
+            else:
+                b = self.str_to_bytes(str(val))
+            if x.sqllen and len(b) > x.sqllen:
+                raise DataError(f"String length {len(b)} exceeds maximum length {x.sqllen}")
+            return b
+        elif x.sqltype == SQL_TYPE_DATE:
+            if not isinstance(val, datetime.date) or isinstance(val, datetime.datetime):
+                raise DataError(f"Invalid DATE value for batch execution: {val!r}")
+            return convert_date(val)
+        elif x.sqltype == SQL_TYPE_TIME:
+            if getattr(val, 'tzinfo', None):
+                raise DataError("Cannot bind timezone-aware time to plain TIME in batch execution")
+            return convert_time(val)
+        elif x.sqltype == SQL_TYPE_TIMESTAMP:
+            if getattr(val, 'tzinfo', None):
+                raise DataError("Cannot bind timezone-aware datetime to plain TIMESTAMP in batch execution")
+            return convert_timestamp(val)
+        elif x.sqltype == SQL_TYPE_TIME_TZ:
+            return convert_time_tz(val)
+        elif x.sqltype == SQL_TYPE_TIMESTAMP_TZ:
+            return convert_timestamp_tz(val)
+        else:
+            raise OperationalError(f"Unsupported batch column type: {x.sqltype}")
+
+    def _encode_batch_row(self, xsqlda, params):
+        if len(params) != len(xsqlda):
+            raise OperationalError(f"expected {len(xsqlda)} parameters, got {len(params)}")
+        n = (len(xsqlda) + 7) // 8
+        if n % 4 != 0:
+            n += 4 - (n % 4)
+        null_bytes = bytearray(n)
+        field_bufs = []
+        for i, p in enumerate(params):
+            if p is None:
+                null_bytes[i // 8] |= (1 << (i % 8))
+                field_bufs.append(b'')
+            else:
+                field_bufs.append(self._encode_batch_field(xsqlda[i], p))
+
+        out = bytearray(null_bytes)
+        for i, x in enumerate(xsqlda):
+            if null_bytes[i // 8] & (1 << (i % 8)):
+                continue
+            fb = field_bufs[i]
+            if x.sqltype == SQL_TYPE_VARYING:
+                out.extend(bint_to_bytes(len(fb), 4))
+                out.extend(fb)
+                pad = (4 - len(fb)) & 3
+                if pad:
+                    out.extend(b' ' * pad)
+            elif x.sqltype == SQL_TYPE_TEXT:
+                need = x.sqllen
+                if len(fb) > need:
+                    raise DataError(f"String length {len(fb)} exceeds maximum length {need}")
+                out.extend(fb)
+                if len(fb) < need:
+                    out.extend(b' ' * (need - len(fb)))
+                pad = (4 - need) & 3
+                if pad:
+                    out.extend(b' ' * pad)
+            elif x.sqltype == SQL_TYPE_BOOLEAN:
+                out.extend(fb)
+                pad = (4 - len(fb)) & 3
+                if pad:
+                    out.extend(bytes(pad))
+            else:
+                out.extend(fb)
+        return bytes(out)
+
+    @wire_operation
+    def _op_batch_create(self, stmt_handle, bind_xsqlda):
+        from firebirdsql.xsqlvar import calc_blr
+        msg_len = self._calculate_batch_msg_len(bind_xsqlda)
+        bpb = bytearray([batchVersion1])
+        bpb.append(batchTagRecordCounts)
+        bpb.extend(int_to_bytes(4, 4))
+        bpb.extend(int_to_bytes(1, 4))
+        bpb.append(batchTagDetailedErrors)
+        bpb.extend(int_to_bytes(4, 4))
+        bpb.extend(int_to_bytes(1, 4))
+        bpb.append(batchTagBlobPolicy)
+        bpb.extend(int_to_bytes(1, 4))
+        bpb.append(batchBlobIDUser)
+
+        p = Packer()
+        p.pack_int(self.op_batch_create)
+        p.pack_int(stmt_handle)
+        p.pack_bytes(calc_blr(bind_xsqlda))
+        p.pack_int(msg_len)
+        p.pack_bytes(bytes(bpb))
+        self.sock.send(p.get_buffer())
+        self._op_ping()
+        self._receive_two_responses()
+
+    @wire_operation
+    def _op_batch_msg(self, stmt_handle, rows_buf, row_count):
+        p = Packer()
+        p.pack_int(self.op_batch_msg)
+        p.pack_int(stmt_handle)
+        p.pack_int(row_count)
+        p.buf += rows_buf
+        pad = (4 - len(rows_buf)) & 3
+        if pad:
+            p.buf += bytes(pad)
+        if self.accept_version >= PROTOCOL_VERSION17:
+            p.pack_int(self.op_batch_sync)
+            self.sock.send(p.get_buffer())
+        else:
+            self.sock.send(p.get_buffer())
+            self._op_ping()
+        self._receive_two_responses()
+
+    @wire_operation
+    def _op_batch_exec(self, stmt_handle, trans_handle):
+        p = Packer()
+        p.pack_int(self.op_batch_exec)
+        p.pack_int(stmt_handle)
+        p.pack_int(trans_handle)
+        self.sock.send(p.get_buffer())
+        return self._op_batch_cs()
+
+    @wire_operation
+    def _op_batch_rls(self, stmt_handle):
+        p = Packer()
+        p.pack_int(self.op_batch_rls)
+        p.pack_int(stmt_handle)
+        self.sock.send(p.get_buffer())
+        self._op_ping()
+        self._receive_two_responses()

@@ -89,7 +89,7 @@ def setup_package():
 
         setup(
             name="cymem",
-            python_requires=">=3.9,<3.15",
+            python_requires=">=3.9,<3.16",
             zip_safe=False,
             packages=PACKAGES,
             package_data={"": ["*.pyx", "*.pxd"]},
@@ -118,6 +118,7 @@ def setup_package():
                 "Programming Language :: Python :: 3.12",
                 "Programming Language :: Python :: 3.13",
                 "Programming Language :: Python :: 3.14",
+                "Programming Language :: Python :: 3.15",
                 "Programming Language :: Python :: Free Threading :: 2 - Beta",
                 "Topic :: Scientific/Engineering",
             ],

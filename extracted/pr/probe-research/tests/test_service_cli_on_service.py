@@ -97,14 +97,15 @@ def test_status_and_doctor_show_what_the_service_holds(service_home, agent):
         assert (view["pid"], view["version"]) == (started["pid"], started["service_version"])
         assert view["state"] in ("discovering", "running", "grace")
         assert view["sessions"] == [
-            {"sid": "s-daemon", "harness": "claude_code", "mode": "daemon", "alive": True, "receipts": None}
+            {"sid": "s-daemon", "harness": "claude_code", "mode": "daemon", "alive": True, "receipts": None,
+             "agent_live": True}
         ]
         assert [(h["harness"], h["sessions"], h["alive"]) for h in view["harnesses"]] == [("claude_code", 1, 1)]
         assert [(r["run"], r["pid"]) for r in view["runs"]] == [("run-abc", os.getpid())]
         assert view["recorders"] == [] and view["hook_hosts"] == []
         assert set(view["update"]) == {
             "enabled", "in_progress", "step", "last_check", "last_ok", "next_check",
-            "deferred_reason", "deferred_at", "deferred_since",
+            "deferred_reason", "deferred_at", "deferred_since", "app",
         }
         line = service_calls.summary(view)
         assert "1 live session" in line and "1 run in flight" in line and f"pid {started['pid']}" in line

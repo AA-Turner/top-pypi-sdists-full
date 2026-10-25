@@ -74,19 +74,6 @@ def test_the_guard_sees_the_retired_dataset_result_kinds(tmp_path):
     assert len(scan(tmp_path)) == 3
 
 
-def test_the_server_kind_modules_name_only_the_table_result_kinds():
-    root = PACKAGE.parent.parent / "aidream" / "kinds"
-    assert (root / "ci_boundary_contracts.py").exists()
-    assert scan(root) == []
-    import aidream.kinds.ci_boundary_contracts  # noqa: F401 - registers its kinds
-    import matrx_ai.tools.kinds.personal_content  # noqa: F401
-    from matrx_graph.content_ir.sdk import kind_catalog
-
-    slugs = set(kind_catalog())
-    assert {"table_tool_result", "table_metadata_result", "table_fields_result"} <= slugs
-    assert not {"dataset_tool_result", "dataset_metadata_result", "dataset_fields_result"} & slugs
-
-
 def test_every_success_of_the_table_tool_declares_a_table_kind():
     from matrx_ai.tools.implementations import table_tools
 

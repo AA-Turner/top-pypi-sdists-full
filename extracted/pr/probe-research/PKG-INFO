@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.301.0
+Version: 0.311.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -31,12 +31,14 @@ Requires-Dist: tomlkit>=0.12
 Requires-Dist: typer<1.0,>=0.12
 Provides-Extra: all
 Requires-Dist: anyio>=4.5; extra == 'all'
+Requires-Dist: cryptography>=3.4; extra == 'all'
 Requires-Dist: mcp<2,>=1.24; extra == 'all'
 Requires-Dist: questionary<3,>=2.0; extra == 'all'
 Requires-Dist: tiktoken<0.14,>=0.8; extra == 'all'
 Requires-Dist: tomlkit>=0.12; extra == 'all'
 Requires-Dist: typer<1.0,>=0.12; extra == 'all'
 Provides-Extra: cli
+Requires-Dist: cryptography>=3.4; extra == 'cli'
 Requires-Dist: questionary<3,>=2.0; extra == 'cli'
 Requires-Dist: tomlkit>=0.12; extra == 'cli'
 Requires-Dist: typer<1.0,>=0.12; extra == 'cli'
@@ -887,6 +889,15 @@ nothing of what its work reads or writes: run the work under it with
 `probe exec RUN -- cmd`, or `probe.init()` in the job.
 
 - `probe` is the switch: `on` / `read` / `off` for this conversation.
+  In `off` nothing captures the conversation's transcript (the Probe service,
+  and from tap 0.10.19 every `tap watch`, its own and every other session's),
+  and a move back captures from when the recorder sees it (at once from
+  `/probe` or `probe session state` for the service, within a second for a
+  `tap watch`, up to a minute when nothing tells the service), never the
+  stretch in between. A `tap watch` process still running an older tap
+  (started before the update) can upload it until that process ends, and a
+  compaction summary written after a move back can repeat what was said
+  while off.
   Typed bare by the researcher it TOGGLES `on` <-> `read`; `off` is not on
   that cycle and is reached only by typing `/probe off` (a press while off
   leaves for `read`). An agent's own bare invocation only loads guidance and

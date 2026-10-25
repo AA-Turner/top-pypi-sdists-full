@@ -16,13 +16,26 @@ import itertools
 from dataclasses import InitVar, dataclass
 from typing import cast
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from ffsim import gates, linalg, protocols
-from ffsim.linalg.util import unitary_from_parameters, unitary_to_parameters
+from ffsim.linalg.util import (
+    all_indices,
+    mask_from_indices,
+    real_matrices_from_parameters_jax,
+    real_symmetric_from_parameters_jax,
+    rows_and_cols,
+    unitary_from_parameters,
+    unitary_from_parameters_jax,
+    unitary_to_parameters,
+    upper_triangular_indices,
+)
 from ffsim.variational.util import (
     orbital_rotation_from_t1_amplitudes,
     validate_interaction_pairs,
+    validate_t2_antisymmetric,
 )
 
 
@@ -181,15 +194,16 @@ class UCJOpSpinUnbalanced(
 
         Raises:
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list for alpha-alpha or beta-beta interactions
                 contained lower triangular pairs.
         """
         if interaction_pairs is None:
             interaction_pairs = (None, None, None)
         pairs_aa, pairs_ab, pairs_bb = interaction_pairs
-        validate_interaction_pairs(pairs_aa, ordered=False)
-        validate_interaction_pairs(pairs_ab, ordered=True)
-        validate_interaction_pairs(pairs_bb, ordered=False)
+        validate_interaction_pairs(pairs_aa, ordered=False, norb=norb)
+        validate_interaction_pairs(pairs_ab, ordered=True, norb=norb)
+        validate_interaction_pairs(pairs_bb, ordered=False, norb=norb)
         # Each same-spin diagonal Coulomb matrix has one parameter per upper triangular
         # entry unless indices are passed explicitly
         n_triu_indices = norb * (norb + 1) // 2
@@ -247,6 +261,7 @@ class UCJOpSpinUnbalanced(
             ValueError: The number of parameters passed did not match the number
                 expected based on the function inputs.
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list for alpha-alpha or beta-beta interactions
                 contained lower triangular pairs.
         """
@@ -265,17 +280,11 @@ class UCJOpSpinUnbalanced(
         if interaction_pairs is None:
             interaction_pairs = (None, None, None)
         pairs_aa, pairs_ab, pairs_bb = interaction_pairs
-        mat_indices = cast(
-            list[tuple[int, int]], list(itertools.product(range(norb), repeat=2))
-        )
-        triu_indices = cast(
-            list[tuple[int, int]],
-            list(itertools.combinations_with_replacement(range(norb), 2)),
-        )
+        triu_indices = upper_triangular_indices(norb)
         if pairs_aa is None:
             pairs_aa = triu_indices
         if pairs_ab is None:
-            pairs_ab = mat_indices
+            pairs_ab = all_indices(norb)
         if pairs_bb is None:
             pairs_bb = triu_indices
         diag_coulomb_mats = np.zeros((n_reps, 3, norb, norb))
@@ -292,25 +301,15 @@ class UCJOpSpinUnbalanced(
                 )
                 index += n_params
             # Diag Coulomb matrices
-            if pairs_aa:
-                n_params = len(pairs_aa)
-                rows, cols = zip(*pairs_aa)
+            for indices, this_diag_coulomb_mat, symmetric in zip(
+                (pairs_aa, pairs_ab, pairs_bb), diag_coulomb_mat, (True, False, True)
+            ):
+                n_params = len(indices)
+                rows, cols = rows_and_cols(indices)
                 vals = params[index : index + n_params]
-                diag_coulomb_mat[0, cols, rows] = vals
-                diag_coulomb_mat[0, rows, cols] = vals
-                index += n_params
-            if pairs_ab:
-                n_params = len(pairs_ab)
-                rows, cols = zip(*pairs_ab)
-                vals = params[index : index + n_params]
-                diag_coulomb_mat[1, rows, cols] = vals
-                index += n_params
-            if pairs_bb:
-                n_params = len(pairs_bb)
-                rows, cols = zip(*pairs_bb)
-                vals = params[index : index + n_params]
-                diag_coulomb_mat[2, cols, rows] = vals
-                diag_coulomb_mat[2, rows, cols] = vals
+                if symmetric:
+                    this_diag_coulomb_mat[cols, rows] = vals
+                this_diag_coulomb_mat[rows, cols] = vals
                 index += n_params
         # Final orbital rotation
         final_orbital_rotation = None
@@ -365,6 +364,7 @@ class UCJOpSpinUnbalanced(
 
         Raises:
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list for alpha-alpha or beta-beta interactions
                 contained lower triangular pairs.
         """
@@ -379,17 +379,11 @@ class UCJOpSpinUnbalanced(
         if interaction_pairs is None:
             interaction_pairs = (None, None, None)
         pairs_aa, pairs_ab, pairs_bb = interaction_pairs
-        mat_indices = cast(
-            list[tuple[int, int]], list(itertools.product(range(norb), repeat=2))
-        )
-        triu_indices = cast(
-            list[tuple[int, int]],
-            list(itertools.combinations_with_replacement(range(norb), 2)),
-        )
+        triu_indices = upper_triangular_indices(norb)
         if pairs_aa is None:
             pairs_aa = triu_indices
         if pairs_ab is None:
-            pairs_ab = mat_indices
+            pairs_ab = all_indices(norb)
         if pairs_bb is None:
             pairs_bb = triu_indices
 
@@ -410,12 +404,11 @@ class UCJOpSpinUnbalanced(
                 (pairs_aa, pairs_ab, pairs_bb),
                 diag_coulomb_mat,
             ):
-                if indices:
-                    n_params = len(indices)
-                    params[index : index + n_params] = this_diag_coulomb_mat[
-                        tuple(zip(*indices))
-                    ]
-                    index += n_params
+                n_params = len(indices)
+                params[index : index + n_params] = this_diag_coulomb_mat[
+                    rows_and_cols(indices)
+                ]
+                index += n_params
         # Final orbital rotation
         if self.final_orbital_rotation is not None:
             n_params = norb**2
@@ -440,31 +433,45 @@ class UCJOpSpinUnbalanced(
         | None = None,
         tol: float = 1e-8,
         optimize: bool = False,
-        method: str = "L-BFGS-B",
-        callback=None,
-        options: dict | None = None,
         regularization: float = 0,
         multi_stage_start: int | None = None,
         multi_stage_step: int | None = None,
+        validate: bool = True,
+        rtol: float = 1e-5,
+        atol: float = 1e-8,
+        **optimize_kwargs,
     ) -> UCJOpSpinUnbalanced:
         r"""Initialize the UCJ operator from t2 (and optionally t1) amplitudes.
 
         Performs a double factorization of the t2 amplitudes and constructs the
         ansatz repetitions from the terms of the decomposition, up to an optionally
-        specified number of repetitions. Terms are included in decreasing order
-        of the magnitude of the corresponding singular value in the factorization.
+        specified number of repetitions. Within the alpha-beta and same-spin terms,
+        repetitions are included in decreasing order of the magnitude of the
+        corresponding singular value or eigenvalue in the factorization. See the
+        description of ``n_reps`` for how repetitions are divided between the two.
 
         Args:
             t2: The t2 amplitudes. This should be a tuple of 3 Numpy arrays,
                 ``(t2aa, t2ab, t2bb)``, containing the alpha-alpha, alpha-beta, and
-                beta-beta t2 amplitudes.
+                beta-beta t2 amplitudes. The same-spin amplitudes ``t2aa`` and
+                ``t2bb`` must be antisymmetric in the occupied indices and in the
+                virtual indices.
             t1: The t1 amplitudes. This should be a pair of Numpy arrays,
                 ``(t1a, t1b)``, containing the alpha and beta t1 amplitudes.
             n_reps: The number of ansatz repetitions.
                 You can pass a single integer or a pair of integers.
-                If a single integer, terms from the alpha-beta t2 amplitudes are
-                used before including any terms from the alpha-alpha and beta-beta
-                t2 amplitudes. If a pair of integers, then the first integer specifies
+                If a single integer, the repetitions are divided between terms
+                from the alpha-beta t2 amplitudes and terms from the alpha-alpha and
+                beta-beta t2 amplitudes by selecting the repetitions with the largest
+                magnitudes. The magnitude of an alpha-beta repetition is the
+                corresponding singular value of the alpha-beta t2 amplitudes, and the
+                magnitude of a same-spin repetition is the root sum of squares of the
+                corresponding eigenvalues of the alpha-alpha and beta-beta t2
+                amplitudes, each scaled by :math:`1/\sqrt{2}`. With this scaling,
+                the squared magnitudes of all repetitions sum to the squared norm of
+                the t2 amplitudes in the spin-orbital basis, so every distinct
+                excitation counts equally.
+                If a pair of integers, then the first integer specifies
                 the number of terms to use from the alpha-beta t2 amplitudes,
                 and the second integer specifies the number of terms to use from the
                 alpha-alpha and beta-beta t2 amplitudes.
@@ -492,178 +499,160 @@ class UCJOpSpinUnbalanced(
                 The error is defined as the maximum absolute difference between
                 an element of the original tensor and the corresponding element of
                 the reconstructed tensor.
-            optimize: Whether to optimize the tensors returned by the decomposition to
+            optimize: Whether to optimize the tensors returned by the decomposition
                 to minimize the error in the factorization.
-            method: The optimization method. See the documentation of
-                `scipy.optimize.minimize`_ for possible values.
+            regularization: See
+                :func:`ffsim.linalg.double_factorized_t2_compressed` for a description
+                of this argument.
                 This argument is ignored if ``optimize`` is set to ``False``.
-            callback: Callback function for the optimization. See the documentation of
-                `scipy.optimize.minimize`_ for usage.
+            multi_stage_start: See
+                :func:`ffsim.linalg.double_factorized_t2_compressed` for a description
+                of this argument.
                 This argument is ignored if ``optimize`` is set to ``False``.
-            options: Options for the optimization. See the documentation of
-                `scipy.optimize.minimize`_ for usage.
+            multi_stage_step: See
+                :func:`ffsim.linalg.double_factorized_t2_compressed` for a description
+                of this argument.
                 This argument is ignored if ``optimize`` is set to ``False``.
-            regularization: See :func:`ffsim.linalg.double_factorized_t2` for a
-                description of this argument.
-                This argument is ignored if ``optimize`` is set to ``False``.
-            multi_stage_start: See :func:`ffsim.linalg.double_factorized_t2` for a
-                description of this argument.
-                This argument is ignored if ``optimize`` is set to ``False``.
-            multi_stage_step: See :func:`ffsim.linalg.double_factorized_t2` for a
-                description of this argument.
-                This argument is ignored if ``optimize`` is set to ``False``.
+            validate: Whether to validate the symmetry of the t2 amplitudes.
+            rtol: Relative numerical tolerance for validation checks.
+            atol: Absolute numerical tolerance for validation checks.
+            optimize_kwargs: Keyword arguments to pass to
+                :func:`scipy.optimize.minimize`. The default method is
+                ``"L-BFGS-B"``.
+                These arguments are ignored if ``optimize`` is set to ``False``.
 
         Returns:
             The UCJ operator with parameters initialized from the t2 amplitudes.
 
         Raises:
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list for alpha-alpha or beta-beta interactions
                 contained lower triangular pairs.
-
-        .. _scipy.optimize.minimize: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+            ValueError: The same-spin t2 amplitudes were not antisymmetric.
         """
-        if isinstance(n_reps, int) and n_reps <= 0:
-            raise ValueError(f"n_reps must be at least 1. Got {n_reps}.")
+        if isinstance(n_reps, (int, np.integer)):
+            n_reps = int(n_reps)
+            if n_reps <= 0:
+                raise ValueError(f"n_reps must be at least 1. Got {n_reps}.")
         if interaction_pairs is None:
             interaction_pairs = (None, None, None)
         pairs_aa, pairs_ab, pairs_bb = interaction_pairs
-        validate_interaction_pairs(pairs_aa, ordered=False)
-        validate_interaction_pairs(pairs_bb, ordered=True)
-        validate_interaction_pairs(pairs_bb, ordered=False)
-
         t2aa, t2ab, t2bb = t2
         nocc_a, _, nvrt_a, _ = t2ab.shape
         norb = nocc_a + nvrt_a
+        validate_interaction_pairs(pairs_aa, ordered=False, norb=norb)
+        validate_interaction_pairs(pairs_ab, ordered=True, norb=norb)
+        validate_interaction_pairs(pairs_bb, ordered=False, norb=norb)
+        if validate:
+            validate_t2_antisymmetric(t2aa, name="t2aa", rtol=rtol, atol=atol)
+            validate_t2_antisymmetric(t2bb, name="t2bb", rtol=rtol, atol=atol)
 
-        # alpha-beta
+        # The uncompressed double factorizations determine the number of terms
+        # available for an integer n_reps to be divided between, and they serve as the
+        # initial guess for compression
+        diag_coulomb_mats_ab, orbital_rotations_ab = (
+            linalg.double_factorized_t2_alpha_beta(t2ab, tol=tol)
+        )
+        diag_coulomb_mats_aa, orbital_rotations_aa = linalg.double_factorized_t2(
+            0.5 * t2aa, tol=tol
+        )
+        diag_coulomb_mats_bb, orbital_rotations_bb = linalg.double_factorized_t2(
+            0.5 * t2bb, tol=tol
+        )
+
+        n_reps_ab: int | None
+        n_reps_same_spin: int | None
         if n_reps is None:
-            n_reps_ab = None
+            n_reps_ab, n_reps_same_spin = None, None
         elif isinstance(n_reps, int):
-            n_reps_ab = n_reps
+            diag_coulomb_mats_same_spin, _ = _pair_same_spin(
+                diag_coulomb_mats_aa,
+                orbital_rotations_aa,
+                diag_coulomb_mats_bb,
+                orbital_rotations_bb,
+            )
+            n_reps_ab, n_reps_same_spin = _split_n_reps(
+                diag_coulomb_mats_ab, diag_coulomb_mats_same_spin, n_reps
+            )
         else:
-            n_reps_ab, _ = n_reps
-        if n_reps_ab is None or n_reps_ab >= 1:
-            diag_coulomb_mats_ab, orbital_rotations_ab = (
-                linalg.double_factorized_t2_alpha_beta(
+            n_reps_ab, n_reps_same_spin = n_reps
+            if n_reps_ab < 0:
+                raise ValueError(
+                    "Number of alpha-beta repetitions must be non-negative. "
+                    f"Got {n_reps_ab}."
+                )
+            if n_reps_same_spin < 0:
+                raise ValueError(
+                    "Number of same-spin repetitions must be non-negative. "
+                    f"Got {n_reps_same_spin}."
+                )
+
+        # A sector with no terms requested or available has nothing to optimize
+        if optimize and n_reps_ab != 0 and len(orbital_rotations_ab):
+            diag_coulomb_mats_ab, orbital_rotations_ab, _ = (
+                linalg.double_factorized_t2_alpha_beta_compressed(
                     t2ab,
-                    tol=tol,
+                    initial_guess=(diag_coulomb_mats_ab, orbital_rotations_ab),
                     max_terms=n_reps_ab,
-                    optimize=optimize,
-                    method=method,
-                    callback=callback,
-                    options=options,
                     diag_coulomb_indices=interaction_pairs,
                     regularization=regularization,
                     multi_stage_start=multi_stage_start,
                     multi_stage_step=multi_stage_step,
-                    return_optimize_result=False,
+                    **optimize_kwargs,
                 )
             )
-        elif n_reps_ab == 0:
-            diag_coulomb_mats_ab = np.empty((0, 3, norb, norb))
-            orbital_rotations_ab = np.empty((0, 2, norb, norb))
-        else:
-            raise ValueError(
-                f"Number of alpha-beta repetitions must be at least 1. Got {n_reps_ab}."
-            )
-        n_reps_ab, _, _, _ = diag_coulomb_mats_ab.shape
-        # alpha-alpha and beta-beta
-        if n_reps is None:
-            n_reps_aa = None
-        elif isinstance(n_reps, int):
-            n_reps_aa = n_reps - n_reps_ab
-        else:
-            _, n_reps_aa = n_reps
-        if n_reps_aa is None or n_reps_aa >= 1:
-            diag_coulomb_mats_aa, orbital_rotations_aa = linalg.double_factorized_t2(
-                t2aa,
-                tol=tol,
-                max_terms=n_reps_aa,
-                optimize=optimize,
-                method=method,
-                callback=callback,
-                options=options,
-                diag_coulomb_indices=pairs_aa,
-                regularization=regularization,
-                multi_stage_start=multi_stage_start,
-                multi_stage_step=multi_stage_step,
-                return_optimize_result=False,
-            )
-            diag_coulomb_mats_bb, orbital_rotations_bb = linalg.double_factorized_t2(
-                t2bb,
-                tol=tol,
-                max_terms=n_reps_aa,
-                optimize=optimize,
-                method=method,
-                callback=callback,
-                options=options,
-                diag_coulomb_indices=pairs_bb,
-                regularization=regularization,
-                multi_stage_start=multi_stage_start,
-                multi_stage_step=multi_stage_step,
-                return_optimize_result=False,
-            )
-            if len(diag_coulomb_mats_aa) or len(diag_coulomb_mats_bb):
-                zero = np.zeros((norb, norb))
-                diag_coulomb_mats_same_spin = np.stack(
-                    [
-                        [mat_aa, zero, mat_bb]
-                        for mat_aa, mat_bb in itertools.zip_longest(
-                            diag_coulomb_mats_aa, diag_coulomb_mats_bb, fillvalue=zero
-                        )
-                    ]
+        if optimize and n_reps_same_spin != 0 and len(orbital_rotations_aa):
+            diag_coulomb_mats_aa, orbital_rotations_aa, _ = (
+                linalg.double_factorized_t2_compressed(
+                    0.5 * t2aa,
+                    initial_guess=(diag_coulomb_mats_aa, orbital_rotations_aa),
+                    max_terms=n_reps_same_spin,
+                    diag_coulomb_indices=pairs_aa,
+                    regularization=regularization,
+                    multi_stage_start=multi_stage_start,
+                    multi_stage_step=multi_stage_step,
+                    **optimize_kwargs,
                 )
-                eye = np.eye(norb)
-                orbital_rotations_same_spin = np.stack(
-                    [
-                        [orb_rot_aa, orb_rot_bb]
-                        for orb_rot_aa, orb_rot_bb in itertools.zip_longest(
-                            orbital_rotations_aa, orbital_rotations_bb, fillvalue=eye
-                        )
-                    ]
+            )
+        if optimize and n_reps_same_spin != 0 and len(orbital_rotations_bb):
+            diag_coulomb_mats_bb, orbital_rotations_bb, _ = (
+                linalg.double_factorized_t2_compressed(
+                    0.5 * t2bb,
+                    initial_guess=(diag_coulomb_mats_bb, orbital_rotations_bb),
+                    max_terms=n_reps_same_spin,
+                    diag_coulomb_indices=pairs_bb,
+                    regularization=regularization,
+                    multi_stage_start=multi_stage_start,
+                    multi_stage_step=multi_stage_step,
+                    **optimize_kwargs,
                 )
-            else:
-                diag_coulomb_mats_same_spin = np.empty((0, 3, norb, norb))
-                orbital_rotations_same_spin = np.empty((0, 2, norb, norb))
-        elif n_reps_aa == 0:
-            diag_coulomb_mats_same_spin = np.empty((0, 3, norb, norb))
-            orbital_rotations_same_spin = np.empty((0, 2, norb, norb))
-        else:
-            raise ValueError(
-                f"Number of alpha-alpha repetitions must be at least 1. "
-                f"Got {n_reps_aa}."
             )
-        # concatenate
-        if n_reps is None or isinstance(n_reps, int):
-            diag_coulomb_mats = np.concatenate(
-                [diag_coulomb_mats_ab, diag_coulomb_mats_same_spin]
-            )[:n_reps]
-            orbital_rotations = np.concatenate(
-                [orbital_rotations_ab, orbital_rotations_same_spin]
-            )[:n_reps]
-            diag_coulomb_mats = _pad_diag_coulomb_mats(diag_coulomb_mats, n_reps)
-            orbital_rotations = _pad_orbital_rotations(orbital_rotations, n_reps)
-        else:
-            n_reps_ab, n_reps_same_spin = n_reps
-            diag_coulomb_mats_ab = _pad_diag_coulomb_mats(
-                diag_coulomb_mats_ab[:n_reps_ab], n_reps_ab
-            )
-            orbital_rotations_ab = _pad_orbital_rotations(
-                orbital_rotations_ab[:n_reps_ab], n_reps_ab
-            )
-            diag_coulomb_mats_same_spin = _pad_diag_coulomb_mats(
-                diag_coulomb_mats_same_spin[:n_reps_same_spin], n_reps_same_spin
-            )
-            orbital_rotations_same_spin = _pad_orbital_rotations(
-                orbital_rotations_same_spin[:n_reps_same_spin], n_reps_same_spin
-            )
-            diag_coulomb_mats = np.concatenate(
-                [diag_coulomb_mats_ab, diag_coulomb_mats_same_spin]
-            )
-            orbital_rotations = np.concatenate(
-                [orbital_rotations_ab, orbital_rotations_same_spin]
-            )
+
+        diag_coulomb_mats_same_spin, orbital_rotations_same_spin = _pair_same_spin(
+            diag_coulomb_mats_aa,
+            orbital_rotations_aa,
+            diag_coulomb_mats_bb,
+            orbital_rotations_bb,
+        )
+
+        # Truncate and pad to the requested numbers of repetitions, then concatenate
+        diag_coulomb_mats = np.concatenate(
+            [
+                _pad_diag_coulomb_mats(diag_coulomb_mats_ab[:n_reps_ab], n_reps_ab),
+                _pad_diag_coulomb_mats(
+                    diag_coulomb_mats_same_spin[:n_reps_same_spin], n_reps_same_spin
+                ),
+            ]
+        )
+        orbital_rotations = np.concatenate(
+            [
+                _pad_orbital_rotations(orbital_rotations_ab[:n_reps_ab], n_reps_ab),
+                _pad_orbital_rotations(
+                    orbital_rotations_same_spin[:n_reps_same_spin], n_reps_same_spin
+                ),
+            ]
+        )
 
         final_orbital_rotation = None
         if t1 is not None:
@@ -676,25 +665,11 @@ class UCJOpSpinUnbalanced(
 
         # Zero out diagonal coulomb matrix entries if requested
         if pairs_aa is not None:
-            mask = np.zeros((norb, norb), dtype=bool)
-            if pairs_aa:
-                rows, cols = zip(*pairs_aa)
-                mask[rows, cols] = True
-                mask[cols, rows] = True
-            diag_coulomb_mats[:, 0] *= mask
+            diag_coulomb_mats[:, 0] *= mask_from_indices(norb, pairs_aa, symmetric=True)
         if pairs_ab is not None:
-            mask = np.zeros((norb, norb), dtype=bool)
-            if pairs_ab:
-                rows, cols = zip(*pairs_ab)
-                mask[rows, cols] = True
-            diag_coulomb_mats[:, 1] *= mask
+            diag_coulomb_mats[:, 1] *= mask_from_indices(norb, pairs_ab)
         if pairs_bb is not None:
-            mask = np.zeros((norb, norb), dtype=bool)
-            if pairs_bb:
-                rows, cols = zip(*pairs_bb)
-                mask[rows, cols] = True
-                mask[cols, rows] = True
-            diag_coulomb_mats[:, 2] *= mask
+            diag_coulomb_mats[:, 2] *= mask_from_indices(norb, pairs_bb, symmetric=True)
 
         return UCJOpSpinUnbalanced(
             diag_coulomb_mats=diag_coulomb_mats,
@@ -769,6 +744,84 @@ class UCJOpSpinUnbalanced(
         return NotImplemented
 
 
+def _pair_same_spin(
+    diag_coulomb_mats_aa: np.ndarray,
+    orbital_rotations_aa: np.ndarray,
+    diag_coulomb_mats_bb: np.ndarray,
+    orbital_rotations_bb: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Pair up alpha-alpha and beta-beta terms, in order, into same-spin repetitions.
+
+    If one spin sector has fewer terms, it is padded with zero diagonal Coulomb
+    matrices and identity orbital rotations.
+    """
+    _, norb, _ = diag_coulomb_mats_aa.shape
+    zero = np.zeros((norb, norb))
+    eye = np.eye(norb)
+    diag_coulomb_mats = np.array(
+        [
+            [mat_aa, zero, mat_bb]
+            for mat_aa, mat_bb in itertools.zip_longest(
+                diag_coulomb_mats_aa, diag_coulomb_mats_bb, fillvalue=zero
+            )
+        ]
+    ).reshape(-1, 3, norb, norb)
+    orbital_rotations = np.array(
+        [
+            [orb_rot_aa, orb_rot_bb]
+            for orb_rot_aa, orb_rot_bb in itertools.zip_longest(
+                orbital_rotations_aa, orbital_rotations_bb, fillvalue=eye
+            )
+        ],
+        dtype=complex,
+    ).reshape(-1, 2, norb, norb)
+    return diag_coulomb_mats, orbital_rotations
+
+
+def _split_n_reps(
+    diag_coulomb_mats_ab: np.ndarray,
+    diag_coulomb_mats_same_spin: np.ndarray,
+    n_reps: int,
+) -> tuple[int, int]:
+    """Divide repetitions between alpha-beta and same-spin terms.
+
+    The diagonal Coulomb matrices are those of the exact double factorizations. Each
+    repetition is weighted by its contribution to the squared norm of the t2
+    amplitudes in the spin-orbital basis, so that every distinct excitation counts
+    equally. For an alpha-beta repetition this is the squared Frobenius norm of its
+    diagonal Coulomb matrix in the spin-orbital basis, which is the square of a
+    singular value of the alpha-beta t2 amplitudes. A same-spin diagonal Coulomb
+    matrix factorizes half of the same-spin t2 amplitudes, because its alpha-alpha
+    and beta-beta blocks act on each pair of orbitals in both orders, so its weight
+    is twice its squared Frobenius norm. This is half the sum of the squares of an
+    eigenvalue of the alpha-alpha and of the beta-beta t2 amplitudes. The ``n_reps``
+    repetitions with the largest weights are selected. Any repetitions beyond the
+    total number of terms are assigned to the same-spin terms, which are padded with
+    identities.
+    """
+    weights = np.concatenate(
+        [
+            _spin_orbital_norms_squared(diag_coulomb_mats_ab),
+            2 * _spin_orbital_norms_squared(diag_coulomb_mats_same_spin),
+        ]
+    )
+    # Only the number of selected alpha-beta repetitions matters, so the ordering of
+    # nearly equal weights within each group does not affect the result
+    selected = np.argsort(-weights, kind="stable")[:n_reps]
+    n_reps_ab = int(np.count_nonzero(selected < len(diag_coulomb_mats_ab)))
+    return n_reps_ab, n_reps - n_reps_ab
+
+
+def _spin_orbital_norms_squared(diag_coulomb_mats: np.ndarray) -> np.ndarray:
+    """Squared Frobenius norms of diagonal Coulomb matrices in the spin-orbital basis.
+
+    The alpha-beta block appears twice in the spin-orbital matrix, once above and
+    once below the diagonal.
+    """
+    mats_aa, mats_ab, mats_bb = np.moveaxis(np.abs(diag_coulomb_mats) ** 2, -3, 0)
+    return np.sum(mats_aa + 2 * mats_ab + mats_bb, axis=(-2, -1))
+
+
 def _pad_diag_coulomb_mats(diag_coulomb_mats: np.ndarray, n_reps: int | None):
     n_vecs, _, norb, _ = diag_coulomb_mats.shape
     if n_reps is not None and n_vecs < n_reps:
@@ -792,3 +845,81 @@ def _pad_orbital_rotations(orbital_rotations: np.ndarray, n_reps: int | None):
             ]
         )
     return orbital_rotations
+
+
+def ucj_op_spin_unbalanced_from_parameters_jax(
+    params: jax.Array,
+    *,
+    norb: int,
+    n_reps: int,
+    interaction_pairs: tuple[
+        list[tuple[int, int]] | None,
+        list[tuple[int, int]] | None,
+        list[tuple[int, int]] | None,
+    ]
+    | None = None,
+    with_final_orbital_rotation: bool = False,
+) -> tuple[jax.Array, jax.Array, jax.Array | None]:
+    """JAX version of UCJOpSpinUnbalanced.from_parameters.
+
+    Returns:
+        The diagonal Coulomb matrices, orbital rotations, and final orbital rotation
+        (or None), with the same shapes as the corresponding attributes of
+        UCJOpSpinUnbalanced.
+    """
+    n_params = UCJOpSpinUnbalanced.n_params(
+        norb,
+        n_reps,
+        interaction_pairs=interaction_pairs,
+        with_final_orbital_rotation=with_final_orbital_rotation,
+    )
+    if len(params) != n_params:
+        raise ValueError(
+            "The number of parameters passed did not match the number expected "
+            "based on the function inputs. "
+            f"Expected {n_params} but got {len(params)}."
+        )
+    if interaction_pairs is None:
+        interaction_pairs = (None, None, None)
+    pairs_aa, pairs_ab, pairs_bb = interaction_pairs
+    triu_indices = upper_triangular_indices(norb)
+    if pairs_aa is None:
+        pairs_aa = triu_indices
+    if pairs_ab is None:
+        pairs_ab = all_indices(norb)
+    if pairs_bb is None:
+        pairs_bb = triu_indices
+    diag_coulomb_mats = jnp.zeros((n_reps, 3, norb, norb))
+    orbital_rotations = jnp.zeros((n_reps, 2, norb, norb), dtype=complex)
+    index = 0
+    for rep in range(n_reps):
+        # Orbital rotations
+        n_params = norb**2
+        for sigma in range(2):
+            orbital_rotations = orbital_rotations.at[rep, sigma].set(
+                unitary_from_parameters_jax(params[index : index + n_params], norb)
+            )
+            index += n_params
+        # Diag Coulomb matrices
+        for i, (indices, symmetric) in enumerate(
+            zip((pairs_aa, pairs_ab, pairs_bb), (True, False, True))
+        ):
+            n_params = len(indices)
+            vals = params[index : index + n_params]
+            diag_coulomb_mats = diag_coulomb_mats.at[rep, i].set(
+                real_symmetric_from_parameters_jax(vals, norb, indices)
+                if symmetric
+                else real_matrices_from_parameters_jax(vals, norb, 1, indices)[0]
+            )
+            index += n_params
+    # Final orbital rotation
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = jnp.zeros((2, norb, norb), dtype=complex)
+        n_params = norb**2
+        for sigma in range(2):
+            final_orbital_rotation = final_orbital_rotation.at[sigma].set(
+                unitary_from_parameters_jax(params[index : index + n_params], norb)
+            )
+            index += n_params
+    return diag_coulomb_mats, orbital_rotations, final_orbital_rotation

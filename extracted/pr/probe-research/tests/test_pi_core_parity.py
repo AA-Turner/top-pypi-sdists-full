@@ -36,6 +36,7 @@ STATE = PI_CORE / "trackingState.ts"
 PAIRING = PI_CORE / "pairing.ts"
 MCP_AUTH = PI_CORE / "mcpAuth.ts"
 HOSTED = PI_CORE / "hosted.ts"
+WORKSPACE_LIMIT = PI_CORE / "workspaceLimit.ts"
 TAP_RUNTIME = PI_CORE / "tapRuntime.ts"
 
 
@@ -194,6 +195,76 @@ def test_the_mcp_token_comes_from_where_probe_mcp_headers_reads_it():
     # Never the write token in the same file.
     assert 'print(data.get("mcp_token") or "")' in script
     assert "ingest_token" not in code
+
+
+# ---------------------------------------------------------------------------
+# workspaceLimit.ts <- probe.sdk.workspace_limit, bin/probe-mcp-headers
+# ---------------------------------------------------------------------------
+
+
+def test_the_workspace_limit_names_are_the_sdks_and_the_helpers():
+    from probe.sdk import workspace_limit as wl
+
+    assert ts_string(WORKSPACE_LIMIT, "WORKSPACE_LIMIT_HEADER") == wl.LIMIT_HEADER
+    assert ts_string(WORKSPACE_LIMIT, "WORKSPACE_LIMIT_TEAM_ITEMS_HEADER") == wl.TEAM_ITEMS_HEADER
+    assert ts_string(WORKSPACE_LIMIT, "WORKSPACE_LIMIT_ENV") == wl.LIMIT_ENV
+    assert ts_string(WORKSPACE_LIMIT, "WORKSPACE_LIMIT_TEAM_ITEMS_ENV") == wl.TEAM_ITEMS_ENV
+    assert ts_string(WORKSPACE_LIMIT, "WORKSPACE_LIMIT_TEAM_WORD") == wl.TEAM_WORD
+    assert ts_string(WORKSPACE_LIMIT, "UNREADABLE_LIMIT") == wl.UNREADABLE_FORWARD
+    assert set(ts_object(WORKSPACE_LIMIT, "TeamItems").values()) == {item.value for item in wl.TeamItems}
+    script = MCP_HEADERS.read_text(encoding="utf-8")
+    for name in (wl.LIMIT_HEADER, wl.TEAM_ITEMS_HEADER, wl.LIMIT_ENV, wl.TEAM_ITEMS_ENV, wl.UNREADABLE_FORWARD):
+        assert name in script, name
+    # The config keys all three read: the pin's `workspace`, its `limit` and `team_items`.
+    code = _code(WORKSPACE_LIMIT)
+    assert "anchor.limit !== true" in code and "anchor.team_items" in code and ".workspace" in code
+    assert 'anchor.get("limit") is True' in script and 'anchor.get("team_items")' in script
+    # The environment first, `team` meaning none, then the active context.
+    resolve = code[code.index("export function resolveWorkspaceLimit"):]
+    assert resolve.index("WORKSPACE_LIMIT_ENV") < resolve.index("readActiveProbeContext(env)")
+
+
+def _helper_limit(tmp_path: Path, config: dict, **env: str) -> dict:
+    home = tmp_path / "home"
+    config_home = tmp_path / "config"
+    (config_home / "probe").mkdir(parents=True, exist_ok=True)
+    (config_home / "probe" / "config.json").write_text(json.dumps(config))
+    home.mkdir(exist_ok=True)
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(exist_ok=True)
+    if not (bin_dir / "python3").exists():
+        (bin_dir / "python3").symlink_to(sys.executable)
+    result = subprocess.run(
+        [str(MCP_HEADERS)],
+        env={"HOME": str(home), "XDG_CONFIG_HOME": str(config_home), "PATH": f"{bin_dir}:/usr/bin:/bin",
+             "CLAUDE_PLUGIN_ROOT": str(tmp_path / "plugin"), **env},
+        capture_output=True, text=True, timeout=20, check=True,
+    )
+    from probe.sdk.workspace_limit import limit_headers_of
+
+    return limit_headers_of(json.loads(result.stdout))
+
+
+def test_the_helper_sends_the_limit_the_sdk_resolves(tmp_path, monkeypatch):
+    """Same config, same environment: the headers helper (Claude Code's MCP) and
+    the SDK's transport send the same limit."""
+    from probe.sdk import workspace_limit as wl
+
+    ws = "11111111-1111-1111-1111-111111111111"
+    cases = [
+        ({"workspace": {"id": ws}}, {}),
+        ({"workspace": {"id": ws, "limit": True}}, {}),
+        ({"workspace": {"id": f"id:{ws}", "limit": True, "team_items": "hide"}}, {}),
+        ({"workspace": {"id": ws, "limit": True, "team_items": "hide"}}, {"PROBE_WORKSPACE_LIMIT_TEAM_ITEMS": "show"}),
+        ({"workspace": {"id": ws, "limit": True}}, {"PROBE_WORKSPACE_LIMIT": "team"}),
+        ({}, {"PROBE_WORKSPACE_LIMIT": "22222222-2222-2222-2222-222222222222"}),
+    ]
+    for index, (context, env) in enumerate(cases):
+        config = {"version": 2, "current_context": "default",
+                  "contexts": {"default": {"mcp_token": "probe_pat_read", **context}}}
+        limit = wl.resolve_limit(config["contexts"]["default"], env)
+        expected = {} if limit is None else wl.request_headers(limit, limit.id)
+        assert _helper_limit(tmp_path / str(index), config, **env) == expected, (context, env)
 
 
 # ---------------------------------------------------------------------------

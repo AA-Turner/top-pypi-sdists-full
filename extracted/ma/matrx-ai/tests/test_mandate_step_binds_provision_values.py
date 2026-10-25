@@ -51,3 +51,16 @@ def test_the_step_refuses_rather_than_run_unbound(state: dict, resolved: _Resolv
 def test_a_workflow_holder_gets_the_state_as_its_supplied_offer() -> None:
     out = _state_as_extras(_inputs(provision_values={"a": "x"}, edge_var="e"))
     assert (out.model_extra or {}) == {"a": "x", "edge_var": "e"} and out.provision_values is None
+
+
+async def _bind_store(state: dict[str, Any]) -> dict[str, Any]:
+    return {"store": '{"items": []}', "evidence": state["a"]}
+
+
+def test_a_doer_variable_that_shadows_a_typed_input_field_is_refused_by_name() -> None:
+    # Live 2026-10-24 (runs a4d19757, b57eb8ba, aab09423): the self-description binding named a variable ``store``;
+    # spread beside the typed ``store: bool`` it failed the whole room ("Input should be a valid boolean"), and a
+    # value that happened to validate would silently have become a run setting the doer never saw.
+    with pytest.raises(ValueError, match=r"\['store'\] that shadow"):
+        asyncio.run(_bind_provision_values(_inputs(provision_values={"a": "x"}),
+                                           _Resolved(materialize=_bind_store, consumption_map={"store": []})))

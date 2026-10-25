@@ -102,7 +102,9 @@ async def test_adjustments_are_stored_and_streamed() -> None:
     events = [p for p in recorder.infos if p.code == "settings_adjusted"]
     assert len(events) == 1
     streamed = events[0].metadata["settings_adjustments"]
-    assert {r["key"] for r in streamed} == set(by_key)
+    # Shown: only what changed for the person; a value carried in the provider's own
+    # shape stays in the record and out of the notice.
+    assert {r["key"] for r in streamed} == {r["key"] for r in stored if not r["faithful"]}
     assert "top_k" in events[0].system_message
 
 
@@ -123,3 +125,48 @@ async def test_one_event_per_request_across_iterations() -> None:
 async def _one_pass() -> None:
     set_execution_state(ExecutionState())
     resolve_outbound_params(_kitchen_sink_config(), _gemini_controls())
+
+
+def _claude_controls() -> CompiledControlsMap:
+    rules = json.loads(FIXTURE.read_text())["anthropic_claude_haiku_5_5"]["rules"]
+    return CompiledControlsMap(rules={k: ControlRule.model_validate(v) for k, v in rules.items()})
+
+
+async def test_a_faithful_translation_is_recorded_never_announced() -> None:
+    """Arman 2026-10-24: nearly every Anthropic request said "settings were adjusted"
+    because effort=medium was sent as Anthropic's own output_config.effort=medium."""
+    recorder = _Recorder()
+    ctx = AppContext(emitter=recorder, user_id="u", request_id="r", conversation_id="c")  # type: ignore[arg-type]
+    ctx_token = set_app_context(ctx)
+    state = ExecutionState()
+    set_execution_state(state)
+    try:
+        resolve_outbound_params(
+            UnifiedConfig.from_dict(
+                {"model": "claude-haiku-5-5", "messages": [], "reasoning_effort": "medium"}
+            ),
+            _claude_controls(),
+        )
+        await asyncio.sleep(0.05)
+    finally:
+        clear_app_context(ctx_token)
+    stored = state.settings_adjustments or []
+    assert any(r["key"] == "reasoning_effort" and r["faithful"] for r in stored), stored
+    assert not [p for p in recorder.infos if p.code == "settings_adjusted"]
+
+
+def test_faithful_means_unchanged_in_meaning() -> None:
+    from matrx_ai.catalog.controls import _carried_faithfully
+
+    levels = {"none", "minimal", "low", "medium", "high"}
+    # Same word in the provider's shape, or the same level on another scale: faithful.
+    assert _carried_faithfully({"output_config": {"effort": "medium"}}, "medium", levels)
+    assert _carried_faithfully({"thinking": {"type": "enabled", "budget_tokens": 1024}}, "low", levels)
+    # A different level of the vocabulary is a real change and is announced.
+    assert not _carried_faithfully({"thinking_config": {"thinking_level": "minimal"}}, "none", levels)
+    # An off is faithful only as the provider's own off — never as thinking that still runs.
+    assert _carried_faithfully({"thinking": {"type": "disabled"}}, "none", levels)
+    assert not _carried_faithfully({"thinking": {"type": "enabled", "budget_tokens": 1024}}, "none", levels)
+    # A number not sent as itself was capped; with no vocabulary loaded nothing is assumed.
+    assert not _carried_faithfully({"thinking_config": {"thinking_budget": 4096}}, 8192, levels)
+    assert not _carried_faithfully({"thinking_config": {"thinking_level": "minimal"}}, "none", set())

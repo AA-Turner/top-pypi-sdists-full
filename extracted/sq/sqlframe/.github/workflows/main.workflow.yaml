@@ -13,6 +13,7 @@ on:
     - synchronize
     - opened
     paths:
+    - '.github/workflows/**'
     - 'sqlframe/**'
     - 'tests/**'
     - 'Makefile'
@@ -20,8 +21,8 @@ on:
     - 'uv.lock'
 jobs:
   run-tests:
-    # Keep PostgreSQL 16 available for the Configure Postgres step.
-    runs-on: ubuntu-24.04
+    # Keep PostgreSQL 18 available for the Configure Postgres step.
+    runs-on: ubuntu-26.04
     env:
       PYTEST_XDIST_AUTO_NUM_WORKERS: 4
     strategy:
@@ -29,9 +30,15 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13']
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
+    - name: Use Java 21
+      run: |
+        : "${JAVA_HOME_21_X64:?Java 21 is unavailable}"
+        echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+        echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+        "$JAVA_HOME_21_X64/bin/java" -version
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v10.3.2
       with:
         python-version: ${{ matrix.python-version }}
         enable-cache: true
@@ -41,8 +48,8 @@ jobs:
       run: uv run make style
     - name: Configure Postgres
       run: |
-        echo "/usr/lib/postgresql/16/bin" >> "$GITHUB_PATH"
-        /usr/lib/postgresql/16/bin/postgres --version
+        echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+        /usr/lib/postgresql/18/bin/postgres --version
     - name: Run tests
       run: uv run make local-test
   minimum-sqlglot:
@@ -51,9 +58,9 @@ jobs:
       PYTEST_XDIST_AUTO_NUM_WORKERS: 4
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v10.3.2
       with:
         python-version: '3.12'
         enable-cache: true
@@ -99,12 +106,12 @@ jobs:
         uv run --no-sync pytest -n 0 tests/integration/engines/duck/test_duckdb_dataframe.py -k lambda_functions_with_collection_and_pandas
         uv run --no-sync pytest -n 0 -m local tests/integration/engines/test_int_functions.py -k 'array_join or array_remove or array_except or arrays_zip or array_compact'
   minimum-duckdb:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
     - name: Checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
     - name: Install uv
-      uses: astral-sh/setup-uv@v7
+      uses: astral-sh/setup-uv@v10.3.2
       with:
         python-version: '3.12'
         enable-cache: true

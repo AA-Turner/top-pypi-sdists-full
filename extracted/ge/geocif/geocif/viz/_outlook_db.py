@@ -90,7 +90,8 @@ def dedup_upserts(df, key, label=""):
 
 
 def load_outlook(db_path, table, *, model=None, extra_columns=(),
-                 text_columns=(), require_obs=False, validate_ci=False):
+                 text_columns=(), require_obs=False, validate_ci=False,
+                 key_extra=()):
     """Read one crop table's outlook rows with the shared cleanup applied.
 
     Parameters
@@ -105,6 +106,11 @@ def load_outlook(db_path, table, *, model=None, extra_columns=(),
     text_columns : tuple of str
         Optional columns carried along as they are (``Country``, ``Crop``):
         the numeric coercion of ``extra_columns`` would blank them.
+    key_extra : tuple of str
+        Further columns that identify a logical row, joined to the dedup key
+        when present, e.g. ``("Season",)`` for a multi-season country whose
+        Long and Short Rains rows share a Region and Stage Name (the snake
+        chart). Ask for them through ``extra_columns`` or ``text_columns``.
     require_obs : bool
         Drop rows without an observed yield. Skill scoring needs the truth on
         every row (leadtime); the cone must NOT set this because the live
@@ -159,6 +165,7 @@ def load_outlook(db_path, table, *, model=None, extra_columns=(),
     key = ["Model", "Region", "year", "stage"]
     if "Country" in text_columns:
         key.append("Country")
+    key += [c for c in key_extra if c in df.columns and c not in key]
     df = dedup_upserts(df, key, table)
     df = df.copy()
 

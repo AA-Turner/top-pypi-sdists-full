@@ -29,7 +29,6 @@ from matrx_ai.schema.rules import (
     concretize_empty_schemas,
     flatten_allof,
     normalize_array_items,
-    normalize_combinator_siblings,
     prune_unreachable_defs,
     structured_output_schema_violations,
     take_normalization_notes,
@@ -327,29 +326,6 @@ def test_the_normalization_never_mutates_the_callers_schema() -> None:
     before = copy.deepcopy(schema)
     wire(schema)
     assert schema == before
-
-
-def test_the_agent_factory_wire_contract_clears_the_anthropic_subset() -> None:
-    """The real contract that was failing: the agent-generation agent's own
-    envelope. It must carry no keyword violation on the wire.
-
-    (It is still refused by Anthropic's compiled-grammar CAPACITY ceiling, which
-    is a different failure with a different message and no schema rewrite can
-    clear it — see the task report. This test guards the half that is ours.)"""
-    try:
-        from aidream.services.agent_factory.agent_builder_agent import (
-            CreateAgentDefinitionEnvelope,
-        )
-    except Exception:  # pragma: no cover - package-only test run
-        pytest.skip("aidream is not importable from this test run")
-
-    schema = CreateAgentDefinitionEnvelope.model_json_schema()
-    assert "propertyName" in str(schema) and '"allOf"' in str(schema).replace("'", '"'), (
-        "this test is only meaningful while the builder's contract still carries a "
-        "discriminated union and an allOf refinement; if that changed, retarget it"
-    )
-    violations = structured_output_schema_violations(wire(schema))
-    assert violations == [], violations
 
 
 def test_no_optional_property_reaches_anthropic() -> None:

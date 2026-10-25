@@ -174,7 +174,10 @@ class TestUndeclaredDropWarns:
     def test_voice_setting_at_a_text_model_drops_with_a_warning(self, monkeypatch):
         sent: list = []
         monkeypatch.setattr(outbound_params, "send_client_warning", lambda p, **k: sent.append(p))
-        assert _wire(_map(TEXT), tts_voice="kore", temperature=0.2) == {"temperature": 0.2}
+        wire = _wire(_map(TEXT), tts_voice="kore", temperature=0.2)
+        # The voice key is dropped; the reasoning entry is the platform default the text
+        # target now always gets when unset (owner ruling 2026-10-24).
+        assert wire == {"temperature": 0.2, "reasoning": {"effort": "low"}}
         [warning] = sent
         assert "tts_voice" in warning.user_message
         # the same through the gate for a voice key on the canonical dict

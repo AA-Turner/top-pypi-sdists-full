@@ -894,10 +894,49 @@ class RenderReport:
     #: so the note was not rendered there; `removed` also took an old note out.
     opted_out: tuple[str, ...] = ()
     removed: tuple[str, ...] = ()
+    #: Harnesses whose file carries no team-note block because this computer's
+    #: workspace limit hides team-wide items (`hidden_by_limit`); a block that was
+    #: there was taken out.
+    hidden: tuple[str, ...] = ()
 
     @property
     def ok(self) -> bool:
         return not self.failures
+
+
+def hidden_by_limit(settings) -> bool:
+    """Does this computer's workspace limit hide team-wide items (the team note
+    among them)? Then the note is neither synced nor rendered, and its managed
+    block leaves the instruction files; the local document stays on disk and syncs
+    again once they show (`probe workspace limit`, `probe.sdk.workspace_limit`)."""
+    limit = getattr(settings, "workspace_limit", None)
+    return limit is not None and limit.hides_team_items
+
+
+#: `probe notes sync`'s `detail` while team-wide items are hidden.
+HIDDEN_DETAIL = (
+    "not synced: this computer's workspace limit hides team-wide items, the team note "
+    "among them (`probe workspace limit <workspace> --team-items show` shows them)"
+)
+
+
+def remove_blocks(sources: tuple[str, ...] | None = None) -> list[str]:
+    """Take the team-note block out of every harness's instruction file, leaving
+    the pointer block and everything else alone. Returns the harnesses whose file
+    changed. A damaged or unreadable file is left untouched (the next render
+    reports it)."""
+    from probe.cli import agent_rules
+
+    removed: list[str] = []
+    for source in RENDER_SOURCES if sources is None else sources:
+        try:
+            instruction = agent_rules.memory_path(source)
+            with file_lock(instruction_lock_path(instruction)):
+                if agent_rules.remove(instruction, spec=agent_rules.NOTE_BLOCK):
+                    removed.append(source)
+        except (agent_rules.DamagedBlock, OSError, UnicodeDecodeError):
+            continue
+    return removed
 
 
 def instruction_lock_path(instruction: Path) -> Path:
@@ -1165,7 +1204,10 @@ def audit_advisory(
 
 def _local_note_state(source: str, *, settings) -> "tuple[str, float | None, dict | None] | None":
     """This machine's note, and the last render's size and audit baseline for
-    `source`, off disk. None when the note is unreadable or empty."""
+    `source`, off disk. None when the note is unreadable or empty, or hidden by
+    this computer's workspace limit (no audit of a note the machine does not show)."""
+    if hidden_by_limit(settings):
+        return None
     try:
         document = paths_for(settings).document.read_text(encoding="utf-8").strip()
     except OSError:
@@ -1403,7 +1445,8 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] | None = None
     from probe.cli import agent_rules
 
     body = text.strip()
-    conflict = agent_rules.note_body_conflict(body)
+    # Hidden team items render nothing, so a body that cannot render is moot.
+    conflict = None if hidden_by_limit(settings) else agent_rules.note_body_conflict(body)
     if conflict:
         # UNRENDERABLE, not fixable: _find_block counts marker occurrences, so a
         # marker inside the body makes the file unparseable wherever we put it.
@@ -1435,6 +1478,8 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] | None = None
     rules_refreshed: list[str] = []
     opted_out: list[str] = []
     removed: list[str] = []
+    hidden: list[str] = []
+    hide = hidden_by_limit(settings)
     health: dict[str, dict[str, object]] = {}
 
     for source in sources:
@@ -1513,6 +1558,15 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] | None = None
                         opted_out.append(source)
                     continue
 
+                # TEAM ITEMS HIDDEN by this computer's workspace limit: the note
+                # is one of them, so its block goes and is not put back until
+                # they show again (the pointer above is not a team item: it stays
+                # current either way).
+                if hide:
+                    agent_rules.remove(instruction, spec=agent_rules.NOTE_BLOCK)
+                    hidden.append(source)
+                    continue
+
                 existing = ""
                 if instruction.exists():
                     existing = instruction.read_text(encoding="utf-8")
@@ -1576,4 +1630,5 @@ def render_blocks(text: str, *, settings, sources: tuple[str, ...] | None = None
         rules_refreshed=tuple(rules_refreshed),
         opted_out=tuple(opted_out),
         removed=tuple(removed),
+        hidden=tuple(hidden),
     )

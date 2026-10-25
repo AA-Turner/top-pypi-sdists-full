@@ -637,6 +637,10 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # them (or a `probe exec` the suite runs under) would change what every
     # capture test captures.
     monkeypatch.delenv("PROBE_IGNORE", raising=False)
+    # This computer's workspace limit, per process: a developer who exports it
+    # would otherwise send it on every request the suite makes.
+    monkeypatch.delenv("PROBE_WORKSPACE_LIMIT", raising=False)
+    monkeypatch.delenv("PROBE_WORKSPACE_LIMIT_TEAM_ITEMS", raising=False)
     monkeypatch.delenv("PROBE_IGNORE_FILE", raising=False)
     monkeypatch.delenv("PROBE_IGNORE_EXPORTED", raising=False)
     # CODEX_THREAD_ID / CODEX_SANDBOX are the same hole again, and this pair

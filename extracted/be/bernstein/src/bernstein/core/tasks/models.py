@@ -204,6 +204,20 @@ class TaskStatus(Enum):
     REFUSED = "refused"  # Worker reported a typed refusal via the completion contract (#2244)
 
 
+class DispatchTier(StrEnum):
+    """Backend tier for multi-backend task dispatch (#6554).
+
+    Assigned by the decomposer or explicitly by the plan.
+    The dispatcher selects the backend adapter matching the task's tier.
+    """
+
+    LOCAL = "local"
+    EDGE = "edge"
+    SEARCH = "search"
+    RESEARCH = "research"
+    SANDBOX = "sandbox"
+
+
 class TaskType(Enum):
     """Type of task for categorization and prioritization."""
 
@@ -270,6 +284,21 @@ class UpgradeProposalDetails:
     performance_impact: str = ""
 
 
+CompletionSignalType = Literal[
+    "path_exists",
+    "glob_exists",
+    "test_passes",
+    "file_contains",
+    "llm_review",
+    "llm_judge",
+    "schema_valid",
+    "criteria_match",
+    "hash_stable",
+    "figures_grounded",
+    "absence_verified",
+]
+
+
 @dataclass(frozen=True)
 class CompletionSignal:
     """Janitor signal for automatic task verification.
@@ -300,19 +329,7 @@ class CompletionSignal:
     :func:`bernstein.core.quality.absence_coverage.verify_anchored_absence_claim`.
     """
 
-    type: Literal[
-        "path_exists",
-        "glob_exists",
-        "test_passes",
-        "file_contains",
-        "llm_review",
-        "llm_judge",
-        "schema_valid",
-        "criteria_match",
-        "hash_stable",
-        "figures_grounded",
-        "absence_verified",
-    ]
+    type: CompletionSignalType
     # path, glob, test command, search string, review instruction,
     # criterion payload, severity, or tool_call_id
     value: str
@@ -524,6 +541,7 @@ class Task:
     repo: str | None = None  # Target repo in a multi-repo workspace
     depends_on_repo: str | None = None  # Cross-repo dependency source repo, used with depends_on task IDs
     # Manager-specified routing hints (override auto-routing when set)
+    dispatch_tier: DispatchTier = DispatchTier.LOCAL
     model: str | None = None  # "opus", "sonnet", "haiku"
     effort: str | None = None  # "max", "high", "medium", "low"
     cli: str | None = None  # adapter override; "claude", "opencode", "codex", … (per-step)
@@ -656,6 +674,7 @@ class Task:
             "cell_id": self.cell_id,
             "repo": self.repo,
             "depends_on_repo": self.depends_on_repo,
+            "dispatch_tier": self.dispatch_tier.value,
             "model": self.model,
             "effort": self.effort,
             "cli": self.cli,
@@ -789,6 +808,7 @@ class Task:
             cell_id=raw.get("cell_id"),
             repo=raw.get("repo"),
             depends_on_repo=raw.get("depends_on_repo"),
+            dispatch_tier=DispatchTier(raw["dispatch_tier"]) if "dispatch_tier" in raw else DispatchTier.LOCAL,
             model=raw.get("model"),
             effort=raw.get("effort"),
             cli=raw.get("cli"),

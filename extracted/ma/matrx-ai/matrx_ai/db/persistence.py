@@ -781,6 +781,47 @@ def stored_run_in_context() -> bool:
         return True
 
 
+class SkippedPersistenceWrite(RuntimeError):
+    """A row (or a row's update) the persist path could NOT write and skipped. Never silent:
+    every skip goes through :func:`surface_skipped_write` (the persistence law — a write that
+    did not land is a counted ``run_history_write_failure``, not a log line)."""
+
+
+#: Every skip path in this module, by stage name (the class guard reads this list).
+SKIPPED_WRITE_STAGES: tuple[str, ...] = (
+    "cx_request_model_unresolvable",
+    "conversation_update_no_id",
+    "tool_call_backfill_failed",
+    "tool_pointer_update_failed",
+    "reserved_message_close_failed",
+    "user_request_rollup_no_id",
+)
+
+
+async def surface_skipped_write(
+    stage: str,
+    detail: str,
+    *,
+    conversation_id: str | None = None,
+    request_id: str | None = None,
+    cause: BaseException | None = None,
+) -> None:
+    """File a skipped write as a ``run_history_write_failure`` (stored runs only). Never raises."""
+    if stage not in SKIPPED_WRITE_STAGES:
+        stage = f"unlisted:{stage}"
+    try:
+        if not stored_run_in_context():
+            return
+        exc = SkippedPersistenceWrite(f"{stage}: {detail}")
+        if cause is not None:
+            exc.__cause__ = cause
+        await record_run_history_write_failure(
+            exc, stage=stage, conversation_id=conversation_id, request_id=request_id
+        )
+    except Exception as capture_exc:  # noqa: BLE001 — the capture never replaces the persist
+        vcprint(f"[CX PERSISTENCE] could not file skipped write {stage}: {capture_exc!r}", color="red")
+
+
 async def record_run_history_write_failure(
     exc: BaseException,
     *,
@@ -1283,6 +1324,11 @@ async def persist_completed_request(
                 f"[CX PERSISTENCE PERSIST COMPLETED REQUEST] No valid conversation_id to update: {db_conversation_id!r}",
                 color="yellow",
             )
+            await surface_skipped_write(
+                "conversation_update_no_id",
+                f"conversation update skipped: {db_conversation_id!r}",
+                request_id=str(completed.request.request_id or "") or None,
+            )
 
         # ============================================================
         # 2. MESSAGES — write trigger message + messages produced by this execution
@@ -1583,6 +1629,12 @@ async def persist_completed_request(
                             f"[CX PERSISTENCE PERSIST COMPLETED REQUEST] cx_tool_call backfill error: {backfill_err}",
                             color="yellow",
                         )
+                        await surface_skipped_write(
+                            "tool_call_backfill_failed",
+                            f"message {msg_id}: {backfill_err!r}",
+                            conversation_id=db_conversation_id,
+                            cause=backfill_err,
+                        )
                         pointer_blocks = []
 
                     if pointer_blocks:
@@ -1607,6 +1659,12 @@ async def persist_completed_request(
                             vcprint(
                                 f"[CX PERSISTENCE PERSIST COMPLETED REQUEST] tool pointer block update error: {content_err}",
                                 color="yellow",
+                            )
+                            await surface_skipped_write(
+                                "tool_pointer_update_failed",
+                                f"message {msg_id}: {content_err!r}",
+                                conversation_id=db_conversation_id,
+                                cause=content_err,
                             )
 
             # On a FAILED request, eagerly close any reserved message placeholder
@@ -1650,6 +1708,12 @@ async def persist_completed_request(
                             f"[CX PERSISTENCE] Failed to close reserved message "
                             f"{_mid} on failed request (ignored): {_close_err}",
                             color="yellow",
+                        )
+                        await surface_skipped_write(
+                            "reserved_message_close_failed",
+                            f"message {_mid}: {_close_err!r}",
+                            conversation_id=db_conversation_id,
+                            cause=_close_err,
                         )
 
             # A run that FAILED or was REFUSED before any answer (a guardrail or usage refusal, a
@@ -1756,9 +1820,16 @@ async def persist_completed_request(
             # phantom id) and links the cx_request_snapshot to it.
             _resolved_from_response = bool(iter_ai_model_id)
             _request_failed = ur_data.get("status") == "failed"
+            # A person's OWN model file on their computer has no ai.model_definition: the row
+            # is written with ai_model_id NULL (nullable since 20261024160000) and says where it
+            # ran (metadata.served_via, device_served); readers label it from that.
+            _req_meta = req.get("metadata") or {}
+            _device_served = isinstance(_req_meta.get("served_via"), dict)
             if not iter_ai_model_id:
                 iter_ai_model_id = primary_ai_model_id
-                if not iter_ai_model_id:
+                if not iter_ai_model_id and _device_served:
+                    iter_ai_model_id = None
+                elif not iter_ai_model_id:
                     # Even the config model is unknown — only NOW is skipping
                     # justified (the NOT NULL column truly can't be satisfied).
                     vcprint(
@@ -1768,6 +1839,14 @@ async def persist_completed_request(
                         f"cx_user_request status='failed' still captures the error.",
                         color="yellow",
                     )
+                    await surface_skipped_write(
+                        "cx_request_model_unresolvable",
+                        f"iteration {iteration_num}: no ai.model_definition for "
+                        f"{req.get('ai_model')!r} or the config model; chat.request.ai_model_id "
+                        "is NOT NULL",
+                        conversation_id=db_conversation_id,
+                        request_id=str(completed.request.request_id or "") or None,
+                    )
                     continue
             reserved_req_id = reserved_req_ids.get(iteration_num) or reserved_req_ids.get(
                 str(iteration_num)
@@ -1775,6 +1854,8 @@ async def persist_completed_request(
 
             # Never a credential in a durable row (utils/credential_fields.py).
             request_metadata = without_credential_fields(dict(req.get("metadata", {})))
+            if _device_served:
+                request_metadata["device_served"] = True
             if "response_message_id" not in request_metadata:
                 response_message_id = assistant_message_ids_by_iteration.get(int(iteration_num))
                 if response_message_id:
@@ -1793,7 +1874,8 @@ async def persist_completed_request(
                 "cached_tokens": req.get("cached_tokens"),
                 "cache_write_tokens": req.get("cache_write_tokens"),
                 "total_tokens": req.get("total_tokens"),
-                "cost": req.get("cost"),
+                # A device-served call billed nobody: a real 0.0, never an unknown cost.
+                "cost": 0.0 if _device_served else req.get("cost"),
                 "api_duration_ms": req.get("api_duration_ms"),
                 "tool_duration_ms": req.get("tool_duration_ms"),
                 "total_duration_ms": req.get("total_duration_ms"),
@@ -2134,6 +2216,11 @@ async def persist_completed_request(
                 f"for legacy cx_user_request rollup (runtime.global_request): "
                 f"{user_request_id!r}",
                 color="yellow",
+            )
+            await surface_skipped_write(
+                "user_request_rollup_no_id",
+                f"user_request rollup skipped: {user_request_id!r}",
+                conversation_id=db_conversation_id,
             )
 
         # Empty delta is normal on the final barrier after a per-turn commit

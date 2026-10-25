@@ -54,8 +54,20 @@
                                 service before this one left running past it
                                 -- the barrier names it -- is stopped the same
                                 way before the quiet check (`overrun_update`).
-             2 app              the desktop app's update check, at most once per
-                                CHECK_EVERY_S, handed to the OPEN app: an app
+             2 app              the desktop app's update, at most once per
+                                CHECK_EVERY_S. A CLOSED app on macOS (installed,
+                                no app connection, no process of it, its
+                                instance lock free) is installed by the service
+                                itself (`appinstall.py`): the app's own manifest,
+                                signature and key, never a downgrade, an atomic
+                                bundle swap, no app process started; `installed`
+                                (or `current`, `failed`) is the step and the
+                                app's check, so its next launch is not due. A
+                                skip (`not_writable`, `app_running`,
+                                `not_permitted`) records nothing: the app's own
+                                updater checks at its next launch. Elsewhere
+                                (Linux, Windows) there is no app. The check is
+                                handed to an OPEN app: an app
                                 subscribed to `app.check` is sent one and the
                                 step is `delegated` (one app connection, the
                                 newest, gets it and owns it: closed before a
@@ -68,10 +80,8 @@
                                 launch's version settles it if the app never
                                 said).
                                 No report within APP_RESULT_TIMEOUT_S reads
-                                as failed (due again). A closed app is
-                                `skipped: app_closed` with `last_app_check`
-                                left alone, so its next launch is due: the
-                                service never launches the app. At its launch
+                                as failed (due again). The service never
+                                launches the app. At its launch
                                 the app asks itself (`update.check_now`
                                 trigger `app` with `app`): the answer's
                                 `app: {due, reason}` hands it the check then.
@@ -127,6 +137,12 @@ from .protocol import (
 )
 
 CHECK_EVERY_S = 6 * 3600
+#: After a cycle that ended not ok (a failed step, or an update child that said
+#: `complete: false`: the CLI install left nothing, the plugins moved), the next
+#: check comes this soon, doubling with each failure in a row up to
+#: CHECK_EVERY_S: a failure retried six hours later left a machine on the old
+#: CLI for most of a day (live test C, 2026-10-24).
+FAILED_RETRY_S = 3600
 #: How long a running cycle may keep an otherwise idle service alive (plan R3).
 HOLD_S = 10 * 60
 #: `update.check_now` within this of a finished cycle answers `recent`: the
@@ -200,6 +216,13 @@ APP_RESULT_TIMEOUT_ENV = "PROBE_SERVICE_APP_RESULT_TIMEOUT_S"
 UPDATE_TIMEOUT_ENV = "PROBE_SERVICE_UPDATE_TIMEOUT_S"
 UPDATE_STOP_GRACE_ENV = "PROBE_SERVICE_UPDATE_STOP_GRACE_S"
 UPDATE_LOG_NAME = "update.log"
+#: A follow-up a service left for the next one (`Updater.mark_followup`) is
+#: done when that one starts within this long; older, the next session's own
+#: start does it.
+FOLLOWUP_MAX_AGE_S = 24 * 3600
+#: A cycle's CLI-and-plugins step whose child exited 0 but did not finish
+#: every step (`complete: false`; its update.log says which).
+INCOMPLETE_DETAIL = "the update did not finish every step (see update.log)"
 #: `probe.cli.update_report.TRIGGER_ENV`: what asked, for the server's report.
 TRIGGER_ENV = "PROBE_AUTOUPDATE_TRIGGER"
 #: `probe.cli.wizard_lock.LOCK_FILENAME`, under the default state dir.
@@ -213,6 +236,17 @@ WIZARD_BUSY_EXIT = 75
 #: UPDATE_TIMEOUT_S, is stopped first: `overrun_update`. That is the one holder
 #: of the lock ever ended, and only once it is proven to be that child.)
 LIMITED = frozenset({DeferReason.DAEMON_RECORDING, DeferReason.RUN_IN_FLIGHT, DeferReason.ACTION_RUNNING})
+
+#: The app step's record when the service installed a closed app's update
+#: itself (`Updater._install_closed`), not the app's own updater.
+VIA_SERVICE_INSTALL = "service_install"
+
+
+def _installs_closed_app() -> bool:
+    """Does the service install a closed desktop app's update here (plan E1)?
+    macOS only: Linux and Windows have no desktop app."""
+    return sys.platform == "darwin"
+
 
 #: Deferrals as `autoupdate` skip reasons (what `probe doctor` and the server read).
 _SKIPS = {
@@ -610,6 +644,11 @@ def preload() -> None:
 
     from . import procid  # noqa: F401
 
+    if _installs_closed_app():
+        from . import appinstall  # the closed app's install (step 2), and what it imports
+
+        appinstall.preload()
+
 
 def record_skip(reason: str, trigger: str) -> None:
     """The deferral, in the record `probe doctor` prints (under the server's
@@ -777,8 +816,14 @@ class Updater:
         app_target: Callable[[], int | None] = lambda: None,
         send_app_check: Callable[[int, dict], bool] = lambda serial, payload: False,
         app_alive: Callable[[int], bool] = lambda serial: False,
+        followup: Callable[[bool], None] = lambda restart: None,
     ) -> None:
         self.version = version
+        #: An update installed something (a cycle's update child ran, or a
+        #: person's Update action did): what open sessions read follows it now
+        #: (`followup.py`), told whether this service restarts onto a new CLI
+        #: first (then the next one does it: `take_followup`).
+        self.followup = followup
         self.emit = emit
         #: How many desktop app connections are open (`service.hello` client
         #: `app`), and how many of them take `app.check` (a newer build).
@@ -835,6 +880,8 @@ class Updater:
         #: Fires when a delegated app check has had APP_RESULT_TIMEOUT_S.
         self._app_timer: asyncio.TimerHandle | None = None
         self._side_tasks: set = set()
+        #: The start-time `_recover_closed` (macOS), until it is done.
+        self._recovering: asyncio.Task | None = None
 
     # -- state -----------------------------------------------------------------
 
@@ -919,16 +966,24 @@ class Updater:
     def last_check(self) -> float | None:
         return self._number("last_check")
 
+    def interval(self) -> float:
+        """From the last check to the next: CHECK_EVERY_S, or after cycles that
+        ended not ok, FAILED_RETRY_S doubling with each one in a row."""
+        streak = self.state.get("failed_in_a_row")
+        if isinstance(streak, int) and not isinstance(streak, bool) and streak > 0:
+            return float(min(CHECK_EVERY_S, FAILED_RETRY_S * 2 ** min(streak - 1, 16)))
+        return float(CHECK_EVERY_S)
+
     def next_check(self) -> float | None:
         if self.in_progress():
             return None
         last = self.last_check
-        return time.time() if last is None else last + CHECK_EVERY_S
+        return time.time() if last is None else last + self.interval()
 
     def due(self, now: float | None = None) -> bool:
         last = self.last_check
         now = time.time() if now is None else now
-        return last is None or now - last >= CHECK_EVERY_S or now < last
+        return last is None or now - last >= self.interval() or now < last
 
     def _look(self) -> Busy:
         return look(
@@ -986,6 +1041,38 @@ class Updater:
 
     def in_progress(self) -> bool:
         return self.task is not None and not self.task.done()
+
+    def mark_followup(self, cycle_id: str | None) -> None:
+        """This service restarts onto a new CLI before it follows the update
+        up: the next service, the new code, does it (`take_followup`)."""
+        self.state["followup"] = {"at": time.time(), "cycle_id": cycle_id}
+        self._save()
+
+    def take_followup(self) -> bool:
+        """Is a follow-up of an update left for this service: one the service
+        before it marked (`mark_followup`, within FOLLOWUP_MAX_AGE_S), or this
+        CLI version has never followed one up (`followed_version`: the first
+        start after an update by a service before this code, or by hand)?
+        Taken: asked once per mark and per version."""
+        def fresh(at: object) -> bool:
+            return isinstance(at, (int, float)) and 0 <= time.time() - at < FOLLOWUP_MAX_AGE_S
+
+        record = self.state.pop("followup", None)
+        marked = fresh(record.get("at") if isinstance(record, dict) else None)
+        followed = self.state.get("followed_version")
+        last = self.state.get("last_result")
+        to = ((last.get("steps") or {}).get(UpdateStep.SELF) or {}).get("to_version") if isinstance(last, dict) else None
+        # A version followed up before this one, or (a service before this
+        # code, which recorded none) the cycle that restarted onto this one.
+        moved = followed not in (None, self.version) or (
+            followed is None and isinstance(last, dict) and bool(last.get("restart")) and to == self.version
+            and fresh(last.get("at"))
+        )
+        if record is None and not moved:
+            return False
+        self.state["followed_version"] = self.version
+        self._save()
+        return marked or moved
 
     def busy_holder(self) -> dict | None:
         if self.slot and self.in_progress():
@@ -1314,6 +1401,12 @@ class Updater:
         requested, self.requested = self.requested, None
         if os.name == "nt":
             return  # the CLI updates itself on Windows (`check_now`)
+        if _installs_closed_app() and self._loop is not None:
+            # Whether or not a cycle is due; a cycle's app step waits for it (`_sweep_closed`).
+            task = self._loop.create_task(self._recover_closed())
+            self._recovering = task
+            self._side_tasks.add(task)
+            task.add_done_callback(self._side_tasks.discard)
         if requested is not None:
             self.check_now(requested)
         elif auto_update_enabled() and (self.due() or self.pending is not None):
@@ -1329,7 +1422,7 @@ class Updater:
         if self.pending is not None:
             delay = DEFERRED_RETRY_S
         else:
-            delay = CHECK_EVERY_S if last is None else max(60.0, last + CHECK_EVERY_S - time.time())
+            delay = CHECK_EVERY_S if last is None else max(60.0, last + self.interval() - time.time())
         self._timer = self._loop.call_later(delay, self._tick)
 
     def _tick(self) -> None:
@@ -1461,17 +1554,25 @@ class Updater:
         ):
             # The app reported while the cycle's later steps ran: its result is the step.
             steps[UpdateStep.APP] = self._app_step(record)
-        now = time.time()
         ok = deferred is None and all(
             isinstance(s, dict) and s.get("state") != StepState.FAILED for s in steps.values()
         ) and "error" not in steps
+        core_failed = isinstance(steps.get(UpdateStep.CLI_AND_PLUGINS), dict) \
+            and steps[UpdateStep.CLI_AND_PLUGINS].get("state") == StepState.FAILED
+        # Failed while the release manifest got no answer at all: the machine is
+        # offline, which is no failure of the update's (`update_failed`).
+        offline = not ok and deferred is None and core_failed and await self._offline()
+        now = time.time()
         result = {"cycle_id": cycle_id, "at": now, "trigger": trigger, "ok": ok, "steps": steps, "restart": restart}
+        if offline:
+            result["offline"] = True
         if deferred is None:
             self.state["last_check"] = now
             self.state["last_result"] = result
-            # Cycles in a row that ended not ok: the watch's `update_failed` (plan B2).
+            # Cycles in a row that ended not ok, online: the watch's `update_failed` (plan B2).
             streak = self.state.get("failed_in_a_row")
-            self.state["failed_in_a_row"] = 0 if ok else (streak if isinstance(streak, int) else 0) + 1
+            streak = streak if isinstance(streak, int) else 0
+            self.state["failed_in_a_row"] = 0 if ok else streak if offline else streak + 1
             self.state.pop("deferred_since", None)
             self.pending = None
         else:
@@ -1486,11 +1587,28 @@ class Updater:
             self.state["deferred_since"] = {r: streaks.get(r, now) for r in seen if r in LIMITED}
             self.pending = trigger
             record_skip(deferred, trigger)
+        core_step = steps.get(UpdateStep.CLI_AND_PLUGINS)
+        installed = (
+            isinstance(core_step, dict)
+            and core_step.get("state") in (StepState.DONE, StepState.FAILED)
+            and "exit_code" in core_step
+        )
+        if installed and restart:
+            self.state["followup"] = {"at": now, "cycle_id": cycle_id}
+        elif installed:
+            self.state["followed_version"] = self.version  # followed up below, by this service
         self._save()
         self.cycle_id = None
         self.step = None
         self.emit(Topic.UPDATE_DONE, {**result, "deferred": deferred})
         log(f"cycle {cycle_id} done (ok {ok}, deferred {deferred}, restart {restart})")
+        if installed:
+            # The update child ran (a failed one may have moved the plugins
+            # all the same): open sessions follow what it installed.
+            try:
+                self.followup(restart)
+            except Exception as exc:  # noqa: BLE001 -- never costs the cycle
+                log(f"cycle {cycle_id}: the follow-up failed: {exc!r}")
         self._arm()
         # `task` is still this one until it returns: clear the hold first.
         self.hold_until = 0.0
@@ -1543,6 +1661,20 @@ class Updater:
             with contextlib.suppress(OSError):
                 worker.handover.unlink()
         return live
+
+    async def _offline(self) -> bool:
+        """Did the release manifest's read find no network at all just now (a
+        name that did not resolve, no route: `probe._shared.offline`), through
+        the login shell's proxy? False when it answered anything, or when that
+        cannot be told (an older CLI's read)."""
+        try:
+            login = await loginenv.child_env(vars=True)
+            code, value = await children.run_read(
+                "version", {"latest": True}, env_extra=login, timeout=VERSION_TIMEOUT_S
+            )
+        except Exception:  # noqa: BLE001 -- unknown: counted as before
+            return False
+        return code == 0 and isinstance(value, dict) and value.get("reachable") is False
 
     async def _cli_behind(self, login: dict) -> bool | None:
         """Is the installed CLI older than the newest release (the manifest
@@ -1667,8 +1799,11 @@ class Updater:
     ) -> dict:
         """The barrier, the second look, and the update child."""
         step = UpdateStep.CLI_AND_PLUGINS
+        # Side by side (D6) or plugins only: nothing a `probe` runs from is
+        # replaced, so the barrier holds no start back (plan C6).
+        replaces_cli = not (self.beside or skip_cli)
         try:
-            barrier.raise_barrier(token)
+            barrier.raise_barrier(token, replaces_cli=replaces_cli)
         except OSError as exc:
             self._step(cycle_id, step, StepState.FAILED, detail=f"cannot raise the update barrier: {exc}")
             return {"state": StepState.FAILED, "detail": f"cannot raise the update barrier: {exc}"}
@@ -1680,7 +1815,7 @@ class Updater:
             # of its hold), and goes stale once the child is gone.
             child.append(process)
             with contextlib.suppress(OSError):
-                barrier.raise_barrier(token, pid=process.pid)
+                barrier.raise_barrier(token, pid=process.pid, replaces_cli=replaces_cli)
 
         lower = True
         try:
@@ -1776,9 +1911,16 @@ class Updater:
             self._step(cycle_id, step, StepState.DEFERRED, reason=DeferReason.SETUP_RUNNING, exit_code=code)
             return {"state": StepState.DEFERRED, "reason": DeferReason.SETUP_RUNNING, **outcome}
         # A child that wrote no `done` (killed before its first event, say) did
-        # not finish: failed, whatever its exit status.
-        state = StepState.DONE if code == 0 and done and done.get("ok") is not False else StepState.FAILED
-        self._step(cycle_id, step, state, exit_code=code, ok=done.get("ok"), complete=done.get("complete"))
+        # not finish: failed, whatever its exit status. Nor did one that says
+        # `complete: false` (a step it failed or skipped: a CLI install that
+        # left nothing while the plugins moved), though it exits 0: read as
+        # done, every surface said `(ok)` and the next try was six hours off.
+        finished = code == 0 and done and done.get("ok") is not False and done.get("complete") is not False
+        state = StepState.DONE if finished else StepState.FAILED
+        if not finished and code == 0 and done and done.get("ok") is not False:
+            outcome["detail"] = INCOMPLETE_DETAIL
+        self._step(cycle_id, step, state, exit_code=code, ok=done.get("ok"), complete=done.get("complete"),
+                   **({"detail": outcome["detail"]} if "detail" in outcome else {}))
         return {"state": state, **outcome}
 
     async def _overran(
@@ -1810,15 +1952,29 @@ class Updater:
     async def _app(self, cycle_id: str, trigger: str) -> dict:
         """Step 2: the desktop app's update check, at most once per
         CHECK_EVERY_S, handed to the open app (`app.check`). Never launches
-        the app: closed, it is checked at its next launch."""
+        the app: closed, on macOS the service installs its update itself
+        (`_install_closed`); elsewhere there is no app."""
         step = UpdateStep.APP
+        await self._sweep_closed()
         record = self._app_record()
         if record is not None and record.get("delegated_at") is not None and record.get("cycle_id") == cycle_id:
             # The app's launch check started this cycle and has its check already.
             out = self._app_step(record)
         else:
             decision = self.app_decision()
-            if record is not None and record.get("state") == StepState.READY:
+            if (
+                record is not None
+                and record.get("state") == StepState.READY
+                and _installs_closed_app()
+                and self.app_connected() == 0
+                and not self._owner_alive(record)
+                and (found := await asyncio.to_thread(appupdate.installed))
+            ):
+                # The app that downloaded an update quit without installing it (killed,
+                # crashed): the service installs it now. The install looks for the app's
+                # processes and lock itself; a skip leaves the `ready` record as it is.
+                out = await self._install_closed(cycle_id, trigger, found)
+            elif record is not None and record.get("state") == StepState.READY:
                 # A downloaded update waits for the app to quit: no second check.
                 out = {
                     "state": StepState.SKIPPED,
@@ -1842,14 +1998,192 @@ class Updater:
                 out = {"state": StepState.SKIPPED, "outcome": AppStepOutcome.APP_NOT_LISTENING}
             else:
                 found = await asyncio.to_thread(appupdate.installed)
-                out = {
-                    "state": StepState.SKIPPED,
-                    "outcome": AppStepOutcome.APP_CLOSED if found else AppStepOutcome.NOT_INSTALLED,
-                    **({"version": found["version"]} if found and found.get("version") else {}),
-                }
+                if found and _installs_closed_app():
+                    out = await self._install_closed(cycle_id, trigger, found)
+                else:
+                    out = {
+                        "state": StepState.SKIPPED,
+                        "outcome": AppStepOutcome.APP_CLOSED if found else AppStepOutcome.NOT_INSTALLED,
+                        **({"version": found["version"]} if found and found.get("version") else {}),
+                    }
         detail = {k: v for k, v in out.items() if k != "state"}
         self._step(cycle_id, step, out["state"], **detail)
         return out
+
+    async def _install_closed(self, cycle_id: str, trigger: str, found: dict) -> dict:
+        """The app is installed and closed (no app connection; the install
+        looks again for its processes and its instance lock): the service
+        installs its update itself (`appinstall.install_closed`), starting no
+        app process. Installed, current or failed is recorded as the app's
+        check (`last_app_check` too: the next launch is not due, and a launch
+        reports the version that is now in place); a skip records nothing, so
+        the app's own updater checks at its next launch. A launch check that
+        took the app's check while this ran keeps it: its record is not
+        replaced."""
+        from . import appinstall
+
+        now = time.time()
+        refused = self._number("app_install_refused_at")
+        if refused is not None and 0 <= now - refused < appinstall.REFUSED_BACKOFF_S:
+            # Each refused try can show a macOS notification: not again for a while.
+            return {"state": StepState.SKIPPED, "outcome": appinstall.Outcome.NOT_PERMITTED, "version": found.get("version")}
+        self._step(cycle_id, UpdateStep.APP, StepState.STARTED, installing=True, version=found.get("version"))
+        before = self.state.get("app")
+        # Releases not downloaded again: one without the helper, and one whose helper
+        # refused it for a reason that stays (for REFUSED_BACKOFF_S at most).
+        no_helper = self.state.get("app_install_no_helper")
+        if not isinstance(no_helper, dict):
+            no_helper = None
+        refused_release = self.state.get("app_install_refused_release")
+        if not isinstance(refused_release, dict) or not (
+            isinstance(refused_release.get("at"), (int, float))
+            and 0 <= now - refused_release["at"] < appinstall.REFUSED_BACKOFF_S
+        ):
+            refused_release = None
+        # An earlier install left an app that may not verify (its undo failed): sticky
+        # until an install or a verified `current` clears it.
+        broken = self.state.get("app_install_broken")
+        result = await asyncio.to_thread(
+            appinstall.install_closed,
+            Path(found["app"]),
+            home=paths.home(),
+            skip_version=no_helper.get("version") if no_helper is not None else None,
+            refused_version=refused_release.get("version") if refused_release is not None else None,
+            repair=isinstance(broken, dict),
+            log=log,
+        )
+        outcome = result.get("outcome")
+        versions = {k: result[k] for k in ("version_before", "version_after") if result.get(k) is not None}
+        latest = result.get("latest")
+        for key in ("app_install_no_helper", "app_install_refused_release"):
+            skipped = self.state.get(key)
+            if isinstance(skipped, dict) and (
+                outcome in (appinstall.Outcome.INSTALLED, appinstall.Outcome.CURRENT)
+                or (isinstance(latest, str) and not appinstall.same_version(latest, str(skipped.get("version"))))
+            ):
+                # That release is in place or no longer the latest; a failure (the
+                # manifest unread, say) says neither.
+                self.state.pop(key, None)
+                self._save()
+        helper = result.get("helper") if isinstance(result.get("helper"), dict) else None
+        if (
+            outcome == appinstall.Outcome.FAILED
+            and helper is not None
+            and helper.get("result") == appinstall.HELPER_REFUSED
+            and helper.get("reason") in appinstall.PERMANENT_REFUSALS
+            and isinstance(latest, str)
+        ):
+            # The same release would be refused again: not downloaded every cycle.
+            self.state["app_install_refused_release"] = {"version": latest, "reason": helper["reason"], "at": time.time()}
+            self._save()
+        if outcome in (appinstall.Outcome.INSTALLED, appinstall.Outcome.CURRENT):
+            if self.state.pop("app_install_broken", None) is not None:
+                self._save()
+        elif (
+            helper is not None
+            and helper.get("undo_failed") is True
+            and helper.get("reason") in appinstall.UNTRUSTED_AFTER_SWAP
+        ):
+            # The new app failed its checks after the swap and could not be swapped back:
+            # it may be the app now. Never `current` while it fails codesign; repaired by
+            # the next install, or by a reinstall.
+            self.state["app_install_broken"] = {
+                "reason": helper["reason"], "version": latest, "old": result.get("old_app"), "at": time.time(),
+            }
+            self._save()
+        reinstall = isinstance(self.state.get("app_install_broken"), dict)
+        if outcome in appinstall.SKIPS:
+            if outcome == appinstall.Outcome.NOT_PERMITTED:
+                self.state["app_install_refused_at"] = time.time()
+                self._save()
+            elif outcome == appinstall.Outcome.NO_HELPER and isinstance(result.get("latest"), str):
+                # Not downloaded again for the same release; a newer one is looked at.
+                self.state["app_install_no_helper"] = {"version": result["latest"], "at": time.time()}
+                self._save()
+            out = {"state": StepState.SKIPPED, "outcome": outcome, "version": found.get("version")}
+            if result.get("detail"):
+                out["detail"] = result["detail"]
+            if helper is not None:
+                out["helper"] = helper
+            if reinstall:
+                out["reinstall"] = True
+            return out
+        failed = outcome != appinstall.Outcome.INSTALLED and outcome != appinstall.Outcome.CURRENT
+        out = {"state": StepState.FAILED if failed else StepState.DONE, "outcome": outcome, **versions}
+        if result.get("error"):
+            out["error"] = result["error"]
+        if helper is not None:
+            out["helper"] = helper  # the step event's too
+        if reinstall:
+            out["reinstall"] = True  # `probe doctor`: reinstall Probe
+        if self.state.get("app") is not before:
+            log("the app's launch check took its update check while the service installed: its record stays")
+            return out
+        at = time.time()
+        self.state["app"] = {
+            "state": out["state"],
+            "delegated_at": None,
+            "cycle_id": cycle_id,
+            "trigger": trigger,
+            "via": VIA_SERVICE_INSTALL,
+            "version": result.get("version_before"),
+            "owner": None,
+            "at": at,
+            "reported_at": at,
+            # The app's own words for what happened (`AppResult`).
+            "result": AppResult.FAILED if failed else (
+                AppResult.UPDATED if outcome == appinstall.Outcome.INSTALLED else AppResult.CURRENT
+            ),
+            "version_before": result.get("version_before"),
+            "version_after": result.get("version_after"),
+            "error": result.get("error"),
+            # What the release's helper answered (`result`, `reason`, `undo_failed`), when it ran.
+            **({"helper": helper} if helper is not None else {}),
+            **({"reinstall": True} if reinstall else {}),
+        }
+        self.state["last_app_check"] = at
+        self.state.pop("app_install_refused_at", None)
+        self._save()
+        return out
+
+    async def _sweep_closed(self) -> None:
+        """Every cycle on macOS, before the app is looked for: a swap the
+        release's helper left halfway is finished by that helper (`recover`:
+        until then there is no app to find), then, with no app connected, what
+        earlier installs left beside the bundle is removed (an old bundle by
+        the installed app's own helper, once nothing runs from it)."""
+        if not _installs_closed_app():
+            return
+        from . import appinstall
+
+        recovering = self._recovering
+        if recovering is not None and not recovering.done():
+            # The start-time recover first: a second helper run beside it finds the
+            # app's instance lock held, and the app is looked for only after it.
+            with contextlib.suppress(Exception):
+                await asyncio.shield(recovering)
+        connected = self.app_connected() > 0  # read on the loop, which owns it
+        keep_old = isinstance(self.state.get("app_install_broken"), dict)
+
+        def sweep() -> list:
+            appinstall.recover(paths.home(), log=log)
+            found = appupdate.installed()
+            if not found or connected:
+                return []
+            return appinstall.sweep(Path(found["app"]), paths.home(), keep_old=keep_old)
+
+        with contextlib.suppress(Exception):
+            removed = await asyncio.to_thread(sweep)
+            if removed:
+                log(f"removed {', '.join(removed)} left beside the app by an earlier install")
+
+    async def _recover_closed(self) -> None:
+        """At service start (macOS): a swap the release's helper left halfway
+        is finished before anything looks for the app."""
+        from . import appinstall
+
+        with contextlib.suppress(Exception):
+            await asyncio.to_thread(appinstall.recover, paths.home(), log=log)
 
     def after_update_action(self) -> None:
         """A person's Update (`action.run update`) ran outside a cycle: read
@@ -1869,7 +2203,14 @@ class Updater:
             log(f"version check after the update action could not start: {exc}")
             return
         installed = value.get("cli_version") if isinstance(value, dict) else None
-        if code == 0 and isinstance(installed, str) and installed and installed != self.version:
+        moved = code == 0 and isinstance(installed, str) and bool(installed) and installed != self.version
+        if moved:
+            self.mark_followup(None)
+        try:
+            self.followup(moved)
+        except Exception as exc:  # noqa: BLE001
+            log(f"the follow-up of the update action failed: {exc!r}")
+        if moved:
             log(f"the update action installed {installed} (this service is {self.version}): restarting")
             # Watched like a cycle's switch (D5) when it was one.
             with contextlib.suppress(Exception):

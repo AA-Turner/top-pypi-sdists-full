@@ -382,6 +382,30 @@ def _anthropic_budget_thinking(
         if effort:
             thinking_budget = effort_lookup(ctx.to_number_table(D.ANTHROPIC_EFFORT_TO_BUDGET), effort)
 
+    if thinking_budget and canonical.get(D.FORCED_TOOL_CHOICE_KEY) and (
+        ctx.config.get("forced_tool_with_thinking") is not True
+    ):
+        # Anthropic rejects manual (budget) thinking with a forced tool_choice
+        # ({"type": "any"}) — a 400 on the orchestrator's required-member turn.
+        # The forced call is the turn's purpose; thinking is off for THIS turn
+        # only, and the record says so (run log banner + settings adjustments).
+        source = "thinking_budget" if canonical.get("thinking_budget") is not None else "reasoning_effort"
+        ctx.adjustments.append(
+            Adjustment(
+                key=source,
+                action="dropped",
+                canonical_value=canonical.get(source),
+                sent_value=None,
+                expected=True,
+                provenance="computed",
+                reason=(
+                    "Anthropic manual (budget) thinking cannot be combined with a forced "
+                    "tool call (tool_choice any); thinking is off for this forced turn only"
+                ),
+            )
+        )
+        thinking_budget = None
+
     if not thinking_budget:  # None or 0 — no thinking; translator max_tokens fallback
         params["max_tokens"] = ctx.cap_output(current_max if current_max is not None else default_max)
         return params
@@ -942,10 +966,16 @@ def together_reasoning(
         # NOT SET: only a cell-declared default rides (processor_config.default_effort).
         sent = ctx.config.get("default_effort")
     else:
-        # A set effort short of an explicit deep ask maps to "high".
-        sent = ctx.table("effort_map", D.TOGETHER_EFFORT_MAP).get(
-            effort, ctx.table("set_effort_fallback", D.TOGETHER_SET_EFFORT_FALLBACK)
-        )
+        # The model's own word when it maps one, else the effort itself when the
+        # offering DECLARES it (DeepSeek-V4-Flash offers "low": low stays low),
+        # else a set effort short of an explicit deep ask maps to "high".
+        effort_map = ctx.table("effort_map", D.TOGETHER_EFFORT_MAP)
+        if effort in effort_map:
+            sent = effort_map[effort]
+        elif effort in ctx.supported_values and effort not in _HOUSE_VALUES:
+            sent = effort
+        else:
+            sent = ctx.table("set_effort_fallback", D.TOGETHER_SET_EFFORT_FALLBACK)
     sent = ctx.reconcile_accepted(sent)  # K6 accepts (only when declared)
     if sent is not None:
         params["reasoning_effort"] = sent

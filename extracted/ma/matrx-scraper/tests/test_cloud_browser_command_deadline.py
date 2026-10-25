@@ -214,6 +214,11 @@ async def test_the_command_lock_is_free_after_a_deadline_so_the_browser_stays_us
 
     # And the very next command goes through: acquiring the lock does not hang.
     page.keyboard.typed.clear()
+    # The 1 s ceiling was only there to force the first timeout. A humanised
+    # two-character type (aim, dwell, press, clear, keys) naturally takes ~1-2 s,
+    # so the follow-up runs under a normal ceiling: this proves the lock is
+    # acquirable, not that "ok" types in under a second.
+    monkeypatch.setattr(M, "COMMAND_TOTAL_TIMEOUT_SECONDS", 30.0)
     follow_up = await asyncio.wait_for(worker.command(_type_request("ok")), timeout=5.0)
     assert follow_up.ok is True
     assert "".join(follow_up.result.typed if follow_up.result else "") == "ok"

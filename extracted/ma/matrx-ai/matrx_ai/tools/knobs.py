@@ -119,7 +119,28 @@ def dispatch_timeout_ceiling(tool_name: str) -> float:
     )
 
 
+#: How many levels of nested agents may run below the top agent (depth 0 = the top-level
+#: request's agent; each nested ``agent_call`` adds one). Agent-set 2026-10-25: 3, today's value —
+#: an agent may call an agent that calls an agent, then stops.
+AGENT_CALL_MAX_DEPTH_KEY = "agent_call_max_depth"
+#: KNOB MIRROR of platform.feature_knob "agents.tool_dispatch" "agent_call_max_depth"
+AGENT_CALL_MAX_DEPTH_MIRROR = 3
+
+
+def agent_call_max_depth() -> int:
+    """The nested-agent ceiling, live from the host, clamped to 1..10 (never off)."""
+    raw = tool_dispatch_knob(AGENT_CALL_MAX_DEPTH_KEY, AGENT_CALL_MAX_DEPTH_MIRROR)
+    try:
+        value = int(float(str(raw).strip().strip('"')))
+    except (TypeError, ValueError):
+        return AGENT_CALL_MAX_DEPTH_MIRROR
+    return max(1, min(value, 10))
+
+
 __all__ = [
+    "AGENT_CALL_MAX_DEPTH_KEY",
+    "AGENT_CALL_MAX_DEPTH_MIRROR",
+    "agent_call_max_depth",
     "DEFAULT_TIMEOUT_SECONDS_KEY",
     "DEFAULT_TIMEOUT_SECONDS_MIRROR",
     "FEATURE",

@@ -156,7 +156,7 @@ public:
         common::table_id_t tableID) const;
 
     // Create index entry.
-    void createIndex(transaction::Transaction* transaction,
+    common::oid_t createIndex(transaction::Transaction* transaction,
         std::unique_ptr<CatalogEntry> indexCatalogEntry, bool skipLoggingToWAL = false);
     // Drop all index entries within a table.
     void dropAllIndexes(transaction::Transaction* transaction, common::table_id_t tableID);
@@ -190,9 +190,11 @@ public:
 
     // ----------------------------- Macro ----------------------------
 
-    // Check if macro entry exists.
+    // Macro names are stored uppercased (see bindCreateMacro). containsMacro and dropMacro
+    // uppercase the given name the same way; the catalog set itself only folds ASCII letters.
     bool containsMacro(const transaction::Transaction* transaction,
         const std::string& macroName) const;
+    // Takes the stored (uppercased) name.
     void addScalarMacroFunction(transaction::Transaction* transaction, std::string name,
         std::unique_ptr<function::ScalarMacroFunction> macro);
     ScalarMacroCatalogEntry* getScalarMacroCatalogEntry(const transaction::Transaction* transaction,
@@ -200,6 +202,7 @@ public:
     void dropMacroEntry(transaction::Transaction* transaction, const lbug::common::oid_t macroID);
     void dropMacroEntry(transaction::Transaction* transaction,
         const ScalarMacroCatalogEntry* entry);
+    // Takes the stored (uppercased) name.
     function::ScalarMacroFunction* getScalarMacroFunction(
         const transaction::Transaction* transaction, const std::string& name) const;
     std::vector<std::string> getMacroNames(const transaction::Transaction* transaction) const;
@@ -216,6 +219,11 @@ public:
     // Get all graph entries.
     std::vector<GraphCatalogEntry*> getGraphEntries(
         const transaction::Transaction* transaction) const;
+    // The next graph-entry OID this catalog would assign. Replay compares recorded
+    // GRAPH_ENTRY IDs against the value from before the replay pass: IDs at or above
+    // it were assigned after the last checkpoint and shift during recovery, while IDs
+    // below it belong to persisted entries and stay stable.
+    common::oid_t peekNextGraphOID() const { return graphs->peekNextOID(); }
 
     // Create graph entry.
     void createGraph(transaction::Transaction* transaction, std::string name, bool isAnyGraph);
@@ -234,9 +242,25 @@ public:
     }
     void resetVersion() { lastCheckpointVersion = version.load(std::memory_order_relaxed); }
     void resetVersion(uint64_t checkpointedVersion) { lastCheckpointVersion = checkpointedVersion; }
+    // Bumped when a checkpoint renumbers column IDs: no definition changes, so version stays.
+    void incrementColumnIDsVersion() { columnIDsVersion.fetch_add(1, std::memory_order_relaxed); }
+    // Changes whenever a bound plan may be stale: after a catalog change or a renumbering.
+    // The sum is exact, not a hash: both counters only ever increase (resetVersion touches
+    // lastCheckpointVersion only), so it changes iff either counter does and equality implies
+    // both are unchanged.
+    uint64_t getPlanVersion() const {
+        return getVersion() + columnIDsVersion.load(std::memory_order_relaxed);
+    }
 
     void setCatalogName(const std::string& name) { catalogName = name; }
     std::string getCatalogName() const { return catalogName; }
+
+    // Function entries are database-global: built-ins are registered into every
+    // catalog at construction, but extension functions only into the main
+    // catalog. Per-graph catalogs point at the main catalog so function lookup
+    // still resolves extension functions while the session is on a non-main
+    // graph (see Catalog::getFunctionEntry).
+    void setFunctionFallback(Catalog* fallback) { functionFallback = fallback; }
 
     storage::StorageManager* getStorageManager() const { return storageManager.get(); }
     void setStorageManager(std::unique_ptr<storage::StorageManager> sm) {
@@ -296,8 +320,11 @@ private:
     // reset to lastCheckpointVersion at the end of each checkpoint
     std::atomic<uint64_t> version;
     uint64_t lastCheckpointVersion = 0;
+    std::atomic<uint64_t> columnIDsVersion{0};
     std::string catalogName;
     std::unique_ptr<storage::StorageManager> storageManager;
+    // Main catalog for function lookup (nullptr for the main catalog itself).
+    Catalog* functionFallback = nullptr;
 };
 
 } // namespace catalog

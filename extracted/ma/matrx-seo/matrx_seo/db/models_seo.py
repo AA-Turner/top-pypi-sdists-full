@@ -1265,12 +1265,13 @@ class Competitor(MatrxEntity):
     classification_confirmed_by = UUIDField()
     peer_scale = TextField()
     custom_fields = JSONBField(null=False, default={})
+    version = IntegerField(null=False, default=1)
     _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'competitor_observation': {'from_model': 'CompetitorObservation', 'from_field': 'competitor_id', 'referenced_field': 'id', 'related_name': 'competitor_observation', 'from_schema': 'seo'}, 'competitor_opportunity': {'from_model': 'CompetitorOpportunity', 'from_field': 'competitor_id', 'referenced_field': 'id', 'related_name': 'competitor_opportunity', 'from_schema': 'seo'}, 'link_gap_match': {'from_model': 'LinkGapMatch', 'from_field': 'competitor_id', 'referenced_field': 'id', 'related_name': 'link_gap_match', 'from_schema': 'seo'}}
     _database = "matrx_seo"
     _table_name = "competitor"
     _db_schema = "seo"
     _entity_token = "seo_competitor"
-    _is_versioned = False
+    _is_versioned = True
     _has_soft_delete = False
     _is_org_scoped = True
     _rls_variant = "component"

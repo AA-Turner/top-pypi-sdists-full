@@ -1105,6 +1105,9 @@ class Client:
         #: under its free-space floor and the run had nothing queued (plan 1.5).
         #: Reported at `finish()` beside `dropped_writes`.
         self.direct_sends = 0
+        #: Requests this process set aside with `discard_delivery` before they
+        #: were delivered: reported in its delivery counts (`discarded`).
+        self._discarded_requests = 0
         self._direct_closed_until = float("-inf")
         self._direct_failures = 0
         self._direct_lock = threading.Lock()
@@ -1435,6 +1438,15 @@ class Client:
         # thread per unfinished run against a closed httpx client every interval.
         for stop in list(self._run_heartbeat_stops):
             stop.set()
+        # Requests this client set aside reach its delivery counts even when it
+        # never wrote anything else to report them with (a receipt-only client).
+        reported = getattr(self, "_reported", None)
+        if self._discarded_requests and isinstance(reported, dict) \
+                and self._discarded_requests != int(reported.get("discarded") or 0):
+            try:
+                self._report_delivery(final=True)
+            except Exception:  # noqa: BLE001 -- a close may never raise
+                pass
         self.transport.close()
 
     def __enter__(self) -> Client:
@@ -2121,6 +2133,7 @@ class Client:
                 "dropped": int(self.dropped_writes or 0),
                 "direct_sends": int(self.direct_sends or 0),
                 "dead_lettered": self._dead_lettered_mine,
+                "discarded": int(getattr(self, "_discarded_requests", 0) or 0),
             }
             delta = {k: v - int(self._reported.get(k, 0)) for k, v in counts.items()}
             by_status = {
@@ -2918,7 +2931,15 @@ class Client:
         ``discarded/``, like `probe outbox discard`; a delivered or unknown one
         is left as it is. Returns the state afterwards: still ``queued`` when
         another drain held the outbox (see `Journal.discard_request`)."""
-        return self._delivery_journal().discard_request(correlation)
+        from .journal import WAITING_STATES
+
+        journal = self._delivery_journal()
+        before = journal.delivery_state(correlation)["state"]
+        state = journal.discard_request(correlation)
+        if before in WAITING_STATES and state.get("state") == "discarded":
+            with self._direct_lock:
+                self._discarded_requests += 1
+        return state
 
     def resume_delivery(self, correlation: str) -> dict:
         """Resume an already frozen request, including after the source is remounted."""
@@ -3444,7 +3465,7 @@ class Client:
         self._guard_creatable("project", slug)
         try:
             return self.create_project(slug, name, kind=kind, **kw)
-        except errors.ConflictError:
+        except errors.ConflictError as exc:
             # Lost a create race with a concurrent process. Get-or-create promises
             # the row exists afterwards, not that WE made it, so re-resolve rather
             # than surface a conflict the caller cannot act on. Re-raise if it is
@@ -3455,6 +3476,18 @@ class Client:
             # processes asking for the same, correct, slug.
             found = self.resolve_project(slug)
             if found is None:
+                limit = getattr(self.settings, "workspace_limit", None)
+                if limit is not None:
+                    # Not a race: the slug's holder is a project this computer's
+                    # workspace limit hides (slugs are one tenant-wide namespace).
+                    # A bare 409 reads as a bug; say what it is and the way out.
+                    raise errors.ConflictError(
+                        f"project {slug!r} exists outside this computer's workspace limit "
+                        f"{limit.label}: Probe here only sees that workspace, so it can neither "
+                        f"use nor recreate it. Pick another project slug, or `probe workspace limit "
+                        f"--team` (or `PROBE_WORKSPACE_LIMIT=team` for one job) to see the whole team.",
+                        detail=exc.detail if isinstance(exc, errors.ConflictError) else None,
+                    ) from exc
                 raise
             return found
 
@@ -7423,7 +7456,12 @@ class Client:
             found = self.resolve_project(slug)
             if found is not None:
                 return found
-            raise self._no_such(kind, slug, self.list_projects(limit=200).items)
+            from .workspace_limit import annotate_not_found, maybe_hidden_hint
+
+            raise annotate_not_found(
+                self._no_such(kind, slug, self.list_projects(limit=200).items),
+                maybe_hidden_hint(getattr(self.settings, "workspace_limit", None)),
+            )
         # An experiment: in the named project first (one request), then -- only
         # on a miss -- every project's, so an experiment filed elsewhere comes
         # back for `run()` to name the mismatch ("not in project ...") rather

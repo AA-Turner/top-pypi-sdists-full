@@ -16,6 +16,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -46,6 +47,20 @@ def _note(session, event):
                                  "transcript": session.get("transcript")}) + "\\n")
 
 
+def _late_reads(session):
+    """What a real tap does long after its import: a module imported when first
+    needed, and a data file read beside it."""
+    try:
+        import importlib
+        late = importlib.import_module("tap.late")
+        with open(os.path.join(os.path.dirname(late.__file__), "late.json")) as handle:
+            result = {"ok": late.WORD + json.load(handle)["word"]}
+    except Exception as exc:
+        result = {"error": repr(exc)}
+    with open(os.path.join(os.environ["HOME"], "late.jsonl"), "a") as handle:
+        handle.write(json.dumps({"sid": session["sid"], **result}) + "\\n")
+
+
 def record(session, controls):
     from tap import threadenv
     with threadenv.install().session(session["env"]):
@@ -58,6 +73,10 @@ def record(session, controls):
                 _note(session, "failing")
                 return FAILED, "boom"
         while True:
+            go = os.path.join(os.environ["HOME"], "go-" + session["sid"])
+            if behaviour == "lazy" and os.path.exists(go):
+                os.unlink(go)
+                _late_reads(session)
             if controls.stop.wait(0.05):
                 time.sleep(float(session["env"].get("PROBE_TEST_FINISH_S", "0.2")))
                 _note(session, "ended")
@@ -78,6 +97,22 @@ def _tap(root: Path, version: str) -> Path:
     (tap / "hosted.py").write_text(_HOSTED)
     (tap / "threadenv.py").write_text(_THREADENV)
     return root
+
+
+def _late_tap(root: Path, version: str) -> Path:
+    """`_tap`, with a module it imports only when first needed and a data file."""
+    _tap(root, version)
+    (root / "tap" / "late.py").write_text('WORD = "late-"\n')
+    (root / "tap" / "late.json").write_text(json.dumps({"word": version}))
+    return root
+
+
+def _late(home: Path, sid: str) -> list[dict]:
+    try:
+        lines = (home / "late.jsonl").read_text().splitlines()
+    except OSError:
+        return []
+    return [row for row in map(json.loads, lines) if row["sid"] == sid]
 
 
 def _params(sid: str, owner: dict | None, root: Path, version: str, tmp: Path, **env) -> dict:
@@ -539,3 +574,340 @@ def test_an_ending_session_is_never_asked_to_hand_over(tmp_path):
     finally:
         for handle in held:
             handle.close()
+
+
+def _resumable_host(tmp_path, ending: bool):
+    """A host recording `s1` on a thread that stays until stopped; its tap says
+    whether the session's end is down (`ending`)."""
+    import threading
+
+    started = []
+
+    class Hosted:
+        ENDED, PAUSED, STOPPED, FAILED = "ended", "paused", "stopped", "failed"
+
+        class Controls:
+            def __init__(self):
+                self.stop, self.pause = threading.Event(), threading.Event()
+
+        @staticmethod
+        def record(session, controls):
+            started.append(controls)
+            while not controls.stop.wait(0.02) and not controls.pause.is_set():
+                pass
+            return Hosted.ENDED, ""
+
+        @staticmethod
+        def ending(params):
+            return ending
+
+    host = recorders.RecorderHost(log=lambda m: None, loop_getter=lambda: None)
+    host.hosted = Hosted
+    host._save = lambda: None
+    params = _params("s1", {"pid": os.getpid(), "start_time": "1"}, tmp_path, "0.10.17", tmp_path)
+    return host, params, started
+
+
+def test_a_resume_while_the_recorder_finishes_starts_a_fresh_one(tmp_path):
+    """Audit #10: pi's quit, then `--continue` at once. The recorder saw the
+    session's end and is making its last pass; kept for the resumed session,
+    it FINALIZEd and ended, and nothing recorded the resume. A fresh recorder
+    takes it over once the finishing one lets go (D39)."""
+    host, params, started = _resumable_host(tmp_path, ending=False)
+    try:
+        assert host.record(params)["started"] is True
+        first = host.recordings["s1"]
+        assert wait_for(lambda: len(started) == 1, 2)
+        first.controls.stop.set()  # what the tap's loop does once it sees the sentinel (0.10.17)
+        answer = host.record(params)
+        assert answer["recording"] is True and answer["started"] is True
+        assert host.recordings["s1"] is not first
+        assert first.controls.stop.is_set(), "the finishing recorder must read as finishing"
+        assert wait_for(lambda: len(started) == 2, 2)
+    finally:
+        for rec in [first, host.recordings.get("s1")]:
+            if rec is not None:
+                rec.controls.pause.set()
+                rec.thread.join(2)
+
+
+def test_a_live_recorder_asked_again_is_kept(tmp_path):
+    host, params, started = _resumable_host(tmp_path, ending=False)
+    try:
+        host.record(params)
+        first = host.recordings["s1"]
+        assert host.record(params)["started"] is False
+        assert host.recordings["s1"] is first and not first.controls.stop.is_set()
+    finally:
+        host.recordings["s1"].controls.pause.set()
+        host.recordings["s1"].thread.join(2)
+
+
+_OLD_STYLE_HOSTED = '''
+import json, os, threading, time
+from dataclasses import dataclass, field
+
+ENDED, PAUSED, STOPPED, FAILED = "ended", "paused", "stopped", "failed"
+
+
+@dataclass
+class Controls:
+    stop: threading.Event = field(default_factory=threading.Event)
+    pause: threading.Event = field(default_factory=threading.Event)
+
+
+def _note(session, event):
+    with open(os.path.join(os.environ["HOME"], "recorded.jsonl"), "a") as handle:
+        handle.write(json.dumps({"event": event, "sid": session["sid"], "version": __import__("tap").__version__,
+                                 "env": None, "thread_env": None, "transcript": None}) + "\\n")
+
+
+def record(session, controls):
+    # A tap before 0.10.17: its loop finishes when it sees the sentinel, and
+    # says nothing to the service (no `stop`).
+    _note(session, "started")
+    sentinel = session["env"]["PROBE_TEST_SENTINEL"]
+    while True:
+        if controls.pause.wait(0.05):
+            _note(session, "paused")
+            return PAUSED, ""
+        if controls.stop.is_set() or os.path.exists(sentinel):
+            _note(session, "finishing")
+            time.sleep(1.0)
+            _note(session, "ended")
+            return ENDED, ""
+'''
+
+
+def test_an_older_taps_finishing_recorder_is_replaced_through_the_restart_onto_the_callers_tap(
+    service_home, agent, tmp_path
+):
+    """Why `RecorderHost.record` needs no guess for a tap before 0.10.17 (its
+    loop says nothing when it sees the session's end, and the caller removed
+    the sentinel before asking): a resume comes from a newer tap, which
+    restarts the service onto it, and the next service records the resumed
+    session on that tap."""
+    proc, owner = agent
+    old = tmp_path / "tap-old"
+    (old / "tap").mkdir(parents=True)
+    (old / "tap" / "__init__.py").write_text('__version__ = "0.10.16"\n')
+    (old / "tap" / "main.py").write_text("")
+    (old / "tap" / "hosted.py").write_text(_OLD_STYLE_HOSTED)
+    (old / "tap" / "threadenv.py").write_text(_THREADENV)
+    new = _tap(tmp_path / "tap-new", "0.10.17")
+    sentinel = tmp_path / "s1.shutdown"
+    first = service_home.start()
+    params = _params("s1", owner, old, "0.10.16", tmp_path, PROBE_TEST_SENTINEL=str(sentinel))
+    assert service_home.call(Method.SESSION_RECORD, params)["recording"] is True
+    assert _saw(service_home.home, "s1", "started")
+    sentinel.touch()  # pi's quit
+    assert _saw(service_home.home, "s1", "finishing")
+    sentinel.unlink()  # the resume's `tap start` clears it, then asks
+    resume = _params("s1", owner, new, "0.10.17", tmp_path, PROBE_TEST_SENTINEL=str(sentinel))
+    assert service_home.call(Method.SESSION_RECORD, resume) == {"recording": False, "restart": True}
+    assert service_home.wait_exit(first["pid"], 8), service_home.log()
+    service_home.start()
+    assert service_home.call(Method.SESSION_RECORD, resume)["recording"] is True
+    started = lambda: [e for e in _events(service_home.home, "s1") if e["event"] == "started"]  # noqa: E731
+    assert wait_for(lambda: started() and started()[-1]["version"] == "0.10.17", 5), _events(service_home.home, "s1")
+    assert service_home.call(Method.SESSION_RECORDING, {"sid": "s1"}) == {"recording": True}
+
+
+def test_a_recorder_taking_its_claim_says_so_at_once(tmp_path):
+    """The hint lane reads only sessions whose recorder holds the claim
+    (`hints.followed`), and slept with no timer when none did: a lone
+    session's `session.record` woke it before its recorder took the claim, so
+    the first prompt's hint came ~17 s late (live test E, 2026-10-24). The tap's
+    loop publishes its claim (`Controls.claim`): the service hears it then."""
+    import threading
+
+    heard = []
+    claimed = threading.Event()
+
+    class Hosted:
+        ENDED, PAUSED, STOPPED, FAILED = "ended", "paused", "stopped", "failed"
+
+        class Controls:  # as the tap's `hosted.Controls` (0.10.6+)
+            def __init__(self):
+                self.stop, self.pause = threading.Event(), threading.Event()
+                self.claimed = None
+
+            def claim(self, folder):
+                self.claimed = folder
+
+        @staticmethod
+        def record(session, controls):
+            publish = getattr(controls, "claim", None)  # as `tap.main` takes it (`WatchConfig.claimed`)
+            publish("/journal")
+            claimed.set()
+            controls.stop.wait(5)
+            publish(None)
+            return Hosted.ENDED, ""
+
+    host = recorders.RecorderHost(log=lambda m: None, loop_getter=lambda: None, claimed=heard.append)
+    host.hosted = Hosted
+    host._save = lambda: None
+    host._start({"sid": "s1"})
+    assert claimed.wait(2)
+    assert heard == ["s1"] and host.recordings["s1"].controls.claimed == "/journal"
+    host.recordings["s1"].controls.stop.set()
+    host.recordings["s1"].thread.join(2)
+    assert heard == ["s1", "s1"]
+
+
+def test_a_recorder_that_stepped_back_takes_the_session_when_asked_again(tmp_path):
+    """Another recorder (the session's own `tap watch`) held the claim, so its
+    loop returned and it waits to look again (15 s). A `session.record` for
+    the session after that watcher let go (`hooks/tap_handover.py` asks once
+    more) has it look again at once."""
+    import threading
+
+    tries = []
+
+    class Hosted:
+        ENDED, PAUSED, STOPPED, FAILED = "ended", "paused", "stopped", "failed"
+
+        class Controls:
+            def __init__(self):
+                self.stop, self.pause = threading.Event(), threading.Event()
+
+        @staticmethod
+        def record(session, controls):
+            tries.append(time.monotonic())
+            if len(tries) == 1:
+                return Hosted.STOPPED, "returned 0"  # claimed elsewhere
+            controls.stop.wait(5)
+            return Hosted.ENDED, ""
+
+    host = recorders.RecorderHost(log=lambda m: None, loop_getter=lambda: None)
+    host.hosted = Hosted
+    host._save = lambda: None
+    host._valid = lambda params: params
+    host._start({"sid": "s1"})
+    assert wait_for(lambda: len(tries) == 1 and host.recordings["s1"].last.startswith("stopped"), 2)
+    assert host.record({"sid": "s1"}) == {"recording": True, "started": False, "pid": os.getpid()}
+    assert wait_for(lambda: len(tries) == 2, 2), "it waited out its 15 s instead"
+    assert tries[1] - tries[0] < 3
+    host.recordings["s1"].controls.stop.set()
+    host.recordings["s1"].thread.join(5)
+
+
+def test_a_codex_tap_update_never_breaks_the_running_services_tap(service_home, agent, tmp_path):
+    """Codex keeps ONE version folder of a plugin and deletes it when it
+    installs the next (audit #14); this machine's service had imported its tap
+    from there. The tap reads its own files long after its import: a module it
+    imports when first needed, a data file beside it. The service imports from
+    a copy of its own (`recorders._pin`), so neither breaks under it."""
+    proc, owner = agent
+    cache = tmp_path / "codex" / "plugins" / "cache" / "research-os-agent" / "probe-research-tap"
+    old = _late_tap(cache / "0.10.18", "0.10.18")
+    service_home.start()
+    params = _params("s1", owner, old, "0.10.18", tmp_path, PROBE_TEST_BEHAVIOUR="lazy", PLUGIN_ROOT=str(old))
+    assert service_home.call(Method.SESSION_RECORD, params)["recording"] is True
+    assert _saw(service_home.home, "s1", "started")
+    shutil.rmtree(old)  # Codex installs 0.10.19 and removes the folder the service loaded
+    _late_tap(cache / "0.10.19", "0.10.19")
+    (service_home.home / "go-s1").touch()
+    assert wait_for(lambda: _late(service_home.home, "s1"), 5), service_home.log()
+    assert _late(service_home.home, "s1") == [{"sid": "s1", "ok": "late-0.10.18"}], "the tap it loaded, whole"
+    assert service_home.call(Method.SESSION_RECORDING, {"sid": "s1"}) == {"recording": True}
+    copies = [p for p in (paths.service_dir() / recorders.TAPS_NAME).iterdir() if not p.name.startswith(".")]
+    assert [p.name.split("-")[0] for p in copies] == ["0.10.18"]
+    assert f"recorder: tap 0.10.18 loaded from {old} (its copy {copies[0]})" in service_home.log()
+
+
+def _pin_dir(monkeypatch, tmp_path) -> Path:
+    monkeypatch.setattr(paths, "service_dir", lambda: tmp_path / "service")
+    return tmp_path / "service" / recorders.TAPS_NAME
+
+
+def test_a_tap_is_copied_once_per_version_and_files(tmp_path, monkeypatch):
+    store = _pin_dir(monkeypatch, tmp_path)
+    root = _late_tap(tmp_path / "cache" / "0.10.18", "0.10.18")
+    first = recorders._pin(str(root), "0.10.18")
+    assert first.parent == store and (first / "tap" / "late.json").is_file() and (first / recorders.PIN_DONE).is_file()
+    assert recorders._pin(str(root), "0.10.18") == first, "the same files: the same copy"
+    (root / "tap" / "late.py").write_text('WORD = "edited-"\n')  # a checkout edited in place
+    second = recorders._pin(str(root), "0.10.18")
+    assert second != first and (second / "tap" / "late.py").read_text() == 'WORD = "edited-"\n'
+    # A copy cut short (no PIN_DONE) is made again, never used.
+    (second / recorders.PIN_DONE).unlink()
+    (second / "tap" / "late.py").unlink()
+    assert recorders._pin(str(root), "0.10.18") == second and (second / "tap" / "late.py").is_file()
+
+
+def test_old_copies_go_but_never_the_one_loading(tmp_path, monkeypatch):
+    store = _pin_dir(monkeypatch, tmp_path)
+    made, now = [], time.time()
+    for n in range(recorders.PIN_KEEP + 2):
+        made.append(recorders._pin(str(_late_tap(tmp_path / "cache" / f"0.10.{n}", f"0.10.{n}")), f"0.10.{n}"))
+        os.utime(made[-1], (now - 100 + n, now - 100 + n))
+    week_old = recorders._pin(str(_late_tap(tmp_path / "cache" / "0.9.0", "0.9.0")), "0.9.0")
+    os.utime(week_old, (now - recorders.PIN_KEEP_S - 60,) * 2)
+    stale = store / ".0.10.9-x.123.456"
+    stale.mkdir()
+    os.utime(stale, (1, 1))
+    loading = recorders._pin(str(tmp_path / "cache" / "0.10.0"), "0.10.0")  # the oldest, loaded again
+    assert loading == made[0]
+    left = sorted(p.name for p in store.iterdir())
+    # The one loading, and the newest-used PIN_KEEP others; never a leftover.
+    assert left == sorted(p.name for p in [made[0], *made[-recorders.PIN_KEEP:]])
+
+
+def test_a_tap_that_cannot_be_copied_loads_in_place(tmp_path, monkeypatch):
+    def refuse(root, version):
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(recorders, "_pin", refuse)
+    lines = []
+    host = recorders.RecorderHost(log=lines.append, loop_getter=lambda: None)
+    root = _late_tap(tmp_path / "cache" / "0.10.18", "0.10.18")
+    try:
+        assert host._load(str(root), "0.10.18")
+        assert (host.tap_root, host.tap_copy) == (str(root), str(root))
+    finally:
+        sys.path[:] = [p for p in sys.path if p != str(root)]
+        for name in [n for n in sys.modules if n == "tap" or n.startswith("tap.")]:
+            sys.modules.pop(name, None)
+    assert any("cannot copy the tap" in line and "no space left" in line for line in lines)
+
+
+@pytest.mark.parametrize("change", ["a-module-arrives", "a-module-grows"])
+def test_a_tap_written_while_it_is_copied_is_never_used(tmp_path, monkeypatch, change):
+    """An agent still installing the tap as the service copies it (Codex's
+    newest folder, picked by listing): the copy holds part of it. It is never
+    marked done or imported; the service loads the tap in place instead."""
+    import shutil
+
+    store = _pin_dir(monkeypatch, tmp_path)
+    root = _late_tap(tmp_path / "cache" / "0.10.18", "0.10.18")
+    real = shutil.copytree
+
+    def copy_then_write(src, dst, *args, **kwargs):
+        done = real(src, dst, *args, **kwargs)
+        if change == "a-module-arrives":
+            (root / "tap" / "arrived.py").write_text("X = 1\n")  # the installer, still writing
+        else:
+            with open(root / "tap" / "late.py", "a") as handle:
+                handle.write("MORE = 2\n")
+        return done
+
+    monkeypatch.setattr(shutil, "copytree", copy_then_write)
+    with pytest.raises(OSError, match="changed while it was copied"):
+        recorders._pin(str(root), "0.10.18")
+    assert not [p for p in store.iterdir() if (p / recorders.PIN_DONE).exists()], "no copy marked done"
+    assert not list(store.iterdir()), "its part copy is gone too"
+    lines = []
+    host = recorders.RecorderHost(log=lines.append, loop_getter=lambda: None)
+    try:
+        assert host._load(str(root), "0.10.18")
+        assert host.tap_copy == str(root), "loaded in place"
+    finally:
+        sys.path[:] = [p for p in sys.path if p != str(root)]
+        for name in [n for n in sys.modules if n == "tap" or n.startswith("tap.")]:
+            sys.modules.pop(name, None)
+    assert any("changed while it was copied" in line for line in lines)
+    monkeypatch.setattr(shutil, "copytree", real)
+    whole = recorders._pin(str(root), "0.10.18")  # once it holds still: copied
+    assert (whole / recorders.PIN_DONE).is_file() and (whole / "tap" / "late.py").read_text().endswith(
+        "MORE = 2\n" if change == "a-module-grows" else 'WORD = "late-"\n')

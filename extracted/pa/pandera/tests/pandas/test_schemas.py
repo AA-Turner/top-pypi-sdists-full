@@ -203,6 +203,45 @@ def test_dataframe_schema_strict() -> None:
         schema.validate(df.loc[:, ["a", "c"]])
 
 
+def test_strict_filter_no_inplace_drop_deprecation_warning():
+    """Regression test for #2599.
+
+    ``strict="filter"`` must not trigger a ``DeprecationWarning`` from the
+    deprecated ``inplace`` parameter of ``pandas.DataFrame.drop`` (deprecated
+    in pandas 3). The non-inplace drop also guarantees the input frame is not
+    mutated unless validation is explicitly ``inplace``.
+    """
+    schema = DataFrameSchema(
+        {"keep": Column(int), "other": Column(int)},
+        strict="filter",
+    )
+    df = pd.DataFrame({"keep": [1, 2], "other": [3, 4], "drop": [5, 6]})
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        result = schema.validate(df)
+
+    assert list(result.columns) == ["keep", "other"]
+    # the input frame is not mutated when validating not-inplace
+    assert list(df.columns) == ["keep", "other", "drop"]
+
+
+def test_strict_filter_inplace_deprecation_warning():
+    """Using ``strict="filter"`` with ``validate(..., inplace=True)`` is
+    deprecated: column filtering no longer mutates the input DataFrame in
+    place because the deprecated pandas ``inplace`` drop was removed (#2599).
+    """
+    schema = DataFrameSchema({"keep": Column(int)}, strict="filter")
+    df = pd.DataFrame({"keep": [1, 2], "drop": [3, 4]})
+
+    with pytest.warns(FutureWarning, match="inplace=True"):
+        result = schema.validate(df, inplace=True)
+
+    assert list(result.columns) == ["keep"]
+    # column filtering no longer mutates the input frame in place
+    assert list(df.columns) == ["keep", "drop"]
+
+
 def test_dataframe_schema_strict_and_ordered_raises_both_errors() -> None:
     """Regression test for #2213: strict=True and ordered=True raise both
     COLUMN_NOT_ORDERED and COLUMN_NOT_IN_SCHEMA when dataframe has both."""
@@ -547,6 +586,37 @@ def test_add_missing_columns_order():
     assert validated_frame_trailing.columns.equals(
         pd.Index(["col_a", "col_missing", "col_b", "col_c"])
     )
+
+
+@pytest.mark.parametrize(
+    "columns, expected_columns",
+    [
+        (["a", "x", "x"], ["a", "m", "x", "x"]),
+        (["a", "a"], ["a", "a", "m"]),
+        (["a", "x", "b", "x"], ["a", "m", "x", "b", "x"]),
+    ],
+)
+def test_add_missing_columns_duplicate_column_names(columns, expected_columns):
+    """Test that adding missing columns doesn't repeat duplicate columns.
+
+    https://github.com/unionai-oss/pandera/issues/1370
+    """
+    schema = DataFrameSchema(
+        columns={
+            "a": Column(int),
+            "m": Column(int, default=0),
+            "b": Column(int, required=False),
+        },
+        add_missing_columns=True,
+    )
+    df = pd.DataFrame([list(range(len(columns)))], columns=columns)
+
+    validated = schema.validate(df)
+
+    assert validated.columns.tolist() == expected_columns
+    expected = df.copy()
+    expected.insert(expected_columns.index("m"), "m", 0)
+    pd.testing.assert_frame_equal(validated, expected)
 
 
 def test_add_missing_columns_dtype():
@@ -3082,6 +3152,25 @@ def test_drop_invalid_for_column_within_dataframe_schema():
 
     with pytest.raises(errors.SchemaDefinitionError):
         schema.validate(df, lazy=False)
+
+
+def test_drop_invalid_for_column_within_dataframe_schema_does_not_mutate():
+    """A nested drop_invalid_rows column must not mutate the caller's frame.
+
+    Regression guard: the earlier pandas fix (PR #2521) propagated nested
+    column drops by mutating the shared frame in place. The non-mutating
+    propagation must leave the input untouched while still dropping rows in
+    the validated output.
+    """
+    schema = DataFrameSchema(
+        {"numbers": Column(int, checks=Check.ge(3), drop_invalid_rows=True)}
+    )
+    df = pd.DataFrame({"numbers": [1, 2, 3, 4, 5, 6]})
+    original = df.copy()
+
+    actual_obj = schema.validate(df, lazy=True)
+    assert actual_obj["numbers"].tolist() == [3, 4, 5, 6]
+    pd.testing.assert_frame_equal(df, original)
 
 
 def test_drop_invalid_for_model_schema():

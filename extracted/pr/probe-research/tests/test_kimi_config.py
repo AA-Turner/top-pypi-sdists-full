@@ -236,8 +236,9 @@ def test_old_versions_are_pruned_but_the_previous_one_is_kept(kimi, monkeypatch,
     manifest.write_text(json.dumps(data))
     os.utime(managed / "probe-research@9.0.1", (0, 0))
     assert plugin_cli.install("kimi_code", "probe-research").ok
-    kept = sorted(p.name for p in managed.glob("probe-research@*"))
-    # Older than a week and not the previous version: gone. 9.0.2 (previous) stays.
+    kept = sorted(p.name for p in managed.glob("probe-research@*") if not p.is_symlink())
+    # Older than a week and not the previous version: its folder goes (a link
+    # to the kept version takes its place). 9.0.2 (previous) stays.
     assert kept == ["probe-research@9.0.2", "probe-research@9.0.3"]
     assert _installed(kimi)["plugins"][0]["root"].endswith("probe-research@9.0.3")
 
@@ -324,3 +325,106 @@ def test_plugins_without_our_server_are_untouched(kimi, tmp_path):
     (root / ".kimi-plugin").mkdir(parents=True)
     (root / ".kimi-plugin" / "plugin.json").write_text(json.dumps({"name": "probe-research-tap", "hooks": []}))
     assert kimi_config.write_mcp_bearer(root, "tok") is False
+
+
+def _install_versions(kimi: Path, monkeypatch, tmp_path, plugin: str, *versions: str) -> Path:
+    """Install each version of `plugin` in turn, from a copy of this checkout's."""
+    import shutil
+
+    src = tmp_path / "src"
+    if not (src / "plugins" / plugin).exists():
+        shutil.copytree(AGENT / "plugins" / plugin, src / "plugins" / plugin)
+    monkeypatch.setenv(kimi_config.SOURCE_ENV, str(src))
+    manifest = src / "plugins" / plugin / ".kimi-plugin" / "plugin.json"
+    for version in versions:
+        data = json.loads(manifest.read_text())
+        data["version"] = version
+        manifest.write_text(json.dumps(data))
+        assert plugin_cli.install("kimi_code", plugin).ok
+    return kimi / "plugins" / "managed"
+
+
+def test_a_pruned_version_becomes_a_link_to_the_kept_one(kimi, monkeypatch, tmp_path):
+    """A Kimi session keeps the folder it started with for as long as it runs,
+    and its entries run that folder's hooks: deleted at the prune, a session
+    older than a week lost every hook with no word (plan C3). A link to the
+    kept version runs that version's hooks instead, and holds no files."""
+    managed = _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.0", "9.0.1", "9.0.2")
+    for name in ("probe-research-tap@9.0.0", "probe-research-tap@9.0.1"):
+        os.utime(managed / name, (0, 0))
+    _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.3")
+    for version in ("9.0.0", "9.0.1"):
+        old = managed / f"probe-research-tap@{version}"
+        assert old.is_symlink() and os.readlink(old) == "probe-research-tap@9.0.3", version
+        script = old / "hooks" / "session-start.sh"
+        assert os.access(script, os.X_OK), "an open session's entry still finds its script"
+        assert json.loads((old / ".kimi-plugin" / "plugin.json").read_text())["version"] == "9.0.3"
+    assert not (managed / "probe-research-tap@9.0.2").is_symlink(), "the previous version stays whole"
+    assert not [p for p in managed.iterdir() if p.name.startswith(".")], "no leftovers of the swap"
+    # The next install points every link at the version it keeps.
+    _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.4")
+    assert os.readlink(managed / "probe-research-tap@9.0.0") == "probe-research-tap@9.0.4"
+
+
+def test_a_pruned_version_installed_again_is_a_whole_folder_again(kimi, monkeypatch, tmp_path):
+    managed = _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.0", "9.0.1", "9.0.2")
+    os.utime(managed / "probe-research-tap@9.0.0", (0, 0))
+    _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.3")
+    assert (managed / "probe-research-tap@9.0.0").is_symlink()
+    _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.0")  # a rollback
+    rolled = managed / "probe-research-tap@9.0.0"
+    assert not rolled.is_symlink()
+    assert json.loads((rolled / ".kimi-plugin" / "plugin.json").read_text())["version"] == "9.0.0"
+    assert _installed(kimi)["plugins"][0]["root"] == str(rolled)
+
+
+def test_uninstall_removes_the_links_with_the_folders(kimi, monkeypatch, tmp_path):
+    managed = _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.0", "9.0.1", "9.0.2")
+    os.utime(managed / "probe-research-tap@9.0.0", (0, 0))
+    _install_versions(kimi, monkeypatch, tmp_path, "probe-research-tap", "9.0.3")
+    result = plugin_cli.uninstall("kimi_code", "probe-research-tap")
+    assert result.ok, result.detail
+    assert not list(managed.glob("probe-research-tap@*"))
+
+
+def test_the_mcp_token_goes_to_each_whole_copy_once(kimi, monkeypatch, tmp_path):
+    managed = _install_versions(kimi, monkeypatch, tmp_path, "probe-research", "9.0.0", "9.0.1", "9.0.2")
+    os.utime(managed / "probe-research@9.0.0", (0, 0))
+    _install_versions(kimi, monkeypatch, tmp_path, "probe-research", "9.0.3")
+    roots = kimi_config._probe_research_roots()
+    assert sorted(p.name for p in roots) == ["probe-research@9.0.1", "probe-research@9.0.2", "probe-research@9.0.3"]
+
+
+def _hold_limit(tmp_path: Path, monkeypatch, token: str, workspace: dict | None) -> None:
+    path = tmp_path / "probe-config.json"
+    ctx = {"base_url": "https://api.research.prbe.ai", "mcp_token": token}
+    if workspace is not None:
+        ctx["workspace"] = workspace
+    path.write_text(json.dumps({"current_context": "default", "contexts": {"default": ctx}}))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(path))
+    monkeypatch.delenv("PROBE_MCP_TOKEN", raising=False)
+
+
+def test_a_workspace_limit_change_reaches_the_installed_copy(kimi, monkeypatch, tmp_path):
+    """The manifest holds a static copy of the limit beside the bearer: changing
+    it (`probe workspace limit`) re-renders the copy, as a rotation does."""
+    ws = "11111111-1111-1111-1111-111111111111"
+    _hold_limit(tmp_path, monkeypatch, "probe_pat_READ", None)
+    assert plugin_cli.install("kimi_code", "probe-research").ok
+    assert _manifest(kimi)["mcpServers"]["probe-research"]["headers"] == {"Authorization": "Bearer probe_pat_READ"}
+
+    _hold_limit(tmp_path, monkeypatch, "probe_pat_READ", {"id": ws, "limit": True, "team_items": "hide"})
+    assert kimi_config.mcp_bearer_drifted() is True
+    from probe.cli import setup as wizard
+
+    assert any("restart Kimi Code" in line for line in wizard.sync_mcp_token())
+    assert _manifest(kimi)["mcpServers"]["probe-research"]["headers"] == {
+        "Authorization": "Bearer probe_pat_READ",
+        "X-Probe-Workspace-Limit": ws,
+        "X-Probe-Workspace-Limit-Team-Items": "hide",
+    }
+    assert kimi_config.mcp_bearer_drifted() is False
+
+    _hold_limit(tmp_path, monkeypatch, "probe_pat_READ", {"id": ws})  # `--team`: the pin stays, the limit goes
+    wizard.sync_mcp_token()
+    assert _manifest(kimi)["mcpServers"]["probe-research"]["headers"] == {"Authorization": "Bearer probe_pat_READ"}

@@ -30,6 +30,7 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "GroqSTT": (".groq", "GroqSTT"),
     "GroqTranslator": (".groq", "GroqTranslator"),
     "HuggingFaceChat": (".generic_openai", "HuggingFaceChat"),
+    "DeviceChat": (".device", "DeviceChat"),
     "MockChat": (".mock", "MockChat"),
     "MoonshotChat": (".moonshot", "MoonshotChat"),
     "OpenAIChat": (".openai", "OpenAIChat"),
@@ -81,6 +82,8 @@ def _load_provider_module(module_name: str):
             return importlib.import_module(".google", __name__)
         case ".groq":
             return importlib.import_module(".groq", __name__)
+        case ".device":
+            return importlib.import_module(".device", __name__)
         case ".mock":
             return importlib.import_module(".mock", __name__)
         case ".moonshot":

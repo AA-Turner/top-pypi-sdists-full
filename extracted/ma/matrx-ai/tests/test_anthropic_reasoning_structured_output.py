@@ -105,9 +105,11 @@ def test_adaptive_reasoning_plus_schema_keeps_full_budget():
 def test_adaptive_schema_without_reasoning_settings_keeps_format():
     req = _request("anthropic_adaptive")
     assert req["max_tokens"] == 24000
-    assert "thinking" not in req  # sonnet-5 defaults to adaptive server-side
+    # No level set -> the platform default (low, owner ruling 2026-10-24) rides
+    # beside the schema: output_config carries BOTH, neither clobbers the other.
+    assert req["thinking"]["type"] == "adaptive"
     assert req["output_config"]["format"]["type"] == "json_schema"
-    assert "effort" not in req["output_config"]
+    assert req["output_config"]["effort"] == "low"
 
 
 def test_adaptive_reasoning_none_disables_thinking_keeps_schema():

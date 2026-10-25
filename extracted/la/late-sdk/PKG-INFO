@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: late-sdk
-Version: 1.4.1349
+Version: 1.4.1361
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -243,8 +243,10 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `posts.update_post_metadata()` | Update post metadata |
 | `posts.delete_post()` | Delete post |
 | `posts.edit_post()` | Edit published post |
+| `posts.pin_post()` | Pin post |
 | `posts.retry_post()` | Retry failed post |
 | `posts.review_post()` | Approve or reject a post |
+| `posts.unpin_post()` | Unpin post |
 | `posts.unpublish_post()` | Unpublish post |
 
 ### Accounts
@@ -291,6 +293,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `analytics.list_facebook_tagged_posts()` | List the posts a Facebook Page is tagged in |
+| `analytics.list_facebook_visitor_posts()` | List visitor posts on a Facebook Page |
 | `analytics.get_analytics()` | Get post analytics |
 | `analytics.get_analytics_dashboard()` | Get an analytics dashboard |
 | `analytics.get_analytics_delta()` | Analytics changed since a cursor |
@@ -474,12 +477,14 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Account Settings
 | Method | Description |
 |--------|-------------|
+| `account_settings.get_facebook_page_info()` | Get a Facebook Page's public info |
 | `account_settings.get_instagram_ice_breakers()` | Get IG ice breakers |
 | `account_settings.get_messenger_get_started()` | Get FB Get Started button |
 | `account_settings.get_messenger_greeting()` | Get FB greeting text |
 | `account_settings.get_messenger_ice_breakers()` | Get FB ice breakers |
 | `account_settings.get_messenger_menu()` | Get persistent menu |
 | `account_settings.get_telegram_commands()` | Get TG bot commands |
+| `account_settings.update_facebook_page_info()` | Update a Facebook Page's public info |
 | `account_settings.delete_instagram_ice_breakers()` | Delete IG ice breakers |
 | `account_settings.delete_messenger_get_started()` | Delete FB Get Started button |
 | `account_settings.delete_messenger_greeting()` | Delete FB greeting text |
@@ -1135,18 +1140,24 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 ### Messages (Inbox)
 | Method | Description |
 |--------|-------------|
+| `messages.list_conversation_labels()` | List the labels on a conversation |
 | `messages.list_inbox_conversations()` | List conversations |
+| `messages.list_inbox_labels()` | List the Page's conversation labels |
 | `messages.create_inbox_conversation()` | Create conversation |
+| `messages.create_inbox_label()` | Create a conversation label |
 | `messages.get_inbox_conversation()` | Get conversation |
 | `messages.get_inbox_conversation_messages()` | List messages |
 | `messages.get_message_attachment()` | Resolve message attachment |
 | `messages.update_inbox_conversation()` | Update conversation status |
 | `messages.delete_inbox_conversation()` | Delete conversation |
+| `messages.delete_inbox_label()` | Delete a conversation label |
 | `messages.delete_inbox_message()` | Delete message |
 | `messages.accept_conversation_request()` | Accept a message request |
+| `messages.add_conversation_label()` | Add a label to a conversation |
 | `messages.add_message_reaction()` | Add reaction |
 | `messages.edit_inbox_message()` | Edit message |
 | `messages.mark_conversation_read()` | Mark a conversation as read |
+| `messages.remove_conversation_label()` | Remove a label from a conversation |
 | `messages.remove_message_reaction()` | Remove reaction |
 | `messages.search_inbox_conversations()` | Search conversations |
 | `messages.send_inbox_message()` | Send message |

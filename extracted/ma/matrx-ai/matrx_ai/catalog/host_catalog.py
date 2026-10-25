@@ -432,6 +432,7 @@ def build_catalog_call_profile(model: CatalogModel) -> Any:
         model_id=str(model.id or name),
         model_name=name,
         provider_model_id=provider_model_id,
+        route_kind="catalog_model",
         offering_id=f"catalog:{name}",
         endpoint_id=f"catalog:{vendor}",
         api_id=f"catalog:{wire_format}",

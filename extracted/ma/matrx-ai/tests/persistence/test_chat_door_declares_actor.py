@@ -14,7 +14,8 @@ Two legs, both about the real system:
    a door that declares nothing.
 
 2. ``test_the_flush_emits_each_rows_author_to_postgres`` (``integration``) —
-   runs the REAL flush against the LIVE database and asserts on the SQL
+   lives in the host (``aidream/db/tests/test_chat_door_declares_actor_live.py``,
+   since a package never imports the host's models) and runs the REAL flush against the LIVE database and asserts on the SQL
    asyncpg actually sent on that connection: ``set_config('app.actor_tier',
    'user')`` immediately before the person's row is INSERTed, and
    ``set_config('app.actor_tier','agent')`` immediately before the assistant's.
@@ -29,18 +30,8 @@ test itself made up.
 
 from __future__ import annotations
 
-import os
 import uuid
 from types import SimpleNamespace
-from pathlib import Path
-
-import pytest
-from dotenv import load_dotenv
-
-REPO = Path(__file__).resolve().parents[4]
-load_dotenv(REPO / ".env")
-
-_HAS_DB = bool(os.environ.get("SUPABASE_MATRIX_HOST"))
 
 USER_ACTOR = ("user", "chat_user_turn")
 ASSISTANT_ACTOR = ("agent", "chat_assistant_turn")
@@ -70,7 +61,7 @@ def _bind_package_message_model():
 
     SCOPED, not permanent. ``register_table`` is first-writer-wins, so binding
     this stub with it would own the REAL ``chat.message`` key for the rest of
-    the process: leg 2 below could never bind the host Model, and every later
+    the process: a host-backed leg could never bind the host Model, and every later
     ``chat.message`` flush in the suite died on
     ``_PackageMessage has no attribute 'bulk_create'`` (measured 2026-09-17 —
     this test passed alone and failed in the suite it was poisoning).
@@ -79,16 +70,6 @@ def _bind_package_message_model():
     from matrx_ai.persistence.registry import override_table
 
     return override_table("chat.message", _PackageMessage)
-
-
-def _bind_host_message_model() -> type:
-    """Bind the real host model for the explicitly host-backed integration leg."""
-    from db.models.chat import Message
-
-    from matrx_ai.persistence.registry import register_table
-
-    register_table("chat.message", Message)
-    return Message
 
 
 async def test_the_door_declares_an_author_per_row(monkeypatch) -> None:
@@ -162,96 +143,3 @@ async def test_the_door_declares_an_author_per_row(monkeypatch) -> None:
         stand_in.__exit__(None, None, None)
         _coordinator_cv.reset(token)
         coord._session._ops.clear()
-
-
-# --------------------------------------------------------------------------
-# Leg 2 — the declaration reaches Postgres, per row, at flush.
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.integration
-@pytest.mark.skipif(not _HAS_DB, reason="needs the live platform database (SUPABASE_MATRIX_*)")
-async def test_the_flush_emits_each_rows_author_to_postgres() -> None:
-    # No host import: the pool is opened the way any standalone consumer opens
-    # it, and the ONE table this test writes is bound directly.
-    from matrx_orm import register_platform_db
-
-    register_platform_db(
-        "supabase_automation_matrix",
-        package="chat_door_actor_forcing_test",
-        additional_schemas=["chat", "auth", "iam"],
-    )
-    from db.models.chat import Conversation
-    from matrx_orm.core.transaction import _active_connection, transaction
-
-    from matrx_ai.persistence.coordinator import Coordinator
-    from matrx_ai.persistence.queue_helpers import _coordinator_cv, queue_message_create
-
-    Message = _bind_host_message_model()
-
-    rows = await Conversation.filter(deleted_at=None).limit(1).values(
-        "id", "organization_id", "created_by"
-    )
-    if not rows:
-        pytest.skip("no live conversation to attach a turn to")
-    conversation = rows[0]
-
-    recorded: list[tuple[str, tuple]] = []
-
-    class _Rollback(Exception):
-        pass
-
-    user_row = str(uuid.uuid4())
-    assistant_row = str(uuid.uuid4())
-    coord = Coordinator(request_id=str(uuid.uuid4()))
-    token = _coordinator_cv.set(coord)
-    try:
-        try:
-            async with transaction("supabase_automation_matrix"):
-                conn = _active_connection.get()
-                conn.add_query_logger(
-                    lambda record: recorded.append((record.query, tuple(record.args or ())))
-                )
-                for row_id, role, position in (
-                    (user_row, "user", 9_000_001),
-                    (assistant_row, "assistant", 9_000_002),
-                ):
-                    queue_message_create(
-                        id=row_id,
-                        conversation_id=str(conversation["id"]),
-                        role=role,
-                        position=position,
-                        status="active",
-                        content=[{"type": "text", "text": "DD-131 forcing test"}],
-                        organization_id=str(conversation["organization_id"]),
-                        created_by=conversation["created_by"],
-                    )
-                report = await coord.flush(reason="manual")
-                assert report.error is None, report.error
-                assert report.ops_written == 2, report
-                # Both rows really are in the database — inside this transaction.
-                landed = await Message.filter(id__in=[user_row, assistant_row]).values("id")
-                assert len(landed) == 2, landed
-                raise _Rollback
-        except _Rollback:
-            pass
-    finally:
-        _coordinator_cv.reset(token)
-
-    # What Postgres was actually told, in order.
-    timeline: list[str] = []
-    for query, args in recorded:
-        if "set_config" in query and args and args[0] == "app.actor_tier":
-            timeline.append(f"tier={args[1]}")
-        elif "INSERT INTO" in query.upper() and "message" in query:
-            if user_row in str(args):
-                timeline.append("insert=user_row")
-            elif assistant_row in str(args):
-                timeline.append("insert=assistant_row")
-
-    assert "tier=user" in timeline, f"the person's author never reached Postgres: {timeline}"
-    assert "tier=agent" in timeline, f"the assistant's author never reached Postgres: {timeline}"
-    assert timeline.index("tier=user") < timeline.index("insert=user_row"), timeline
-    assert timeline.index("tier=agent") < timeline.index("insert=assistant_row"), timeline
-    # Each row is written under ITS OWN declaration, not one turn-wide stamp.
-    assert timeline.index("insert=user_row") < timeline.index("tier=agent"), timeline

@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -64,10 +65,10 @@ def marker():
     return _load("_marker_daemon", HOOKS / "_session_marker.py")
 
 
-def _lease(marker, *, live: bool = True, reason=None) -> None:
+def _lease(marker, *, live: bool = True, reason=None, age: float = 0.0) -> None:
     path = marker.lease_path(SID)
     path.parent.mkdir(parents=True, exist_ok=True)
-    now = time.time()
+    now = time.time() - age
     path.write_text(json.dumps({"v": 1, "writer": "daemon", "pid": 1,
                                 "expires_at": now + (60 if live else -1), "renewed_at": now,
                                 "reason": reason}))
@@ -277,3 +278,89 @@ def test_on_is_unchanged(start_hook, monkeypatch):
     ctx = start_hook._start_context() or ""
     assert start_hook.COMPACT_CONTEXT in ctx
     assert start_hook.DAEMON_CONTEXT not in ctx
+
+
+def test_a_worker_handing_over_to_the_new_version_is_no_handback(guard, marker, monkeypatch, capsys):
+    """During an update the worker lets go of its lease to move onto the new
+    version (`lease.REASON_HANDOVER`). The degraded notice told the agent "the
+    daemon is not running, so recording is back with you": false, and an agent
+    that took it recorded beside the daemon. It gets its own words once, and
+    the daemon's return says nothing (live test J, 2026-10-24)."""
+    marker.set_session_state(SID, marker.STATE_DAEMON)
+    _lease(marker)
+    _run(guard, monkeypatch, capsys, _prompt())
+    _lease(marker, live=False, reason="handover")
+    ctx = json.loads(_run(guard, monkeypatch, capsys, _prompt()))["hookSpecificOutput"]["additionalContext"]
+    assert "handing over to a new daemon process" in ctx and "Nothing for you to do" in ctx, ctx
+    # Said whatever moved it (an update, a resumed session's worker, `probe
+    # service stop`): never "onto the new version", which is true of one only.
+    assert "new version" not in ctx, ctx
+    assert "recording is back with you" not in ctx and "not running" not in ctx, ctx
+    assert _run(guard, monkeypatch, capsys, _prompt()) == ""
+    _lease(marker)
+    assert _run(guard, monkeypatch, capsys, _prompt()) == "", "the daemon's return is no news"
+    # A handover that never comes back lapses into the plain handback.
+    _lease(marker, live=False, reason="handover")
+    _run(guard, monkeypatch, capsys, _prompt())
+    _lease(marker, live=False)
+    assert "the daemon is not responding, so recording is back with you" in _run(guard, monkeypatch, capsys, _prompt())
+
+
+def test_a_handover_nobody_takes_up_hands_recording_back(guard, marker, monkeypatch, capsys):
+    """A `handover` release is the worker letting go for a successor. When none
+    takes the lease (a new CLI whose worker will not start, a service that does
+    not come back), the agent was told the daemon records and was never told
+    otherwise. Released over DAEMON_HANDOVER_STALE_S ago (the lease's
+    `renewed_at` is the release time) it reads as degraded: the agent records
+    itself again, and the daemon's return says so."""
+    marker.set_session_state(SID, marker.STATE_DAEMON)
+    _lease(marker)
+    _run(guard, monkeypatch, capsys, _prompt())
+    _lease(marker, live=False, reason="handover")
+    assert "handing over" in _run(guard, monkeypatch, capsys, _prompt())
+    _lease(marker, live=False, reason="handover", age=marker.DAEMON_HANDOVER_STALE_S + 5)
+    assert marker.daemon_status(SID)[0] == marker.DAEMON_DEGRADED
+    ctx = json.loads(_run(guard, monkeypatch, capsys, _prompt()))["hookSpecificOutput"]["additionalContext"]
+    assert "recording is back with you" in ctx, ctx
+    assert _run(guard, monkeypatch, capsys, _prompt()) == "", "said once"
+    _lease(marker)
+    assert _run(guard, monkeypatch, capsys, _prompt()) != "", "the daemon's return is news again"
+
+
+@pytest.mark.parametrize("hold", ["up", "dropped-just-now", "dropped-long-ago", "none"])
+def test_a_handover_during_a_held_update_is_not_stale(marker, hold):
+    """An update with a new CLI asks every worker to hand over and holds new
+    worker starts (`barrier.hold_workers`) until its child ends, which can take
+    minutes. Counted from the release alone, every daemon-mode agent of a swarm
+    was told mid-update that recording is back with it. The hand-over stays
+    live while the hold is up, and its DAEMON_HANDOVER_STALE_S count from the
+    later of the release and the hold's end (`barrier.release_workers` stamps
+    it)."""
+    from probe.service import barrier, paths
+
+    marker.set_session_state(SID, marker.STATE_DAEMON)
+    _lease(marker, live=False, reason="handover", age=300)
+    folder = paths.service_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    if hold == "up":
+        barrier.hold_workers("t" * 32)
+    elif hold.startswith("dropped"):
+        barrier.hold_workers("t" * 32)
+        barrier.release_workers("t" * 32)
+        assert not barrier.hold_path().exists()
+        if hold == "dropped-long-ago":
+            stamp = folder / marker.UPDATE_HOLD_RELEASED_NAME
+            os.utime(stamp, (time.time() - 300, time.time() - 300))
+    expected = "handover" if hold in ("up", "dropped-just-now") else "expired"
+    assert marker.daemon_status(SID) == (marker.DAEMON_DEGRADED, expected)
+
+
+def test_the_marker_finds_the_services_hold_where_the_service_keeps_it():
+    """The marker is stdlib-only, beside the hooks: it names the service's files
+    and folder itself, and they are the service's own."""
+    from probe.service import barrier, paths
+
+    marker = _load("_marker_hold_paths", HOOKS / "_session_marker.py")
+    assert marker.UPDATE_HOLD_NAME == barrier.HOLD_NAME
+    assert marker.UPDATE_HOLD_RELEASED_NAME == barrier.HOLD_RELEASED_NAME
+    assert marker.service_root() == paths.root_dir()

@@ -1547,7 +1547,7 @@ def test_a_held_question_already_on_the_board_is_never_written_over(tmp_path, mo
 
 def test_the_researchers_pick_is_recorded_with_and_without_a_service(maybe_service, home):
     board = appr.Board()
-    board.save(_question(SID, "q8"))
+    board.create(_question(SID, "q8"))  # with its answer key, as the daemon files it (#3355)
     _ask_the_question("q8", "Delete it")
     assert board.take_answer("q8")["answer"] == appr.YES
     # Written by `Board.answer` (the service's step: indented JSON) or by the hook itself (one line).

@@ -116,3 +116,42 @@ def test_google_json_string_hint_is_recorded_as_a_translation() -> None:
     row = next(r for r in rows if r["key"] == "tool:limits_probe.payload.description_hint")
     assert row["action"] == "translate"
     assert row["reason"] == "Google cannot take object-typed args; sent as JSON string"
+
+
+# ── main's ruling (2026-10-24): plumbing translations are recorded, never shown ─
+def _shown(monkeypatch) -> list[Any]:
+    from matrx_ai.providers import outbound_params
+
+    shown: list[Any] = []
+    monkeypatch.setattr(outbound_params, "send_client_info", lambda payload, **kw: shown.append(payload))
+    return shown
+
+
+@pytest.mark.parametrize(
+    "fmt",
+    [
+        "to_openai_format",  # OpenAI-family strict: cerebras, xai, together, groq, generic_openai, device
+        "to_openai_responses_format",  # OpenAI Responses
+    ],
+)
+def test_a_strict_schema_translation_is_recorded_but_never_announced(monkeypatch, fmt: str) -> None:
+    shown = _shown(monkeypatch)
+    wire, rows = _run(fmt)
+    assert any(r["key"].endswith("timeout_seconds.minimum") for r in rows), "still recorded"
+    assert shown == [], "a min/max translation the executor still enforces is not a banner"
+
+
+def test_a_translation_that_removes_a_required_property_still_announces(monkeypatch) -> None:
+    from matrx_ai.tools.models import _publish_dropped_constraints
+
+    shown = _shown(monkeypatch)
+    state = ExecutionState()
+    set_execution_state(state)
+    token = set_app_context(AppContext(emitter=_Emitter(), user_id="u", request_id="r2", conversation_id="c"))  # type: ignore[arg-type]
+    try:
+        _publish_dropped_constraints("limits_probe", [("box", "required", ["n"]), ("box.n", "minimum", 3)])
+    finally:
+        clear_app_context(token)
+    assert len(shown) == 1 and shown[0].code == "settings_adjusted"
+    row = next(r for r in state.settings_adjustments if r["key"].endswith("box.required"))
+    assert row["expected"] is False

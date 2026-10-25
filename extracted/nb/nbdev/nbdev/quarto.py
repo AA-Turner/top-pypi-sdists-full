@@ -23,7 +23,7 @@ from fastcore.shutil import rmtree,move,copytree
 from fastcore.meta import delegates
 from .serve import proc_nbs,_proc_file
 from . import serve_drv
-from .quarto_render import render_quarto
+from .quarto_render import render_quarto, quarto_stale
 import yaml
 
 # %% ../nbs/api/14_quarto.ipynb #aae2d2be-ad03-4536-bf70-c4575f39cea3
@@ -75,7 +75,7 @@ def _sort(a):
 
 _def_file_re = r'\.(?:ipynb|qmd|html)$'
 
-@delegates
+@delegates(nbglob_cli)
 def _nbglob_docs(
     path:str=None, # Path to notebooks
     file_glob:str=None, # Only include files matching glob    
@@ -214,9 +214,8 @@ def _pre_docs(path=None, n_workers:int=defaults.cpus, **kwargs):
     path = Path(path).absolute() if path else cfg.nbs_path
     if not (path/'nbdev.yml').exists(): path = cfg.nbs_path  # given a project root, fall back to its configured nbs
     os.chdir(cfg.config_path)  # bare `get_config()` runs downstream (including in render workers), so anchor the cwd
-    _chk_nbdev_yml(path)
-    _ensure_quarto()
     refresh_quarto_yml()
+    _ensure_quarto()
     import nbdev.doclinks
     nbdev.doclinks._build_modidx()
     nbdev_sidebar.__wrapped__(path=path, **kwargs)
@@ -392,7 +391,7 @@ def nbdev_preview(
     cache,cfg,path = _pre_docs(path, n_workers=n_workers, **kwargs)
     site = cache/cfg.doc_path.name
     if not (render or site.exists()) and cfg.doc_path.exists(): copytree(cfg.doc_path, site)
-    if render or not site.exists(): render_quarto(cache, site, n_workers=n_workers)
+    if render or not site.exists() or quarto_stale(cache, site): render_quarto(cache, site, n_workers=n_workers)
     xtra = []
     if port: xtra += ['--port', str(port)]
     if host: xtra += ['--host', host]

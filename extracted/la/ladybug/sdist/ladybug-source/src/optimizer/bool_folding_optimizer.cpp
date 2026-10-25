@@ -1,45 +1,70 @@
 #include "optimizer/bool_folding_optimizer.h"
 
+#include <string>
+#include <unordered_set>
+
 #include "binder/expression/literal_expression.h"
 #include "binder/expression/scalar_function_expression.h"
 #include "common/enums/expression_type.h"
 #include "common/types/value/value.h"
+#include "function/boolean/vector_boolean_functions.h"
+#include "function/scalar_function.h"
 #include "planner/operator/logical_empty_result.h"
 #include "planner/operator/logical_filter.h"
 
 using namespace lbug::binder;
 using namespace lbug::common;
 using namespace lbug::planner;
+using namespace lbug::function;
 
 namespace lbug {
 namespace optimizer {
 
 // ---------------------------------------------------------------------------
-// Helper: detect whether two expressions are logical negations
+// Helpers: detect complementary predicates
 // ---------------------------------------------------------------------------
 
-/// Returns true if `a` and `b` can never be true simultaneously.
-///
-/// Recognised forms:
-///   - NOT(p) and p
-///   - IS_NULL(x) and IS_NOT_NULL(x)
-static bool areNegations(const Expression& a, const Expression& b) {
-    // NOT(p) == b
-    if (a.expressionType == ExpressionType::NOT && a.getNumChildren() == 1 && *a.getChild(0) == b) {
-        return true;
+/// Whether IS_NULL(x) and IS_NOT_NULL(x) are both among the operands: exactly one of them is
+/// true, never NULL.
+static bool hasNullCheckComplements(const expression_vector& operands) {
+    std::unordered_set<std::string> isNull, isNotNull;
+    for (auto& operand : operands) {
+        if (operand->getNumChildren() == 0) {
+            continue;
+        }
+        if (operand->expressionType == ExpressionType::IS_NULL) {
+            auto name = operand->getChild(0)->getUniqueName();
+            if (isNotNull.contains(name)) {
+                return true;
+            }
+            isNull.insert(std::move(name));
+        } else if (operand->expressionType == ExpressionType::IS_NOT_NULL) {
+            auto name = operand->getChild(0)->getUniqueName();
+            if (isNull.contains(name)) {
+                return true;
+            }
+            isNotNull.insert(std::move(name));
+        }
     }
-    // NOT(q) == a
-    if (b.expressionType == ExpressionType::NOT && b.getNumChildren() == 1 && *b.getChild(0) == a) {
-        return true;
-    }
-    // IS_NULL(x) vs IS_NOT_NULL(x)
-    if (a.expressionType == ExpressionType::IS_NULL &&
-        b.expressionType == ExpressionType::IS_NOT_NULL) {
-        return a.getNumChildren() > 0 && b.getNumChildren() > 0 && *a.getChild(0) == *b.getChild(0);
-    }
-    if (a.expressionType == ExpressionType::IS_NOT_NULL &&
-        b.expressionType == ExpressionType::IS_NULL) {
-        return a.getNumChildren() > 0 && b.getNumChildren() > 0 && *a.getChild(0) == *b.getChild(0);
+    return false;
+}
+
+/// Whether p and NOT(p) are both among the operands: never both true, but both NULL when p is.
+static bool hasNotComplements(const expression_vector& operands) {
+    std::unordered_set<std::string> names, negated;
+    for (auto& operand : operands) {
+        auto name = operand->getUniqueName();
+        if (negated.contains(name)) {
+            return true;
+        }
+        if (operand->expressionType == ExpressionType::NOT && operand->getNumChildren() == 1) {
+            auto childName = operand->getChild(0)->getUniqueName();
+            if (names.contains(childName)) {
+                return true;
+            }
+            negated.insert(std::move(childName));
+        }
+        names.insert(std::move(name));
     }
     return false;
 }
@@ -51,6 +76,50 @@ static bool areNegations(const Expression& a, const Expression& b) {
 static std::shared_ptr<Expression> boolLiteral(bool v) {
     return std::make_shared<LiteralExpression>(Value(v),
         std::string("_lit_") + (v ? "true" : "false"));
+}
+
+// ---------------------------------------------------------------------------
+// Helper: build AND / OR / NOT over already-boolean children
+// ---------------------------------------------------------------------------
+
+// The children must already be BOOL: unlike the binder, this skips implicit casts.
+static std::shared_ptr<Expression> boolOperator(ExpressionType type, expression_vector children) {
+    for ([[maybe_unused]] auto& child : children) {
+        DASSERT(child->getDataType().getLogicalTypeID() == LogicalTypeID::BOOL);
+    }
+    auto functionName = ExpressionTypeUtil::toString(type);
+    scalar_func_exec_t execFunc;
+    VectorBooleanFunction::bindExecFunction(type, children, execFunc);
+    scalar_func_select_t selectFunc;
+    VectorBooleanFunction::bindSelectFunction(type, children, selectFunc);
+    std::vector<LogicalTypeID> inputTypeIDs(children.size(), LogicalTypeID::BOOL);
+    auto uniqueName = ScalarFunctionExpression::getUniqueName(functionName, children);
+    auto function = std::make_unique<ScalarFunction>(functionName, std::move(inputTypeIDs),
+        LogicalTypeID::BOOL, execFunc, selectFunc);
+    return std::make_shared<ScalarFunctionExpression>(type, std::move(function),
+        std::make_unique<FunctionBindData>(LogicalType::BOOL()), std::move(children), uniqueName);
+}
+
+// Collects the operands of nested ANDs or ORs (type).
+static void splitOperands(ExpressionType type, const std::shared_ptr<Expression>& expr,
+    expression_vector& operands) {
+    if (expr->expressionType != type) {
+        operands.push_back(expr);
+        return;
+    }
+    for (auto i = 0u; i < expr->getNumChildren(); ++i) {
+        splitOperands(type, expr->getChild(i), operands);
+    }
+}
+
+// AND and OR are binary, so several operands are chained left-deep.
+static std::shared_ptr<Expression> chainBoolOperator(ExpressionType type,
+    const expression_vector& operands) {
+    auto result = operands[0];
+    for (auto i = 1u; i < operands.size(); ++i) {
+        result = boolOperator(type, {result, operands[i]});
+    }
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,55 +144,68 @@ static std::shared_ptr<Expression> boolLiteral(bool v) {
 ///   OR(AND(IS_NULL(x), IS_NOT_NULL(x)), n.k = 1)
 ///       → OR(false, n.k = 1)      [AND contradiction folded to false]
 ///       → n.k = 1                 [OR(false, x) → x]
-static std::shared_ptr<Expression> foldBool(const std::shared_ptr<Expression>& expr) {
+///
+/// `nullAsFalse` is true where only a TRUE result keeps a row, i.e. directly under the filter
+/// and through AND/OR. There NULL may be treated as false; under NOT it may not, so folds that
+/// depend on it (NULL literals, NOT(p)/p pairs) are skipped.
+static std::shared_ptr<Expression> foldBool(const std::shared_ptr<Expression>& expr,
+    bool nullAsFalse) {
     // --- NOT -----------------------------------------------------------
     if (expr->expressionType == ExpressionType::NOT) {
-        // NOT(NOT(x)) → x — structural, no folding needed.
-        auto child = expr->getChild(0);
-        if (child->expressionType == ExpressionType::NOT && child->getNumChildren() == 1) {
-            return child->getChild(0);
-        }
         // Fold the inner expression and invert if it becomes a constant.
-        auto folded = foldBool(child);
+        auto child = expr->getChild(0);
+        auto folded = foldBool(child, false /* nullAsFalse */);
         auto effective = folded ? folded : child;
         if (effective->expressionType == ExpressionType::LITERAL) {
             auto& lit = effective->constCast<LiteralExpression>();
-            return boolLiteral(lit.isNull() || !lit.getValue().getValue<bool>());
+            if (lit.isNull()) {
+                return effective; // NOT NULL is NULL
+            }
+            return boolLiteral(!lit.getValue().getValue<bool>());
         }
-        return folded ? effective : nullptr;
+        // NOT(NOT(x)) → x. NOT NOT NULL is NULL, so x folds under this NOT's own NULL rule.
+        if (effective->expressionType == ExpressionType::NOT && effective->getNumChildren() == 1) {
+            auto inner = effective->getChild(0);
+            auto innerFolded = foldBool(inner, nullAsFalse);
+            return innerFolded ? innerFolded : inner;
+        }
+        return folded ? boolOperator(ExpressionType::NOT, {folded}) : nullptr;
     }
 
     // --- AND -----------------------------------------------------------
     if (expr->expressionType == ExpressionType::AND) {
-        auto parts = expr->splitOnAND();
+        expression_vector parts;
+        splitOperands(ExpressionType::AND, expr, parts);
         expression_vector kept;
         bool anyChanged = false;
 
         // 1) Fold each child; short-circuit on false; drop true.
         for (auto& part : parts) {
-            auto folded = foldBool(part);
+            auto folded = foldBool(part, nullAsFalse);
             auto effective = folded ? folded : part;
             if (folded) {
                 anyChanged = true;
             }
             if (effective->expressionType == ExpressionType::LITERAL) {
                 auto& lit = effective->constCast<LiteralExpression>();
+                if (lit.isNull() && !nullAsFalse) {
+                    kept.push_back(effective);
+                    continue;
+                }
                 if (lit.isNull() || !lit.getValue().getValue<bool>()) {
                     return boolLiteral(false); // false ∧ … ≡ false
                 }
                 // true conjunct is a no-op – drop it.
+                anyChanged = true;
                 continue;
             }
-            kept.push_back(effective);
+            // An AND that folding produced, e.g. from NOT(NOT(p AND q)), joins this one.
+            splitOperands(ExpressionType::AND, effective, kept);
         }
 
-        // 2) Check pair-wise contradictions among kept children.
-        for (auto i = 0u; i < kept.size(); ++i) {
-            for (auto j = i + 1; j < kept.size(); ++j) {
-                if (areNegations(*kept[i], *kept[j])) {
-                    return boolLiteral(false); // p ∧ ¬p ≡ false
-                }
-            }
+        // 2) Contradictions among kept children. p ∧ ¬p is NULL, not false, when p is NULL.
+        if (hasNullCheckComplements(kept) || (nullAsFalse && hasNotComplements(kept))) {
+            return boolLiteral(false);
         }
 
         // 3) All conjuncts were true.
@@ -136,28 +218,33 @@ static std::shared_ptr<Expression> foldBool(const std::shared_ptr<Expression>& e
             return kept[0];
         }
 
-        // 5) Multiple children remain; we currently do not rebuild the
-        //    AND tree.  If any child was simplified it is a missed
-        //    opportunity, but the predicate is still correct as-is.
-        return anyChanged ? kept[0] : nullptr;
+        // 5) Several children remain: rebuild the AND from them.
+        return anyChanged ? chainBoolOperator(ExpressionType::AND, kept) : nullptr;
     }
 
     // --- OR ------------------------------------------------------------
     if (expr->expressionType == ExpressionType::OR) {
-        // 1) Fold all children in one pass.
+        // 1) Fold all operands of the nested ORs in one pass.
         std::vector<std::shared_ptr<Expression>> folded;
         bool anyChanged = false;
-        for (auto i = 0u; i < expr->getNumChildren(); ++i) {
-            auto f = foldBool(expr->getChild(i));
-            auto eff = f ? f : expr->getChild(i);
+        expression_vector parts;
+        splitOperands(ExpressionType::OR, expr, parts);
+        for (auto& part : parts) {
+            auto f = foldBool(part, nullAsFalse);
+            auto eff = f ? f : part;
             if (f) {
                 anyChanged = true;
             }
-            folded.push_back(eff);
+            // An OR that folding produced joins this one.
+            splitOperands(ExpressionType::OR, eff, folded);
         }
 
-        // 2) Walk children; short-circuit on true, drop false, detect
-        //    tautology pairs.
+        // 2) IS_NULL(x) ∨ IS_NOT_NULL(x) is always true. p ∨ ¬p is NULL, not true, when p is NULL.
+        if (hasNullCheckComplements(folded)) {
+            return boolLiteral(true);
+        }
+
+        // 3) Walk children; short-circuit on true, drop false.
         expression_vector kept;
         for (auto i = 0u; i < folded.size(); ++i) {
             auto& eff = folded[i];
@@ -166,29 +253,28 @@ static std::shared_ptr<Expression> foldBool(const std::shared_ptr<Expression>& e
                 if (!lit.isNull() && lit.getValue().getValue<bool>()) {
                     return boolLiteral(true); // true ∨ … ≡ true
                 }
-                // false disjunct is a no-op.
-                continue;
-            }
-            // Check for tautology: p ∨ ¬p ≡ true.
-            for (auto j = i + 1; j < folded.size(); ++j) {
-                if (areNegations(*eff, *folded[j])) {
-                    return boolLiteral(true);
+                if (lit.isNull() && !nullAsFalse) {
+                    kept.push_back(eff);
+                    continue;
                 }
+                // false disjunct, or NULL where NULL counts as false, is a no-op.
+                anyChanged = true;
+                continue;
             }
             kept.push_back(eff);
         }
 
-        // 3) All disjuncts were false.
+        // 4) All disjuncts were false.
         if (kept.empty()) {
             return boolLiteral(false);
         }
 
-        // 4) Single remaining child — e.g. OR(false, x) → x.
+        // 5) Single remaining child — e.g. OR(false, x) → x.
         if (kept.size() == 1) {
             return kept[0];
         }
 
-        return anyChanged ? kept[0] : nullptr;
+        return anyChanged ? chainBoolOperator(ExpressionType::OR, kept) : nullptr;
     }
 
     return nullptr;
@@ -228,7 +314,7 @@ std::shared_ptr<LogicalOperator> BoolFoldingOptimizer::visitFilterReplace(
         return op->getChild(0); // true literal → drop filter
     }
 
-    auto folded = foldBool(predicate);
+    auto folded = foldBool(predicate, true /* nullAsFalse */);
     if (!folded) {
         return op; // no simplification
     }

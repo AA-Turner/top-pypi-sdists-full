@@ -125,6 +125,7 @@ FunctionCollection* FunctionCollection::getFunctions() {
         SCALAR_FUNCTION(ListSliceFunction), SCALAR_FUNCTION(ArraySliceFunction),
         SCALAR_FUNCTION(ListSortFunction), SCALAR_FUNCTION(ListReverseSortFunction),
         SCALAR_FUNCTION(ListSumFunction), SCALAR_FUNCTION(ListProductFunction),
+        SCALAR_FUNCTION(ListMinFunction), SCALAR_FUNCTION(ListMaxFunction),
         SCALAR_FUNCTION(ListDistinctFunction), SCALAR_FUNCTION(ListUniqueFunction),
         SCALAR_FUNCTION(ListAnyValueFunction), SCALAR_FUNCTION(ListReverseFunction),
         SCALAR_FUNCTION(SizeFunction), SCALAR_FUNCTION(ListToStringFunction),
@@ -132,6 +133,7 @@ FunctionCollection* FunctionCollection::getFunctions() {
         SCALAR_FUNCTION(ListReduceFunction), SCALAR_FUNCTION(ListAnyFunction),
         SCALAR_FUNCTION(ListAllFunction), SCALAR_FUNCTION(ListNoneFunction),
         SCALAR_FUNCTION(ListSingleFunction), SCALAR_FUNCTION(ListHasAllFunction),
+        SCALAR_FUNCTION(ListHasAnyFunction),
 
         // Cast functions
         SCALAR_FUNCTION(CastToDateFunction), SCALAR_FUNCTION_ALIAS(DateFunction),

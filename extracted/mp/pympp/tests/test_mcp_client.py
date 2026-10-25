@@ -268,9 +268,18 @@ class TestMcpClientPaidTool:
                 },
             )
 
+            receipt_meta = _make_receipt_meta()
+            receipt_meta[META_RECEIPT].update(
+                {
+                    "externalId": "order-123",
+                    "subscriptionId": "subscription-123",
+                    "extra": {"invoice": "123"},
+                    "transactionId": "transaction-123",
+                }
+            )
             retry_result = FakeCallToolResult(
                 content=[{"type": "text", "text": "premium result"}],
-                meta=_make_receipt_meta(),
+                meta=receipt_meta,
             )
 
             session.call_tool = AsyncMock(side_effect=[payment_error, retry_result])
@@ -282,6 +291,11 @@ class TestMcpClientPaidTool:
             assert result.receipt is not None
             assert result.receipt.status == "success"
             assert result.receipt.reference == "0xtxhash"
+            assert result.receipt.external_id == "order-123"
+            assert result.receipt.subscription_id == "subscription-123"
+            assert result.receipt.extra == {"invoice": "123"}
+            assert result.receipt.extensions == {"transactionId": "transaction-123"}
+            assert result.receipt.to_meta() == receipt_meta
 
             assert session.call_tool.call_count == 2
 
@@ -682,3 +696,43 @@ class TestMcpToolResult:
         result = McpToolResult(result=FakeCallToolResult(), receipt=None)
 
         assert result.content[0]["text"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_caller_payment_is_not_replaced() -> None:
+    exceptions = pytest.importorskip("mcp.shared.exceptions")
+    types = pytest.importorskip("mcp.types")
+    error = exceptions.McpError(
+        types.ErrorData(
+            code=-32042, message="Payment Required", data={"challenges": [_make_challenge_dict()]}
+        )
+    )
+    session = AsyncMock()
+    session.call_tool.side_effect = error
+    method = FakeMethod()
+    method.create_credential = AsyncMock()
+    client = McpClient(session, methods=[method])
+    with pytest.raises(exceptions.McpError):
+        await client.call_tool("paid", meta={META_CREDENTIAL: {"existing": True}})
+    method.create_credential.assert_not_called()
+    session.call_tool.assert_awaited_once()
+
+
+def test_mcp_zero_amount_tempo_charge_requires_pinned_realm() -> None:
+    from mpp.extensions.mcp.types import MCPChallenge
+
+    raw = _make_challenge_dict()
+    raw["request"]["amount"] = "00"
+    challenge = MCPChallenge.from_dict(raw)
+    method = FakeMethod()
+    unpinned = McpClient(AsyncMock(), methods=[method])
+
+    with pytest.raises(ValueError, match="trusted_tempo_realms"):
+        unpinned._match_challenge([challenge])
+
+    pinned = McpClient(AsyncMock(), methods=[method], trusted_tempo_realms=["api.example.com"])
+    assert pinned._match_challenge([challenge])[0] == challenge
+
+    wrong_case = McpClient(AsyncMock(), methods=[method], trusted_tempo_realms=["API.EXAMPLE.COM"])
+    with pytest.raises(ValueError, match="trusted_tempo_realms"):
+        wrong_case._match_challenge([challenge])

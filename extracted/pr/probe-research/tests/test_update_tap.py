@@ -11,6 +11,7 @@ or `codex`.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -295,9 +296,80 @@ def test_update_prints_the_cli_the_plugin_and_the_tap(monkeypatch):
     assert "plugin already at the latest (0.96.1)" in text
     assert "transcript tap updated to 0.7.2" in text
     assert outcome.ok is True
-    # A tap that moved needs a restart as much as a plugin that moved.
-    assert outcome.restart_needed is True
+    # A tap before 0.10.13 never hands its sessions to the Probe service, so
+    # the open ones need the restart they always did.
+    assert outcome.restart_needed is True and outcome.plugins_moved is False
     assert autoupdate.load().last_attempt.plugin_ok is True
+
+
+def _ledger(scope: str = "user", tap: str = "0.10.16") -> None:
+    """Claude Code's install ledger: the Probe plugin and the tap, at `scope`."""
+    path = Path(os.environ["HOME"]) / ".claude" / "plugins" / "installed_plugins.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    def entry(name, version):
+        extra = {} if scope == "user" else {"projectPath": "/repo"}
+        return {"scope": scope, "installPath": f"/x/{name}/{version}", "version": version, **extra}
+
+    path.write_text(json.dumps({"version": 2, "plugins": {
+        updater.tracking_plugin_id(): [entry("probe-research", "0.96.1")],
+        updater.TAP_PLUGIN_ID: [entry("probe-research-tap", tap)],
+    }}))
+
+
+def test_an_update_open_sessions_follow_says_no_restart(monkeypatch):
+    """A user-scope install whose tap now carries the hand-back (0.10.13+):
+    open sessions pick the update up at their next prompt, and nothing says to
+    restart."""
+    _stub_cli(monkeypatch)
+    _ledger()
+    monkeypatch.setattr(
+        upgrading.updater, "update_plugin", lambda target: _claude_result("0.10.12", "0.10.16")
+    )
+
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
+
+    text = "\n".join(outcome.lines)
+    assert "transcript tap updated to 0.10.16" in text
+    assert outcome.plugins_moved is True and outcome.restart_needed is False
+    assert "restart" not in text.lower()
+
+
+@pytest.mark.parametrize(
+    ("source", "scope", "tap_after", "stale", "follows", "plugin"),
+    [
+        ("claude_code", "user", "0.10.16", ("0.10.12",), True, "0.96.1"),
+        ("claude_code", "user", None, (), True, "0.96.1"),  # no tap: nothing to hand back
+        ("codex", None, "0.10.16", ("0.9.25",), True, "0.96.1"),
+        # The capture plugin alone: the route that moves an old watcher ships
+        # in the Probe plugin, so nothing moves it.
+        ("codex", None, "0.10.16", ("0.9.25",), False, None),
+        # ... while a session the service records on an older tap moves with
+        # the service (it restarts onto the newest installed tap).
+        ("codex", None, "0.10.16", ("0.10.13",), True, None),
+        ("kimi_code", None, "0.10.16", (), False, "0.96.1"),  # its sessions keep their copy (C3)
+        ("claude_code", "project", "0.10.16", (), False, "0.96.1"),  # the hooks stay on a project's copy
+        ("claude_code", "user", "0.10.12", (), False, "0.96.1"),  # a tap without the hand-back
+        ("claude_code", "user", "0.10.16", ("0.10.12", "0.4.4"), False, "0.96.1"),  # protocol 1: never moved
+    ],
+)
+def test_no_restart_is_said_only_where_it_is_true(source, scope, tap_after, stale, follows, plugin):
+    if scope is not None:
+        _ledger(scope)
+    result = updater.PluginResult(True, True, True, "0.96.0", plugin, "", tap_before="0.10.12",
+                                  tap_after=tap_after, tap_running_stale=stale)
+    assert updater.follows_without_restart(source, result) is follows
+
+
+def test_no_restart_is_never_said_on_windows(monkeypatch):
+    """The route leaves Windows sessions alone (no Git Bash pid can be proven
+    there), and no `tap watch` is seen there to count: as the session-start
+    notice says (`tap_handover.watchers_movable`), a restart."""
+    _ledger("user")
+    monkeypatch.setattr(updater, "_windows", lambda: True)
+    result = updater.PluginResult(True, True, True, "0.96.0", "0.96.1", "", tap_before="0.10.12",
+                                  tap_after="0.10.16")
+    assert updater.follows_without_restart("claude_code", result) is False
 
 
 def test_a_tap_left_behind_fails_the_update_and_says_how_to_fix_it(monkeypatch):
@@ -343,13 +415,42 @@ def test_a_codex_tap_left_behind_prints_the_codex_commands(monkeypatch):
     text = "\n".join(outcome.lines)
     assert "transcript tap is still 0.7.1, behind the latest 0.7.2" in text
     assert "codex plugin add probe-research-tap@research-os-agent" in text
-    assert "restart Codex" in text
+    # The tap it would be updated to (0.7.2) never hands its sessions over: a restart.
+    assert "update them manually, then restart Codex:" in text and "needs no restart" not in text
     assert outcome.ok is False
 
 
 # ---------------------------------------------------------------------------
 # probe doctor
 # ---------------------------------------------------------------------------
+
+
+def test_a_codex_tap_left_behind_with_the_hand_back_needs_no_restart_once_updated(monkeypatch):
+    """Updated by hand to a tap that hands its sessions over (0.10.13+), Codex's
+    open sessions follow: the manual commands say no restart."""
+    monkeypatch.setenv("PROBE_AGENT", "codex")
+    _stub_cli(monkeypatch)
+    monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: {**MANIFEST, "tap": {"latest": "0.10.16"}})
+    monkeypatch.setattr(
+        upgrading.updater, "update_codex_plugins", lambda: _claude_result("0.10.12", "0.10.12")
+    )
+
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
+
+    text = "\n".join(outcome.lines)
+    assert "update them manually (Codex needs no restart):" in text and "then restart" not in text
+
+
+@pytest.mark.parametrize(("moved", "restart", "line"), [
+    (True, False, upgrading.PICKED_UP),
+    (False, True, "Restart Codex to apply the plugin update."),
+    (False, False, None),
+])
+def test_what_an_update_says_after_its_lines(moved, restart, line):
+    """`probe update` and the wizard's Update end with the no-restart line only
+    when open sessions follow, the restart line when they cannot."""
+    outcome = upgrading.UpdateOutcome(lines=[], ok=True, restart_needed=restart, plugins_moved=moved)
+    assert upgrading.after_update_line(outcome, "Codex") == line
 
 
 def _row(kind, installed, latest, status):
@@ -731,9 +832,10 @@ def test_a_daemon_without_a_versioned_folder_is_read_from_its_record(tmp_path, m
         record.unlink(missing_ok=True)
 
 
-def _update_beside_an_old_session(monkeypatch, daemons):
+def _update_beside_an_old_session(monkeypatch, daemons, *, scope="user", tap=("0.10.12", "0.10.16")):
     _stub_cli(monkeypatch)
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    _ledger(scope, tap[1])
     cache = _claude_tap_cache(Path(os.environ["HOME"]))
     monkeypatch.setattr(
         updater, "_process_commands",
@@ -743,20 +845,23 @@ def _update_beside_an_old_session(monkeypatch, daemons):
         ],
     )
     monkeypatch.setattr(
-        upgrading.updater, "update_plugin", lambda target: _claude_result("0.7.1", "0.7.2")
+        upgrading.updater, "update_plugin", lambda target: _claude_result(*tap)
     )
     return upgrading.perform_update(base_url="https://x", include_plugin=True)
 
 
-def test_an_update_beside_a_session_on_the_old_tap_says_to_restart_it(monkeypatch):
+def test_an_update_beside_a_session_on_the_old_tap_says_it_moves_by_itself(monkeypatch):
+    """With the Probe plugin beside the tap, a session's old watcher moves to the
+    new tap at its next prompt (`hooks/tap_handover.py`): no restart to ask for."""
     from probe.cli import update_report
 
     outcome = _update_beside_an_old_session(
-        monkeypatch, [("876d3d5e-bd40-47b9-a657-aecd83354a11", "0.7.1")]
+        monkeypatch, [("876d3d5e-bd40-47b9-a657-aecd83354a11", "0.10.12")]
     )
 
-    note = "1 session started before the update still runs tap 0.7.1; restart it to switch to 0.7.2"
-    assert f"transcript tap updated to 0.7.2; {note}" in "\n".join(outcome.lines)
+    note = ("1 session started before the update still runs tap 0.10.12; "
+            "it moves to 0.10.16 at the next prompt, no restart needed")
+    assert f"transcript tap updated to 0.10.16; {note}" in "\n".join(outcome.lines)
     # The update did its part: not a failure, and no manual commands.
     assert outcome.ok is True
     assert "update them manually" not in "\n".join(outcome.lines)
@@ -766,7 +871,23 @@ def test_an_update_beside_a_session_on_the_old_tap_says_to_restart_it(monkeypatc
     # The result is what the update did; why the machine still reads the old
     # tap rides in its detail ("behind" is kept for a tap left behind).
     tap = update_report._read_pending()["attempt"]["body"]["tap"]
-    assert (tap["result"], tap["after"], tap["detail"]) == ("updated", "0.7.2", note)
+    assert (tap["result"], tap["after"], tap["detail"]) == ("updated", "0.10.16", note)
+
+
+@pytest.mark.parametrize("why", ["project-scope", "old-tap", "protocol-1"])
+def test_an_update_open_sessions_cannot_follow_still_says_restart(monkeypatch, why):
+    """A project-scope install (the hooks stay on that project's copy), a tap
+    without the hand-back (before 0.10.13) or a watcher on protocol 1 (before
+    0.4.5, never moved): "no restart needed" would be false, so the restart
+    line stays."""
+    daemons = [("s1", "0.4.4" if why == "protocol-1" else "0.10.9")]
+    outcome = _update_beside_an_old_session(
+        monkeypatch, daemons, scope="project" if why == "project-scope" else "user",
+        tap=("0.10.9", "0.10.12") if why == "old-tap" else ("0.10.9", "0.10.16"),
+    )
+    text = "\n".join(outcome.lines)
+    assert "no restart needed" not in text and "restart it to switch to" in text, text
+    assert outcome.restart_needed is True and outcome.plugins_moved is False
 
 
 def test_a_current_tap_beside_an_old_session_stays_current_with_the_note(monkeypatch):
@@ -813,10 +934,10 @@ def test_a_tap_left_behind_is_still_behind_beside_an_old_session(monkeypatch):
 def test_sessions_on_the_new_tap_change_nothing(monkeypatch):
     from probe.cli import update_report
 
-    outcome = _update_beside_an_old_session(monkeypatch, [("s1", "0.7.2"), ("s2", "0.7.3")])
+    outcome = _update_beside_an_old_session(monkeypatch, [("s1", "0.10.16"), ("s2", "0.10.17")])
 
     text = "\n".join(outcome.lines)
-    assert "transcript tap updated to 0.7.2" in text
+    assert "transcript tap updated to 0.10.16" in text
     assert "started before the update" not in text
     assert update_report._read_pending()["attempt"]["body"]["tap"]["result"] == "updated"
     assert autoupdate.load().last_attempt.plugin_detail == ""
@@ -824,9 +945,91 @@ def test_sessions_on_the_new_tap_change_nothing(monkeypatch):
 
 def test_several_old_sessions_are_counted_once_each(monkeypatch):
     outcome = _update_beside_an_old_session(
-        monkeypatch, [("s1", "0.7.1"), ("s2", "0.6.9"), ("s1", "0.7.1")]
+        monkeypatch, [("s1", "0.10.12"), ("s2", "0.9.25"), ("s1", "0.10.12")]
     )
     assert (
-        "2 sessions started before the update still run tap 0.6.9, 0.7.1; "
-        "restart them to switch to 0.7.2"
+        "2 sessions started before the update still run tap 0.9.25, 0.10.12; "
+        "they move to 0.10.16 at the next prompt, no restart needed"
     ) in "\n".join(outcome.lines)
+
+
+# Sessions the Probe service records. They run the tap the SERVICE loaded, once,
+# whatever tap they named: no `tap watch` command line shows it, so after an
+# update they kept the old tap and the report said nothing (audit #6).
+
+
+def _hosted(monkeypatch, rows):
+    from probe.cli import service_calls
+
+    monkeypatch.setattr(service_calls, "recorders", lambda timeout=0.5: rows, raising=False)
+    monkeypatch.setattr(updater, "_process_commands", lambda: [])
+
+
+def _recorder(sid, harness="claude_code", version="0.10.13", **over):
+    return {"sid": sid, "alive": True, "recording": True, "last": "", "failures": 0, "harness": harness,
+            "tap_version": version, **over}
+
+
+def test_sessions_the_service_records_on_an_older_tap_are_reported(monkeypatch):
+    _hosted(monkeypatch, [_recorder("h1"), _recorder("h2"), _recorder("h3", version="0.10.16"), _recorder("h4", harness="codex")])
+    assert updater.stale_tap_daemons("claude_code", "0.10.16") == ("0.10.13", "0.10.13")
+    assert updater.stale_tap_daemons("codex", "0.10.16") == ("0.10.13",)
+    assert updater.stale_tap_daemons("claude_code", "0.10.13") == ()
+
+
+def test_a_finished_recorder_is_not_a_session_on_the_old_tap(monkeypatch):
+    _hosted(monkeypatch, [_recorder("h1", alive=False)])
+    assert updater.stale_tap_daemons("claude_code", "0.10.16") == ()
+
+
+def test_no_service_answer_reports_only_the_daemons(monkeypatch):
+    _hosted(monkeypatch, None)
+    assert updater.stale_tap_daemons("claude_code", "0.10.16") == ()
+
+
+def test_a_service_that_does_not_say_which_tap_it_loaded_is_left_out(monkeypatch):
+    """No guessing: an older service names no `tap_version`, and a recorder
+    may name no agent; neither is counted, whatever its saved `recorders.json`
+    says (a session's own tap there is not the tap the service loaded)."""
+    from probe.service import paths
+
+    folder = paths.service_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "recorders.json").write_text(
+        '{"v": 1, "sessions": [{"sid": "h1", "harness": "claude_code", "tap_root": "/x/0.10.13",'
+        ' "tap_version": "0.10.13"}, {"sid": "h2", "harness": "claude_code", "tap_root": "/x/0.10.13",'
+        ' "tap_version": "0.10.13"}]}',
+        encoding="utf-8",
+    )
+    _hosted(monkeypatch, [_recorder("h1", version=None), _recorder("h2", harness=None)])
+    assert updater.stale_tap_daemons("claude_code", "0.10.16") == ()
+
+
+def test_a_session_whose_own_watcher_still_holds_it_is_counted_once(monkeypatch, tmp_path):
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    cache = _claude_tap_cache(Path(os.environ["HOME"]))
+    _hosted(monkeypatch, [_recorder("s1")])
+    monkeypatch.setattr(
+        updater, "_process_commands",
+        lambda: [" ".join(["/usr/bin/python3", *_daemon_command("s1", cache / "0.10.12", tmp_path)])],
+    )
+    assert updater.stale_tap_daemons("claude_code", "0.10.16") == ("0.10.12",)
+
+
+def test_the_update_report_names_the_services_sessions(monkeypatch):
+    _stub_cli(monkeypatch)
+    _hosted(monkeypatch, [_recorder("h1", version="0.7.1")])
+    monkeypatch.setattr(upgrading.updater, "update_plugin", lambda target: _claude_result("0.7.1", "0.7.2"))
+    outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
+    assert "1 session started before the update still runs tap 0.7.1" in "\n".join(outcome.lines)
+
+
+def test_with_the_tap_alone_an_old_session_still_needs_a_restart():
+    """No Probe plugin beside the tap (capture only): nothing moves its watcher."""
+    from probe.cli import updater
+
+    result = updater.PluginResult(True, True, True, None, None, "", tap_before="0.7.1", tap_after="0.7.2",
+                                  tap_running_stale=("0.7.1",))
+    assert updater.running_stale_note(result) == (
+        "1 session started before the update still runs tap 0.7.1; restart it to switch to 0.7.2"
+    )

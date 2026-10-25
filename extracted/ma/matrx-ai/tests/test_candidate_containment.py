@@ -327,11 +327,11 @@ async def test_stopped_call_is_never_fed_to_the_model(harness, monkeypatch) -> N
 
 
 def _orchestrator_source() -> str:
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     import matrx_ai.orchestrator.executor as orch
 
-    return inspect.getsource(orch)
+    return stable_source(orch)
 
 
 def candidate_stop_wiring_problems(source: str) -> list[str]:

@@ -71,6 +71,13 @@ _CHUNK = 1024 * 1024
 _TABLES = ("fragment_sessions", "sessions")
 
 
+def _no_network_text(text: object) -> bool:
+    # On the slow checks' thread, never the start path (plan S1).
+    from probe._shared import offline
+
+    return offline.no_network_text(text)
+
+
 def _count(value: object) -> int | None:
     return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
 
@@ -227,6 +234,9 @@ def receipt(
         "pending_batch": bool(staged),
         "finalized": state.get("finalized") is True,
         "retrying": bool(state.get("error")),
+        # Its last upload had no network at all (`probe._shared.offline`): the
+        # machine is offline, not the server stalled.
+        "offline": _no_network_text(state.get("error")),
         "scope": dict(scope) if scope is not None else None,
     }
 

@@ -53,6 +53,10 @@ config:
   # Secret container IDs (pre-existing; empty = env var omitted).
   agent-chat-internal:anthropic-secret-id: agui-server-anthropic-api-key
   agent-chat-internal:preview-anthropic-secret-id: agui-server-preview-airmux-api-key
+  # GitHub OAuth credentials shared by agui-server and agui-server-preview.
+  agent-chat-internal:github-oauth-client-id: Iv23liNjOphO171BKnVC
+  agent-chat-internal:github-app-slug: airbyte-mtx
+  agent-chat-internal:github-oauth-secret-id: mtx-github-oauth-client-secret
   agent-chat-internal:mcp-client-id-secret-id: ""
   agent-chat-internal:mcp-client-secret-id: ""
   agent-chat-internal:oauth-secret-id: ops-webapp-oauth-client-secret

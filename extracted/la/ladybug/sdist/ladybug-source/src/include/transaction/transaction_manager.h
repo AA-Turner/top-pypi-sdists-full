@@ -4,6 +4,8 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
+#include <vector>
 
 #include "common/constants.h"
 #include "common/uniq_lock.h"
@@ -48,6 +50,26 @@ public:
 
     void checkpoint(main::ClientContext& clientContext);
 
+    // Minimum start timestamp over all currently open transactions (the snapshot horizon
+    // that checkpoint retention must preserve). Returns INVALID_TRANSACTION when no
+    // transaction is open. Brief lock acquisition; callers holding the checkpoint write
+    // gate must use a value captured before the gate was acquired.
+    common::transaction_t snapshotHorizon();
+    // Start timestamps of all currently open transactions, for CSR snapshot coverage and
+    // pruning. Brief lock acquisition; capture before the checkpoint write gate alongside
+    // the horizon (a small skew between the two snapshots is safe in both directions).
+    std::vector<common::transaction_t> snapshotOpenStartTSs();
+    // Pin behind the snapshot horizon: the minimum open start timestamp, the transaction
+    // holding it, and the open-transaction count (which transaction pins WAL growth).
+    // INVALID_TRANSACTION/0 when no transaction is open. Brief lock acquisition; capture
+    // before the checkpoint write gate alongside the horizon.
+    struct HorizonPinInfo {
+        common::transaction_t horizon = common::INVALID_TRANSACTION;
+        common::transaction_t pinningTxnID = common::INVALID_TRANSACTION;
+        size_t openTxnCount = 0;
+    };
+    HorizonPinInfo snapshotHorizonInfo();
+
     static TransactionManager* Get(const main::ClientContext& context);
 
 private:
@@ -76,9 +98,22 @@ private:
 
     void clearTransactionNoLock(common::transaction_t transactionID);
 
+    // Registry maintenance, all under mtxForSerializingPublicFunctionCalls. The registry
+    // pins retention only for the lifetime of each transaction; it imposes no timeout,
+    // deadline, or eviction — a long-open reader pins the horizon until it closes.
+    void registerTransactionNoLock(common::transaction_t transactionID,
+        common::transaction_t startTS);
+    void recomputeHorizonNoLock();
+
 private:
     storage::WAL& wal;
     std::vector<std::unique_ptr<Transaction>> activeTransactions;
+    // Start timestamp of every open transaction, keyed by transaction ID. Checkpoint
+    // retention keeps version data committed at or after the minimum (the horizon).
+    std::unordered_map<common::transaction_t, common::transaction_t> openTxnStartTS;
+    // Cached minimum over openTxnStartTS; INVALID_TRANSACTION when no transaction is open.
+    // Open-transaction counts are small, so a full rescan on erase is trivial.
+    common::transaction_t cachedHorizon = common::INVALID_TRANSACTION;
     common::transaction_t lastTransactionID;
     // Atomic so checkpointNoLock() can snapshot it without taking
     // mtxForSerializingPublicFunctionCalls (which would invert the lock order against

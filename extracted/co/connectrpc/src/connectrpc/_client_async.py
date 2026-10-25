@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import functools
-import sys
-from asyncio import CancelledError, sleep, wait_for
+from asyncio import CancelledError, sleep, timeout_at as asyncio_timeout_at, wait_for
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 from urllib.parse import urlencode
 
@@ -24,29 +24,21 @@ from ._protocol import ConnectWireError
 from ._protocol_connect import ConnectClientProtocol, ConnectEnvelopeWriter
 from ._protocol_grpc import GRPCClientProtocol, GRPCWebClientProtocol
 from ._response_metadata import handle_response_headers
+from ._shared import decode_message
 from .code import Code
 from .errors import ConnectError
 from .protocol import ProtocolType
 
-if sys.version_info >= (3, 11):
-    from asyncio import timeout as asyncio_timeout
-else:
-    from ._asyncio_timeout import timeout as asyncio_timeout
-
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterable, Mapping
     from types import TracebackType
+    from typing import Self
 
     from ._envelope import EnvelopeReader
     from .codec import Codec
     from .compression import Compression
     from .method import MethodInfo
     from .request import Headers, RequestContext
-
-    if sys.version_info >= (3, 11):
-        from typing import Self
-    else:
-        from typing_extensions import Self
 else:
     Self = "Self"
 
@@ -218,7 +210,7 @@ class ConnectClient:
             url=self._address,
             http_method="GET" if use_get else "POST",
             user_headers=headers,
-            timeout_ms=timeout_ms or self._timeout_ms,
+            timeout_ms=self._timeout_ms if timeout_ms is None else timeout_ms,
             codec=self._codec,
             stream=False,
             accept_compression=self._accept_compression_header,
@@ -229,6 +221,8 @@ class ConnectClient:
     async def execute_client_stream(
         self,
         *,
+        # This should not be changed to accept a list unless reworking logic that would
+        # concatenate them into a single payload that may cause backpressure issues.
         request: AsyncIterator[REQ],
         method: MethodInfo[REQ, RES],
         headers: Headers | Mapping[str, str] | None = None,
@@ -239,7 +233,7 @@ class ConnectClient:
             url=self._address,
             http_method="POST",
             user_headers=headers,
-            timeout_ms=timeout_ms or self._timeout_ms,
+            timeout_ms=self._timeout_ms if timeout_ms is None else timeout_ms,
             codec=self._codec,
             stream=True,
             accept_compression=self._accept_compression_header,
@@ -260,7 +254,7 @@ class ConnectClient:
             url=self._address,
             http_method="POST",
             user_headers=headers,
-            timeout_ms=timeout_ms or self._timeout_ms,
+            timeout_ms=self._timeout_ms if timeout_ms is None else timeout_ms,
             codec=self._codec,
             stream=True,
             accept_compression=self._accept_compression_header,
@@ -271,6 +265,8 @@ class ConnectClient:
     def execute_bidi_stream(
         self,
         *,
+        # This should not be changed to accept a list unless reworking logic that would
+        # concatenate them into a single payload that may cause backpressure issues.
         request: AsyncIterator[REQ],
         method: MethodInfo[REQ, RES],
         headers: Headers | Mapping[str, str] | None = None,
@@ -281,7 +277,7 @@ class ConnectClient:
             url=self._address,
             http_method="POST",
             user_headers=headers,
-            timeout_ms=timeout_ms or self._timeout_ms,
+            timeout_ms=self._timeout_ms if timeout_ms is None else timeout_ms,
             codec=self._codec,
             stream=True,
             accept_compression=self._accept_compression_header,
@@ -294,12 +290,14 @@ class ConnectClient:
     ) -> RES:
         if isinstance(self._protocol, GRPCClientProtocol):
             return await _consume_single_response(
-                self._send_request_bidi_stream(_yield_single_message(request), ctx)
+                self._send_request_bidi_stream([request], ctx)
             )
 
         request_headers = HTTPHeaders(ctx.request_headers.allitems())
         url = f"{self._address}/{ctx.method.service_name}/{ctx.method.name}"
         if (timeout_ms := ctx.timeout_ms) is not None:
+            if timeout_ms <= 0:
+                raise ConnectError(Code.DEADLINE_EXCEEDED, "Request timed out")
             timeout_s = timeout_ms / 1000.0
         else:
             timeout_s = None
@@ -337,19 +335,18 @@ class ConnectClient:
                 resp.headers, self._response_compressions, stream=False
             )
 
+            if (
+                self._read_max_bytes is not None
+                and len(resp.content) > self._read_max_bytes
+            ):
+                raise ConnectError(
+                    Code.RESOURCE_EXHAUSTED,
+                    f"message is larger than configured max {self._read_max_bytes}",
+                )
             if resp.status == 200:
-                if (
-                    self._read_max_bytes is not None
-                    and len(resp.content) > self._read_max_bytes
-                ):
-                    raise ConnectError(
-                        Code.RESOURCE_EXHAUSTED,
-                        f"message is larger than configured max {self._read_max_bytes}",
-                    )
-
-                return self._codec.decode(resp.content, ctx.method.output)
+                return decode_message(self._codec, resp.content, ctx.method.output)
             raise ConnectWireError.from_response(resp).to_exception()
-        except (TimeoutError, asyncio.TimeoutError) as e:
+        except TimeoutError as e:
             raise ConnectError(Code.DEADLINE_EXCEEDED, "Request timed out") from e
         except ConnectError:
             raise
@@ -368,31 +365,38 @@ class ConnectClient:
     def _send_request_server_stream(
         self, request: REQ, ctx: RequestContext[REQ, RES], /
     ) -> AsyncIterator[RES]:
-        return self._send_request_bidi_stream(_yield_single_message(request), ctx)
+        return self._send_request_bidi_stream([request], ctx)
 
     async def _send_request_bidi_stream(
-        self, request: AsyncIterator[REQ], ctx: RequestContext[REQ, RES], /
+        self, request: AsyncIterator[REQ] | list[REQ], ctx: RequestContext[REQ, RES], /
     ) -> AsyncIterator[RES]:
         request_headers = HTTPHeaders(ctx.request_headers.allitems())
         url = f"{self._address}/{ctx.method.service_name}/{ctx.method.name}"
+        loop = asyncio.get_running_loop()
         if (timeout_ms := ctx.timeout_ms) is not None:
-            timeout_s = timeout_ms / 1000.0
+            if timeout_ms <= 0:
+                raise ConnectError(Code.DEADLINE_EXCEEDED, "Request timed out")
+            deadline = loop.time() + timeout_ms / 1000.0
         else:
-            timeout_s = None
+            deadline = None
 
         reader: EnvelopeReader | None = None
         resp: Response | None = None
         try:
-            request_data = _streaming_request_content(
+            request_data = _request_content(
                 request, self._codec, self._send_compression
             )
 
-            async with (
-                asyncio_timeout(timeout_s),
-                self._http_client.stream(
-                    "POST", url, headers=request_headers, content=request_data
-                ) as resp,
-            ):
+            # The deadline is applied to each network wait rather than the whole
+            # block, so it is never in effect while suspended at a yield, where it
+            # would cancel the caller's task instead of the request.
+            async with contextlib.AsyncExitStack() as stack:
+                async with asyncio_timeout_at(deadline):
+                    resp = await stack.enter_async_context(
+                        self._http_client.stream(
+                            "POST", url, headers=request_headers, content=request_data
+                        )
+                    )
                 handle_response_headers(resp.status, resp.headers)
                 if resp.status == 200:
                     self._protocol.validate_stream_response(
@@ -401,23 +405,34 @@ class ConnectClient:
                     compression = self._protocol.handle_response_compression(
                         resp.headers, self._response_compressions, stream=True
                     )
-                    reader = self._protocol.create_envelope_reader(
+                    with self._protocol.create_envelope_reader(
                         ctx.method.output,
                         self._codec,
                         compression,
                         self._read_max_bytes,
-                    )
-                    async for chunk in resp.content:
-                        for message in reader.feed(bytes(chunk)):
-                            yield message
-                            # Check for cancellation each message. While this seems heavyweight,
-                            # conformance tests require it.
-                            await sleep(0)
+                    ) as reader:
+                        it = aiter(resp.content)
+                        while True:
+                            # A read of buffered data doesn't suspend, so the timeout
+                            # alone wouldn't fire once the deadline has passed.
+                            if deadline is not None and loop.time() >= deadline:
+                                raise TimeoutError
+                            async with asyncio_timeout_at(deadline):
+                                try:
+                                    chunk = await anext(it)
+                                except StopAsyncIteration:
+                                    break
+                            for message in reader.feed(bytes(chunk)):
+                                yield message
+                                # Check for cancellation each message. While this seems heavyweight,
+                                # conformance tests require it.
+                                await sleep(0)
                     reader.handle_response_complete(resp)
                 else:
                     content = bytearray()
-                    async for chunk in resp.content:
-                        content.extend(chunk)
+                    async with asyncio_timeout_at(deadline):
+                        async for chunk in resp.content:
+                            content.extend(chunk)
                     fres = FullResponse(
                         status=resp.status,
                         headers=resp.headers,
@@ -425,7 +440,7 @@ class ConnectClient:
                         trailers=resp.trailers,
                     )
                     raise ConnectWireError.from_response(fres).to_exception()
-        except (TimeoutError, asyncio.TimeoutError) as e:
+        except TimeoutError as e:
             raise ConnectError(Code.DEADLINE_EXCEEDED, "Request timed out") from e
         except ConnectError:
             raise
@@ -441,16 +456,21 @@ class ConnectClient:
             raise ConnectError(Code.UNAVAILABLE, str(e)) from e
 
 
+def _request_content(
+    msgs: AsyncIterator[Any] | list[Any], codec: Codec, compression: Compression | None
+) -> bytes | AsyncIterator[bytes]:
+    if isinstance(msgs, list):
+        writer = ConnectEnvelopeWriter(codec, compression)
+        return b"".join(writer.write(msg) for msg in msgs)
+    return _streaming_request_content(msgs, codec, compression)
+
+
 async def _streaming_request_content(
     msgs: AsyncIterator[Any], codec: Codec, compression: Compression | None
 ) -> AsyncIterator[bytes]:
     writer = ConnectEnvelopeWriter(codec, compression)
     async for msg in msgs:
         yield writer.write(msg)
-
-
-async def _yield_single_message(message: REQ) -> AsyncIterator[REQ]:
-    yield message
 
 
 async def _consume_single_response(stream: AsyncIterator[RES]) -> RES:

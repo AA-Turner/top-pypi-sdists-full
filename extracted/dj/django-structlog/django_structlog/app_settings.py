@@ -12,6 +12,10 @@ class AppSettings:
         return getattr(settings, self.PREFIX + "CELERY_ENABLED", False)
 
     @property
+    def DJANGO_TASKS_ENABLED(self) -> bool:
+        return getattr(settings, self.PREFIX + "DJANGO_TASKS_ENABLED", False)
+
+    @property
     def CELERY_DEFAULT_LOG_LEVEL(self) -> int:
         return getattr(settings, self.PREFIX + "CELERY_DEFAULT_LOG_LEVEL", logging.INFO)
 
@@ -100,6 +104,14 @@ class AppSettings:
     @property
     def USER_ID_FIELD(self) -> str:
         return getattr(settings, self.PREFIX + "USER_ID_FIELD", "pk")
+
+    @property
+    def TRUST_UPSTREAM_REQUEST_ID(self) -> bool:
+        return getattr(settings, self.PREFIX + "TRUST_UPSTREAM_REQUEST_ID", False)
+
+    @property
+    def TRUST_UPSTREAM_CORRELATION_ID(self) -> bool:
+        return getattr(settings, self.PREFIX + "TRUST_UPSTREAM_CORRELATION_ID", False)
 
 
 app_settings = AppSettings()

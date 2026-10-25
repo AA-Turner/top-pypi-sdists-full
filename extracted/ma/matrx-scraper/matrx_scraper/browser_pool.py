@@ -10,8 +10,10 @@ from matrx_scraper.ai_browser.url_guard import install_egress_guard
 from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.render_readiness import (
     BLANK_RETRIES,
-    BLANK_RETRY_WAIT_MS,
+    BLANK_RETRY_BUDGET_S,
+    BLANK_RETRY_WAITS_MS,
     RENDER_READY_MAX_MS,
+    coax_render,
     png_looks_blank,
     wait_until_painted,
 )
@@ -588,18 +590,21 @@ async def capture_screenshots(
             continue
         width, height = png_dimensions(png)
         # A frame that is one flat color is a page that had not painted, not
-        # evidence. Wait and shoot again; keep the last frame if it never fills.
-        for attempt in range(1, BLANK_RETRIES + 1):
+        # evidence. Coax it (network idle + a scroll pass for lazy content),
+        # wait longer each time, and shoot again; keep the last frame if it
+        # never fills — persistence flags it `metadata.blank` (blank_flag_metadata).
+        for attempt, wait_ms in enumerate(BLANK_RETRY_WAITS_MS, start=1):
             if not png_looks_blank(png, width, height):
                 break
             logger.warning(
-                "screenshot kind=%s looks blank; waiting %dms and re-shooting (%d/%d)",
+                "screenshot kind=%s looks blank; coaxing, waiting %dms and re-shooting (%d/%d)",
                 kind,
-                BLANK_RETRY_WAIT_MS,
+                wait_ms,
                 attempt,
                 BLANK_RETRIES,
             )
-            await asyncio.sleep(BLANK_RETRY_WAIT_MS / 1000.0)
+            await coax_render(page, preserve_scroll=preserve_scroll)
+            await asyncio.sleep(wait_ms / 1000.0)
             try:
                 png = await page.screenshot(
                     full_page=full_page,
@@ -776,7 +781,7 @@ class PlaywrightBrowserPool:
         its blank retries, and the extra device navigations.
         """
         kinds = list(screenshot_kinds or [])
-        per_kind_s = 30.0 + BLANK_RETRIES * (BLANK_RETRY_WAIT_MS / 1000.0 + 20.0)
+        per_kind_s = 30.0 + BLANK_RETRY_BUDGET_S
         deadline_s = (
             (timeout_ms + settle_timeout_ms) / 1000.0
             + RENDER_READY_MAX_MS / 1000.0

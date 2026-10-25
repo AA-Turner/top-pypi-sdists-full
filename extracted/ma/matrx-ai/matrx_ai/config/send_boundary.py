@@ -93,6 +93,7 @@ from matrx_ai.config.context_trim import (
     TrimReport,
     trim_messages_context,
 )
+from matrx_ai.config.served_via import served_via_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -307,6 +308,9 @@ async def prepare_for_send(
         # writes — a mark nothing will read is a pure write surcharge (config/cache_plan.py).
         _run_step(prep, "prompt_cache_marks", lambda: _set_prompt_cache_marks(prep, config))
         _run_step(prep, "wire_config", lambda: _build_wire(prep, config))
+        # AFTER the wire clone, BEFORE the person-turn ordering: the conversation's own
+        # instructions follow the agent's on the wire only (the frozen prompt never changes).
+        _run_step(prep, "conversation_instructions", lambda: _apply_conversation_instructions(prep, config))
         # THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): AFTER the wire clone
         # (it orders the materialized messages), the newest person turn is ordered ONCE, here,
         # for the provider this send goes to; translators only render it. The result is checked
@@ -568,6 +572,15 @@ def _gated_trim(
         )
 
 
+def _catalog_model_name(model_ref: str) -> str | None:
+    """``ai.model_definition.name`` for a model id, name or alias; ``None`` when unresolvable."""
+    from matrx_ai.catalog.manager import ai_catalog_manager
+
+    state = ai_catalog_manager.model_state(ai_catalog_manager.resolve_model_ref(model_ref))
+    name = state.get("name")
+    return str(name) if name else None
+
+
 def model_cache_prices(
     model_ref: str,
     *,
@@ -589,6 +602,13 @@ def model_cache_prices(
     pricing = lookup_model_pricing(lookup, offering_id=offering_id or "", model_name=model_ref)
     if pricing is None and offering_id:
         pricing = lookup_model_pricing(lookup, model_name=model_ref)
+    if pricing is None:
+        # The request config carries the catalog model ID (or an alias), but the pricing lookup is
+        # keyed by offering id and model NAME. Resolve the ref through the catalog's one routing
+        # map, then read by the name — exact keys only, never a prefix or a guess.
+        catalog_name = _catalog_model_name(model_ref)
+        if catalog_name and catalog_name != model_ref:
+            pricing = lookup_model_pricing(lookup, model_name=catalog_name)
     if pricing is None:
         return None
     tier = pricing.get_tier(estimated_tokens or 0)
@@ -912,6 +932,7 @@ async def _send_profile(config: Any, *, conversation_id: str | None) -> Any:
         return await resolve_call_profile(
             str(getattr(config, "model", "") or ""),
             offering_id=getattr(config, "routing_offering_id", None),
+            **served_via_kwargs(config),
         )
     except Exception as exc:  # noqa: BLE001 — the provider call raises its own routing error
         vcprint(
@@ -945,6 +966,27 @@ def _build_wire(prep: SendPrep, config: Any) -> None:
     from matrx_ai.config.picklist_runtime import build_wire_config
 
     prep.wire_config = build_wire_config(config)
+
+
+def _apply_conversation_instructions(prep: SendPrep, config: Any) -> None:
+    """THIS CONVERSATION'S OWN INSTRUCTIONS (L3 one-chat G1): sent after the agent's own.
+
+    The person's per-conversation instructions (``conversation_instructions``) follow the END of
+    the agent's rendered system instruction on the wire clone, never replacing any of it. The canonical config keeps the agent's prompt as the row froze it, so persistence and
+    the cache-line law (``_enforce_frozen_prompt``) see the same prefix every turn; the provider
+    caches up to the agent's text and re-reads only what follows it. Unset or blank: no change.
+    """
+    text = getattr(config, "conversation_instructions", None)
+    if not isinstance(text, str) or not text.strip():
+        return
+    wire = prep.wire_config if prep.wire_config is not None else copy(config)
+    agent_text = getattr(wire, "resolved_system_instruction", None)
+    if agent_text is None and isinstance(getattr(wire, "system_instruction", None), str):
+        agent_text = wire.system_instruction
+    # The agent's prompt renders exactly as it would alone (its date pin, opening turn and all);
+    # the conversation's text follows it, once.
+    wire.system_instruction = f"{agent_text}\n\n{text}" if agent_text and agent_text.strip() else text
+    prep.wire_config = wire
 
 
 def _pin_system_date(config: Any, conversation_row: Any) -> None:

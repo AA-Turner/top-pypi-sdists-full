@@ -1,12 +1,21 @@
+from argparse import ArgumentParser
 from os.path import getsize
-from optparse import OptionParser
 
+from bsdiff4 import __version__
+from bsdiff4.core import decode_int64
 from bsdiff4.format import file_diff, file_patch, read_patch
 
 
-def display_version():
-    from bsdiff4 import __version__
-    print("bsdiff4 %s" % __version__)
+def unpack_control_block(bcontrol):
+    """
+    Unpack the binary control block and generate control tuples.
+    """
+    if len(bcontrol) % 24:
+        raise ValueError("invalid control block")
+
+    for i in range(0, len(bcontrol), 24):
+        bt = bcontrol[i:i + 24]
+        yield tuple(decode_int64(bt[j:j + 8]) for j in range(0, 24, 8))
 
 
 def human_bytes(n):
@@ -14,79 +23,86 @@ def human_bytes(n):
     return the number of bytes 'n' in more human readable form
     """
     if n < 1024:
-        return '%i B' % n
-    k = (n - 1) / 1024 + 1
+        return '%d B' % n
+    k = n / 1024
     if k < 1024:
-        return '%i KB' % k
-    return '%.2f MB' % (float(n) / (2 ** 20))
+        return '%.1f K' % k
+    m = k / 1024
+    if m < 1024:
+        return '%.1f M' % m
+    g = m / 1024
+    return '%.2f G' % g
+
+
+def show_filesizes(*args):
+    for i, name in enumerate(['src', 'dst', 'patch']):
+        size = getsize(args[i])
+        print('%s: %s (%s)' % (name, args[i], human_bytes(size)))
 
 
 def main_bsdiff4():
-    p = OptionParser(
-        usage="usage: %prog [options] SRC DST PATCH",
+    p = ArgumentParser(
         description=("generate a BSDIFF4-format PATCH from SRC to DST "
                      "and write it to PATCH"))
+    p.add_argument('-v', '--verbose', action='store_true',
+                   help="show file sizes")
+    p.add_argument('--version', action='version',
+                   version="bsdiff4 %s" % __version__)
+    p.add_argument('src', metavar='SRC')
+    p.add_argument('dst', metavar='DST')
+    p.add_argument('patch', metavar='PATCH')
+    args = p.parse_args()
 
-    p.add_option('-v', "--verbose",
-                 action="store_true")
-
-    p.add_option("--version",
-                 action="store_true")
-
-    opts, args = p.parse_args()
-
-    if opts.version:
-        display_version()
-        return
-
-    if len(args) != 3:
-        p.error('requies 3 arguments, try -h')
-
-    file_diff(*args)
-    if opts.verbose:
-        size = [getsize(args[i]) for i in range(3)]
-        print('src: %s' % human_bytes(size[0]))
-        print('dst: %s' % human_bytes(size[1]))
-        print('patch: %s (%.2f%% of dst)' % (human_bytes(size[2]),
-                                             100.0 * size[2] / size[1]))
+    paths = args.src, args.dst, args.patch
+    file_diff(*paths)
+    if args.verbose:
+        show_filesizes(*paths)
 
 
-def show_patch(patch_path):
+def show_patch(patch_path, verbose=False):
     s_total = getsize(patch_path)
-    fi = open(patch_path, 'rb')
-    s_control, s_diff, s_dst, tcontrol = read_patch(fi, header_only=True)
-    fi.close()
-    s_extra = s_total - 32 - s_control - s_diff
+    with open(patch_path, 'rb') as fi:
+        s_control, s_diff, s_dst, bcontrol = read_patch(fi, header_only=True)
 
-    for var_name in 'total', 'control', 'diff', 'extra', 'dst':
-        size = eval('s_' + var_name)
-        print('%s size: %d (%s)' % (var_name, size, human_bytes(size)))
-    print('total / dst = %.2f%%' % (100.0 * s_total / s_dst))
-    print('number of control tuples: %d' % len(tcontrol))
-    #for t in tcontrol:
-    #    print('%20d %10d %10d' % t)
+    for name, size in [
+            ('total', s_total),
+            ('control', s_control),
+            ('diff', s_diff),
+            ('extra', s_total - 32 - s_control - s_diff),
+            ('dst', s_dst),
+    ]:
+        print('%s size: %d (%s)' % (name, size, human_bytes(size)))
+
+    if s_dst:
+        print('total / dst = %.2f%%' % (100.0 * s_total / s_dst))
+
+    print('number of control tuples: %d' % (len(bcontrol) // 24))
+    if verbose:
+        print('%20s %10s %10s' % ('x', 'y', 'z'))
+        for ct in unpack_control_block(bcontrol):
+            print('%20d %10d %10d' % ct)
 
 
 def main_bspatch4():
-    p = OptionParser(
-        usage="usage: %prog [options] SRC DST PATCH",
-        description=("genertaes DST, by applying the BSDIFF4-format PATCH "
-                     "file to SRC"))
+    p = ArgumentParser(
+        usage="%(prog)s [options] SRC DST PATCH\n"
+              "       %(prog)s [options] PATCH",
+        description=("generate DST by applying the BSDIFF4-format PATCH "
+                     "file to SRC, or display information about PATCH"))
+    p.add_argument('-v', '--verbose', action='store_true',
+                   help="show file sizes or control tuples")
+    p.add_argument('--version', action='version',
+                   version="bsdiff4 %s" % __version__)
+    p.add_argument('paths', nargs='+', metavar='PATH')
+    args = p.parse_args()
 
-    p.add_option("--version",
-                 action="store_true")
-
-    opts, args = p.parse_args()
-
-    if opts.version:
-        display_version()
+    if len(args.paths) == 1:
+        show_patch(args.paths[0], args.verbose)
         return
 
-    if len(args) == 1:
-        show_patch(args[0])
-        return
+    if len(args.paths) != 3:
+        p.error("requires either PATCH or SRC DST PATCH")
 
-    if len(args) != 3:
-        p.error('requies 3 arguments, try -h')
-
-    file_patch(*args)
+    file_patch(*args.paths)
+    if args.verbose:
+        show_filesizes(*args.paths)

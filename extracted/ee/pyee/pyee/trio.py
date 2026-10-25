@@ -8,9 +8,9 @@ from typing import (
     AsyncGenerator,
     Awaitable,
     Callable,
-    cast,
     Dict,
     Optional,
+    Self,
     Tuple,
     Type,
 )
@@ -18,8 +18,6 @@ from typing import (
 import trio
 
 from pyee.base import EventEmitter, PyeeError
-
-Self = Any
 
 __all__ = ["TrioEventEmitter"]
 
@@ -60,6 +58,17 @@ class TrioEventEmitter(EventEmitter):
     For trio coroutine event handlers, calling emit is non-blocking. In other
     words, you should not attempt to await emit; the coroutine is scheduled
     in a fire-and-forget fashion.
+
+    Args:
+        nursery: Nursery that runs handlers. Mutually exclusive with
+            `manager`.
+        manager: Async context manager that yields a nursery, such as the
+            return value of `trio.open_nursery`. Mutually exclusive with
+            `nursery`. When both are omitted or `None`, a manager from
+            `trio.open_nursery` is stored.
+
+    Raises:
+        PyeeError: Both `nursery` and `manager` were passed.
     """
 
     def __init__(
@@ -115,6 +124,14 @@ class TrioEventEmitter(EventEmitter):
         nursery to the EventEmitter. The `TrioEventEmitter`'s
         async context management methods are implemented using this
         function, but it may also be used directly for clarity.
+
+        Returns:
+            This emitter, as an async context manager. Entering it yields
+                this emitter. A set nursery is used as-is. Otherwise the
+                manager is opened and its nursery is used.
+
+        Raises:
+            PyeeError: Neither a nursery nor a nursery manager is set.
         """
         if self._nursery is not None:
             yield self
@@ -129,7 +146,7 @@ class TrioEventEmitter(EventEmitter):
         self._context: Optional[AbstractAsyncContextManager["TrioEventEmitter"]] = (
             self.context()
         )
-        return await cast(Any, self._context).__aenter__()
+        return await self._context.__aenter__()
 
     async def __aexit__(
         self: Self,

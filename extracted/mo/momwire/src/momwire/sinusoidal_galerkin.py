@@ -1370,6 +1370,10 @@ class SinusoidalGalerkinSolver(SinusoidalSolver):
     Galerkin overlap term of `_apply_loading`, closed-form on the shapes.
     """
 
+    # momwire#1644: no dialect's junction rule applies here (the parent's
+    # `junction_rule` is the point-matched lane's NEC-4 option).
+    takes_junction_rule = False
+
     # momwire#1333: two coincident wires left in place because they are
     # joined to different wires. The Galerkin fill has no answer for them in
     # free space: on the split rise fan it read 61.89 - 0.88j ohm where

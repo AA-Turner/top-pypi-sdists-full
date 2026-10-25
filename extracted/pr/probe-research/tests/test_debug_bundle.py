@@ -678,6 +678,143 @@ def test_an_expired_upload_is_a_retry_for_the_app(signed_in, tmp_path, monkeypat
     assert (last["error"], last["status"]) == ("server", 401)
 
 
+def test_a_transcript_deleted_mid_scan_costs_only_itself(fake_machine, monkeypatch):
+    """An agent pruning its old sessions while the log is built: the file is gone between the
+    listing and the read of its date. The agent's other transcripts, facts and settings stay."""
+    projects = Path.home() / ".claude" / "projects" / "-work-proj"
+    pruned = projects / "pruned.jsonl"
+    pruned.write_text(json.dumps({"type": "user"}) + "\n")
+    listed = Path.is_file
+
+    def is_file(self, *args, **kwargs):
+        found = listed(self, *args, **kwargs)
+        if found and self == pruned:
+            self.unlink()
+        return found
+
+    monkeypatch.setattr(Path, "is_file", is_file)
+    _only(monkeypatch, "agent_claude_code")
+    collection = debug_bundle.collect()
+    assert "agent_claude_code" not in collection.skipped
+    transcripts = json.loads(collection.files["agents/claude_code/transcripts.json"].data)
+    assert [Path(t["path"]).name for t in transcripts] == [f"{SID}.jsonl"]
+    assert "agents/claude_code/home/settings.json" in collection.files
+    assert collection.harnesses == ["claude_code"]
+
+
+def test_a_transcript_deleted_after_its_date_is_read_gives_its_slot_up(fake_machine, monkeypatch):
+    """Gone by the time it is described: the next newest transcript takes its place."""
+    projects = Path.home() / ".claude" / "projects" / "-work-proj"
+    pruned = projects / "pruned.jsonl"
+    pruned.write_text(json.dumps({"type": "user"}) + "\n")
+    os.utime(pruned, (time.time() + 60, time.time() + 60))
+    described = debug_bundle.describe
+
+    def describe(path):
+        if path == pruned:
+            path.unlink()
+        return described(path)
+
+    monkeypatch.setattr(debug_bundle, "describe", describe)
+    monkeypatch.setattr(debug_bundle, "RECENT_TRANSCRIPTS", 1)
+    _only(monkeypatch, "agent_claude_code")
+    transcripts = json.loads(debug_bundle.collect().files["agents/claude_code/transcripts.json"].data)
+    assert [Path(t["path"]).name for t in transcripts] == [f"{SID}.jsonl"]
+
+
+def _failing_listing(monkeypatch, failures: int) -> None:
+    """The transcript folder walk raises for its first `failures` calls, as Python 3.10 and 3.11's
+    `glob` do when a session folder is deleted during the walk."""
+    left = [failures]
+    walk = Path.glob
+
+    def glob(self, pattern, *args, **kwargs):
+        if self.name == "projects" and left[0] > 0:
+            left[0] -= 1
+            raise FileNotFoundError(2, "No such file or directory", str(self / "gone-session"))
+        return walk(self, pattern, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "glob", glob)
+
+
+def test_a_session_folder_deleted_mid_walk_is_listed_again(fake_machine, monkeypatch):
+    """An agent deleting a burst of session folders can fail the walk more than once."""
+    _failing_listing(monkeypatch, 2)
+    _only(monkeypatch, "agent_claude_code")
+    transcripts = json.loads(debug_bundle.collect().files["agents/claude_code/transcripts.json"].data)
+    assert [Path(t["path"]).name for t in transcripts] == [f"{SID}.jsonl"]
+
+
+def test_a_listing_that_keeps_failing_says_so_and_keeps_the_rest(fake_machine, monkeypatch):
+    """Never an empty list that reads as an agent with no sessions."""
+    _failing_listing(monkeypatch, 3)
+    _only(monkeypatch, "agent_claude_code")
+    collection = debug_bundle.collect()
+    assert json.loads(collection.files["agents/claude_code/transcripts.json"].data) == []
+    assert any(n.startswith("agents/claude_code/transcripts.json: not listed (FileNotFoundError)")
+               for n in collection.notes)
+    assert "agents/claude_code/home/settings.json" in collection.files
+
+
+def test_a_settings_folder_gone_after_its_check_costs_only_its_files(fake_machine, monkeypatch):
+    """The agent uninstalled while the log is built: its folder listing fails, the rest stays."""
+    claude = Path.home() / ".claude"
+    listing = Path.iterdir
+
+    def iterdir(self):
+        if self == claude:
+            raise FileNotFoundError(2, "No such file or directory", str(self))
+        return listing(self)
+
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+    _only(monkeypatch, "agent_claude_code")
+    collection = debug_bundle.collect()
+    assert "agent_claude_code" not in collection.skipped
+    assert "agents/claude_code/claude.json" in collection.files
+    assert "agents/claude_code/home: not listed (FileNotFoundError)" in collection.notes
+
+
+def test_an_action_record_gone_after_its_date_is_read_gives_its_slot_up(fake_machine, monkeypatch):
+    """Not written into the log as an empty file: the next newest record takes its place."""
+    from probe.service import paths
+
+    actions = paths.service_dir() / paths.ACTIONS_DIRNAME
+    actions.mkdir(parents=True)
+    (actions / "kept.log").write_text("update finished\n")
+    (actions / "gone.json").write_text("{}\n")
+    os.utime(actions / "gone.json", (time.time() + 60, time.time() + 60))
+    monkeypatch.setattr(debug_bundle, "RECENT_ACTIONS", 1)
+    dated = report.newest_first
+
+    def newest_first(found):
+        listed = dated(found)
+        if (actions / "gone.json") in listed:
+            (actions / "gone.json").unlink()
+        return listed
+
+    monkeypatch.setattr(report, "newest_first", newest_first)
+    _only(monkeypatch, "service_files")
+    files = debug_bundle.collect().files
+    assert "service/actions/kept.log" in files
+    assert "service/actions/gone.json" not in files
+
+
+@pytest.mark.skipif(os.name != "posix" or os.geteuid() == 0, reason="needs a folder this user cannot enter")
+def test_an_agent_folder_this_user_cannot_enter_costs_only_what_is_in_it(fake_machine, monkeypatch):
+    """`sudo claude` leaves `~/.claude` root-owned: the agent's version and facts are kept and the
+    notes say its folder could not be listed."""
+    claude = Path.home() / ".claude"
+    claude.chmod(0)
+    try:
+        _only(monkeypatch, "agent_claude_code")
+        collection = debug_bundle.collect()
+    finally:
+        claude.chmod(0o755)
+    assert "agent_claude_code" not in collection.skipped
+    assert "agents/claude_code/facts.json" in collection.files
+    assert "agents/claude_code/home: not listed (PermissionError)" in collection.notes
+
+
 def test_a_huge_agent_config_never_costs_the_agents_transcripts(fake_machine, monkeypatch):
     """The cheap facts (version, transcripts) are written before the configs: a
     config that stalls its step loses itself, not them."""

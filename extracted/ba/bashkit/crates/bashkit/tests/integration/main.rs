@@ -57,6 +57,7 @@ pub mod input_redirect_budget_tests;
 pub mod interactive_builtins_tests;
 pub mod make_substitution_tests;
 pub mod memory_growth_security_tests;
+pub mod streaming_command_tests;
 pub mod tar_files_from_budget_tests;
 // Both assert named-IANA-zone behavior, which only exists with `tzdata`.
 // `date_timezone_no_tzdata_tests` covers the closed-to-UTC side.
@@ -164,6 +165,7 @@ pub mod sqlite_integration_tests;
 pub mod sqlite_security_tests;
 pub mod stack_overflow_regression_tests;
 pub mod stderr_fidelity_tests;
+pub mod streaming_audit_tests;
 pub mod subst_depth_limit_tests;
 pub mod symlink_overlay_security_tests;
 #[cfg(feature = "terminal")]

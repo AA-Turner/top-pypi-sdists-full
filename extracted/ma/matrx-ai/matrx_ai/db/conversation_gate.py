@@ -2465,8 +2465,16 @@ async def _create_user_request(
 async def ensure_user_request_exists(
     request_id: str,
     user_id: str,
+    *,
+    config: Any = None,
 ) -> None:
     """Ensure a cx_user_request row exists for the given request_id.
+
+    ``config`` — the turn's EFFECTIVE config (the request's ``config_overrides`` merged over
+    the conversation's stored config). Every turn path that holds one passes it: a turn served
+    on the person's own computer (``served_via``, cost 0) is never refused by the AI usage
+    precheck below (``usage_gate.precheck_usage``). Guard:
+    ``aidream/api/tests/test_a_device_turn_continues_over_the_usage_limit.py``.
 
     A ``cx_user_request`` is ONE backend API call (one user action), keyed
     solely by ``request_id`` and owned by ``user_id``. It has NO conversation
@@ -2540,9 +2548,11 @@ async def ensure_user_request_exists(
         # before the turn is stored — raises UsageLimitReachedError (a caller
         # refusal the prepared-stream boundary answers as HTTP 402). Memory only,
         # never a database read; the paid-call seam stays the authority.
+        # A turn served on the person's own computer costs 0 and is never refused
+        # (``config`` = the turn's effective config; see the docstring).
         from matrx_ai.providers.usage_gate import precheck_usage
 
-        precheck_usage()
+        precheck_usage(config)
 
         await _create_user_request(
             request_id=request_id,

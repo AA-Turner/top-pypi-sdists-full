@@ -2,6 +2,7 @@
 
 #include <numeric>
 
+#include "common/assert.h"
 #include "common/exception/runtime.h"
 #include "common/null_buffer.h"
 #include "common/serializer/deserializer.h"
@@ -11,6 +12,7 @@
 #include "common/types/value/nested.h"
 #include "common/types/value/value.h"
 #include "common/vector/auxiliary_buffer.h"
+#include <format>
 
 namespace lbug {
 namespace common {
@@ -25,6 +27,11 @@ ValueVector::ValueVector(LogicalType dataType, storage::MemoryManager* memoryMan
                                "Data type is expected to be resolved during binding.");
         // LCOV_EXCL_STOP
     }
+    // Strings too long to inline live in overflow blocks from the memory manager; nested types
+    // pass it to their child vectors, so the check covers strings at any depth.
+    DASSERT(
+        memoryManager != nullptr || (this->dataType.getPhysicalType() != PhysicalTypeID::STRING &&
+                                        this->dataType.getPhysicalType() != PhysicalTypeID::JSON));
     numBytesPerValue = getDataTypeSize(this->dataType);
     initializeValueBuffer();
     auxiliaryBuffer = AuxiliaryBufferFactory::getAuxiliaryBuffer(this->dataType, memoryManager);
@@ -430,6 +437,15 @@ std::unique_ptr<ValueVector> ValueVector::deSerialize(Deserializer& deSer,
     deSer.validateDebuggingInfo(key, "num_values");
     sel_t numValues = 0;
     deSer.deserializeValue<sel_t>(numValues);
+    // A torn/corrupt WAL tail can decode to a huge count. ValueVector storage only holds
+    // DEFAULT_VECTOR_CAPACITY values, so anything larger would overflow the null mask and
+    // value buffer below (native crash, uncatchable by the WAL dry-replay truncation).
+    // Fail with a catchable exception so recovery can discard the torn tail instead.
+    if (numValues > DEFAULT_VECTOR_CAPACITY) {
+        throw RuntimeException(
+            std::format("Corrupted WAL record: vector num_values {} exceeds capacity {}.",
+                numValues, DEFAULT_VECTOR_CAPACITY));
+    }
     result->state->getSelVectorUnsafe().setSelSize(numValues);
     DASSERT(result->state->getSelVector().isUnfiltered());
     bool isNull = false;
@@ -482,8 +498,42 @@ void ValueVector::setValue(uint32_t pos, std::string_view val) {
     StringVector::addString(this, pos, val.data(), val.length());
 }
 
+// A null struct's fields are null too, so that reading a field of a null struct gives null. Not a
+// union's: its tag and members are written without resetting their null flags. A null struct in a
+// LIST gets its field nulls where the list's data vector is written (setNull,
+// StructColumn::scanSegment, StructChunkData::scan, Arrow import), not through the list.
+static bool nullsCoverFields(const LogicalType& type) {
+    return type.getPhysicalType() == PhysicalTypeID::STRUCT &&
+           type.getLogicalTypeID() != LogicalTypeID::UNION;
+}
+
 void ValueVector::setNull(uint32_t pos, bool isNull) {
     nullMask.setNull(pos, isNull);
+    if (isNull && nullsCoverFields(dataType)) {
+        for (const auto& field : StructVector::getFieldVectors(this)) {
+            field->setNull(pos, true);
+        }
+    }
+}
+
+void ValueVector::setAllNull() {
+    nullMask.setAllNull();
+    if (nullsCoverFields(dataType)) {
+        for (const auto& field : StructVector::getFieldVectors(this)) {
+            field->setAllNull();
+        }
+    }
+}
+
+void StructVector::setNullFieldsOfNullStructs(ValueVector* vector, uint64_t startPos,
+    uint64_t numValues) {
+    if (!nullsCoverFields(vector->dataType) || vector->hasNoNullsGuarantee()) {
+        return;
+    }
+    for (const auto& field : getFieldVectors(vector)) {
+        field->nullMask.orFromRange(vector->nullMask, startPos, numValues);
+        setNullFieldsOfNullStructs(field.get(), startPos, numValues);
+    }
 }
 
 void StringVector::addString(ValueVector* vector, uint32_t vectorPos, string_t& srcStr) {

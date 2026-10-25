@@ -579,7 +579,14 @@ def _require_npx() -> None:
             hint="install Node.js 20.12+ (e.g. `brew install node`), then retry")
 
 
-def _run_installer(directory: Path, modules: str) -> subprocess.CompletedProcess:
+def _run_installer(directory: Path, modules: str,
+                   hint: str | None = None) -> subprocess.CompletedProcess:
+    """Run the BMAD installer into `directory`.
+
+    ``hint`` replaces the default "run it yourself" one: a global install
+    stages into a temp dir that is deleted before the error is printed, so a
+    command naming it would install into nothing the user keeps.
+    """
     cmd = ["npx", "--yes", "bmad-method@%s" % core.BMAD_VERSION, "install",
            "--yes", "--directory", str(directory),
            "--tools", "claude-code", "--modules", modules,
@@ -592,13 +599,30 @@ def _run_installer(directory: Path, modules: str) -> subprocess.CompletedProcess
                               timeout=900)
     except (OSError, subprocess.TimeoutExpired) as e:
         raise BoostError("bmad install failed: %s" % e,
-                         hint="run it yourself: " + " ".join(cmd)) from e
+                         hint=hint or _run_it_yourself(cmd)) from e
     if proc.returncode != 0:
         tail = (proc.stderr or proc.stdout or "").strip().splitlines()
         raise BoostError(
             "bmad install failed: %s" % (tail[-1] if tail else "unknown error"),
-            hint="run it yourself: " + " ".join(cmd))
+            hint=hint or _run_it_yourself(cmd))
     return proc
+
+
+def _run_it_yourself(cmd: list[str]) -> str:
+    """The hint naming the installer argv, quoted so it pastes as one command.
+
+    Backticked because the hint folds to the pane and only a backtick span is
+    atomic: a fold at the space inside `'/h/my proj'` pastes as a dangling quote.
+    """
+    return "run it yourself: `%s`" % util.shell_join(cmd)
+
+
+def _global_retry_hint(modules: str) -> str:
+    """What to re-run after a failed global install, whose stage is gone."""
+    argv = ["boost", "bmad", "install", "--scope", "global"]
+    if modules != DEFAULT_MODULES:
+        argv += ["--modules", modules]
+    return "once npx works, re-run `%s`" % util.shell_join(argv)
 
 
 def _whoami() -> str:
@@ -671,7 +695,8 @@ def _copy_global_skills(modules) -> tuple[str, list[str]]:
     """
     stage = Path(tempfile.mkdtemp(prefix="boost-bmad-"))
     try:
-        proc = _run_installer(stage, modules)
+        proc = _run_installer(stage, modules,
+                              hint=_global_retry_hint(modules))
         ver = _parse_version((proc.stdout or "") + (proc.stderr or ""))
         src = stage / ".claude" / "skills"
         dest = _skills_dir("global")
@@ -788,23 +813,47 @@ def _status(scope) -> int:
 
 def _uninstall(scope, yes, force: bool = False) -> int:
     scope = scope or "project"
-    if not (yes or out.confirm(
-            "Remove BMAD (%s)? deletes bmad-* skills%s" % (
-                scope, " + _bmad/, _bmad-output/" if scope == "project" else ""))):
+    skills, kept = core.skill_dirs(_skills_dir(scope))
+    extras: list[Path] = []
+    linked_extras: list[Path] = []
+    for extra in ("_bmad", "_bmad-output") if scope == "project" else ():
+        pth = Path.cwd() / extra
+        if pth.is_symlink():
+            linked_extras.append(pth)    # remove_dirs never follows a link
+        elif pth.is_dir():
+            extras.append(pth)
+    # The confirm names what it deletes: "deletes bmad-* skills" was all a
+    # user approved, which hid both a count of nothing and a symlink the run
+    # then could not remove.
+    doomed = [*skills, *extras]
+    what = ("deletes %s" % ", ".join(paths.tilde(p) for p in doomed)
+            if doomed else "no bmad-* skills to delete")
+    if not (yes or out.confirm("Remove BMAD (%s)? %s" % (scope, what))):
         out.info("aborted")
         return 1
-    _remove_hook_everywhere(scope, _ORIENT_HOOK, _ROUTE_HOOK, force=force)
-    removed = _rm_skills(_skills_dir(scope))
+    hooks = _remove_hook_everywhere(scope, _ORIENT_HOOK, _ROUTE_HOOK,
+                                    force=force)
+    removed = len(core.remove_dirs(skills))
     removed += len(core.remove_personas(_agents_dir(scope)))
-    if scope == "project":
-        for extra in ("_bmad", "_bmad-output"):
-            pth = Path.cwd() / extra
-            if pth.exists():
-                shutil.rmtree(pth, ignore_errors=True)
-                removed += 1
+    removed += len(core.remove_dirs(extras))
+    for entry in kept:
+        out.info(out.role("kept %s — not a BMAD install (a %s); `boost "
+                          "uninstall %s` removes one boost installed"
+                          % (paths.tilde(entry), "symlink" if entry.is_symlink()
+                             else "file", entry.name), "muted"), wrap=True)
+    for entry in linked_extras:
+        # Not a skill, so `boost uninstall <name>` is no answer for it: the
+        # link may well lead to the user's real BMAD runtime elsewhere.
+        out.info(out.role("kept %s — a symlink, and uninstall never deletes "
+                          "through one; remove it yourself if it is BMAD's"
+                          % paths.tilde(entry), "muted"), wrap=True)
     _clear_scope_state(scope)
+    if not (removed or hooks):
+        out.info("nothing of BMAD's to remove (%s)" % scope)
+        return 0
     journal.log("bmad-uninstall", scope, count=removed)
-    out.ok("removed BMAD (%s): %d item(s)" % (scope, removed))
+    out.ok("removed BMAD (%s): %d item(s)%s" % (
+        scope, removed, ", %d hook(s)" % hooks if hooks else ""))
     return 0
 
 
@@ -928,15 +977,6 @@ def _count_skills(skills_dir: Path) -> int:
     return sum(1 for d in skills_dir.glob("bmad-*") if d.is_dir())
 
 
-def _rm_skills(skills_dir: Path) -> int:
-    n = 0
-    if skills_dir.exists():
-        for d in sorted(skills_dir.glob("bmad-*")):
-            shutil.rmtree(d, ignore_errors=True)
-            n += 1
-    return n
-
-
 def _quarantine_dir(scope) -> Path:
     key = "global" if scope == "global" else _fs_slug(str(Path.cwd().resolve()))
     return paths.state_dir() / "bmad-quarantine" / key
@@ -1046,9 +1086,17 @@ def _set_scope_state(scope, **patch) -> None:
 
 
 def _clear_scope_state(scope) -> None:
-    d = _state_read()
+    """Forget ``scope``'s BMAD state, writing nothing when there is none.
+
+    An uninstall on a machine BMAD never touched used to create
+    ``bmad.json`` just to record that nothing was there. A corrupt file is
+    still written through, which is what quarantines it.
+    """
+    d, err = _state_load()
     if scope == "global":
+        held = bool(d["global"])
         d["global"] = {}
     else:
-        d["projects"].pop(_proj_key(), None)
-    _state_write(d)
+        held = d["projects"].pop(_proj_key(), None) is not None
+    if held or err is not None:
+        _state_write(d)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple_dwd_weatherforecast
-Version: 3.5.0
+Version: 3.6.0
 Summary: A simple tool to retrieve a weather forecast from DWD OpenData
 Home-page: https://github.com/FL550/simple_dwd_weatherforecast.git
 Author: Max Fermor
@@ -16,6 +16,8 @@ Requires-Dist: Pillow
 Requires-Dist: arrow
 Requires-Dist: stream-unzip==0.0.101
 Requires-Dist: httpx
+Requires-Dist: h5py
+Requires-Dist: numpy
 Provides-Extra: apparent-temperature
 Requires-Dist: eccodes; extra == "apparent-temperature"
 Dynamic: author
@@ -199,6 +201,10 @@ class Weather:
     #  'max': 7.2, 'sum': 1.4}
     get_radar_next_precipitation()
 
+    # Precipitation of the next 5-minute radar step (intensity in mm/h, amount in mm)
+    # {'time': datetime(2025,4,1,12,5,UTC), 'intensity': 3.6, 'amount': 0.3}
+    get_radar_precipitation_next_5_minutes()
+
     # Override coordinates to any German location
     get_radar_precipitation_forecast(lat=52.52, lon=13.41)
 ```
@@ -365,6 +371,9 @@ class AirQualityDataType(Enum):
     PM2_5 = "PM2_5"
 
 ```
+
+## AI usage
+LLM-assisted coding tools are used across parts of this codebase. Nothing ships, that me, the maintainer, has not read and understood: every change is reviewed and tested. "The AI wrote that" is not an answer which is an acceptable answer regarding code changes.
 
 ## Help and Contribution
 

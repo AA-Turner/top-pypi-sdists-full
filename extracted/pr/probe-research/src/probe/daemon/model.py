@@ -9,6 +9,7 @@ daemon's own meter (D9, R2). The server picks the model (`model="default"`) unle
 from __future__ import annotations
 
 import os
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -135,24 +136,55 @@ WRITER_HISTORY_HEADER = "x-probe-writer-history"
 WRITER_EVENTS_HEADER = "x-probe-writer-events"
 ENV_WRITER_HISTORY = "PROBE_DAEMON_WRITER_HISTORY"
 ENV_WRITER_EVENTS = "PROBE_DAEMON_WRITER_EVENTS"
-#: Whether the researcher's prompt alone wakes the daemon's reader (plan
-#: probe-hints T5): ON (the default, and what an older server's silence means)
-#: or OFF, per team, once the hints and `probe ask` are shown to cover what
-#: prompt-time reader turns caught. Asks and the READ_EVERY_S new-events wake
-#: are never switched off. The environment variable wins over the server.
+#: Whether the researcher's prompt alone wakes the daemon's reader: OFF only
+#: while Probe hints serve this session (`hints_live`), which every chat request
+#: tells the server (HINTS_LIVE_HEADER: on | off) and the server answers OFF to;
+#: ON otherwise, and what an older server's silence means. Asks and the
+#: READ_EVERY_S new-events wake are never switched off. The environment
+#: variable wins over both.
 READER_PROMPT_WAKE_HEADER = "x-probe-reader-prompt-wake"
 ENV_READER_PROMPT_WAKE = "PROBE_READER_PROMPT_WAKE"
+HINTS_LIVE_HEADER = "x-probe-hints-live"
+#: The hint lane touches a served session's marker every HINTS_LIVE_BEAT_S
+#: (`service.hints`); one older than this means no hint lane serves it now (the
+#: service stopped, the session left its recorder, hints were switched off).
+HINTS_LIVE_TTL_S = 120.0
 #: A pushed gap above this is clamped: a session is never recorded less than hourly.
 MAX_WRITER_GAP_S = 3600
 _PUSHED: dict[str, object] = {}
 
 _HTTP_CLIENT = None
 _PREFERRED_MODEL: str | None = None
+#: The session this process's daemon serves (`bind_hints`), whose hint marker
+#: `hints_live` reads; None: no session, so no hints.
+_HINTS_SID: str | None = None
+
+
+def bind_hints(session_id: str | None) -> None:
+    """The session whose hint marker this process reads (the worker's, at start)."""
+    global _HINTS_SID
+    _HINTS_SID = session_id
+
+
+def hints_live(now: float | None = None) -> bool:
+    """Does the Probe service's hint lane serve this process's session now: its
+    marker (`mailbox.hints_live_path`) touched within HINTS_LIVE_TTL_S?"""
+    if not _HINTS_SID:
+        return False
+    from probe.daemon import mailbox
+
+    try:
+        touched = mailbox.hints_live_path(_HINTS_SID).stat().st_mtime
+    except OSError:
+        return False
+    return (time.time() if now is None else now) - touched <= HINTS_LIVE_TTL_S
 
 
 async def _prefer_served_model(request) -> None:
-    if _PREFERRED_MODEL and request.url.path.endswith(_CHAT_PATH):
-        request.headers[PREFER_MODEL_HEADER] = _PREFERRED_MODEL
+    if request.url.path.endswith(_CHAT_PATH):
+        if _PREFERRED_MODEL:
+            request.headers[PREFER_MODEL_HEADER] = _PREFERRED_MODEL
+        request.headers[HINTS_LIVE_HEADER] = PromptWake.ON.value if hints_live() else PromptWake.OFF.value
 
 
 async def _remember_served_model(response) -> None:
@@ -198,11 +230,14 @@ def reader_gate_mode() -> GateMode:
 
 
 def reader_prompt_wake() -> bool:
-    """`PROBE_READER_PROMPT_WAKE`, else the server's switch, else ON: does a
-    researcher prompt alone wake the daemon's reader?"""
+    """`PROBE_READER_PROMPT_WAKE`, else ON while no hint serves this session
+    (`hints_live`), else the server's switch, else ON: does a researcher prompt
+    alone wake the daemon's reader?"""
     env = (os.environ.get(ENV_READER_PROMPT_WAKE) or "").strip().lower()
     if env in {m.value for m in PromptWake}:
         return env == PromptWake.ON
+    if not hints_live():
+        return True
     return _PUSHED.get(READER_PROMPT_WAKE_HEADER, PromptWake.ON) == PromptWake.ON
 
 

@@ -1,22 +1,29 @@
 import asyncio
+import base64
 import contextlib
 import datetime
+import hashlib
 import logging
 import re
 import timeit
 import typing
 from concurrent.futures import Executor
+from importlib.resources import files
 
+from django import http
+from django.conf import settings
 from django.db import transaction
-from django.http import HttpResponse, JsonResponse
-from django.utils.cache import add_never_cache_headers, patch_vary_headers
+from django.utils.cache import patch_cache_control, patch_vary_headers
+from django.utils.crypto import constant_time_compare
+from django.utils.csp import CSP
 from django.utils.decorators import method_decorator
 from django.utils.feedgenerator import Atom1Feed, Rss201rev2Feed
 from django.utils.module_loading import import_string
+from django.views.decorators.csp import csp_override
 from django.views.generic import TemplateView
 
 from health_check.base import HealthCheck, HealthCheckResult
-from health_check.exceptions import HealthCheckException
+from health_check.exceptions import HealthCheckError
 
 logger = logging.getLogger("health_check")
 
@@ -65,7 +72,8 @@ class MediaType:
         """Return single instance parsed from the given Accept-header string."""
         match = cls.pattern.search(value)
         if match is None:
-            raise ValueError(f'"{value}" is not a valid media type')
+            msg = f'"{value}" is not a valid media type'
+            raise ValueError(msg)
         return cls(match.group("mime_type"), float(match.group("weight") or 1))
 
     @classmethod
@@ -99,6 +107,21 @@ class HealthCheckView(TemplateView):
     template_name = "health_check/index.html"
     feed_author = "Django Health Check"
 
+    max_age: datetime.timedelta = datetime.timedelta(0)
+    """Longest time a shared cache may reuse a response.
+
+    Sent as `max-age`. Zero disables caching.
+    """
+
+    auth_token: str | None = None
+    """Secret bearer token that authenticates a request and skips the cache."""
+
+    allow_anonymous: bool = False
+    """Admit requests without an Authorization header when a token is configured.
+
+    A request with a wrong token still receives HTTP 403.
+    """
+
     checks: typing.Iterable[
         type[HealthCheck] | str | tuple[type[HealthCheck] | str, dict[str, typing.Any]]
     ] = (
@@ -108,13 +131,61 @@ class HealthCheckView(TemplateView):
         "health_check.checks.Mail",
         "health_check.checks.Storage",
     )
+    stylesheet = (
+        files("health_check").joinpath("status.css").read_text(encoding="utf-8")
+    )
+    stylesheet_hash = base64.b64encode(
+        hashlib.sha256(stylesheet.encode()).digest()
+    ).decode()
+    csp_config = {
+        "default-src": [CSP.NONE],
+        "style-src": [f"'sha256-{stylesheet_hash}'"],
+    }
 
     @method_decorator(transaction.non_atomic_requests)
     async def dispatch(self, request, *args, **kwargs):
-        response = await super().dispatch(request, *args, **kwargs)
-        patch_vary_headers(response, ["Accept"])
-        add_never_cache_headers(response)
+        if self.is_authorized(request):
+            response = await super().dispatch(request, *args, **kwargs)
+            patch_vary_headers(response, ["Accept"])
+            if self.get_auth_token():
+                patch_vary_headers(response, ["Authorization"])
+            response = self.patch_cache_headers(request, response)
+        else:
+            response = http.HttpResponseForbidden(
+                "Authentication failed", content_type="text/plain; charset=utf-8"
+            )
+            patch_vary_headers(response, ["Authorization"])
         return response
+
+    def patch_cache_headers(
+        self, request: http.HttpRequest, response: http.HttpResponseBase
+    ) -> http.HttpResponseBase:
+        """Set cache headers for a shared cache."""
+        max_age_seconds = max(0, int(self.max_age.total_seconds()))
+        cacheable = (
+            response.status_code in (200, 500)
+            and max_age_seconds
+            and request.method in ("GET", "HEAD")
+            and "Authorization" not in request.headers
+        )
+        if cacheable:
+            patch_cache_control(response, public=True, max_age=max_age_seconds)
+        else:
+            patch_cache_control(response, no_store=True)
+        return response
+
+    def get_auth_token(self) -> str | None:
+        """Return the bearer token from the view or the settings."""
+        return self.auth_token or getattr(settings, "HEALTH_CHECK_AUTH_TOKEN", None)
+
+    def is_authorized(self, request: http.HttpRequest) -> bool:
+        """Return whether the request may access the view."""
+        if auth_token := self.get_auth_token():
+            scheme, _, token = request.headers.get("Authorization", "").partition(" ")
+            return (
+                scheme.lower() == "bearer" and constant_time_compare(token, auth_token)
+            ) or (self.allow_anonymous and "Authorization" not in request.headers)
+        return True
 
     async def get(self, request, *args, **kwargs):
         with self.get_executor() as executor:
@@ -123,8 +194,16 @@ class HealthCheckView(TemplateView):
             )
         has_errors = any(result.error for result in self.results)
         status_code = 500 if has_errors else 200
-        format_override = request.GET.get("format")
 
+        response = self.render_for_format(request.GET.get("format"), status_code)
+        if response is None:
+            response = self.render_for_accept_header(
+                request.headers.get("accept", "*/*"), status_code, **kwargs
+            )
+        return response
+
+    def render_for_format(self, format_override, status_code):
+        """Return the response for an explicit format override, if supported."""
         match format_override:
             case "json":
                 return self.render_to_response_json(status_code)
@@ -136,8 +215,10 @@ class HealthCheckView(TemplateView):
                 return self.render_to_response_rss()
             case "openmetrics":
                 return self.render_to_response_openmetrics()
+        return None
 
-        accept_header = request.headers.get("accept", "*/*")
+    def render_for_accept_header(self, accept_header, status_code, **kwargs):
+        """Return the response matching the Accept header, defaulting to 406."""
         for media in MediaType.parse_header(accept_header):
             match media.mime_type:
                 case "text/plain":
@@ -153,7 +234,7 @@ class HealthCheckView(TemplateView):
                     return self.render_to_response_rss()
                 case "application/openmetrics-text":
                     return self.render_to_response_openmetrics()
-        return HttpResponse(
+        return http.HttpResponse(
             "Not Acceptable: Supported content types: text/plain, text/html, application/json, application/atom+xml, application/rss+xml, application/openmetrics-text",
             status=406,
             content_type="text/plain",
@@ -167,12 +248,12 @@ class HealthCheckView(TemplateView):
         start = timeit.default_timer()
         try:
             return await check.get_result(executor)
-        except HealthCheckException as exception:
+        except HealthCheckError as exception:
             logger.warning("Health check %r failed", check, exc_info=exception)
             error = exception
         except Exception:
             logger.exception("Unexpected exception during health check")
-            error = HealthCheckException("unknown error")
+            error = HealthCheckError("unknown error")
         return HealthCheckResult(
             check=check,
             error=error,
@@ -184,7 +265,12 @@ class HealthCheckView(TemplateView):
             **super().get_context_data(**kwargs),
             "results": self.results,
             "errors": any(result.error for result in self.results),
+            "stylesheet": self.stylesheet,
         }
+
+    def render_to_response(self, context, **response_kwargs):
+        render = csp_override(self.csp_config)(super().render_to_response)
+        return render(context, **response_kwargs)
 
     def get_executor(self) -> contextlib.AbstractContextManager[Executor | None]:
         """
@@ -202,7 +288,7 @@ class HealthCheckView(TemplateView):
 
     def render_to_response_json(self, status):
         """Return JSON response with health check results."""
-        return JsonResponse(
+        return http.JsonResponse(
             {
                 repr(result.check): "OK" if not result.error else str(result.error)
                 for result in self.results
@@ -216,7 +302,7 @@ class HealthCheckView(TemplateView):
             f"{repr(result.check)}: {'OK' if not result.error else str(result.error)}"
             for result in self.results
         )
-        return HttpResponse(
+        return http.HttpResponse(
             "\n".join(lines) + "\n",
             content_type="text/plain; charset=utf-8",
             status=status,
@@ -283,7 +369,7 @@ class HealthCheckView(TemplateView):
             "# EOF",
         ]
 
-        return HttpResponse(
+        return http.HttpResponse(
             "\n".join(lines) + "\n",
             content_type="application/openmetrics-text; version=1.0.0; charset=utf-8",
             status=200,  # Prometheus expects 200 even if checks fail
@@ -314,12 +400,11 @@ class HealthCheckView(TemplateView):
                 categories=["error", "unhealthy"] if result.error else ["healthy"],
             )
 
-        response = HttpResponse(
+        return http.HttpResponse(
             feed.writeString("utf-8"),
             content_type=feed.content_type,
             status=200,  # Feed readers expect 200 even if checks fail
         )
-        return response
 
     def get_checks(
         self,

@@ -19,6 +19,7 @@ from .llm_params import LLMParams, normalize_max_output_tokens
 from .llm_wire_types import CompactionSettings, ImageLora
 from .message_config import HOST_AUTHORED_BY, MessageList, UnifiedMessage
 from .response_format import ResponseFormat
+from .served_via import ServedVia, coerce_served_via
 from .tts_config import TTSVoiceConfig
 from .unified_content import (
     TextContent,
@@ -175,7 +176,12 @@ _OVERRIDE_NORMALIZERS: dict[str, Callable[[object], object]] = {
 #: Keys an explicit null override never unsets: ``model`` has no "not set"
 #: (a run always names one), ``offering_id`` has its own pin rule above, and
 #: ``stream`` is transport, not a model setting.
-_NEVER_UNSET_BY_NULL = frozenset({"model", "offering_id", "stream"})
+_NEVER_UNSET_BY_NULL = frozenset({"model", "offering_id", "served_via", "stream"})
+
+
+def _instructions_or_none(value: Any) -> str | None:
+    """A conversation's own instructions: real text, or None (blank is none)."""
+    return value if isinstance(value, str) and value.strip() else None
 
 
 def _camera_control(value: Any) -> dict | None:
@@ -235,6 +241,19 @@ class UnifiedConfig:
     # Unset = preferred-by-priority (the classic behavior). Persisted in the
     # conversation config JSONB so the pin survives across turns.
     offering_id: str | None = None
+
+    # WHERE the model runs when it is not a cloud offering: a person's own Matrx 2
+    # computer (config/served_via.py). Part of the MODEL CHOICE — stored with the
+    # conversation, restored on continuation, reverted with the model after a "this
+    # message only" pick, cleared by an override that names a model without it. A
+    # device-served run has ONE route; nothing reroutes it (providers/device/route_guard.py).
+    served_via: ServedVia | None = None
+
+    # THIS CONVERSATION'S OWN INSTRUCTIONS (LLMParams.conversation_instructions, L3 one-chat G1):
+    # stored in the conversation config JSONB, restored on continuation, applied ONLY at the send
+    # boundary, after the agent's instructions, on the wire clone — the frozen system prompt the row
+    # stores is never touched, so a change never trips the cache-line law.
+    conversation_instructions: str | None = None
 
     # RUNTIME routing pin — set ONLY by the overload-class sibling-offering
     # fallback (orchestrator/overload_reroute.py + executor), the one sanctioned
@@ -560,6 +579,11 @@ class UnifiedConfig:
     # carry them through so downstream layers can use them when ready.
     mcp_servers: list[str] = field(default_factory=list)
     authored_mcp_servers: list[str] | None = None
+    # THE AGENT'S OWN SETTINGS (the layer between the model's default and the person's
+    # override): snapshotted when an agent's config is built (Agent._build_from_config), stored
+    # with the conversation. A person's override that is REMOVED (an explicit null) falls back
+    # HERE, never to the model's default (main's ruling, 2026-10-24). None = no agent layer.
+    authored_settings: dict[str, Any] | None = None
 
     # Context Compaction Settings (5-Tier Architecture)
     # Tier 1: Auto-stripping (always-on) | Tier 2: Minimal prune | Tier 3: Content-to-retrieval
@@ -614,6 +638,8 @@ class UnifiedConfig:
         # agent/conversation JSONB and direct UnifiedConfig construction at the
         # runtime boundary, not only request-time LLMParams overrides.
         self.max_output_tokens = normalize_max_output_tokens(self.max_output_tokens)
+        # A stored/dict device pick becomes the typed ServedVia (refuses a bad one).
+        self.served_via = coerce_served_via(self.served_via)
 
         # Convert messages to MessageList if needed
         if not isinstance(self.messages, MessageList):
@@ -871,6 +897,11 @@ class UnifiedConfig:
         config = cls(
             model=data.get("model", ""),
             offering_id=data.get("offering_id"),
+            served_via=coerce_served_via(data.get("served_via")),
+            authored_settings=(
+                dict(data["authored_settings"]) if isinstance(data.get("authored_settings"), dict) else None
+            ),
+            conversation_instructions=_instructions_or_none(data.get("conversation_instructions")),
             messages=parsed_messages,
             system_instruction=system_instruction,
             system_prompt_frozen=bool(data.get("system_prompt_frozen", False)),
@@ -1082,6 +1113,9 @@ class UnifiedConfig:
         stored_offering_id = (
             turn_only.get("offering_id") if turn_only else self.offering_id
         )
+        stored_served_via = coerce_served_via(
+            turn_only.get("served_via") if turn_only else self.served_via
+        )
         result: dict[str, Any] = {
             "model": stored_model,
             "system_instruction": system_instruction_storage,
@@ -1092,6 +1126,12 @@ class UnifiedConfig:
         config: dict[str, Any] = {}
         if stored_offering_id is not None:
             config["offering_id"] = stored_offering_id
+        if stored_served_via is not None:
+            config["served_via"] = stored_served_via.model_dump(mode="json")
+        if self.authored_settings:
+            config["authored_settings"] = dict(self.authored_settings)
+        if self.conversation_instructions:
+            config["conversation_instructions"] = self.conversation_instructions
         if self.temperature is not None:
             config["temperature"] = self.temperature
         if self.max_output_tokens is not None:
@@ -1552,6 +1592,12 @@ class UnifiedConfig:
             or (moved_model and overrides.offering_id is None)
         ):
             self.offering_id = None
+        # The device a model runs on is part of the same choice: naming a model
+        # without ``served_via`` is a cloud pick, and an explicit null clears it.
+        if hasattr(self, "served_via") and overrides.served_via is None and (
+            "model" in fields_set or "served_via" in fields_set
+        ):
+            self.served_via = None
         for key in LLMParams.model_fields:
             value = getattr(overrides, key)
             if value is None:
@@ -1571,7 +1617,7 @@ class UnifiedConfig:
                 value = normalizer(value)
             setattr(self, key, value)
 
-    _TURN_ONLY_MODEL_KEYS = ("model", "offering_id", "runtime_offering_id")
+    _TURN_ONLY_MODEL_KEYS = ("model", "offering_id", "runtime_offering_id", "served_via")
 
     def begin_model_this_turn_only(self) -> None:
         """Remember the conversation's model before a one-turn model override.
@@ -1598,13 +1644,34 @@ class UnifiedConfig:
         self.model_turn_only_restore = None
         return True
 
+    def snapshot_authored_settings(self) -> None:
+        """Record the current setting values as the AGENT's own layer (call once, when an agent's
+        config is built and before any override applies)."""
+        from matrx_ai.config.llm_params import LLMParams
+
+        snapshot: dict[str, Any] = {}
+        for key in LLMParams.model_fields:
+            if key in AUTHORED_SETTINGS_EXCLUDED or not hasattr(self, key):
+                continue
+            value = getattr(self, key)
+            if value is not None and value != [] and value != {}:
+                snapshot[key] = copy.deepcopy(value)
+        self.authored_settings = snapshot
+
     def _unset_setting(self, key: str) -> None:
-        """Return one stored setting to "not set" — its declared field default.
+        """Return one stored setting to "not set": the agent's own value when it set one
+        (``authored_settings``), else its declared field default.
 
         A field with no default (``model``) is never unset this way.
         """
         spec = _CONFIG_FIELDS.get(key)
         if spec is None:
+            return
+        # The settings stack is model default < agent < the person's override: removing the
+        # override returns the AGENT's own value when the agent set one (main, 2026-10-24).
+        authored = self.authored_settings or {}
+        if key in authored and authored[key] is not None:
+            setattr(self, key, copy.deepcopy(authored[key]))
             return
         if spec.default is not MISSING:
             setattr(self, key, spec.default)
@@ -1615,6 +1682,10 @@ class UnifiedConfig:
         """Get the output of the last assistant message."""
         return self.messages.get_last_output()
 
+
+#: Never part of the agent's settings layer: the model choice and where it runs (a removed
+#: model pin is a new pick, never "back to the agent's model" by this rule).
+AUTHORED_SETTINGS_EXCLUDED: frozenset[str] = frozenset({"model", "offering_id", "served_via"})
 
 #: UnifiedConfig's dataclass fields by name — the "not set" value an explicit
 #: null override restores (see ``UnifiedConfig._unset_setting``).

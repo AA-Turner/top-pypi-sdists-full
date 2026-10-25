@@ -485,7 +485,7 @@ def test_a_lease_released_on_a_failure_two_scans_in_a_row_is_a_worker_report(rig
     assert rig.calls[0]["facts"]["source"] == "lease"
 
 
-@pytest.mark.parametrize("reason", ["stopped", "budget", "handover"])
+@pytest.mark.parametrize("reason", ["stopped", "budget", "handover", "disk_full"])
 def test_a_lease_released_on_purpose_is_none(rig, tmp_path, reason):
     state = tmp_path / "state" / "probe"
     rig.sessions = [Session(SID, mode="daemon", state_dir=str(state), report_env=True)]
@@ -493,6 +493,21 @@ def test_a_lease_released_on_purpose_is_none(rig, tmp_path, reason):
     rig.scan()
     rig.scan()
     assert rig.calls == []
+
+
+def test_a_gateway_release_on_no_network_at_all_is_none(rig, tmp_path):
+    """An offline laptop's worker hands writing back as `gateway`, marked
+    `offline`: the laptop's, not ours. Unmarked (a 504, a hang) it still reports."""
+    state = tmp_path / "state" / "probe"
+    rig.sessions = [Session(SID, mode="daemon", state_dir=str(state), report_env=True)]
+    _lease(state, SID, expires_at=rig.now - 500, reason="gateway", offline=True)
+    rig.scan()
+    rig.scan()
+    assert rig.calls == []
+    _lease(state, SID, expires_at=rig.now - 500, reason="gateway")
+    rig.scan()
+    rig.scan()
+    assert rig.families() == [("worker", "lease_gateway", SID)]
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the worker lock is an flock; Windows has no worker supervision")
@@ -1054,6 +1069,50 @@ def test_a_tap_watch_session_whose_heartbeat_stopped_while_its_agent_runs_is_gon
     assert rig.families() == [("recorder", "gone", SID)]
 
 
+def test_a_session_gone_since_one_heartbeat_is_reported_once_across_restarts(rig):
+    """Bucket 10-24: one Codex session idle 13.5 h after its recorder was lost
+    paged at 00:53, 07:18 and 14:20, a service restart between each. Its
+    registration never moved, so the 2nd and 3rd said nothing new. Once it
+    registers again (its next prompt) and is lost again, that is news."""
+    owner = {"pid": os.getpid(), "start_time": "x"}
+    lost_at = rig.now
+    rig.sessions = [Session(SID, owner=owner, report_env=True, heartbeat_at=lost_at)]
+    rig.tick(100)
+    rig.scan()
+    rig.scan()
+    assert rig.families() == [("recorder", "gone", SID)]
+    later = Rig()  # the next service, past the 6 h dedupe
+    later.now, later.mono = rig.now + 7 * 3600, rig.mono + 7 * 3600
+    later.sessions = [Session(SID, owner=owner, report_env=True, heartbeat_at=lost_at)]
+    later.scan()
+    later.scan()
+    assert later.calls == []
+    # It registered again (a prompt), then lost its recorder again: reported.
+    later.sessions = [Session(SID, owner=owner, report_env=True, heartbeat_at=later.now)]
+    later.tick(100)
+    later.scan()
+    later.scan()
+    assert later.families() == [("recorder", "gone", SID)]
+
+
+def test_a_registration_whose_report_the_child_deduped_is_reported_after_the_window(rig):
+    """Review: the child dedupes one (family, session) per 6 h, so its
+    `deduped` may be another registration's report, not this one's."""
+    owner = {"pid": os.getpid(), "start_time": "x"}
+    rig.answer = (0, {"sent": False, "id": None, "skipped": "deduped", "path": None})
+    rig.sessions = [Session(SID, owner=owner, report_env=True, heartbeat_at=rig.now)]
+    rig.tick(100)
+    rig.scan()
+    rig.scan()
+    assert len(rig.calls) == 1
+    later = Rig()  # the next service, past the window
+    later.now, later.mono = rig.now + 7 * 3600, rig.mono + 7 * 3600
+    later.sessions = rig.sessions
+    later.scan()
+    later.scan()
+    assert later.families() == [("recorder", "gone", SID)]
+
+
 def test_a_hooks_run_event_s_report_carries_its_session_s_opt_outs(service):
     """pi sends the session's environment with each event (review #1)."""
     env = {"HOME": "/h", "PROBE_DIAGNOSTICS": "off"}
@@ -1477,11 +1536,28 @@ def test_a_session_waiting_an_hour_past_its_last_receipt_is_stalled():
         "caught_up": {"received_at": now - 5 * 3600, "pending_bytes": 0},
         "partial_tail": {"received_at": now - 5 * 3600, "pending_bytes": 40, "pending_lines": 0},
         "finalized": {"received_at": now - 5 * 3600, "pending_bytes": 10, "finalized": True},
+        # Its uploads get no answer: the laptop is offline, nothing on our side stalled.
+        "offline": {"received_at": now - 5 * 3600, "pending_bytes": 1200, "pending_lines": 3, "retrying": True,
+                    "offline": True},
         "unread": None,
     }
     found = watch.capture_conditions(receipts, now)
     assert set(found) == {"stalled", "batch", "uncounted"}
     assert found["stalled"]["received_h"] == 2.0 and found["stalled"]["pending_bytes"] == 1200
+
+
+def test_a_laptop_back_online_is_aged_from_when_it_was_last_offline():
+    """Review: 4 h offline, then a retry that meets a 429 for two slow checks
+    was "stalled 4 h". The wait counts from the last time it was offline."""
+    still: dict = {}
+    now = 1_000_000.0
+    away = {"received_at": now - 4 * 3600, "received_bytes": 10, "pending_bytes": 1200, "pending_lines": 3,
+            "retrying": True, "offline": True}
+    back = {**away, "offline": False}
+    assert watch.capture_conditions({"s": away}, now, still) == {}
+    assert watch.capture_conditions({"s": back}, now + 600, still) == {}
+    found = watch.capture_conditions({"s": back}, now + watch.CAPTURE_STALL_S, still)
+    assert found["s"]["received_h"] == 1.0
 
 
 def test_a_session_none_of_whose_batches_landed_is_stalled_once_its_cursor_sat_an_hour():
@@ -1679,6 +1755,25 @@ def test_a_refused_key_is_reported_by_kind_once_and_each_answered_key_asked_agai
     _awake(rig, 2 * watch.SLOW_CHECK_S)
     assert rig.asked[-1] == ["daemon_key", "login", "mcp_key"]
     assert len(rig.calls) == 1, "the same refused key is reported once, not every day (C1 adversarial #14)"
+
+
+def test_each_keys_last_answer_outlives_a_restart(monkeypatch):
+    """`service.state` reports the last answer per key kind: a service started
+    again (every update) reads it from watch.json, or it is absent for a day
+    (a key answered is asked again only daily)."""
+    monkeypatch.setattr(watch, "configured_key_ids", lambda: {"login": "id-l", "daemon_key": "id-d"})
+    rig = _slow_rig()
+    rig.state["credentials"] = {"login": ("id-l", "ok"), "daemon_key": ("id-d", "refused")}
+    rig.scan()
+    assert rig.watch.key_answers() == {"login": "ok", "daemon_key": "refused"}
+    restarted = _slow_rig()
+    restarted.now = rig.now
+    restarted.scan()  # nothing due: no key asked
+    assert restarted.asked == [] or restarted.asked == [[]]
+    assert restarted.watch.key_answers() == {"login": "ok", "daemon_key": "refused"}
+    # Another key in the config now (a sign-in, another context): its own answer, not the old key's.
+    monkeypatch.setattr(watch, "configured_key_ids", lambda: {"login": "id-new", "daemon_key": "id-d"})
+    assert restarted.watch.key_answers() == {"login": None, "daemon_key": "refused"}
 
 
 def test_no_key_is_asked_when_its_report_could_not_be_sent():

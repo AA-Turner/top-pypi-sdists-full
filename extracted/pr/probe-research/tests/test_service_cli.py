@@ -74,3 +74,21 @@ def test_status_says_what_the_updater_did(service_home):
     assert "(failed)" in line and "deferred" in line and "daemon_recording" in line and "next " in line
     assert service_cli.update_line({"in_progress": True, "step": "app"}) == "updating now (app)"
     _probe("stop")
+
+
+def test_an_update_that_did_not_complete_reads_as_failed():
+    """A record an older service wrote: the cycle `ok`, its CLI-and-plugins
+    step done, but the update child said `complete: false` (live test C). Every
+    surface reads it as failed: `probe service status`, `probe doctor`'s row,
+    `probe status --json`'s `last_ok`."""
+    from probe.cli import service_calls, service_cli
+
+    last = {"ok": True, "steps": {"cli_and_plugins": {"state": "done", "exit_code": 0, "ok": True,
+                                                       "complete": False}}}
+    update = {"enabled": True, "in_progress": False, "last_check": 0, "last_result": last, "next_check": 3600}
+    assert "(failed)" in service_cli.update_line(update)
+    assert service_calls.cycle_ok(last) is False
+    assert service_calls.cycle_ok({"ok": True, "steps": {"cli_and_plugins": {"state": "done", "complete": True}}})
+    assert service_calls.cycle_ok({"ok": False}) is False and service_calls.cycle_ok(None) is None
+    assert "(failed)" in service_calls.update_text({"enabled": True, "last_check": 0,
+                                                   "last_ok": service_calls.cycle_ok(last)})

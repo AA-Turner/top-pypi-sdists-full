@@ -9,7 +9,8 @@ use crate::{AstNode, TableOrArrayOfTable};
 #[derive(Debug, Clone, Default)]
 pub(crate) struct HeaderInfo {
     /// For each key-prefix of the header (prefix length `i + 1` at index `i`), the number of
-    /// preceding `[[array_of_tables]]` headers that equal that prefix.
+    /// preceding `[[array_of_tables]]` headers that equal that prefix within the same parent
+    /// array element.
     pub(crate) array_of_tables_counts: Vec<usize>,
     /// The number of distinct shorter key-prefixes of the header that were already declared by
     /// a preceding `[table]` / `[[array_of_tables]]` header.
@@ -33,6 +34,12 @@ pub(crate) struct HeaderIndex {
 struct KeyPathInterner {
     children: HashMap<u32, HashMap<String, u32>>,
     next_id: u32,
+}
+
+#[derive(Default)]
+struct ArrayOfTablesState {
+    count: usize,
+    latest_element_id: usize,
 }
 
 impl KeyPathInterner {
@@ -59,9 +66,10 @@ impl HeaderIndex {
         // (or unconvertible) first key starts a new run.
         let mut run_first_key: Option<u32> = None;
         let mut run_headers: HashSet<u32> = HashSet::new();
-        // The same, restricted to `[[...]]` headers, which `[table]` headers never interrupt.
-        let mut aot_run_first_key: Option<u32> = None;
-        let mut aot_run_counts: HashMap<u32, usize> = HashMap::new();
+        // Count each array within its parent array element. The element id also lets later
+        // headers find that parent after unrelated headers have intervened.
+        let mut aot_counts: HashMap<(u32, usize), ArrayOfTablesState> = HashMap::new();
+        let mut next_aot_element_id = 0;
         // Headers whose sub tables are still being collected, from outermost to innermost, as
         // `(node id, key path id, key count)`.
         let mut open_headers: Vec<(u32, u32, usize)> = vec![];
@@ -116,12 +124,15 @@ impl HeaderIndex {
             let first = path_ids.first().copied();
 
             let same_run = first.is_some() && first == run_first_key;
-            let same_aot_run = first.is_some() && first == aot_run_first_key;
 
             let mut array_of_tables_counts = vec![0; key_count];
-            if same_aot_run {
-                for (count, path_id) in array_of_tables_counts.iter_mut().zip(&path_ids) {
-                    *count = aot_run_counts.get(path_id).copied().unwrap_or_default();
+            let mut scope = 0;
+            let mut final_parent_scope = 0;
+            for (count, path_id) in array_of_tables_counts.iter_mut().zip(&path_ids) {
+                final_parent_scope = scope;
+                if let Some(state) = aot_counts.get(&(*path_id, scope)) {
+                    *count = state.count;
+                    scope = state.latest_element_id;
                 }
             }
             let parent_header_count = if same_run {
@@ -164,19 +175,13 @@ impl HeaderIndex {
                 run_headers.insert(path_ids[key_count - 1]);
             }
 
-            if is_array_of_table {
-                if let Some(first) = first {
-                    if !same_aot_run {
-                        aot_run_first_key = Some(first);
-                        aot_run_counts.clear();
-                    }
-                    if is_complete {
-                        *aot_run_counts.entry(path_ids[key_count - 1]).or_default() += 1;
-                    }
-                } else {
-                    aot_run_first_key = None;
-                    aot_run_counts.clear();
-                }
+            if is_array_of_table && is_complete {
+                next_aot_element_id += 1;
+                let entry = aot_counts
+                    .entry((path_ids[key_count - 1], final_parent_scope))
+                    .or_default();
+                entry.count += 1;
+                entry.latest_element_id = next_aot_element_id;
             }
 
             if is_complete {

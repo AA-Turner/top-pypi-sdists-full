@@ -5,8 +5,8 @@ architecture"): the `probe` CLI is a terminal over it, the Probe service a
 socket over it, and the desktop app talks to the service. Each behaviour lives
 here once.
 
-    actions   configure, recorder, logout, uninstall, update, session_default
-              (`probe.core.actions`): a request in, events out, an exit status back
+    actions   configure, recorder, logout, uninstall, update, session_default,
+              workspace_limit (`probe.core.actions`): a request in, events out, an exit status back
     reads     status (`probe.core.reads`): `probe status --json`'s object
     report    diagnostic reports to the Probe team (`probe.core.report`) and the
               debug log (`probe.core.debug_bundle`): `probe doctor --send/--bundle`
@@ -24,7 +24,7 @@ imports what it needs when it runs. `tests/test_core_run.py` pins it.
 
 from __future__ import annotations
 
-from probe.core.actions import configure, logout, recorder, session_default, uninstall, update
+from probe.core.actions import configure, logout, recorder, session_default, uninstall, update, workspace_limit
 from probe.core.events import EventSink
 from probe.core.reads import status
 from probe.core.requests import (
@@ -37,6 +37,7 @@ from probe.core.requests import (
     SessionDefaultRequest,
     SessionState,
     StatusRequest,
+    WorkspaceLimitRequest,
 )
 
 __all__ = [
@@ -50,6 +51,7 @@ __all__ = [
     "SessionDefaultRequest",
     "SessionState",
     "StatusRequest",
+    "WorkspaceLimitRequest",
     "configure",
     "logout",
     "recorder",
@@ -57,4 +59,5 @@ __all__ = [
     "status",
     "uninstall",
     "update",
+    "workspace_limit",
 ]

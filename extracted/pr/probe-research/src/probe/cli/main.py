@@ -710,11 +710,27 @@ _READ_ONLY_COMMANDS = frozenset({"status", "desktop"})
 #: off a terminal dozens of times an hour (Bucket's laptop: 293 in three hours,
 #: 2026-10-23), so this is one asking process per window, not one per command.
 _SERVICE_ASK_EVERY_S = 15 * 60
-#: Its stamp (an empty file whose mtime is the last ask), beside `autoupdate.json`.
+#: Its stamp (one byte once an ask is claimed; its mtime is the last ask), beside
+#: `autoupdate.json`.
 _SERVICE_ASK_STAMP = "service-update-ask"
 #: `probe service ...` talks to the service itself: `probe service check-now` IS
 #: the SessionStart hook's ask, and `probe service stop` must not start it again.
 _SERVICE_COMMAND = "service"
+
+#: Probe staff asked this machine to update now (research-os control/071): a
+#: `probe` command that finds the mark (`probe._shared.update_request`) hands an
+#: update to the updater at most this often, while the server keeps asking.
+_REMOTE_ASK_EVERY_S = 15 * 60
+#: Its stamp, beside `autoupdate.json` (its own window: an every-command ask the
+#: service answered `recent` must not hold a remote one back).
+_REMOTE_ASK_STAMP = "remote-update-ask"
+#: Never act on that request from these. `daemon` and `mcp` run for a whole
+#: session: an ask from one would wait out `WAIT_FOR_PID_S` for its own exit, and
+#: the Probe service hands daemon workers over at an update anyway. The wizard and
+#: the hidden `update` (an older plugin's SessionStart hook) ARE an update.
+_REMOTE_UPDATE_SKIP_COMMANDS = frozenset(
+    {_SERVICE_COMMAND, "daemon", "mcp", "update", *_WIZARD_COMMANDS}
+)
 
 #: How old the wizard's held server answer may be when Diagnose reports it.
 _DIAGNOSE_MAX_AGE_S = 30.0
@@ -936,10 +952,14 @@ def _capture_block(session_id: str, *, heal_cwd: str | None) -> dict:
     # reason is the more specific true answer, so it wins. `off` and
     # `not applicable` are deliberately NOT in that vocabulary: the first is
     # carried by `effective`, and the second is not this surface's business.
+    # Nor is `running`: the heal reads the marker alone (`ask_service=False`),
+    # so for a session the Probe service hosts it says running while the
+    # service's answer above (`not recording`) is the true one.
     if (
         healed is not None
         and not healed.started
         and not state.running
+        and healed.reason != "running"
         and healed.reason in capture_state.REASONS
     ):
         reason = healed.reason
@@ -1170,26 +1190,117 @@ def _hand_update_to_service(command: str | None) -> None:
 
         if os.environ.get(SERVICE_CHILD_ENV):
             return
-        from probe._shared import oscompat
+        if _claim_window(_SERVICE_ASK_STAMP, _SERVICE_ASK_EVERY_S):
+            _ask_service_to_update("cli")
+    except Exception:  # noqa: BLE001 -- the check never breaks the command it runs before
+        pass
 
-        from . import autoupdate
-        stamp = autoupdate.state_dir() / _SERVICE_ASK_STAMP
-        stamp.parent.mkdir(parents=True, exist_ok=True)
-        with open(stamp, "a+b") as handle:
-            try:
-                oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
-            except OSError:
-                return  # another command is claiming this window
-            # A stamp just created by this open has no ask behind it yet: its
-            # size is the mark (one byte is written once an ask is claimed).
-            age = time.time() - os.fstat(handle.fileno()).st_mtime
-            if os.fstat(handle.fileno()).st_size and 0 <= age < _SERVICE_ASK_EVERY_S:
-                return
-            handle.truncate(0)
-            handle.write(b"1")
-            handle.flush()
-            os.utime(stamp)
-        _ask_service_to_update("cli")
+
+def _claim_window(stamp_name: str, every_s: float) -> bool:
+    """Claim this window's one ask: True for the one process that may ask now.
+
+    The window is claimed under an exclusive, non-blocking lock on the stamp
+    (`stamp_name`, beside `autoupdate.json`: one byte once an ask is claimed, empty
+    only before the first, and its mtime is the last ask), so a burst of commands
+    starting together asks once; a command that finds
+    the lock taken leaves the ask to its holder. Raises OSError when the stamp
+    cannot be opened: the callers ask nothing then, since one asking process per
+    command is worse than none."""
+    from probe._shared import oscompat
+
+    from . import autoupdate
+
+    stamp = autoupdate.state_dir() / stamp_name
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    with open(stamp, "a+b") as handle:
+        try:
+            oscompat.flock(handle.fileno(), oscompat.LOCK_EX | oscompat.LOCK_NB)
+        except OSError:
+            return False  # another command is claiming this window
+        # A stamp just created by this open has no ask behind it yet: its
+        # size is the mark (one byte is written once an ask is claimed).
+        age = time.time() - os.fstat(handle.fileno()).st_mtime
+        if os.fstat(handle.fileno()).st_size and 0 <= age < every_s:
+            return False
+        handle.truncate(0)
+        handle.write(b"1")
+        handle.flush()
+        os.utime(stamp)
+    return True
+
+
+def _remote_update_notice() -> None:
+    """Probe staff asked this machine to update now: hand an update to its own
+    updater. Never raises, prints nothing.
+
+    The server marks the machine (research-os control/071) and answers its
+    authenticated requests with `X-Probe-Update-Requested`; whichever of our
+    clients got that answer left the mark (`probe._shared.update_request`). This
+    runs before every command, so its gates are cheapest first and nearly every
+    call ends at the second one, a missing file:
+
+        command      not run-scoped (`_UPDATE_HOT_PATH_COMMANDS`: nothing is ever
+                     started from inside a training loop), not `service`,
+                     `daemon` or the wizard (`_REMOTE_UPDATE_SKIP_COMMANDS`)
+        the mark     present and seen within `update_request.FRESH_S`
+        not a child of the Probe service (`paths.SERVICE_CHILD_ENV`)
+        auto-update  on: turning it off is the person's choice, and staff asking
+                     never overrides it
+        the window   one ask per `_REMOTE_ASK_EVERY_S` (`_claim_window`)
+
+    Then the updater the machine already has, with its own rules:
+    - the Probe service (POSIX): `update.check_now`, the every-command check's
+      ask (`_ask_service_to_update`), but whether or not the cached manifest
+      shows an update (the service fetches its own). A running cycle, its
+      `recent` cooldown and every quiet and deferral rule stand; the next window
+      asks again while the server keeps asking.
+    - no service (Windows, an install with no service interpreter): the update
+      lands in place, so nothing may be running from the CLI's files. Not from a
+      command a Probe daemon runs (`PROBE_DAEMON_SESSION`), nor while a daemon
+      worker holds its lock, and a live run lock records `run in flight` and stops
+      here, as the every-command check does; otherwise `version_refresh
+      --apply-if-newer` (a fresh manifest, the update lock, the run lock again in
+      the child), the session-start update. It skips only the not-a-TTY gate:
+      every `probe` on a machine that only runs coding-agent hooks is off a
+      terminal, which is how two customer machines sat two days behind
+      (2026-10-24).
+    """
+    command = _invoked_command()
+    if command in _UPDATE_HOT_PATH_COMMANDS or command in _REMOTE_UPDATE_SKIP_COMMANDS:
+        return
+    try:
+        from probe._shared import update_request
+
+        if not update_request.fresh():
+            return
+        from probe.service.paths import SERVICE_CHILD_ENV
+
+        if os.environ.get(SERVICE_CHILD_ENV):
+            return
+        from probe import version_policy
+
+        if not version_policy.autoupdate_enabled():
+            return
+        if not _claim_window(_REMOTE_ASK_STAMP, _REMOTE_ASK_EVERY_S):
+            return
+        if _service_owns_updates():
+            _ask_service_to_update("cli")
+            return
+        from probe.sdk.agent_session import DAEMON_SESSION_ENV
+
+        if os.environ.get(DAEMON_SESSION_ENV):
+            return
+        from probe.service.updater import daemon_worker_running
+
+        from . import autoupdate, run_lock
+
+        if daemon_worker_running():
+            autoupdate.record_skip(autoupdate.SKIP_DAEMON_RECORDING)
+            return
+        if run_lock.any_live():
+            autoupdate.record_skip(autoupdate.SKIP_RUN_IN_FLIGHT)
+            return
+        _spawn_update("--apply-if-newer")
     except Exception:  # noqa: BLE001 -- the check never breaks the command it runs before
         pass
 
@@ -1700,6 +1811,8 @@ def _root(
     # updated at all. Both of these are read-only-and-spawn on the fast path; see
     # _version_notice for why its gate order is what it is.
     _version_notice()
+    # Probe staff asked this machine to update now (research-os control/071).
+    _remote_update_notice()
     # Trigger surface B: the one place that runs exactly once per CLI
     # invocation. NOT transport.py's `agent_session_headers()`, which fires
     # per HTTP request and would ask this question many times per command.
@@ -2114,8 +2227,11 @@ def update_compat(
         outcome = perform_update(base_url=base, include_plugin=plugin, trigger=trigger)
     for line in outcome.lines:
         print(line)
-    if outcome.restart_needed:
-        print("\nRestart Claude Code to apply the plugin update.")
+    from probe.cli.upgrading import after_update_line
+
+    closing = after_update_line(outcome, "Claude Code")
+    if closing:
+        print(f"\n{closing}")
     raise typer.Exit(0 if outcome.ok else 1)
 
 
@@ -4359,9 +4475,11 @@ def _run_wizard_action(
             )
         _record_update(caps.agent_source, outcome)
         lines = list(outcome.lines)
-        if outcome.restart_needed:
-            agent_name = wizard.agent_label(caps.agent_source)
-            lines += ["", f"Restart {agent_name} to apply the plugin update."]
+        from probe.cli.upgrading import after_update_line
+
+        closing = after_update_line(outcome, wizard.agent_label(caps.agent_source))
+        if closing:
+            lines += ["", closing]
         # The pointer block lives in the researcher's home directory, so no
         # release can reach it: updating the CLI ships new POINTER_BODY wording
         # that the installed block never picks up, and this action -- the one an
@@ -6295,7 +6413,17 @@ def mcp_headers() -> None:
             file=sys.stderr,
         )
         raise typer.Exit(1)
-    print(json.dumps({"Authorization": f"Bearer {settings.mcp_token}"}))
+    from ..sdk import workspace_limit as wl
+
+    headers = {"Authorization": f"Bearer {settings.mcp_token}"}
+    try:
+        headers.update(wl.headers_for(settings, bearer=settings.mcp_token))
+    except errors.RosError as exc:
+        # Never dropped (that would widen it): a limit this cannot name goes as
+        # found, and the API refuses it with a message naming the fix.
+        print(f"warning: {exc}", file=sys.stderr)
+        headers.update(wl.fail_closed_headers(settings.workspace_limit))
+    print(json.dumps(headers))
 
 
 @mcp_app.command("env")
@@ -6520,6 +6648,7 @@ def context_show(
         "base_url": settings.base_url,
         "workspace": settings.workspace,
         "project": settings.project,
+        "workspace_limit": None if settings.workspace_limit is None else settings.workspace_limit.as_json(),
     }
     _print_json(row)
 
@@ -6615,6 +6744,13 @@ def workspace_create(
     New projects go into this computer's workspace (`probe workspace use`, or the
     setup wizard's choice); a team with several workspaces and none set is refused.
     """
+    if use:
+        from . import workspace_limit_cmd
+
+        refused = workspace_limit_cmd.refusal_for_pin_move(None, what="`probe workspace create --use`")
+        if refused:
+            print(f"error: {refused}", file=sys.stderr)
+            raise typer.Exit(1)
     with _client() as c:
         ws = c.create_workspace(slug, name)
     if use:
@@ -6646,7 +6782,16 @@ def workspace_delete(
     anchor = load_context().get("workspace")
     pinned_id = anchor.get("id") if isinstance(anchor, dict) else None
     if isinstance(pinned_id, str) and _bare_id(pinned_id) == str(ws["id"]):
+        limited = isinstance(anchor, dict) and anchor.get("limit") is True
         save_context({"workspace": None})
+        if limited:
+            # A limit naming a deleted workspace would refuse every request; the
+            # copies other agents hold (Codex, Kimi Code) go with it.
+            from . import workspace_limit_cmd
+
+            print("this computer's workspace limit named it, so Probe here sees the whole team again", file=sys.stderr)
+            for line in workspace_limit_cmd.resync_copies():
+                print(line, file=sys.stderr)
     print(f"deleted workspace {ws.get('name')} ({ws['id']})")
 
 
@@ -6675,15 +6820,90 @@ def workspace_use(
     """
     if clear == (workspace_id is not None):
         raise typer.BadParameter("pass a workspace to switch to, or --clear, not both")
+    from . import workspace_limit_cmd
+
     if clear:
+        refused = workspace_limit_cmd.refusal_for_pin_move(None, what="`probe workspace use --clear`")
+        if refused:
+            print(f"error: {refused}", file=sys.stderr)
+            raise typer.Exit(1)
         # On purpose: the one-time handover never re-pins a legacy default here.
         save_context({"workspace": None, WORKSPACE_HANDOVER: True})
         print("this computer's workspace cleared — new projects need a workspace on a team with several")
         return
+    limit = workspace_limit_cmd.stored_limit()
+    if limit is not None and not workspace_limit_cmd.names_limited_workspace(workspace_id, limit):
+        # Before any lookup: under the limit the API lists only that workspace, so
+        # resolving another would only fail with a vaguer "not found".
+        print(f"error: {workspace_limit_cmd.refusal_for_pin_move(None, what='`probe workspace use`')}", file=sys.stderr)
+        raise typer.Exit(1)
     with _client() as c:
         ws = c.get_workspace(_ref(c, "workspace", workspace_id).id)
-    save_context({"workspace": {"id": str(ws["id"]), "project": None}})
+    # While limited, the pin may only stay on the limited workspace (D-g): moving
+    # it would file new work where this computer cannot see it.
+    refused = workspace_limit_cmd.refusal_for_pin_move(str(ws["id"]), what="`probe workspace use`")
+    if refused:
+        print(f"error: {refused}", file=sys.stderr)
+        raise typer.Exit(1)
+    save_context({"workspace": workspace_limit_cmd.keep_limit_keys({"id": str(ws["id"]), "project": None})})
     print(f"active workspace: {ws.get('name')} ({ws['id']}) — project cleared")
+
+
+@workspace_app.command("limit")
+def workspace_limit(
+    workspace_id: str | None = typer.Argument(
+        None, help="the workspace to limit this computer to: its id, slug or name"
+    ),
+    team: bool = typer.Option(False, "--team", help="remove the limit: see the whole team again"),
+    team_items: str | None = typer.Option(
+        None,
+        "--team-items",
+        help="show|hide team-wide items under the limit: the team note, the All workspaces "
+        "summary, GitHub docs (default show)",
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="skip the confirmation prompt"),
+    json_output: bool = typer.Option(False, "--json", help="print one JSON object"),
+) -> None:
+    """Limit what Probe on this computer reads to ONE workspace. No arguments: show it.
+
+    A limiter, not a lock: keys and permissions are unchanged and anyone on this
+    computer can change it. Limited, the CLI, SDK runs, the Probe daemon and the
+    Probe MCP read only that workspace's projects, experiments, runs, papers and
+    notes; new projects go there (it also becomes `probe workspace use`'s
+    workspace). The shared folder and datasets stay visible; `--team-items hide`
+    also hides the team note, the All workspaces summary and GitHub docs.
+
+    `--team` removes the limit and keeps this computer's workspace.
+    `PROBE_WORKSPACE_LIMIT=<id|slug>` (or `team`) overrides it for one process.
+    """
+    from . import workspace_limit_cmd as cmd
+
+    def fail(code: str, message: str, exit_code: int = 1) -> None:
+        if json_output:
+            _print_json({"ok": False, "code": code, "message": message})
+        else:
+            print(f"error: {message}", file=sys.stderr)
+        raise typer.Exit(exit_code)
+
+    if (
+        workspace_id is not None
+        and not yes
+        and not json_output
+        and sys.stdin.isatty()
+        and not typer.confirm(cmd.confirm_text(workspace_id, team_items), default=True)
+    ):
+        print("aborted: nothing changed", file=sys.stderr)
+        raise typer.Exit(1)
+    try:
+        outcome = cmd.apply(workspace_id, team=team, team_items=team_items, client_factory=_client)
+    except cmd.LimitRefused as exc:
+        fail(str(exc.code), exc.message, 2 if exc.code == cmd.Code.USAGE else 1)
+        return
+    if json_output:
+        _print_json(outcome.as_json())
+        return
+    for line in outcome.lines:
+        print(line)
 
 
 # -- projects ---------------------------------------------------------------
@@ -6866,13 +7086,27 @@ def _ref(client: Client, kind: str, ref: str) -> refs.Ref:
         if kind == "workspace":
             return refs.resolve_workspace(client, ref)
         return refs.resolve(client, kind, ref, project_hint=_active_project_id(kind, ref))
+    except NotFoundError as exc:
+        # Under a workspace limit a miss may be a thing in another workspace:
+        # say so, rather than let it read as gone.
+        from ..sdk.workspace_limit import maybe_hidden_hint, with_hint
+
+        hint = "" if exc.workspace_limit_applied else maybe_hidden_hint(_limit_quietly())
+        raise typer.BadParameter(with_hint(str(exc), hint)) from None
     except (
         UnfilteredListing,
         refs.AmbiguousName,
         refs.NameFilterUnsupported,
-        NotFoundError,
     ) as exc:
         raise typer.BadParameter(str(exc)) from None
+
+
+def _limit_quietly():
+    """This process's workspace limit, or None (also when it cannot be read)."""
+    try:
+        return resolve(base_url=_conn.base_url).workspace_limit
+    except Exception:  # noqa: BLE001 - a hint only
+        return None
 
 
 def _filed_under(target: refs.Ref) -> str | None:
@@ -7398,11 +7632,25 @@ def project_use(
         # back to ambient.
         owner = proj.get("workspace_id") or before
         moved = owner is not None and str(owner) != str(before or "")
+        from . import workspace_limit_cmd
+
+        # Selecting a project from another workspace would move the pin (and so
+        # where new projects go) out of this computer's workspace limit (D-g).
+        refused = workspace_limit_cmd.refusal_for_pin_move(
+            str(owner) if owner else None, what=f"`probe project use {project_id}` (its workspace is another)"
+        )
+        if refused:
+            print(f"error: {refused}", file=sys.stderr)
+            raise typer.Exit(1)
         name = c.get_workspace(str(owner)).get("name") if moved else None
     # Stored in the explicit `id:` form: an id survives a rename where a slug does
     # not, but a BARE id would read as a slug when it flows back in as a default.
     save_context(
-        {"workspace": {"id": str(owner) if owner else None, "project": f"id:{proj['id']}"}}
+        {
+            "workspace": workspace_limit_cmd.keep_limit_keys(
+                {"id": str(owner) if owner else None, "project": f"id:{proj['id']}"}
+            )
+        }
     )
     print(f"active project: {proj.get('slug')} ({proj['id']})")
     if moved:
@@ -10670,7 +10918,9 @@ def session_state_cmd(
     \b
     on      reads and writes. Records the work as it happens.
     read    reads allowed, records nothing new. Cleanup still works.
-    off     no Probe calls at all, and no session-start injections.
+    off     no Probe calls, no session-start injections, and the
+            transcript is not captured (a capture process still
+            running an older tap uploads it until it ends).
 
     Where the Probe daemon records (`probe wizard` › Defaults › Who
     records), the same three read `on (daemon)` -- stored as `daemon` --,
@@ -10724,7 +10974,17 @@ def session_state_cmd(
         wanted = _switch_word(resolved, value)
         session_marker.set_session_state(resolved, wanted)
     _require_state(resolved, wanted)
+    _capture_switched(resolved, wanted)
     _print_json(_state_block(resolved, wanted, heal=True))
+
+
+def _capture_switched(session_id: str, state: str) -> None:
+    """The switch moved: Probe off means the session is NOT captured, so the
+    Probe service that records it looks at the switch now, before the agent
+    writes its next line (`service_calls.capture_switched`)."""
+    from probe.cli import service_calls
+
+    service_calls.capture_switched(session_id, off=state == session_marker.STATE_OFF)
 
 
 @session_app.command("untrack")
@@ -10746,6 +11006,7 @@ def session_untrack(
     resolved = _resolve_agent_session(session)
     _refuse_switch_from_agent(resolved, "untrack")
     ok = session_marker.set_tracking(resolved, False)
+    _capture_switched(resolved, session_marker.session_state(resolved) or session_marker.STATE_READ_ONLY)
     # No `_capture_block` here, unlike `track` and `toggle`: the guard those
     # two carry ("heal only if the signal now reads on") is unreachable by
     # construction once `_require_tracking_state(resolved, False)` has proven
@@ -10785,6 +11046,7 @@ def session_track(
     else:
         ok = session_marker.set_tracking(resolved, True)
     _require_tracking_state(resolved, True)
+    _capture_switched(resolved, session_marker.session_state(resolved) or session_marker.STATE_FULL)
     # Tracking just went on, so a daemon is owed. Read back rather than
     # trusting `ok`: `_require_tracking_state` has already proven the signal
     # on disk, and that is the value every other surface will render.
@@ -10837,6 +11099,7 @@ def session_toggle(
     target = session_marker.switch_target(resolved, target, calling_agent()) or target
     session_marker.set_session_state(resolved, target)
     _require_state(resolved, target)
+    _capture_switched(resolved, target)
     block = _state_block(resolved, target, heal=True)
     block["was"] = _state_word(current)
     _print_json(block)
@@ -14361,13 +14624,16 @@ def _fold_drain_reports(parts: list) -> Any:
 def _drain_foreground(run_ref: str | None = None, *, every_dir: bool = False) -> None:
     """Shared body of `probe outbox drain` and its `probe flush` alias.
     ``every_dir``: every outbox of this user on this machine (plan 1.5)."""
-    from ..sdk.journal import drain, prune_credential_queues
+    from .._shared import telemetry
+    from ..sdk.journal import DiscardCounts, drain, prune_credential_queues
 
     journals = _outbox_journals() if every_dir else [_journal()]
     parts = []
     for journal in journals:
         try:  # idle credential queues (#2041 round 3); never fails the drain
-            prune_credential_queues(journal.dir)
+            relocated = DiscardCounts()
+            prune_credential_queues(journal.dir, counts=relocated)
+            telemetry.emit_outbox_discarded(relocated, reason=telemetry.DiscardReason.RELOCATED)
         except Exception:  # noqa: BLE001
             pass
         part = drain(journal, run_ref=run_ref)
@@ -14788,17 +15054,26 @@ def outbox_discard(
     machine will send as things stand (`probe outbox drain` says why). Another
     job's `PROBE_TOKEN` writes are left for that job, unless `--credential`
     names that credential's fingerprint."""
+    from .._shared import telemetry
+
     if credential is not None and not held:
         raise typer.BadParameter("--credential goes with --held")
+    interactive = sys.stdin.isatty()
     if held:
         if op_id is not None:
             raise typer.BadParameter("--held discards every held write; it takes no op id")
-        moved = _journal().discard_held(credential=credential)
-        print(f"discarded {moved} held write(s)")
+        counts = _journal().discard_held_counts(credential=credential)
+        telemetry.emit_outbox_discarded(
+            counts,
+            reason=telemetry.DiscardReason.CREDENTIAL if credential else telemetry.DiscardReason.HELD,
+            interactive=interactive,
+        )
+        print(f"discarded {counts.writes} held write(s)")
         return
-    moved = _journal().discard_failed(op_id)
-    print(f"discarded {moved} op(s)")
-    if op_id is not None and moved == 0:
+    counts = _journal().discard_failed_counts(op_id)
+    telemetry.emit_outbox_discarded(counts, reason=telemetry.DiscardReason.DEAD_LETTERS, interactive=interactive)
+    print(f"discarded {counts.writes} op(s)")
+    if op_id is not None and counts.writes == 0:
         raise typer.Exit(1)
 
 
@@ -14976,9 +15251,13 @@ def outbox_pause() -> None:
 @outbox_app.command("resume")
 def outbox_resume() -> None:
     """Resume background delivery and kick the drainer."""
+    from ..sdk import outbox_worker
+
     journal = _journal()
     journal.resume()
     journal.clear_auth_block()
+    # A rescue that looked while it was paused put the next look off by hours.
+    outbox_worker._rescue_stamp(journal).unlink(missing_ok=True)
     _kick_drainer()
     print("outbox resumed")
 
@@ -16693,6 +16972,29 @@ def notes_sync(
     settings = resolve(base_url=_conn.base_url)
     where = team_note_file.paths_for(settings)
     text: str | None = None
+    if team_note_file.hidden_by_limit(settings):
+        # This computer's workspace limit hides team-wide items, the note among
+        # them: nothing is fetched or sent (local edits stay on disk and sync once
+        # they show), and the block comes out of the instruction files.
+        hidden = team_note_file.remove_blocks()
+        _print_json(
+            {
+                "document": str(where.document),
+                "version": None,
+                "pushed": False,
+                "pulled": False,
+                "merged": False,
+                "conflicted": False,
+                "detail": team_note_file.HIDDEN_DETAIL,
+                "rendered": [],
+                "rendered_pointer_only": [],
+                "render_unchanged": [],
+                "render_opted_out": [],
+                "render_failures": [],
+                "render_hidden_by_limit": hidden,
+            }
+        )
+        return
     with _client() as c:
         if push_only:
             report = team_note_file.push(c, where)
@@ -16733,6 +17035,7 @@ def notes_sync(
             "render_unchanged": list(render.unchanged),
             "render_opted_out": [*render.opted_out, *render.removed],
             "render_failures": list(render.failures),
+            "render_hidden_by_limit": list(render.hidden),
         }
     )
     for failure in render.failures:

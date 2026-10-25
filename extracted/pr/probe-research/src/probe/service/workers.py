@@ -35,7 +35,9 @@
                        EXIT_DO_NOT_RESPAWN, 2 none until the switch moves
                        anything else          a crash: CRASH_BACKOFF_S,
                                               doubling per crash in a row, at
-                                              most CRASH_BACKOFF_CAP_S
+                                              most CRASH_BACKOFF_CAP_S;
+                                              EXIT_DISK_FULL waits the same
+                                              and is never a `crash_loop`
     release        the recorder's loop ended (its session ended, or the recorder
                    stopped): SIGTERM -- the worker finishes its queue on its own,
                    bounded, and is reaped meanwhile (`draining`). A service
@@ -74,6 +76,8 @@ EXIT_DO_NOT_RESPAWN = 3
 EXIT_CRASHED = 4
 EXIT_RESPAWN_LATER = 5
 EXIT_RETRY_LIBS = 6
+#: The machine's disk is full: waited on as a crash, never reported as one.
+EXIT_DISK_FULL = 7
 #: A usage error: the CLI has no `daemon worker` (too old).
 EXIT_NO_COMMAND = 2
 #: Crashes in a row that are a `worker` report (crash-report plan B2).
@@ -393,7 +397,7 @@ class Supervisor:
             wait = min(CRASH_BACKOFF_CAP_S, first * 2 ** (self.crashes - 1))
             self.not_before = now + wait
             self.log(f"worker: session {sid}'s worker crashed ({code}, {self.crashes} in a row); next try in {wait:.0f} s")
-            if self.crashes >= REPORT_CRASHES:
+            if self.crashes >= REPORT_CRASHES and code != EXIT_DISK_FULL:
                 self._report("crash_loop")
 
     def _report(self, reason: str) -> None:

@@ -409,6 +409,23 @@ def test_only_the_newest_five_copies_stay_and_they_are_private(machine):
         assert {oct(p.stat().st_mode & 0o777) for p in copies} == {"0o600"}
 
 
+def test_a_copy_another_report_pruned_mid_save_costs_only_itself(machine, monkeypatch):
+    """Two reports saving at once prune each other's old copies: one listed and gone by the time
+    its date is read is skipped, so this report keeps its own copy and says where it is."""
+    _accept(machine)
+    ghost = report.reports_dir() / "report-19700101T000000Z-00000000-worker.json"
+    listed = Path.glob
+
+    def glob(self, pattern, *args, **kwargs):
+        found = list(listed(self, pattern, *args, **kwargs))
+        return [*found, ghost] if pattern == "report-*.json" else found
+
+    monkeypatch.setattr(Path, "glob", glob)
+    answer = report.send(auto=False, family="worker", reason="x")
+    assert answer.sent and answer.path and Path(answer.path).is_file()
+    assert json.loads(Path(answer.path).read_text())["outcome"]["sent"] is True
+
+
 # ---------------------------------------------------------------------------
 # What a report may carry
 # ---------------------------------------------------------------------------

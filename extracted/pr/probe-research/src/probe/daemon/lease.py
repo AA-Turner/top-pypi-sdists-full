@@ -29,6 +29,9 @@ REASON_UNAUTHORIZED = "unauthorized"
 REASON_BUDGET = "budget"
 REASON_GATEWAY = "gateway"
 REASON_ERROR = "error"
+#: The machine's disk is full: not a worker bug, and no failure the Probe
+#: service reports (`service.watch.LEASE_FAILURES`).
+REASON_DISK_FULL = "disk_full"
 #: A resumed session's worker took over (`worker.session_lock`); it renews at once.
 REASON_HANDOVER = "handover"
 
@@ -68,10 +71,16 @@ def renew(session_id: str, *, now: float | None = None, ttl: float = LEASE_TTL_S
                                              "expires_at": at + ttl, "renewed_at": at, "reason": None})
 
 
-def release(session_id: str, reason: str, *, now: float | None = None) -> bool:
+def release(session_id: str, reason: str, *, now: float | None = None, offline: bool = False) -> bool:
+    """Hand writing back to the agent, saying why. `offline`: the machine had
+    no network at all (`probe._shared.offline`), which the Probe service never
+    reports (`service.watch.lease_condition`)."""
     at = time.time() if now is None else now
-    return _publish(lease_path(session_id), {"v": LEASE_VERSION, "writer": WRITER, "pid": os.getpid(),
-                                             "expires_at": at, "renewed_at": at, "reason": reason})
+    record = {"v": LEASE_VERSION, "writer": WRITER, "pid": os.getpid(),
+              "expires_at": at, "renewed_at": at, "reason": reason}
+    if offline:
+        record["offline"] = True
+    return _publish(lease_path(session_id), record)
 
 
 def held(session_id: str, *, now: float | None = None) -> bool:

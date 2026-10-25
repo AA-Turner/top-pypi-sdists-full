@@ -112,7 +112,7 @@ test = [
     "pytest-asyncio >=0.24.0, <1.5.0",
     "reportlab >=4.0.0",
     "SQLAlchemy-Utils >=0.40.0, <0.43.0",
-    "sqlalchemy-file >=0.5.0, <0.7.0",
+    "sqlalchemy-file >=0.7.0, <0.8.0",
     "SQLAlchemy[asyncio] >=2.0.0, <2.2.0",
     "sqlmodel >=0.0.11, <0.1.0",
     "testcontainers[minio,mongodb,mysql,postgres] >=4.15.0",
@@ -123,7 +123,7 @@ test = [
 cov = ["coverage[toml] >=7.0.0, <7.17.0"]
 docs = [
     "mkdocstrings[python] >=0.27.0",
-    "zensical >=0.0.44",
+    "zensical >=0.0.64",
 ]
 e2e = ["pytest-playwright >=0.5.0, <0.10.0"]
 

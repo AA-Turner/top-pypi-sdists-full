@@ -1094,6 +1094,17 @@ def _remainder_qp(obs_pts, src_l, src_r, ground_z, base, cap=None):
     )
 
 
+def _remainder_qp_per_source(obs_pts, src_l, src_r, ground_z, base, cap=None):
+    """`_remainder_qp` per source segment (momwire#1688): one order each,
+    whose maximum is `_remainder_qp`. The below remainder fills at these
+    orders, so four hub segments of a shallow screen no longer set the order
+    of the whole fill. Same cap and constant, read at call time."""
+    cap = _REMAINDER_QP_CAP if cap is None else cap
+    return _quadrature.remainder_qp_per_source(
+        obs_pts, src_l, src_r, ground_z, base, cap, _REMAINDER_QP_C
+    )
+
+
 class _PreparedChunks(_schedule.Prepared):
     """The numpy fill's chunk list, BOUND to the source set it was built from.
 
@@ -1589,6 +1600,11 @@ class RazorSolver(
         identical to `BSplineSolver`'s and `SinusoidalSolver`'s, so a deck's
         `EK` card reaches this class through the same `build_solver` line
         that reaches them.
+    exact_kernel_auto_skip: wire indices whose segments "auto" does not
+        ask about (momwire#1649): the pieces a deck seam cut at z = 0, whose
+        length is where the plane fell rather than the user's mesh. Default
+        (): every wire is asked. An explicit `exact_kernel=True` still
+        reaches every wire.
     exact_kernel: the exact ring kernel on coaxial pairs (momwire#1433),
         `BSplineSolver`'s option with its semantics, through the shared
         `_exact_kernel_seam`: False (the default) is structurally absent and
@@ -1913,6 +1929,7 @@ class RazorSolver(
         wire_radius=0.0005,
         extended_kernel=False,
         exact_kernel=False,
+        exact_kernel_auto_skip=(),
         wire_conductivity=None,
         insulation_radius=None,
         insulation_eps_r=None,
@@ -2170,7 +2187,10 @@ class RazorSolver(
         # structurally absent (no line of the correction runs), True is
         # refused by name on the routes it does not serve, and "auto" is
         # resolved at the end of __init__ once the mesh is final.
-        self._exact_kernel_init(exact_kernel)
+        self._exact_kernel_init(
+            exact_kernel,
+            auto_skip=_bspline._solved_wires(exact_kernel_auto_skip, self._wire_dedup),
+        )
 
         if n_per_edge_per_wire is None:
             n_per_edge_per_wire = [None] * n_w
@@ -2452,11 +2472,13 @@ class RazorSolver(
     def _exact_kernel_h_and_a(self):
         geom = self._build_geometry()
         h, a = geom["seg_h"], self._seg_radius(geom)
+        seg_off = np.asarray(geom["seg_offsets"], dtype=np.int64)
+        wire = np.repeat(np.arange(seg_off.size - 1), np.diff(seg_off))
         if self._exact_kernel_buried():
             # momwire#1619: only the above medium's segments are corrected.
             above = self._above_segments(geom)
-            return h[above], a[above]
-        return h, a
+            return h[above], a[above], wire[above]
+        return h, a, wire
 
     def _exact_kernel_any_above(self):
         return any(m == _medium_spec.ABOVE for m in self._wire_media())
@@ -5233,22 +5255,37 @@ class RazorSolver(
 
     def _below_remainder_pairs(self, geom):
         """``(obs, src, d_obs, d_src)``: the testing-path points and the
-        order-`n_qp_sommerfeld` Gauss nodes of every segment the below
-        remainder evaluates on `geom`, with their depths below the plane."""
+        Gauss nodes of every segment the below remainder evaluates on `geom`,
+        at the order it evaluates them (`_remainder_qp`, momwire#1672), with
+        their depths below the plane."""
         gz = float(self.ground_z)
         obs = self._testing_paths(geom)[0].reshape(-1, 3)
         seg_h, seg_t, seg_p0 = geom["seg_h"], geom["seg_t"], geom["seg_p0"]
-        xg, _wg = leggauss(self.n_qp_sommerfeld)
-        tq = 0.5 * (xg + 1.0)
-        src = (
-            seg_p0[:, None, :]
-            + (tq[None, :, None] * seg_h[:, None, None]) * seg_t[:, None, :]
-        ).reshape(-1, 3)
+        q = _remainder_qp_per_source(
+            obs, seg_p0, seg_p0 + seg_h[:, None] * seg_t, gz, self.n_qp_sommerfeld
+        )
+        # The fill's own nodes (momwire#1688): each segment at its own
+        # order, grouped by order as `RemainderBelow.field_windows` lays
+        # them. The extents this feeds are a min/max over the set, so the
+        # node order does not matter.
+        parts = []
+        for qq in np.unique(q):
+            idx = np.flatnonzero(q == qq)
+            xg, _wg = leggauss(int(qq))
+            tq = 0.5 * (xg + 1.0)
+            parts.append(
+                (
+                    seg_p0[idx][:, None, :]
+                    + (tq[None, :, None] * seg_h[idx][:, None, None])
+                    * seg_t[idx][:, None, :]
+                ).reshape(-1, 3)
+            )
+        src = parts[0] if len(parts) == 1 else np.concatenate(parts)
         return obs, src, gz - obs[:, 2], gz - src[:, 2]
 
     def _below_remainder_th_min(self, geom, *, r1_cap=None):
         """``(θ_min, d + d′ there)`` over the pairs the below remainder
-        evaluates on `geom`: testing-path points × order-`n_qp_sommerfeld`
+        evaluates on `geom`: testing-path points × `_remainder_qp`-order
         Gauss nodes of every segment, exactly as `_assemble_Z_source_block`
         hands them to `RemainderBelow.field_windows`. The pair set is the
         remainder's own size, so it is walked in observer chunks by
@@ -6208,13 +6245,24 @@ class RazorSolver(
                 # momwire#510: the order is keyed to grazing height rather
                 # than taken flat from the kwarg. A deck with nothing near the
                 # plane gets `self.n_qp_sommerfeld` exactly and is unchanged.
+                # Below the plane too (momwire#1672): a buried wire within a
+                # segment's length of the surface sees its own mirror there,
+                # the same spike, and the flat order missed it by tens of
+                # ohms on shallow radials.
+                # Below the plane the order is per source segment
+                # (momwire#1688): the spike is the pair's own, and one hub
+                # segment of a shallow screen asking for 103 no longer
+                # charges every segment of the fill 103 nodes.
+                keyed = (
+                    _remainder_qp_per_source
+                    if isinstance(remainder, _potential_ground.RemainderBelow)
+                    else _remainder_qp
+                )
                 rem_fn = remainder.field_windows(
                     (sources["obs_pts"], sources["obs_tans"]),
                     (sources["src_l"], sources["src_r"], sources["src_t"]),
                     n_moment=2,
-                    n_qp=self.n_qp_sommerfeld
-                    if ground.below
-                    else _remainder_qp(
+                    n_qp=keyed(
                         sources["obs_pts"],
                         sources["src_l"],
                         sources["src_r"],

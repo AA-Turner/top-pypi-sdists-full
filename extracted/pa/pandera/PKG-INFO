@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandera
-Version: 0.34.1
+Version: 0.35.0
 Summary: A light-weight and flexible data validation and testing tool for statistical data objects.
 Author-email: Niels Bantilan <niels.bantilan@gmail.com>
 License: MIT License
@@ -102,6 +102,8 @@ Requires-Dist: narwhals>=1.26.0; extra == "narwhals"
 Provides-Extra: pyarrow
 Requires-Dist: pyarrow>=13; extra == "pyarrow"
 Requires-Dist: narwhals>=1.26.0; extra == "pyarrow"
+Provides-Extra: datafusion
+Requires-Dist: narwhals-datafusion>=0.1.5; extra == "datafusion"
 Provides-Extra: torch
 Requires-Dist: torch; extra == "torch"
 Requires-Dist: tensordict; extra == "torch"
@@ -130,6 +132,7 @@ Requires-Dist: xarray>=2024.10.0; extra == "all"
 Requires-Dist: numpy>=1.24.4; extra == "all"
 Requires-Dist: narwhals>=1.26.0; extra == "all"
 Requires-Dist: pyarrow>=13; extra == "all"
+Requires-Dist: narwhals-datafusion>=0.1.5; extra == "all"
 Requires-Dist: torch; extra == "all"
 Requires-Dist: tensordict; extra == "all"
 Dynamic: license-file

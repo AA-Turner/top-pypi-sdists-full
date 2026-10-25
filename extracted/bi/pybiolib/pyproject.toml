@@ -1,6 +1,6 @@
 [project]
 name = "pybiolib"
-version = "1.4.580"
+version = "1.4.589"
 description = "BioLib Python Client"
 readme = "PYPI_README.md"
 license = "MIT"

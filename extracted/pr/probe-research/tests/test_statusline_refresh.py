@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -184,3 +185,72 @@ def test_tracking_off_still_stops_the_network(hook, monkeypatch) -> None:
     assert _run(hook, monkeypatch, SESSION) == []
 
 
+
+
+def _copy_of_this_plugin(cache: Path, version: str, marker: str) -> Path:
+    """A version folder of this plugin in a Claude Code cache, its renderer marked."""
+    root = cache / "research-os-agent" / "probe-research" / version
+    shutil.copytree(_HOOKS, root / "hooks", ignore=shutil.ignore_patterns("__pycache__"))
+    (root / "hooks" / "statusline.py").write_text((_HOOKS / "statusline.py").read_text() + f"\n# {marker}\n")
+    return root
+
+
+@pytest.mark.parametrize("ledger_names", ["new", "old", "none"])
+def test_a_copy_the_install_ledger_does_not_name_never_writes_the_renderer(tmp_path, ledger_names) -> None:
+    """The renderer copy in Claude Code's config folder is what every session's
+    status line runs. A session left open on an older plugin copy that could
+    not hand its SessionStart to the installed one (a `/clear`, a resume) wrote
+    its OLD renderer over the installed one's (surface audit #7). A copy writes
+    it only when the ledger names no other copy of this plugin."""
+    claude = tmp_path / "claude"
+    cache = claude / "plugins" / "cache"
+    old = _copy_of_this_plugin(cache, "0.170.0", "OLD-RENDERER")
+    new = _copy_of_this_plugin(cache, "0.171.0", "NEW-RENDERER")
+    installed = {"new": new, "old": old}.get(ledger_names)
+    if installed is not None:
+        (claude / "plugins" / "installed_plugins.json").write_text(json.dumps({"version": 2, "plugins": {
+            "probe-research@research-os-agent": [{"scope": "user", "installPath": str(installed)}]}}))
+    target = claude / "probe-research-statusline"
+    target.mkdir(parents=True)
+    (target / "statusline.py").write_text("# the renderer before\n")
+    env = {"PATH": "/usr/bin:/bin", "CLAUDE_CONFIG_DIR": str(claude), "HOME": str(tmp_path),
+           "PROBE_STATUSLINE": "", "XDG_STATE_HOME": str(tmp_path / "state")}
+    for root in (old,):
+        done = subprocess.run([sys.executable, str(root / "hooks" / "statusline_refresh.py")],
+                              input=json.dumps(SESSION), capture_output=True, text=True, timeout=30, env=env)
+        assert done.returncode == 0 and done.stdout == "", done.stderr
+    written = (target / "statusline.py").read_text()
+    if ledger_names == "new":
+        assert written == "# the renderer before\n", "the old copy rolled the renderer back"
+    else:
+        # The ledger names this copy, or no copy at all (a checkout, no ledger): as before.
+        assert "OLD-RENDERER" in written
+
+
+def test_two_installs_still_refresh_the_renderer(tmp_path) -> None:
+    """Claude Code's ledger can list one plugin key twice: a user-scope install
+    and a project-scope one at another version. Every copy then read "another
+    copy is installed" and nobody refreshed the renderer any more (every
+    SessionStart did before). The user-scope copy is the renderer's (the
+    service's `followup.installed_renderer_root` picks the same one): it writes,
+    the project's older copy does not roll it back."""
+    claude = tmp_path / "claude"
+    cache = claude / "plugins" / "cache"
+    project = _copy_of_this_plugin(cache, "0.171.0", "PROJECT-RENDERER")
+    user = _copy_of_this_plugin(cache, "0.172.0", "USER-RENDERER")
+    (claude / "plugins" / "installed_plugins.json").write_text(json.dumps({"version": 2, "plugins": {
+        "probe-research@research-os-agent": [
+            {"scope": "user", "installPath": str(user)},
+            {"scope": "project", "projectPath": str(tmp_path / "repo"), "installPath": str(project)},
+        ]}}))
+    target = claude / "probe-research-statusline"
+    target.mkdir(parents=True)
+    (target / "statusline.py").write_text("# OLD RENDERER\n")
+    env = {"PATH": "/usr/bin:/bin", "CLAUDE_CONFIG_DIR": str(claude), "HOME": str(tmp_path),
+           "PROBE_STATUSLINE": "", "XDG_STATE_HOME": str(tmp_path / "state")}
+    for root in (user, project):
+        done = subprocess.run([sys.executable, str(root / "hooks" / "statusline_refresh.py")],
+                              input=json.dumps(SESSION), capture_output=True, text=True, timeout=30, env=env)
+        assert done.returncode == 0 and done.stdout == "", done.stderr
+    written = (target / "statusline.py").read_text()
+    assert "USER-RENDERER" in written, written[-200:]

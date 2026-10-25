@@ -301,9 +301,14 @@ def both(hook, monkeypatch, tmp_path):
     * `_looks_like_the_uploader`: the CLI asks `/bin/ps` what a live pid in a
       pid file IS, the hook takes it at face value because it runs every few
       seconds for the life of a session -- stubbed here.
-    * `_halted`: the CLI asks the tap's own modules, which most CLI installs
-      cannot import, so it answers "not halted"; the hook reads the latch from
-      the tap's state db itself (`test_a_session_in_the_401_latch_reads_halted`).
+    * `_halted`: both read the latch from the tap's state db; the CLI also
+      compares the rejected token's fingerprint with the current credential
+      (a re-paired machine is not halted), the hook does not
+      (`test_a_session_in_the_401_latch_reads_halted`).
+    A session the Probe service hosts is not a divergence either: both ask the
+    service what its recorder does (`_recorder_reading`; the hook through its
+    vendored `_service_rpc`), and no service answers here, which both read as
+    the marker (`test_capture_truth.test_the_status_line_reads_the_recorder_*`).
     * a watcher file this user does not own, that is a link or not a regular
       file: the hook ignores it, the CLI reads it (`test_the_hook_reads_only_*`).
     The `.hosted` marker's pid is NOT a divergence: both require the service
@@ -459,9 +464,10 @@ def test_another_users_hosted_marker_is_not_believed_on_both_sides(both, monkeyp
     assert reading == cli
 
 
-def test_a_readable_pid_file_is_answered_before_the_hosted_marker_on_both_sides(both, tmp_path, stand_in_service):
-    """The CLI's order: a pid file it can read decides, live or dead; only no
-    readable pid file sends it to the marker."""
+def test_a_dead_pid_file_beside_the_services_marker_reads_running_on_both_sides(both, tmp_path, stand_in_service):
+    """Audit #2: a wrapper that gave up (or was killed) leaves its pid file,
+    and the session moves to the service, which leaves its marker beside it.
+    A dead pid file is stale, not an answer: the marker is read next."""
     (tmp_path / "claude_code").mkdir(parents=True)
     pid_path, hosted = _pid_path("claude_code"), _hosted_path("claude_code")
     pid_path.write_text("999999999", encoding="utf-8")
@@ -471,7 +477,22 @@ def test_a_readable_pid_file_is_answered_before_the_hosted_marker_on_both_sides(
     finally:
         pid_path.unlink(missing_ok=True)
         hosted.unlink(missing_ok=True)
-    assert reading == {"running": False, "reason": "not started"}
+    assert reading == {"running": True, "reason": "running"}
+    assert reading == cli
+
+
+def test_a_live_pid_file_is_answered_before_the_hosted_marker_on_both_sides(both, tmp_path):
+    """A live wrapper still answers first, even beside a marker naming no service."""
+    (tmp_path / "claude_code").mkdir(parents=True)
+    pid_path, hosted = _pid_path("claude_code"), _hosted_path("claude_code")
+    pid_path.write_text(str(os.getpid()), encoding="utf-8")
+    hosted.write_text("999999999", encoding="utf-8")
+    try:
+        reading, cli = both("claude_code")
+    finally:
+        pid_path.unlink(missing_ok=True)
+        hosted.unlink(missing_ok=True)
+    assert reading == {"running": True, "reason": "running"}
     assert reading == cli
 
 
@@ -617,6 +638,97 @@ def test_the_hooks_reasons_are_in_the_cli_vocabulary(hook, monkeypatch, tmp_path
     assert hook._capture_reading(SID)["reason"] in capture_state.REASONS
     (tmp_path / "present" / ".disabled").write_text("", encoding="utf-8")
     assert hook._capture_reading(SID)["reason"] in capture_state.REASONS
+    path = _switch_off()
+    try:
+        assert hook._capture_reading(SID)["reason"] in capture_state.REASONS
+        assert hook.OFF_REASON == capture_state.OFF_REASON
+    finally:
+        path.unlink(missing_ok=True)
+
+
+def _switch_off(state: str = "off") -> Path:
+    """`<sid>.state` in this test's isolated state folder (`session_marker.state_path`)."""
+    from probe.sdk import session_marker
+
+    path = session_marker.state_path(SID)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(state + "\n", encoding="utf-8")
+    return path
+
+
+@pytest.mark.parametrize("source", _SOURCES)
+@pytest.mark.parametrize("installed", [True, False], ids=["installed", "no-tap"])
+def test_a_session_switched_off_reads_probe_is_off_on_both_sides(both, source, tmp_path, installed):
+    """Probe off means the session is NOT captured (the Probe service holds it,
+    `capture_gate`): both readings say so, first, whatever else is true of the
+    machine. Before this both said `running` for an off session the tap was
+    uploading."""
+    if installed:
+        (tmp_path / source).mkdir(parents=True)
+    path = _switch_off()
+    try:
+        reading, cli = both(source)
+    finally:
+        path.unlink(missing_ok=True)
+    assert reading == {"running": False, "reason": "Probe is off"}
+    assert reading == cli
+
+
+@pytest.mark.parametrize("source", _SOURCES)
+def test_a_machine_default_of_off_reads_probe_is_off_on_both_sides(both, source, tmp_path):
+    """A session nobody switched takes the machine's default (`probe session
+    default off`), as the service reads it."""
+    (tmp_path / source).mkdir(parents=True)
+    config = Path(os.environ["XDG_CONFIG_HOME"]) / "probe" / "config.json"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(json.dumps({"defaults": {"session_state": "off"}}), encoding="utf-8")
+    try:
+        reading, cli = both(source)
+    finally:
+        config.unlink(missing_ok=True)
+    assert reading == {"running": False, "reason": "Probe is off"}
+    assert reading == cli
+
+
+@pytest.mark.parametrize("source", _SOURCES)
+def test_an_off_session_an_older_taps_watcher_still_records_reads_running_on_both_sides(both, source, tmp_path):
+    """A `tap watch` an older tap started records what it records until it
+    hands the session to the service: while it lives, `running` is the truth."""
+    (tmp_path / source).mkdir(parents=True)
+    pid_path = _pid_path(source)
+    pid_path.write_text(str(os.getpid()), encoding="utf-8")
+    path = _switch_off()
+    try:
+        reading, cli = both(source)
+    finally:
+        pid_path.unlink(missing_ok=True)
+        path.unlink(missing_ok=True)
+    assert reading == {"running": True, "reason": "running"}
+    assert reading == cli
+
+
+@pytest.mark.parametrize("state", ["read-only", "full", "daemon"])
+def test_only_off_reads_probe_is_off_on_both_sides(both, tmp_path, state):
+    """`read-only` is out of scope of the off decision: it reads as before."""
+    (tmp_path / "claude_code").mkdir(parents=True)
+    path = _switch_off(state)
+    try:
+        reading, cli = both("claude_code")
+    finally:
+        path.unlink(missing_ok=True)
+    assert reading == {"running": False, "reason": "not started"}
+    assert reading == cli
+
+
+def test_a_recorder_the_service_holds_off_reads_probe_is_off_on_both_sides(hook, monkeypatch):
+    """The service's own word for a held session (`recorders[].off`), when the
+    switch read here says otherwise (it moved a moment ago): both read it."""
+    from probe.cli import capture_state, service_calls
+
+    row = {"sid": SID, "alive": True, "recording": True, "off": True}
+    monkeypatch.setattr(hook, "_service_recorders", lambda: [row])
+    monkeypatch.setattr(service_calls, "recorders", lambda *a, **k: [row])
+    assert hook._recorder_reading(SID) == capture_state._recorder_reading(SID) == "Probe is off"
 
 
 def test_the_hook_still_imports_nothing_of_ours():

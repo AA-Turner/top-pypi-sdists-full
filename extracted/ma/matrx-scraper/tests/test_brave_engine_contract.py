@@ -170,3 +170,14 @@ async def test_a_keyless_client_fails_at_call_time_not_construction(monkeypatch)
     client = BraveSearchClient(allow_missing_key=True)
     with pytest.raises(ValueError, match="No Brave API key for this request"):
         await client.search_response(BraveSearchParams(query="q"))
+
+
+async def test_spellcheck_sends_the_text_with_the_hosts_own_key() -> None:
+    """Spellcheck rides its own key: the host passes it, the package reads no env for it."""
+    client, queue = _client([_response(200, {"type": "spellcheck", "query": {"original": "pizzza"}, "results": [{"query": "pizza"}]})])
+    payload = await client.spellcheck("pizzza", country="US", api_key="spell-key")
+    call = queue.calls[0]
+    assert call["url"].endswith("/res/v1/spellcheck/search")
+    assert call["params"] == {"q": "pizzza", "country": "us"}
+    assert call["headers"]["X-Subscription-Token"] == "spell-key"
+    assert payload["results"][0]["query"] == "pizza"

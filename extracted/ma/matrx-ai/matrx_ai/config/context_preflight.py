@@ -145,25 +145,185 @@ def _chars(value: Any) -> int:
         return len(str(value))
 
 
+#: Storage keys that carry bytes the model never reads as prompt text: a thinking block's
+#: provider signature and inline media bytes (an image is billed by its pixels, not its base64).
+_OPAQUE_KEYS = frozenset({"signature", "signature_encoding", "base64_data"})
+
+
+def _block_chars(block: Any) -> int:
+    """One content block as the model reads it: its storage form (the JSON the wire carries),
+    never its ``repr`` — ``TextContent.__repr__`` cuts the text to 70 characters."""
+    to_storage = getattr(block, "to_storage_dict", None)
+    if callable(to_storage):
+        try:
+            stored = to_storage()
+        except Exception:  # noqa: BLE001 — fall back to measuring the block whole
+            stored = None
+        if isinstance(stored, dict):
+            return _chars({k: v for k, v in stored.items() if k not in _OPAQUE_KEYS})
+    return _chars(block)
+
+
+def _message_chars(message: Any) -> int:
+    """A message the model is shown: its role and every content block. A message hidden from
+    the model (``is_visible_to_model=False``) is never sent, so it counts nothing."""
+    if getattr(message, "is_visible_to_model", True) is False:
+        return 0
+    content = getattr(message, "content", None)
+    if not isinstance(content, list) or not hasattr(message, "role"):
+        return _chars(message)  # a plain dict / str message — measured as given
+    role = getattr(message, "role", "")
+    return len(str(getattr(role, "value", role))) + sum(_block_chars(block) for block in content)
+
+
+def _context_channel_chars(messages: Any) -> int:
+    """The per-turn and tail context blocks a ``MessageList`` renders onto the wire at send."""
+    total = 0
+    for render in ("render_turn_context", "render_tail_context"):
+        fn = getattr(messages, render, None)
+        if callable(fn):
+            try:
+                total += _chars(fn())
+            except Exception:  # noqa: BLE001 — a context block that cannot render is not sent
+                pass
+    return total
+
+
+#: Model refs (and reasons) already announced, so a send path says each once per process.
+_TOOL_MEASURE_ANNOUNCED: set[str] = set()
+#: The declaration format used when the catalog cannot name this request's wire. Announced.
+UNKNOWN_WIRE_TOOL_FORMAT = "anthropic"
+
+
+def _announce_once(key: str, message: str) -> None:
+    if key in _TOOL_MEASURE_ANNOUNCED:
+        return
+    _TOOL_MEASURE_ANNOUNCED.add(key)
+    logger.warning(message)
+    vcprint(message, color="yellow")
+
+
+def _wire_tool_format(config: Any) -> str:
+    """The declaration format this request's wire sends: the catalog's wire format for the model
+    (its offering's ``ai.api.translator_key``) through the wire's own map. Announced, never silent,
+    when the catalog cannot say."""
+    from matrx_ai.providers.base_translator import tool_format_for_wire_format
+
+    model_ref = str(getattr(config, "matrx_model_name", None) or getattr(config, "model", "") or "")
+    # A device route sets its own format: llama-server always speaks OpenAI chat-completions,
+    # and a person's own model file has no catalog offering to read one from (L5).
+    if getattr(config, "served_via", None) is not None:
+        return tool_format_for_wire_format("device_chat") or UNKNOWN_WIRE_TOOL_FORMAT
+    wire_format = None
+    try:
+        from matrx_ai.catalog.manager import ai_catalog_manager
+
+        wire_format = ai_catalog_manager.wire_format_for(
+            model_ref, getattr(config, "routing_offering_id", None)
+        )
+    except Exception as exc:  # noqa: BLE001 — the catalog must never break a send
+        logger.debug("prompt estimate could not read the catalog: %r", exc)
+    tool_format = tool_format_for_wire_format(wire_format)
+    if tool_format is None:
+        _announce_once(
+            f"format:{model_ref}:{wire_format}",
+            f"[prompt estimate] the catalog names no tool-declaration format for model "
+            f"{model_ref!r} (wire format {wire_format!r}); its tools are measured in the "
+            f"{UNKNOWN_WIRE_TOOL_FORMAT!r} shape. Add the wire format to "
+            "providers/base_translator.TOOL_FORMAT_BY_WIRE_FORMAT or fix the model's offering.",
+        )
+        tool_format = UNKNOWN_WIRE_TOOL_FORMAT
+    return tool_format
+
+
+def _tool_declarations_chars(config: Any) -> int:
+    """Every tool declaration the request carries, as the provider receives it: registered names
+    expanded through the registry (a request's projected agent tool first, as at dispatch), then
+    inline tools, deduped across BOTH buckets by the wire's own rule (``first_declaration_per_name``
+    — ``BaseTranslator.build_provider_tools``), in the format this request's wire sends. Measuring
+    the names counted ~30,000 tokens of declarations as ~200. A name the registry cannot render is
+    measured as the name, and that is announced."""
+    names = list(getattr(config, "tools", None) or [])
+    inline = list(getattr(config, "custom_tools", None) or [])
+    if not names and not inline:
+        return 0
+    from matrx_ai.providers.base_translator import first_declaration_per_name
+
+    tool_format = _wire_tool_format(config)
+    registry = None
+    lookup_projected = None
+    try:
+        from matrx_ai.tools.agent_projection import lookup_projected_tool
+        from matrx_ai.tools.registry import ToolRegistry
+
+        registry = ToolRegistry.get_instance()
+        lookup_projected = lookup_projected_tool
+    except Exception as exc:  # noqa: BLE001 — measuring must never break a send
+        _announce_once(
+            "registry:unreachable",
+            f"[prompt estimate] the tool registry could not be reached ({exc!r}); registered "
+            "tools are measured as their NAMES, so this estimate is low by their declarations.",
+        )
+    declarations: list[Any] = []
+    unrendered: list[str] = []
+    for name in names:
+        if not isinstance(name, str):
+            declarations.append(name)  # a declaration given as data is measured as given
+            continue
+        known = None
+        try:
+            known = (lookup_projected(name) if lookup_projected else None) or (
+                registry.get(name) if registry is not None else None
+            )
+            if known is not None:
+                declarations.append(known.get_provider_format(tool_format))
+                continue
+        except Exception as exc:  # noqa: BLE001 — unrenderable declaration: count the name
+            logger.debug("prompt estimate could not render tool %r: %r", name, exc)
+        unrendered.append(name)
+        declarations.append({"name": name})
+    for tool in inline:
+        render = getattr(tool, "get_provider_format", None)
+        try:
+            declarations.append(render(tool_format) if callable(render) else tool)
+        except Exception:  # noqa: BLE001
+            declarations.append(tool)
+    if unrendered and registry is not None:
+        _announce_once(
+            f"unrendered:{','.join(sorted(unrendered))[:200]}",
+            f"[prompt estimate] {len(unrendered)} registered tool(s) could not be rendered from "
+            f"the registry (loaded={getattr(registry, 'loaded', '?')}): {sorted(unrendered)[:10]}; "
+            "they are measured as their NAMES, so this estimate is low by their declarations.",
+        )
+    kept, _dropped = first_declaration_per_name(declarations)
+    return sum(_chars(decl) for decl in kept)
+
+
 def estimate_prompt_tokens(config: Any) -> int:
     """Rough token count of everything this config puts on the wire.
 
-    System instruction + messages as prose, tool definitions as structured
-    payload — through the ONE estimator (``estimate_budget_tokens``, the measured
-    ratios the client and the Source input use). An under-count here promises a
-    fit the provider then refuses, so the textbook 4 chars/token (27% low on a
-    measured run) is never used.
+    System instruction + every model-visible message (its content blocks in their storage form)
+    + the context channel as prose; every tool declaration — registered names expanded through
+    the registry, inline tools rendered — as structured payload. Through the ONE estimator
+    (``estimate_budget_tokens``, the measured ratios the client and the Source input use). An
+    under-count here promises a fit the provider then refuses, and tells the condense decision a
+    conversation past its trigger is far below it, so the textbook 4 chars/token is never used,
+    and nothing is measured through a debug ``repr``.
     """
     prose = _chars(getattr(config, "system_instruction", None))
+    # The conversation's own instructions ride the wire after the system prompt (send_boundary).
+    instructions = getattr(config, "conversation_instructions", None)
+    if isinstance(instructions, str):
+        prose += len(instructions)
     messages = getattr(config, "messages", None)
     if messages is not None:
         try:
             for message in messages:
-                prose += _chars(message)
+                prose += _message_chars(message)
         except TypeError:  # not iterable — measure it whole
             prose += _chars(messages)
-    tools = getattr(config, "tools", None)
-    structured = _chars(tools) if tools else 0
+        prose += _context_channel_chars(messages)
+    structured = _tool_declarations_chars(config)
     return estimate_budget_tokens(prose, "prose") + estimate_budget_tokens(structured, "structured")
 
 

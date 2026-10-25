@@ -196,10 +196,27 @@ class OfferedValueMapping(BaseModel):
     #: absent part can still say so ("Website:\n{value}" with default
     #: "[NONE]"). A skipped source contributes nothing, template included.
     template: str | None = None
-    #: A list value's entries, each rendered through this template (``{value}``
-    #: = the entry's text form) and joined with ``item_separator``; the result
-    #: is then the source's text form (and feeds ``template`` when set).
+    #: A list value's entries (or a kind's ``items`` envelope), each rendered
+    #: through this template and joined with ``item_separator``; the result is
+    #: then the source's text form (and feeds ``template`` when set). ``{value}``
+    #: = the entry's text form; on an object entry ``{field}`` / ``{a.b}`` = that
+    #: field (a structured field as compact JSON, a missing or empty one as "").
+    #: ``[[ … ]]`` is an optional segment: dropped whole when any field it names
+    #: is empty, so a blank never prints its label. An entry that renders empty
+    #: is left out.
     item_template: str | None = None
+    #: Keep only the entries (of a list or a kind's ``items`` envelope) whose
+    #: ``field`` value is one of the listed values — ``{"element_code": ["H1"]}``.
+    #: Applied first, before ``max_items``. A source with no entry left is ABSENT
+    #: for this binding (``when_absent`` decides), never an empty heading.
+    item_where: dict[str, list[JsonValue]] | None = None
+    #: An object value delivers only these top-level keys (``__kind`` always
+    #: stays): the part of a large packet a job reads — ``["name", "aliases"]``.
+    keep_keys: list[str] | None = None
+    #: Drop every empty string, list and object inside a structured value
+    #: (recursively) before delivery; a value left with nothing is ABSENT for this
+    #: binding (``when_absent`` decides). A blank is never shown as structure.
+    prune_empty: bool = False
     #: Joins the entries rendered by ``item_template``; default one newline.
     item_separator: str = "\n"
     #: Placed BEFORE this source's text when it joins earlier parts of the same

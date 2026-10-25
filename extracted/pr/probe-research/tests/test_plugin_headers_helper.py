@@ -435,3 +435,123 @@ def test_the_shell_and_the_server_agree_on_every_session_id(tmp_path: Path, sess
         f"shell sends={sent} but the server accepts={valid_session_id(session)} "
         f"for {session!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# This computer's workspace limit (`probe workspace limit`): the helper sends it
+# beside the bearer, and the hosted MCP forwards it on its API calls.
+# ---------------------------------------------------------------------------
+
+_WS = "11111111-1111-1111-1111-111111111111"
+
+
+def _limited_config(**workspace) -> dict:
+    return {
+        "version": 2,
+        "current_context": "default",
+        "contexts": {"default": {"mcp_token": "probe_pat_read", "workspace": {"id": _WS, **workspace}}},
+    }
+
+
+def test_the_helper_sends_the_stored_limit(tmp_path: Path) -> None:
+    result = _run_helper_against_config(tmp_path, _limited_config(limit=True, team_items="hide"))
+
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {
+        "Authorization": "Bearer probe_pat_read",
+        "X-Probe-Workspace-Limit": _WS,
+        "X-Probe-Workspace-Limit-Team-Items": "hide",
+    }
+
+
+def test_the_whole_team_sends_no_limit_headers(tmp_path: Path) -> None:
+    """The pin alone (`limit` absent or false) is no limit."""
+    for index, config in enumerate((_limited_config(), _limited_config(limit=False))):
+        result = _run_helper_against_config(tmp_path / str(index), config)
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == {"Authorization": "Bearer probe_pat_read"}
+
+
+def _run_with_env(tmp_path: Path, config: dict, env: dict) -> dict:
+    home = tmp_path / "home"
+    config_home = tmp_path / "config"
+    (config_home / "probe").mkdir(parents=True)
+    (config_home / "probe" / "config.json").write_text(json.dumps(config))
+    home.mkdir()
+    result = subprocess.run(
+        [str(_HELPER)],
+        env={"CLAUDE_PLUGIN_ROOT": str(tmp_path / "plugin"), "HOME": str(home),
+             "XDG_CONFIG_HOME": str(config_home), "PATH": _hermetic_path(tmp_path), **env},
+        capture_output=True, text=True, timeout=10, check=True,
+    )
+    return json.loads(result.stdout)
+
+
+def test_an_exported_token_still_carries_the_stored_limit(tmp_path: Path) -> None:
+    """PROBE_MCP_TOKEN decides the token, never the limit: the config is read anyway."""
+    headers = _run_with_env(tmp_path, _limited_config(limit=True), {"PROBE_MCP_TOKEN": "probe_pat_env"})
+
+    assert headers == {
+        "Authorization": "Bearer probe_pat_env",
+        "X-Probe-Workspace-Limit": _WS,
+        "X-Probe-Workspace-Limit-Team-Items": "show",
+    }
+
+
+def test_the_environment_overrides_the_stored_limit(tmp_path: Path) -> None:
+    other = "22222222-2222-2222-2222-222222222222"
+    assert "X-Probe-Workspace-Limit" not in _run_with_env(
+        tmp_path / "team", _limited_config(limit=True), {"PROBE_WORKSPACE_LIMIT": "team"}
+    )
+    assert _run_with_env(
+        tmp_path / "other", _limited_config(limit=True), {"PROBE_WORKSPACE_LIMIT": other}
+    )["X-Probe-Workspace-Limit"] == other
+    assert _run_with_env(
+        tmp_path / "items", _limited_config(limit=True, team_items="hide"),
+        {"PROBE_WORKSPACE_LIMIT_TEAM_ITEMS": "show"},
+    )["X-Probe-Workspace-Limit-Team-Items"] == "show"
+
+
+@pytest.mark.parametrize(
+    "workspace,env,expected",
+    [
+        # A value it cannot vouch for is sent so the API refuses it -- never dropped.
+        ({"limit": True, "team_items": "maybe"}, {}, (_WS, "unreadable")),
+        ({"limit": True, "id": ""}, {}, ("unreadable", "show")),
+        ({}, {"PROBE_WORKSPACE_LIMIT": 'a"b'}, ("unreadable", "show")),
+        # A slug with no CLI to look it up goes as it is (the API answers 400).
+        ({}, {"PROBE_WORKSPACE_LIMIT": "eng"}, ("eng", "show")),
+    ],
+)
+def test_the_helper_fails_closed_and_keeps_stdout_json(tmp_path: Path, workspace, env, expected) -> None:
+    headers = _run_with_env(tmp_path, _limited_config(**workspace), env)
+
+    assert (headers["X-Probe-Workspace-Limit"], headers["X-Probe-Workspace-Limit-Team-Items"]) == expected
+    assert headers["Authorization"] == "Bearer probe_pat_read"
+
+
+def test_the_cli_fallback_carries_the_clis_limit(tmp_path: Path) -> None:
+    """No python to read the config: `probe mcp headers` answers, limit included."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    (fake_bin / "probe").write_text(
+        "#!/bin/sh\n"
+        '[ "$1 $2" = "mcp headers" ] || exit 1\n'
+        f"""printf '%s\\n' '{{"Authorization": "Bearer probe_pat_cli", "X-Probe-Workspace-Limit": "{_WS}", """
+        """"X-Probe-Workspace-Limit-Team-Items": "hide"}'\n"""
+    )
+    (fake_bin / "probe").chmod(0o755)
+    sed = next(Path(d) / "sed" for d in ("/usr/bin", "/bin") if (Path(d) / "sed").exists())
+    (fake_bin / "sed").symlink_to(sed)
+    result = subprocess.run(
+        [str(_HELPER)],
+        env={"CLAUDE_PLUGIN_ROOT": str(tmp_path / "plugin"), "HOME": str(tmp_path / "home"),
+             "XDG_CONFIG_HOME": str(tmp_path / "config"), "PATH": str(fake_bin)},
+        capture_output=True, text=True, timeout=10, check=True,
+    )
+
+    assert json.loads(result.stdout) == {
+        "Authorization": "Bearer probe_pat_cli",
+        "X-Probe-Workspace-Limit": _WS,
+        "X-Probe-Workspace-Limit-Team-Items": "hide",
+    }

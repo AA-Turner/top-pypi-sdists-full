@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="simple_dwd_weatherforecast",
-    version="v3.5.0",
+    version="v3.6.0",
     author="Max Fermor",
     description="A simple tool to retrieve a weather forecast from DWD OpenData",
     long_description=long_description,
@@ -29,6 +29,8 @@ setuptools.setup(
         "arrow",
         "stream-unzip==0.0.101",
         "httpx",
+        "h5py",
+        "numpy",
     ],
     extras_require={
         "apparent-temperature": [

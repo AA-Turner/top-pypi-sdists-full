@@ -1,15 +1,17 @@
 from io import BytesIO
 
+from sorl.thumbnail.conf import settings
 from sorl.thumbnail.engines.base import EngineBase
 
 try:
-    from PIL import Image, ImageDraw, ImageFile, ImageMode
+    from PIL import Image, ImageDraw, ImageFile, ImageMode, ImageSequence
     from PIL.ImageFilter import GaussianBlur
 except ImportError:
     import Image
     import ImageDraw
     import ImageFile
     import ImageMode
+    import ImageSequence
 try:
     import pillow_avif  # noqa: F401
 except ImportError:
@@ -74,11 +76,29 @@ def round_rectangle(size, radius, fill):
 
 
 class Engine(EngineBase):
+    def create(self, image, geometry, options):
+        """
+        An animated source written as GIF is thumbnailed frame by frame,
+        returning the list of frames
+        """
+        if options['format'] != 'GIF' or not getattr(image, 'is_animated', False):
+            return super().create(image, geometry, options)
+
+        frames = []
+        for frame in ImageSequence.Iterator(image):
+            # Copy, seeking to the next frame reuses the same image
+            thumbnail = super().create(frame.copy(), geometry, options)
+            thumbnail.info['duration'] = frame.info.get('duration', 0)
+            frames.append(thumbnail)
+        return frames
+
     def get_image(self, source):
         buffer = BytesIO(source.read())
         return Image.open(buffer)
 
     def get_image_size(self, image):
+        if isinstance(image, list):  # Animated GIF frames, see create()
+            image = image[0]
         return image.size
 
     def get_image_info(self, image):
@@ -99,6 +119,15 @@ class Engine(EngineBase):
         """
         colorspace = options['colorspace']
         format = options['format']
+
+        flatten = settings.THUMBNAIL_FLATTEN and options.get('flatten') not in ('off', False)
+        transparent = image.mode in ('RGBA', 'LA') or 'transparency' in image.info
+        if flatten and transparent and format == 'JPEG':
+            # Composite onto a background before JPEG drops the alpha channel, like convert -flatten
+            color = options.get('padding_color') if options.get('padding') else '#ffffff'
+            rgba = image.convert('RGBA')
+            image = Image.new('RGB', image.size, color)
+            image.paste(rgba, mask=rgba)
 
         return self._colorspace(image, colorspace, format)
 
@@ -146,8 +175,8 @@ class Engine(EngineBase):
             # Pillow JPEG doesn't allow RGBA anymore. It was converted to RGB before.
             if image.mode == 'RGBA' and format != 'JPEG':
                 return image  # RGBA is just RGB + Alpha
-            if image.mode == 'LA' or (
-                image.mode == 'P' and 'transparency' in image.info and format != 'JPEG'
+            if format != 'JPEG' and (
+                image.mode == 'LA' or (image.mode == 'P' and 'transparency' in image.info)
             ):
                 newimage = image.convert('RGBA')
                 transparency = image.info.get('transparency')
@@ -199,38 +228,30 @@ class Engine(EngineBase):
     # This is just a slight rework of pycrops implimentation
     def _entropy_crop(self, image, geometry_width, geometry_height, image_width, image_height):
         geometry_ratio = geometry_width / geometry_height
+        target_width = max(min(image_width, round(image_height * geometry_ratio)), 1)
+        target_height = max(min(image_height, round(image_width / geometry_ratio)), 1)
+        left, top, right, bottom = 0, 0, image_width, image_height
 
-        # The is proportionally wider than it should be
-        while image_width / image_height > geometry_ratio:
-
-            slice_width = max(image_width - geometry_width, 10)
-
-            right = image.crop((image_width - slice_width, 0, image_width, image_height))
-            left = image.crop((0, 0, slice_width, image_height))
-
-            if self._get_image_entropy(left) < self._get_image_entropy(right):
-                image = image.crop((slice_width, 0, image_width, image_height))
+        # Trim the side with less entropy, up to 10px per round, then crop once
+        while right - left > target_width:
+            step = min(right - left - target_width, 10)
+            left_strip = image.crop((left, top, left + step, bottom))
+            right_strip = image.crop((right - step, top, right, bottom))
+            if self._get_image_entropy(left_strip) < self._get_image_entropy(right_strip):
+                left += step
             else:
-                image = image.crop((0, 0, image_height - slice_width, image_height))
+                right -= step
 
-            image_width -= slice_width
-
-        # The image is proportionally taller than it should be
-        while image_width / image_height < geometry_ratio:
-
-            slice_height = min(image_height - geometry_height, 10)
-
-            bottom = image.crop((0, image_height - slice_height, image_width, image_height))
-            top = image.crop((0, 0, image_width, slice_height))
-
-            if self._get_image_entropy(bottom) < self._get_image_entropy(top):
-                image = image.crop((0, 0, image_width, image_height - slice_height))
+        while bottom - top > target_height:
+            step = min(bottom - top - target_height, 10)
+            top_strip = image.crop((left, top, right, top + step))
+            bottom_strip = image.crop((left, bottom - step, right, bottom))
+            if self._get_image_entropy(bottom_strip) < self._get_image_entropy(top_strip):
+                bottom -= step
             else:
-                image = image.crop((0, slice_height, image_width, image_height))
+                top += step
 
-            image_height -= slice_height
-
-        return image
+        return image.crop((left, top, right, bottom))
 
     # Add the histogram_entropy fumnction as a static method:
     _get_image_entropy = staticmethod(histogram_entropy)
@@ -260,6 +281,9 @@ class Engine(EngineBase):
         return im
 
     def _get_raw_data(self, image, format_, quality, image_info=None, progressive=False):
+        frames = image if isinstance(image, list) else [image]  # see create()
+        image = frames[0]
+
         # Increase (but never decrease) PIL buffer size
         ImageFile.MAXBLOCK = max(ImageFile.MAXBLOCK, image.size[0] * image.size[1])
         bf = BytesIO()
@@ -269,6 +293,17 @@ class Engine(EngineBase):
             'quality': quality,
             'optimize': 1,
         }
+
+        if len(frames) > 1:
+            params['save_all'] = True
+            params['append_images'] = frames[1:]
+            params['duration'] = [frame.info['duration'] for frame in frames]
+            # Clear each frame before drawing the next one, otherwise
+            # transparent animations leave trails
+            params['disposal'] = 2
+
+            if 'loop' in image_info:
+                params['loop'] = image_info['loop']
 
         # keeps icc_profile
         if 'icc_profile' in image_info:

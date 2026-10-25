@@ -48,7 +48,16 @@ class AiTurnFailedError(RuntimeError):
     graph action swallowing them returned an empty-but-"successful" result:
     the run went green while the agent had actually failed (found live
     2026-07-04). That silent-success class is exactly what this raise kills.
+
+    ``person_message`` is the one sentence a person reads, when the turn was a CALLER REFUSAL (a
+    spend guardrail, a spend approval, a usage limit: ``providers/caller_refusal``): the gate's own
+    plain reason, without the "AI turn ended with status ..." prefix, which stays in ``str(exc)``
+    (the technical record; ``scheduler.automation_repeat_runs_24h`` reads its error code there).
     """
+
+    def __init__(self, text: str, *, person_message: str | None = None) -> None:
+        super().__init__(text)
+        self.person_message = person_message
 
 
 # CompletedRequest.metadata statuses that mean "the turn did not do its job".
@@ -318,8 +327,9 @@ def normalize_completed_result(
                 details[key] = value
         return failure(
             "ai_turn_failed",
-            str(e),
+            e.person_message or str(e),
             details=details,
+            technical=str(e) if e.person_message else None,
         )
     if _requires_structured_output(completed):
         from matrx_ai.config.finish_reason import completion_truncation
@@ -520,8 +530,15 @@ def normalize_completed(completed: CompletedRequest) -> AiExecutionResult:
     if status in _FAILURE_STATUSES:
         error_message = _turn_failure_detail(meta, status)
         error_type = str(meta.get("error_type") or status)
+        from matrx_ai.providers.caller_refusal import is_caller_refusal
+
+        # A gate's refusal already says why in plain words (live run 246ffb53: "Stopped: limit — this
+        # run ..." reached the build page as "AI turn ended with status 'failed' (automation_guardrail):
+        # Stopped: ..."). The person reads that reason alone; the technical text keeps the prefix.
+        refused = is_caller_refusal(error_type) and bool(str(meta.get("error") or "").strip())
         raise AiTurnFailedError(
-            f"AI turn ended with status '{status}' ({error_type}): {error_message}"
+            f"AI turn ended with status '{status}' ({error_type}): {error_message}",
+            person_message=error_message if refused else None,
         )
 
     request = getattr(completed, "request", None)

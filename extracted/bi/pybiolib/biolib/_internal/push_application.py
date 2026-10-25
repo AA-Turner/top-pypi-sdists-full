@@ -255,7 +255,8 @@ def push_application(
     if not api_client.is_signed_in and not Runtime.check_is_environment_biolib_app():
         github_repository = os.getenv('GITHUB_REPOSITORY')
         if github_repository and not api_client.resource_deploy_key:
-            github_secrets_url = f'https://github.com/{github_repository}/settings/secrets/actions/new'
+            github_server_url = os.getenv('GITHUB_SERVER_URL', 'https://github.com').rstrip('/')
+            github_secrets_url = f'{github_server_url}/{github_repository}/settings/secrets/actions/new'
             raise AuthenticationError(
                 'You must be authenticated to push an application.\n'
                 'Please set the environment variable "BIOLIB_TOKEN=[your_deploy_token]"\n'

@@ -24530,3 +24530,547 @@ def trip_time2(speed=None,distance=None):
         return results_def(fb)
     except Exception as e:
         print(e)
+
+
+def AnnualTaxableIncome_VA():
+    try:
+        with localcontext() as ctx:
+            ctx.prec=50
+
+            fields={
+                'Gross Period Wages':{
+                    'type':'float',
+                    'default':301.87,
+                    'help':"Gross Wages for the period",
+                    'ptext':"Gross Wages",
+                },
+                'Pay Periods Per Year':{
+                    'type':'float',
+                    'default':52,
+                    'help':"Pay periods per year",
+                    'ptext':"Pay Periods Per Year",
+                },
+                'Deductions':{
+                    'type':'float',
+                    'default':8750.00,
+                    'help':"Deductions",
+                    'ptext':"Deductions",
+                },
+            }
+            fb=FormBuilder(data=fields,passThruText="Calculate Annual Taxable Income")
+            if fb in BooleanAnswers.NONE:
+                return
+
+            GrossPeriodWages=decc(fb['Gross Period Wages'])
+            AnnualPayPeriods=decc(fb['Pay Periods Per Year'])
+            Deductions=decc(fb['Deductions'])
+            AnnualizedGross=GrossPeriodWages*AnnualPayPeriods
+            AnnualTaxableIncome=AnnualizedGross-Deductions
+            if AnnualTaxableIncome <= decc(0):
+                AnnualTaxableIncome=0
+            return AnnualTaxableIncome
+
+    except Exception as e:
+        print(e)
+
+
+def AnnualTaxableIncome_Federal():
+    try:
+        with localcontext() as ctx:
+            ctx.prec=50
+
+            fields={
+                'Gross Period Wages':{
+                    'type':'float',
+                    'default':301.87,
+                    'help':"Gross Wages for the period",
+                    'ptext':"Gross Wages",
+                },
+                'Pay Periods Per Year':{
+                    'type':'float',
+                    'default':52,
+                    'help':"Pay periods per year",
+                    'ptext':"Pay Periods Per Year",
+                },
+                'Deductions':{
+                    'type':'float',
+                    'default':16100,
+                    'help':"Federal Tax Deductions ; see 'https://www.irs.gov/newsroom/new-and-enhanced-deductions-for-individuals'",
+                    'ptext':"Federal Tax Deductions",
+                },
+            }
+            fb=FormBuilder(data=fields,passThruText="Calculate Annual Taxable Income")
+            if fb in BooleanAnswers.NONE:
+                return
+
+            GrossPeriodWages=decc(fb['Gross Period Wages'])
+            AnnualPayPeriods=decc(fb['Pay Periods Per Year'])
+            Deductions=decc(fb['Deductions'])
+            AnnualizedGross=GrossPeriodWages*AnnualPayPeriods
+            AnnualTaxableIncome=AnnualizedGross-Deductions
+            if AnnualTaxableIncome <= decc(0):
+                AnnualTaxableIncome=0
+            return AnnualTaxableIncome
+
+    except Exception as e:
+        print(e)
+
+
+def TaxBracket_VA():
+    try:
+        with localcontext() as ctx:
+            ctx.prec=50
+
+            fields={
+                'Taxable Income':{
+                    'type':'float',
+                    'default':6947.24,
+                    'help':"Taxable Income",
+                    'ptext':"Taxable Income",
+                },
+                'Pay Periods Per Year':{
+                    'type':'float',
+                    'default':52,
+                    'help':"Pay periods per year",
+                    'ptext':"Pay Periods Per Year",
+                },
+            }
+            fb=FormBuilder(data=fields,passThruText="Calculate Annual Taxable Income")
+            if fb in BooleanAnswers.NONE:
+                return
+
+            tax=decc(0)
+            PayPeriod=decc(fb['Pay Periods Per Year'])
+            TaxableIncome=decc(fb['Taxable Income'])
+            '''
+            if TaxableIncome > decc(3000):
+                tax+=(decc(3000)*decc(0.02))
+            if TaxableIncome > decc(3000):
+                tax+=(decc(2000)*decc(0.03))
+            if TaxableIncome > decc(5000):
+                tax+=(decc(TaxableIncome-decc(5000))*decc(0.05))
+            if TaxableIncome > decc(17000):
+                tax+=(decc(TaxableIncome-decc(17000))*decc(0.0575))
+            '''
+            def calculate_brackets(taxable_income, brackets,ctx):
+                tax_owed = decc(0)
+                breakdown = []
+                remaining_income = taxable_income
+                previous_limit = decc(0)
+
+                for limit, rate in brackets:
+                    if remaining_income <= decc(0):
+                        break
+                        
+                    # Determine how much income fits into the current bracket
+                    bracket_span = limit - previous_limit
+                    income_in_bracket = min(remaining_income, bracket_span)
+                    
+                    # Calculate tax for this specific bucket
+                    bracket_tax = income_in_bracket * rate
+                    tax_owed += bracket_tax
+                    
+                    breakdown.append({
+                        "bracket": f"{previous_limit:,} to {limit:,}" if limit != float('inf') else f"{previous_limit:,}+",
+                        "rate": f"{rate * 100}%",
+                        "income_in_bracket": income_in_bracket,
+                        "tax_for_bracket": bracket_tax
+                    })
+                    
+                    remaining_income -= income_in_bracket
+                    previous_limit = limit
+
+                return tax_owed, breakdown
+
+            # Define 2026 Single Filer Brackets (Limit, Rate)
+            # Note: Using float('inf') for the top open-ended bracket
+            va_brackets_2026 = [
+                (decc(3000), decc(0.02)),
+                (decc(5000), decc(0.03)),
+                (decc(17000), decc(0.05)),
+                (decc('inf'), decc(0.0575))
+            ]
+            brackets2=[]
+            with Session(ENGINE) as session:
+                results=session.query(VirginiaTaxBrackets).filter(and_(VirginiaTaxBrackets.rate!=None,VirginiaTaxBrackets.upper_limit!=None)).order_by(VirginiaTaxBrackets.upper_limit.asc()).all()
+                for i in results:
+                    brackets2.append((decc(i.upper_limit),decc(i.rate)))
+
+            # Example execution
+            tax, tax_breakdown = calculate_brackets(TaxableIncome, brackets2,ctx)
+
+            cta=len(tax_breakdown)
+            for num,i in enumerate(tax_breakdown):
+                print(std_colorize(f"Bracket = {i['bracket']} @ {i['rate']}, Income = {i['income_in_bracket']} Tax = {i['tax_for_bracket']} ",num,cta))
+
+            results={
+                'annual virginia state tax':tax,
+                'per pay period tax':tax/PayPeriod
+            }
+
+            return results_def(results)
+
+    except Exception as e:
+        print(e)
+
+
+def TaxBracket_Federal_Single():
+    try:
+        with localcontext() as ctx:
+            ctx.prec=50
+
+            fields={
+                'Taxable Income':{
+                    'type':'float',
+                    'default':6947.24,
+                    'help':"Taxable Income",
+                    'ptext':"Taxable Income",
+                },
+                'Pay Periods Per Year':{
+                    'type':'float',
+                    'default':52,
+                    'help':"Pay periods per year",
+                    'ptext':"Pay Periods Per Year",
+                },
+            }
+            fb=FormBuilder(data=fields,passThruText="Calculate Annual Taxable Income")
+            if fb in BooleanAnswers.NONE:
+                return
+
+            tax=decc(0)
+            PayPeriod=decc(fb['Pay Periods Per Year'])
+            TaxableIncome=decc(fb['Taxable Income'])
+            
+            def calculate_brackets(taxable_income, brackets,ctx):
+                tax_owed = decc(0)
+                breakdown = []
+                remaining_income = taxable_income
+                previous_limit = decc(0)
+
+                for limit, rate in brackets:
+                    if remaining_income <= decc(0):
+                        break
+                        
+                    # Determine how much income fits into the current bracket
+                    bracket_span = limit - previous_limit
+                    income_in_bracket = min(remaining_income, bracket_span)
+                    
+                    # Calculate tax for this specific bucket
+                    bracket_tax = income_in_bracket * rate
+                    tax_owed += bracket_tax
+                    
+                    breakdown.append({
+                        "bracket": f"{previous_limit:,} to {limit:,}" if limit != float('inf') else f"{previous_limit:,}+",
+                        "rate": f"{rate * 100}%",
+                        "income_in_bracket": income_in_bracket,
+                        "tax_for_bracket": bracket_tax
+                    })
+                    
+                    remaining_income -= income_in_bracket
+                    previous_limit = limit
+
+                return tax_owed, breakdown
+
+            # Define 2026 Single Filer Brackets (Limit, Rate)
+            # Note: Using float('inf') for the top open-ended bracket
+            fed_brackets_2026 = [
+                (decc(12400), decc(0.10)),
+                (decc(50400), decc(0.12)),
+                (decc(107400), decc(0.22)),
+                (decc(204225), decc(0.24)),
+                (decc(259325), decc(0.32)),
+                (decc(648350), decc(0.35)),
+                (decc('inf'), decc(0.37))
+            ]
+            brackets2=[]
+            with Session(ENGINE) as session:
+                results=session.query(FederalSingleTaxBrackets).filter(and_(FederalSingleTaxBrackets.rate!=None,FederalSingleTaxBrackets.upper_limit!=None)).order_by(FederalSingleTaxBrackets.upper_limit.asc()).all()
+                for i in results:
+                    brackets2.append((decc(i.upper_limit),decc(i.rate)))
+
+            # Example execution
+            tax, tax_breakdown = calculate_brackets(TaxableIncome, brackets2,ctx)
+
+            cta=len(tax_breakdown)
+            for num,i in enumerate(tax_breakdown):
+                print(std_colorize(f"Bracket = {i['bracket']} @ {i['rate']}, Income = {i['income_in_bracket']} Tax = {i['tax_for_bracket']} ",num,cta))
+
+            
+            results={
+                'annual federal tax':tax,
+                'per pay period tax':tax/PayPeriod
+            }
+            return results_def(results)
+
+    except Exception as e:
+        print(e)
+
+def federalSingleTaxBrackets_short_view(self,data:list,printToScreen=True,num=None):
+        xtext=[]
+        ct=len(data)
+        ii=''
+        #template text
+        #{Fore.cyan}{i.}{Fore.light_steel_blue} ={Fore.sea_green_1a}'{i.}{Style.reset}'
+        for xnum,i in enumerate(data):
+            xtext.append(std_colorize(i,xnum,ct))
+        if printToScreen:
+            print('\n'.join(xtext))
+        return '\n'.join(xtext)
+
+def federalSingleTaxBrackets_StoreForCDP(self,item):
+    try:
+        with Session(ENGINE) as session:
+            log=session.query(self.Model).filter(self.primaryKey(self.Model)==self.primaryKey(item)).first()
+            keys={
+           
+            }
+            htext=[]
+            cta=len(keys)
+            for num,k in enumerate(keys):
+                htext.append(std_colorize(f"Field {k} = '{keys[k]}'",num,cta))
+            htext='\n'.join(htext)
+            while True:
+                try:
+                    print(htext)
+                    which=Control(func=FormBuilderMkText,ptext=f"Which {Fore.light_blue}index {Fore.light_yellow}for{Fore.light_red} field{Fore.light_yellow} do you wish to return?",helpText=f"index integer for field starting at 0:\n{htext}",data="integer")
+                    if which is None:
+                        return
+                    elif which in ['NAN','NaN',None,'None','d','']:
+                        return
+                    else:
+                        self.StoreInCB(ncb_text=str(tuple(keys.values())[which]))
+                    return
+                except Exception as e:
+                    print(e)
+
+    except Exception as e:
+        print(e)
+        return item
+    pass
+
+def s2cb_federalSingleTaxBrackets(self,menu=False,short=True):
+        with Session(ENGINE) as session:
+            filt=abstract_filter(self.Model)
+
+            core={
+                'limit':{
+                'default':None,
+                'type':"integer"
+                },
+                'offset':{
+                'default':None,
+                'type':'integer,'
+                }
+            }
+            fd=FormBuilder(data=core,passThruText="limit your results.")
+            if fd is None:
+                print("exited early")
+                return
+            if filt is not None:
+                query=session.query(self.Model).filter(filt)
+            else:
+                query=session.query(self.Model)
+            
+            
+            orderedQuery=orderQuery(query,self.Model.dtoe)
+            limited=limitOffset(orderedQuery,limit=fd['limit'],offset=fd['offset'])
+            results=limited.all()
+            if short:
+                htext=self.short_view(self=self,data=results,printToScreen=False)
+            else:
+                htext=self.long_view(data=results,printToScreen=False)
+
+            if menu:
+                #next update
+                cta=len(results)
+                gotoNext=None
+                for num,log in enumerate(results):
+                    if log == None:
+                        continue
+                    while True:
+                        if log is None:
+                            gotoNext=True
+                            break
+                        
+                        cmds=['edit=ed/edit/e','delete=rm/del/delete/remove','save2cb=s2cb/clipbd/memo']
+                        try:
+                            if short:
+                                l=self.short_view(self=self,data=[log,],printToScreen=False,num=num)
+                            else:
+                                l=self.long_view(self=self,data=[log,],printToScreen=False,num=num)
+                            doWhat=Control(func=FormBuilderMkText,ptext=f"{l}\n[{cmds}]?",helpText=f"{l}\n{cmds}",data="string")
+                            if doWhat in ['NaN',None]:
+                                return
+                            elif doWhat.lower() in ['d','']:
+                                gotoNext=True
+                                break
+                            elif doWhat.lower() in [i.lower() for i in 'edit=ed/edit/e'.split('=')[-1].split("/")]:
+                                log=self.edit_id(log)
+
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'save2cb=s2cb/clipbd/memo'.split('=')[-1].split("/")]:
+                                log=federalSingleTaxBrackets_StoreForCDP(self,log)
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'delete=rm/del/delete/remove'.split('=')[-1].split("/")]:
+                                log=self.delete_id(log)
+                                continue
+                            else:
+                                gotoNext=True
+                                break
+                            if gotoNext:
+                                gotoNext=False
+                                break
+                        except Exception as e:
+                            print(e)
+                            gotoNext=True
+                            break
+            else:
+                print(htext)    
+
+federalSingleTaxBrackets_menu={
+    str(uuid1()):{
+    "cmds":['federalSingleTaxBrackets custom',],
+    "exec":lambda self:s2cb_federalSingleTaxBrackets(self,menu=True,short=True),
+    "desc":"Save to Clipboard custom formats",
+    },
+}
+#bptxt - bill paid text
+
+#TriedToWake
+def federalSingleTaxBracketsLogger(Model=FederalSingleTaxBrackets,short_view=federalSingleTaxBrackets_short_view,menu=federalSingleTaxBrackets_menu):
+    return ModelLogger(Model=FederalSingleTaxBrackets,short_view=federalSingleTaxBrackets_short_view,menu=federalSingleTaxBrackets_menu)
+
+def virginiaTaxBrackets_short_view(self,data:list,printToScreen=True,num=None):
+        xtext=[]
+        ct=len(data)
+        ii=''
+        #template text
+        #{Fore.cyan}{i.}{Fore.light_steel_blue} ={Fore.sea_green_1a}'{i.}{Style.reset}'
+        for xnum,i in enumerate(data):
+            xtext.append(std_colorize(i,xnum,ct))
+        if printToScreen:
+            print('\n'.join(xtext))
+        return '\n'.join(xtext)
+
+def virginiaTaxBrackets_StoreForCDP(self,item):
+    try:
+        with Session(ENGINE) as session:
+            log=session.query(self.Model).filter(self.primaryKey(self.Model)==self.primaryKey(item)).first()
+            keys={
+           
+            }
+            htext=[]
+            cta=len(keys)
+            for num,k in enumerate(keys):
+                htext.append(std_colorize(f"Field {k} = '{keys[k]}'",num,cta))
+            htext='\n'.join(htext)
+            while True:
+                try:
+                    print(htext)
+                    which=Control(func=FormBuilderMkText,ptext=f"Which {Fore.light_blue}index {Fore.light_yellow}for{Fore.light_red} field{Fore.light_yellow} do you wish to return?",helpText=f"index integer for field starting at 0:\n{htext}",data="integer")
+                    if which is None:
+                        return
+                    elif which in ['NAN','NaN',None,'None','d','']:
+                        return
+                    else:
+                        self.StoreInCB(ncb_text=str(tuple(keys.values())[which]))
+                    return
+                except Exception as e:
+                    print(e)
+
+    except Exception as e:
+        print(e)
+        return item
+    pass
+
+def s2cb_virginiaTaxBrackets(self,menu=False,short=True):
+        with Session(ENGINE) as session:
+            filt=abstract_filter(self.Model)
+
+            core={
+                'limit':{
+                'default':None,
+                'type':"integer"
+                },
+                'offset':{
+                'default':None,
+                'type':'integer,'
+                }
+            }
+            fd=FormBuilder(data=core,passThruText="limit your results.")
+            if fd is None:
+                print("exited early")
+                return
+            if filt is not None:
+                query=session.query(self.Model).filter(filt)
+            else:
+                query=session.query(self.Model)
+            
+            
+            orderedQuery=orderQuery(query,self.Model.dtoe)
+            limited=limitOffset(orderedQuery,limit=fd['limit'],offset=fd['offset'])
+            results=limited.all()
+            if short:
+                htext=self.short_view(self=self,data=results,printToScreen=False)
+            else:
+                htext=self.long_view(data=results,printToScreen=False)
+
+            if menu:
+                #next update
+                cta=len(results)
+                gotoNext=None
+                for num,log in enumerate(results):
+                    if log == None:
+                        continue
+                    while True:
+                        if log is None:
+                            gotoNext=True
+                            break
+                        
+                        cmds=['edit=ed/edit/e','delete=rm/del/delete/remove','save2cb=s2cb/clipbd/memo']
+                        try:
+                            if short:
+                                l=self.short_view(self=self,data=[log,],printToScreen=False,num=num)
+                            else:
+                                l=self.long_view(self=self,data=[log,],printToScreen=False,num=num)
+                            doWhat=Control(func=FormBuilderMkText,ptext=f"{l}\n[{cmds}]?",helpText=f"{l}\n{cmds}",data="string")
+                            if doWhat in ['NaN',None]:
+                                return
+                            elif doWhat.lower() in ['d','']:
+                                gotoNext=True
+                                break
+                            elif doWhat.lower() in [i.lower() for i in 'edit=ed/edit/e'.split('=')[-1].split("/")]:
+                                log=self.edit_id(log)
+
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'save2cb=s2cb/clipbd/memo'.split('=')[-1].split("/")]:
+                                log=virginiaTaxBrackets_StoreForCDP(self,log)
+                                continue
+                            elif doWhat.lower() in [i.lower() for i in 'delete=rm/del/delete/remove'.split('=')[-1].split("/")]:
+                                log=self.delete_id(log)
+                                continue
+                            else:
+                                gotoNext=True
+                                break
+                            if gotoNext:
+                                gotoNext=False
+                                break
+                        except Exception as e:
+                            print(e)
+                            gotoNext=True
+                            break
+            else:
+                print(htext)    
+
+virginiaTaxBrackets_menu={
+    str(uuid1()):{
+    "cmds":['virginiaTaxBrackets custom',],
+    "exec":lambda self:s2cb_virginiaTaxBrackets(self,menu=True,short=True),
+    "desc":"Save to Clipboard custom formats",
+    },
+}
+#bptxt - bill paid text
+
+#TriedToWake
+def virginiaTaxBracketsLogger(Model=VirginiaTaxBrackets,short_view=virginiaTaxBrackets_short_view,menu=virginiaTaxBrackets_menu):
+    return ModelLogger(Model=VirginiaTaxBrackets,short_view=virginiaTaxBrackets_short_view,menu=virginiaTaxBrackets_menu)

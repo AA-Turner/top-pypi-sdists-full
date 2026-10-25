@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import struct
 import sys
+import time
 import urllib.parse
 from base64 import b64decode, b64encode
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, TypeVar
-
-from pyqwest import Headers as HTTPHeaders
 
 from ._compression import IdentityCompression, negotiate_compression
 from ._envelope import EnvelopeReader, EnvelopeWriter
@@ -27,7 +26,7 @@ from .request import Headers, RequestContext
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
-    from pyqwest import Response, SyncResponse
+    from pyqwest import Headers as HTTPHeaders, Response, SyncResponse
 
     from ._codec import Codec
     from ._compression import Compression
@@ -49,6 +48,8 @@ _DEFAULT_GRPC_USER_AGENT = f"grpc-python-connect/{__version__} ({sys.version})"
 
 
 class GRPCServerProtocol:
+    _content_type = GRPC_CONTENT_TYPE_DEFAULT
+
     def create_request_context(
         self,
         method: MethodInfo[REQ, RES],
@@ -61,18 +62,22 @@ class GRPCServerProtocol:
             raise HTTPError(HTTPStatus.METHOD_NOT_ALLOWED, [("allow", "POST")])
 
         timeout_header = headers.get(GRPC_HEADER_TIMEOUT)
-        timeout_ms = _parse_timeout(timeout_header) if timeout_header else None
+        timeout_ns = (
+            _parse_timeout(timeout_header) if timeout_header is not None else None
+        )
 
         server_address = host_to_server_address(headers.get("host"), http_scheme)
 
-        return RequestContext(
+        ctx = RequestContext(
             method=method,
             http_method=http_method,
             request_headers=headers,
-            timeout_ms=timeout_ms,
             server_address=server_address,
             client_address=client_address,
         )
+        if timeout_ns is not None:
+            ctx._end_time = time.monotonic() + (timeout_ns / 1_000_000_000)
+        return ctx
 
     def create_envelope_writer(
         self, codec: Codec[RES, Any], compression: Compression | None
@@ -96,14 +101,30 @@ class GRPCServerProtocol:
     def negotiate_stream_compression(
         self, headers: Headers, compressions: dict[str, Compression]
     ) -> tuple[Compression | None, Compression]:
-        req_compression_name = headers.get(GRPC_HEADER_COMPRESSION, "identity")
+        req_compression_name = headers.get(GRPC_HEADER_COMPRESSION) or "identity"
         req_compression = compressions.get(req_compression_name)
         accept_compression = headers.get(GRPC_HEADER_ACCEPT_COMPRESSION, "")
         resp_compression = negotiate_compression(accept_compression, compressions)
         return req_compression, resp_compression
 
+    def trailers_only_headers(
+        self, ctx: RequestContext | None, exc: Exception
+    ) -> Headers:
+        """Return the headers of a trailers-only response that reports exc."""
+        headers = _status_trailers(
+            ctx.response_trailers if ctx else Headers(),
+            ConnectWireError.from_exception(exc),
+        )
+        headers["content-type"] = self._content_type
+        if ctx:
+            for key, value in ctx.response_headers.allitems():
+                headers.add(key, value)
+        return headers
+
 
 class GRPCWebServerProtocol(GRPCServerProtocol):
+    _content_type = GRPC_WEB_CONTENT_TYPE_DEFAULT
+
     def uses_trailers(self) -> bool:
         return False
 
@@ -122,64 +143,73 @@ class GRPCWebServerProtocol(GRPCServerProtocol):
 
 
 def _parse_timeout(timeout: str) -> int:
-    # We normalize to int milliseconds matching connect's timeout header.
-    value_to_ms = _lookup_timeout_unit(timeout[-1])
-    try:
-        value = int(timeout[:-1])
-    except ValueError as e:
-        msg = f"protocol error: invalid timeout '{timeout}'"
-        raise ValueError(msg) from e
+    if len(timeout) < 2:
+        raise ConnectError(
+            Code.INVALID_ARGUMENT, f"protocol error: invalid timeout '{timeout}'"
+        )
 
-    # timeout must be ASCII string of at most 8 digits
-    if value > 99999999:
-        msg = f"protocol error: timeout '{timeout}' is too long"
-        raise ValueError(msg)
+    value_to_ns = _lookup_timeout_unit(timeout[-1])
+    digits = timeout[:-1]
+    if not (digits.isascii() and digits.isdigit()):
+        raise ConnectError(
+            Code.INVALID_ARGUMENT, f"protocol error: invalid timeout '{timeout}'"
+        )
 
-    return int(value * value_to_ms)
+    # The gRPC timeout grammar allows at most eight digits, including leading zeroes.
+    if len(digits) > 8:
+        raise ConnectError(
+            Code.INVALID_ARGUMENT, f"protocol error: timeout '{timeout}' is too long"
+        )
+
+    return int(digits) * value_to_ns
 
 
-def _lookup_timeout_unit(unit: str) -> float:
+def _lookup_timeout_unit(unit: str) -> int:
     match unit:
         case "H":
-            return 60 * 60 * 1000
+            return 60 * 60 * 1_000_000_000
         case "M":
-            return 60 * 1000
+            return 60 * 1_000_000_000
         case "S":
-            return 1 * 1000
+            return 1_000_000_000
         case "m":
-            return 1
+            return 1_000_000
         case "u":
-            return 1 / 1000
+            return 1_000
         case "n":
-            return 1 / 1000 / 1000
+            return 1
         case _:
-            msg = f"protocol error: timeout has invalid unit '{unit}'"
-            raise ValueError(msg)
+            raise ConnectError(
+                Code.INVALID_ARGUMENT,
+                f"protocol error: timeout has invalid unit '{unit}'",
+            )
+
+
+def _status_trailers(user_trailers: Headers, error: ConnectWireError | None) -> Headers:
+    trailers = Headers(list(user_trailers.allitems()))
+    if error:
+        status = _connect_status_to_grpc[error.code]
+        trailers["grpc-status"] = status
+        message = error.message
+        if message:
+            message = urllib.parse.quote(message, safe="")
+            trailers["grpc-message"] = message
+        if error.details:
+            grpc_status = Status(
+                code=int(status),
+                message=error.message,
+                details=[d._any for d in error.details],
+            )
+            grpc_status_bin = b64encode(grpc_status.to_binary()).decode().rstrip("=")
+            trailers["grpc-status-details-bin"] = grpc_status_bin
+    else:
+        trailers["grpc-status"] = "0"
+    return trailers
 
 
 class GRPCEnvelopeWriter(EnvelopeWriter):
     def end(self, user_trailers: Headers, error: ConnectWireError | None) -> Headers:
-        trailers = Headers(list(user_trailers.allitems()))
-        if error:
-            status = _connect_status_to_grpc[error.code]
-            trailers["grpc-status"] = status
-            message = error.message
-            if message:
-                message = urllib.parse.quote(message, safe="")
-                trailers["grpc-message"] = message
-            if error.details:
-                grpc_status = Status(
-                    code=int(status),
-                    message=error.message,
-                    details=[d._any for d in error.details],
-                )
-                grpc_status_bin = (
-                    b64encode(grpc_status.to_binary()).decode().rstrip("=")
-                )
-                trailers["grpc-status-details-bin"] = grpc_status_bin
-        else:
-            trailers["grpc-status"] = "0"
-        return trailers
+        return _status_trailers(user_trailers, error)
 
 
 class GRPCWebEnvelopeWriter(GRPCEnvelopeWriter):
@@ -314,6 +344,8 @@ class GRPCWebClientProtocol(GRPCClientProtocol):
 
 
 class GRPCEnvelopeReader(EnvelopeReader[RES]):
+    _protocol_error_code = Code.INTERNAL
+
     def __init__(
         self,
         message_class: type[RES],
@@ -339,7 +371,7 @@ class GRPCEnvelopeReader(EnvelopeReader[RES]):
         return response.trailers
 
     def handle_response_complete(
-        self, response: Response | SyncResponse, e: ConnectError | None = None
+        self, response: Response | SyncResponse, error: ConnectError | None = None
     ) -> None:
         # Get the actual HTTP trailers
         trailers = self.get_response_trailers(response)
@@ -350,18 +382,20 @@ class GRPCEnvelopeReader(EnvelopeReader[RES]):
         if grpc_status is None:
             # If there was a body message, we do not read response headers
             if self._read_message:
-                raise e or ConnectError(Code.INTERNAL, "missing grpc-status trailer")
+                raise error or ConnectError(
+                    Code.INTERNAL, "missing grpc-status trailer"
+                )
             trailers = response.headers
 
         handle_response_trailers(trailers)
 
         grpc_status = trailers.get("grpc-status")
         if grpc_status is None:
-            raise e or ConnectError(Code.INTERNAL, "missing grpc-status trailer")
+            raise error or ConnectError(Code.INTERNAL, "missing grpc-status trailer")
 
-        # e is present for RST_STREAM. We prioritize its code while reading message and details
+        # error is present for RST_STREAM. We prioritize its code while reading message and details
         # from trailers when available.
-        code = e.code if e else None
+        code = error.code if error else None
         if grpc_status != "0":
             message = trailers.get("grpc-message", "")
             if grpc_status_details := trailers.get("grpc-status-details-bin"):
@@ -377,6 +411,8 @@ class GRPCEnvelopeReader(EnvelopeReader[RES]):
 
 
 class GRPCWebEnvelopeReader(GRPCEnvelopeReader):
+    _flags_mask = 0b10000001
+
     def __init__(
         self,
         message_class: type[RES],
@@ -385,6 +421,10 @@ class GRPCWebEnvelopeReader(GRPCEnvelopeReader):
         read_max_bytes: int | None,
     ) -> None:
         super().__init__(message_class, codec, compression, read_max_bytes)
+
+        # We lazy import to avoid eagerly importing the client for server-only code.
+        from pyqwest import Headers as HTTPHeaders  # noqa: PLC0415
+
         self._trailers = HTTPHeaders()
 
     def handle_end_message(

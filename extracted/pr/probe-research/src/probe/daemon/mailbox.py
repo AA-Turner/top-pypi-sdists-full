@@ -341,6 +341,13 @@ def turn_path(session_id: str) -> Path:
     return root() / "turns" / _safe(session_id)
 
 
+def hints_live_path(session_id: str) -> Path:
+    """Touched by the Probe service's hint lane while it serves the session
+    (`service.hints.HintLane`); its age tells the session's daemon whether a
+    hint covers a prompt (`model.hints_live`)."""
+    return root() / "hints" / f"{_safe(session_id)}.live"
+
+
 def heartbeat_path(session_id: str, ask_id: str) -> Path:
     return asks_dir(session_id) / f"{ask_id}.alive"
 

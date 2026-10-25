@@ -4,7 +4,7 @@ write the kit piece. Literal data: images are allowed by the rulebook and never 
 
 from __future__ import annotations
 
-import inspect
+from matrx_utils.source_guard import stable_source
 
 import pytest
 
@@ -43,7 +43,7 @@ def test_notice_is_one_line_naming_the_kit_and_absent_when_clean() -> None:
 
 def test_every_write_tool_attaches_the_notice() -> None:
     for fn in (kc._kindcomp_create_component_save, kc._kindcomp_update_code_save, kc._kindcomp_patch_code_save):
-        assert "model_notices=bare_media_notices(" in inspect.getsource(fn), fn.__name__
+        assert "model_notices=bare_media_notices(" in stable_source(fn), fn.__name__
 
 
 @pytest.mark.asyncio

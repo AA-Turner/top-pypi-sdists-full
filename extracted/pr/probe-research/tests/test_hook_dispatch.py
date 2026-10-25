@@ -161,6 +161,9 @@ ROUTE_CLASSES = {
     ("prompt", "note_audit.py"): False,  # the team note's audit line as context (once per session: queued, it is lost)
     ("prompt", "approvals_hook.py"): False,  # the daemon's waiting question as context
     ("prompt", "reads_hook.py"): False,  # claims daemon messages into the prompt's context
+    # Moves a session off a `tap watch` too old to hand it to the Probe service
+    # (silent, a detached child; queued, a dead session's wrapper would be swapped).
+    ("prompt", "tap_handover.py"): False,
     ("session-start", "session-start.sh"): False,  # the session's opening context
     ("session-start", "statusline_refresh.py"): True,
     ("session-start", "approvals_hook.py"): False,
@@ -407,8 +410,11 @@ def hosting(request):
     for proc, path in _HOSTS.values():
         proc.kill()
         proc.wait()
-        if os.path.exists(path):
-            os.unlink(path)
+        # Its socket and its key (#3355) live in this machine's real
+        # `/tmp/probe-<uid>`: none is left behind.
+        for leftover in (path, path[: -len(".sock")] + ".key"):
+            if os.path.lexists(leftover):
+                os.unlink(leftover)
     _HOSTS.clear()
 
 

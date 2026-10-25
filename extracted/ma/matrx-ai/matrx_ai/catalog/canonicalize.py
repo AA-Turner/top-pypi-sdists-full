@@ -21,17 +21,20 @@ def canonical_settings_from_config(config: Any) -> dict[str, Any]:
     thinking_budget = getattr(config, "thinking_budget", None)
 
     # HOUSE SEMANTICS (platform law, ai_041):
-    #   "auto" == UNSET. The caller declined to set the key; the provider payload
-    #   omits it and whatever default applies (a DB rule ``default``, a processor's
-    #   unset path, or the provider's own default) applies — identical to never
-    #   sending the key. Normalized HERE, the one canonical pass, so every scalar
-    #   rule, default, and processor sees auto and unset as the same thing.
-    #   (processors._explicit_effort is the second, independent layer.)
+    #   "auto" never reaches a rule or processor as a value (processors.
+    #   _explicit_effort is the second, independent layer) — see below.
     #   "none" == an explicit "send nothing": never collapsed into a concrete
     #   reasoning level; providers with a native OFF switch use it (documented
     #   per-family in the processors / DB rules).
+    #   (owner ruling 2026-10-24) "auto" is a PERSON's explicit choice, never
+    #   the absence of one: it is recorded as the posture marker (metadata,
+    #   never sent) and CompiledControlsMap.apply_reasoning_default sends the
+    #   provider's own auto where the target offers one, else the platform
+    #   default. Unset is decided there too (-> the platform default, "low").
+    reasoning_posture = None
     if reasoning_effort == "auto":
         reasoning_effort = None
+        reasoning_posture = "auto"
 
     # The canonical disable_reasoning normalization:
     #   disable_reasoning=True            -> "none" (overrides everything)
@@ -51,6 +54,9 @@ def canonical_settings_from_config(config: Any) -> dict[str, Any]:
     elif thinking_budget is not None:
         # Metadata, never sent (outbound skips "_" keys).
         out["_convert"] = {"reasoning_effort": "thinking_budget"}
+    elif reasoning_posture is not None:
+        # Metadata, never sent: the caller explicitly asked for the provider's auto.
+        out["_reasoning_posture"] = reasoning_posture
 
     reasoning_summary = getattr(config, "reasoning_summary", None)
     if reasoning_summary is not None:

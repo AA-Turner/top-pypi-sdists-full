@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "ffsim"
 requires-python = ">=3.11"
-version = "0.0.84"
+version = "0.0.85"
 description = "Faster simulation of fermionic quantum circuits."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -27,11 +27,15 @@ dependencies = [
     "numpy",
     "opt_einsum",
     "orjson",
-    "pyscf >= 2.12",
-    "qiskit >= 2.0",
+    "pyscf>=2.12",
     "scipy",
     "typing-extensions",
 ]
+
+[project.optional-dependencies]
+cuda12 = ["jax[cuda12]"]
+cuda13 = ["jax[cuda13]"]
+qiskit = ["qiskit>=2.0,<3"]
 
 [project.urls]
 Homepage = "https://github.com/qiskit-community/ffsim"
@@ -44,11 +48,14 @@ dev = [
     "mypy",
     "pre-commit",
     "pytest",
+    "qiskit>=2.0,<3",
     "ruff",
     "typos",
 ]
 docs = [
+    "ipykernel",
     "myst-parser",
+    "nbclient",
     "nbmake",
     "nbsphinx",
     "qiskit[visualization]",
@@ -65,6 +72,7 @@ module-name = "ffsim._lib"
 [tool.cibuildwheel]
 build = "cp311-macosx* cp311-manylinux_x86_64 cp311-manylinux_aarch64"
 test-requires = "pytest"
+test-extras = ["qiskit"]
 test-command = "pytest {project}/tests"
 
 [tool.cibuildwheel.linux]
@@ -104,6 +112,7 @@ extend-ignore-re = ["[0-9a-f]{8,}"]
 
 [tool.typos.default.extend-words]
 datas = "datas"
+goe = "goe"  # Gaussian orthogonal ensemble
 ket = "ket"
 
 [tool.tox]
@@ -113,6 +122,7 @@ env_list = [
     "test-3.12",
     "test-3.13",
     "test-3.14",
+    "test-no-extras",
     "coverage",
     "type",
     "lint",
@@ -122,6 +132,7 @@ env_list = [
 ]
 
 [tool.tox.env_run_base]
+extras = ["qiskit"]
 pass_env = [
     "OMP_NUM_THREADS",
     "RAYON_NUM_THREADS",
@@ -133,6 +144,12 @@ pass_env = [
 [tool.tox.env_base.test]
 description = "run tests"
 factors = [["3.11", "3.12", "3.13", "3.14"]]
+deps = ["pytest"]
+commands = [["pytest"]]
+
+[tool.tox.env.test-no-extras]
+description = "run tests without optional dependencies"
+extras = []
 deps = ["pytest"]
 commands = [["pytest"]]
 

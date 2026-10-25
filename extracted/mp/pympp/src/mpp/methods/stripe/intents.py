@@ -14,6 +14,8 @@ import mpp.methods.stripe._defaults as stripe_defaults
 from mpp import Credential, Receipt
 from mpp._defaults import DEFAULT_TIMEOUT
 from mpp.errors import (
+    CredentialReplayedError,
+    InvalidChallengeError,
     PaymentActionRequiredError,
     PaymentExpiredError,
     VerificationFailedError,
@@ -167,7 +169,7 @@ class ChargeIntent:
 
         if challenge.expires:
             expires = datetime.fromisoformat(challenge.expires.replace("Z", "+00:00"))
-            if expires < datetime.now(UTC):
+            if expires <= datetime.now(UTC):
                 raise PaymentExpiredError(challenge.expires)
 
         try:
@@ -182,6 +184,13 @@ class ChargeIntent:
             raise VerificationFailedError(
                 "Invalid charge request: missing or malformed Stripe method details"
             ) from err
+
+        # A request-bound externalId must be echoed unchanged, as in mppx.
+        request_external_id = parsed_request.externalId
+        if request_external_id is not None and parsed.externalId != request_external_id:
+            raise InvalidChallengeError(
+                challenge.id, "credential externalId does not match this route request"
+            )
 
         spt = parsed.spt
         if not spt.strip():
@@ -210,6 +219,8 @@ class ChargeIntent:
                 payment_options=payment_options,
             )
 
+        if pi["replayed"] and pi["status"] == "succeeded":
+            raise CredentialReplayedError("Payment has already been processed")
         if pi["replayed"]:
             raise VerificationFailedError("Payment has already been processed")
         if pi["status"] == "requires_action":

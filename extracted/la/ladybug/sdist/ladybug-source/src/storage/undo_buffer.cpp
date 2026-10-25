@@ -4,6 +4,8 @@
 #include "catalog/catalog_entry/sequence_catalog_entry.h"
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "catalog/catalog_set.h"
+#include "main/client_context.h"
+#include "main/database_manager.h"
 #include "storage/table/chunked_node_group.h"
 #include "storage/table/update_info.h"
 #include "storage/table/version_record_handler.h"
@@ -27,11 +29,13 @@ struct UndoRecordHeader {
 struct CatalogEntryRecord {
     CatalogSet* catalogSet;
     CatalogEntry* catalogEntry;
+    catalog::Catalog* ownerCatalog;
 };
 
 struct SequenceEntryRecord {
     SequenceCatalogEntry* sequenceEntry;
     SequenceRollbackData sequenceRollbackData;
+    catalog::Catalog* ownerCatalog;
 };
 
 struct NodeBatchInsertRecord {
@@ -43,6 +47,7 @@ struct VersionRecord {
     row_idx_t numRows;
     node_group_idx_t nodeGroupIdx;
     const VersionRecordHandler* versionRecordHandler;
+    catalog::Catalog* ownerCatalog;
 };
 
 struct VectorUpdateRecord {
@@ -96,7 +101,8 @@ void UndoBuffer::createCatalogEntry(CatalogSet& catalogSet, CatalogEntry& catalo
     const UndoRecordHeader recordHeader{UndoRecordType::CATALOG_ENTRY, sizeof(CatalogEntryRecord)};
     *reinterpret_cast<UndoRecordHeader*>(buffer) = recordHeader;
     buffer += sizeof(UndoRecordHeader);
-    const CatalogEntryRecord catalogEntryRecord{&catalogSet, &catalogEntry};
+    const CatalogEntryRecord catalogEntryRecord{&catalogSet, &catalogEntry,
+        catalogSet.getOwnerCatalogName().empty() ? nullptr : catalogSet.getCatalog()};
     *reinterpret_cast<CatalogEntryRecord*>(buffer) = catalogEntryRecord;
 }
 
@@ -107,7 +113,8 @@ void UndoBuffer::createSequenceChange(SequenceCatalogEntry& sequenceEntry,
         sizeof(SequenceEntryRecord)};
     *reinterpret_cast<UndoRecordHeader*>(buffer) = recordHeader;
     buffer += sizeof(UndoRecordHeader);
-    const SequenceEntryRecord sequenceEntryRecord{&sequenceEntry, data};
+    const SequenceEntryRecord sequenceEntryRecord{&sequenceEntry, data,
+        sequenceEntry.getOwningCatalogName().empty() ? nullptr : sequenceEntry.getOwningCatalog()};
     *reinterpret_cast<SequenceEntryRecord*>(buffer) = sequenceEntryRecord;
 }
 
@@ -131,8 +138,8 @@ void UndoBuffer::createVersionInfo(const UndoRecordType recordType, row_idx_t st
     const UndoRecordHeader recordHeader{recordType, sizeof(VersionRecord)};
     *reinterpret_cast<UndoRecordHeader*>(buffer) = recordHeader;
     buffer += sizeof(UndoRecordHeader);
-    *reinterpret_cast<VersionRecord*>(buffer) =
-        VersionRecord{startRow, numRows, nodeGroupIdx, versionRecordHandler};
+    *reinterpret_cast<VersionRecord*>(buffer) = VersionRecord{startRow, numRows, nodeGroupIdx,
+        versionRecordHandler, versionRecordHandler->getOwnerCatalog()};
 }
 
 void UndoBuffer::createVectorUpdateInfo(UpdateInfo* updateInfo, const idx_t vectorIdx,
@@ -161,10 +168,32 @@ uint8_t* UndoBuffer::createUndoRecord(const uint64_t size) {
     return res;
 }
 
-void UndoBuffer::commit(transaction_t commitTS) const {
+namespace {
+// An undo record stores the owning catalog captured when it was pushed; main and attached
+// catalogs, which are never registered graphs, store nullptr instead. If a stored catalog
+// is no longer in the graph registry, a DROP GRAPH has destroyed what the record points
+// into, so the record dangles and there is nothing to apply: the graph's catalog and data,
+// the only readers, died with it. Liveness is decided by pointer identity, so a graph
+// recreated under the same name cannot adopt an old transaction's records. The apply runs
+// under the registry shared lock, so a DROP GRAPH that has not won the race yet cannot
+// destroy the storage mid-apply.
+void applyIfOwnerGraphAlive(ClientContext* context, catalog::Catalog* ownerCatalog,
+    const std::function<void()>& apply) {
+    if (ownerCatalog == nullptr) {
+        apply();
+        return;
+    }
+    auto* dbManager = DatabaseManager::Get(*context);
+    if (dbManager != nullptr) {
+        dbManager->withGraphCatalogIfAlive(ownerCatalog, apply);
+    }
+}
+} // namespace
+
+void UndoBuffer::commit(ClientContext* context, transaction_t commitTS) const {
     UndoBufferIterator iterator{*this};
     iterator.iterate([&](UndoRecordType entryType, uint8_t const* entry) {
-        commitRecord(entryType, entry, commitTS);
+        commitRecord(context, entryType, entry, commitTS);
     });
 }
 
@@ -175,18 +204,18 @@ void UndoBuffer::rollback(ClientContext* context) const {
     });
 }
 
-void UndoBuffer::commitRecord(UndoRecordType recordType, const uint8_t* record,
-    transaction_t commitTS) {
+void UndoBuffer::commitRecord(ClientContext* context, UndoRecordType recordType,
+    const uint8_t* record, transaction_t commitTS) {
     switch (recordType) {
     case UndoRecordType::CATALOG_ENTRY: {
-        commitCatalogEntryRecord(record, commitTS);
+        commitCatalogEntryRecord(context, record, commitTS);
     } break;
     case UndoRecordType::SEQUENCE_ENTRY: {
         commitSequenceEntry(record, commitTS);
     } break;
     case UndoRecordType::INSERT_INFO:
     case UndoRecordType::DELETE_INFO: {
-        commitVersionInfo(recordType, record, commitTS);
+        commitVersionInfo(context, recordType, record, commitTS);
     } break;
     case UndoRecordType::UPDATE_INFO: {
         commitVectorUpdateInfo(record, commitTS);
@@ -196,29 +225,36 @@ void UndoBuffer::commitRecord(UndoRecordType recordType, const uint8_t* record,
     }
 }
 
-void UndoBuffer::commitCatalogEntryRecord(const uint8_t* record, const transaction_t commitTS) {
-    const auto& [_, catalogEntry] = *reinterpret_cast<CatalogEntryRecord const*>(record);
-    const auto newCatalogEntry = catalogEntry->getNext();
-    DASSERT(newCatalogEntry);
-    newCatalogEntry->setTimestamp(commitTS);
+void UndoBuffer::commitCatalogEntryRecord(ClientContext* context, const uint8_t* record,
+    const transaction_t commitTS) {
+    const auto& entryRecord = *reinterpret_cast<CatalogEntryRecord const*>(record);
+    applyIfOwnerGraphAlive(context, entryRecord.ownerCatalog, [&]() {
+        const auto newCatalogEntry = entryRecord.catalogEntry->getNext();
+        DASSERT(newCatalogEntry);
+        newCatalogEntry->setTimestamp(commitTS);
+    });
 }
 
-void UndoBuffer::commitVersionInfo(UndoRecordType recordType, const uint8_t* record,
-    transaction_t commitTS) {
+void UndoBuffer::commitVersionInfo(ClientContext* context, UndoRecordType recordType,
+    const uint8_t* record, transaction_t commitTS) {
     const auto& undoRecord = *reinterpret_cast<VersionRecord const*>(record);
-    switch (recordType) {
-    case UndoRecordType::INSERT_INFO: {
-        undoRecord.versionRecordHandler->applyFuncToChunkedGroups(&ChunkedNodeGroup::commitInsert,
-            undoRecord.nodeGroupIdx, undoRecord.startRow, undoRecord.numRows, commitTS);
-    } break;
-    case UndoRecordType::DELETE_INFO: {
-        undoRecord.versionRecordHandler->applyFuncToChunkedGroups(&ChunkedNodeGroup::commitDelete,
-            undoRecord.nodeGroupIdx, undoRecord.startRow, undoRecord.numRows, commitTS);
-    } break;
-    default: {
-        UNREACHABLE_CODE;
-    }
-    }
+    applyIfOwnerGraphAlive(context, undoRecord.ownerCatalog, [&]() {
+        switch (recordType) {
+        case UndoRecordType::INSERT_INFO: {
+            undoRecord.versionRecordHandler->applyFuncToChunkedGroups(
+                &ChunkedNodeGroup::commitInsert, undoRecord.nodeGroupIdx, undoRecord.startRow,
+                undoRecord.numRows, commitTS);
+        } break;
+        case UndoRecordType::DELETE_INFO: {
+            undoRecord.versionRecordHandler->applyFuncToChunkedGroups(
+                &ChunkedNodeGroup::commitDelete, undoRecord.nodeGroupIdx, undoRecord.startRow,
+                undoRecord.numRows, commitTS);
+        } break;
+        default: {
+            UNREACHABLE_CODE;
+        }
+        }
+    });
 }
 
 void UndoBuffer::commitVectorUpdateInfo(const uint8_t* record, transaction_t commitTS) {
@@ -232,10 +268,10 @@ void UndoBuffer::rollbackRecord(ClientContext* context, const UndoRecordType rec
     const uint8_t* record) {
     switch (recordType) {
     case UndoRecordType::CATALOG_ENTRY: {
-        rollbackCatalogEntryRecord(record);
+        rollbackCatalogEntryRecord(context, record);
     } break;
     case UndoRecordType::SEQUENCE_ENTRY: {
-        rollbackSequenceEntry(record);
+        rollbackSequenceEntry(context, record);
     } break;
     case UndoRecordType::INSERT_INFO:
     case UndoRecordType::DELETE_INFO: {
@@ -250,53 +286,59 @@ void UndoBuffer::rollbackRecord(ClientContext* context, const UndoRecordType rec
     }
 }
 
-void UndoBuffer::rollbackCatalogEntryRecord(const uint8_t* record) {
-    const auto& [catalogSet, catalogEntry] = *reinterpret_cast<CatalogEntryRecord const*>(record);
-    const auto entryToRollback = catalogEntry->getNext();
-    DASSERT(entryToRollback);
-    if (entryToRollback->getNext()) {
-        // If entryToRollback has a newer entry (next) in the version chain. Simple remove
-        // entryToRollback from the chain.
-        const auto newerEntry = entryToRollback->getNext();
-        newerEntry->setPrev(entryToRollback->movePrev());
-    } else {
-        // This is the beginning of the version chain.
-        auto olderEntry = entryToRollback->movePrev();
-        catalogSet->eraseNoLock(catalogEntry->getName());
-        if (olderEntry) {
-            catalogSet->emplaceNoLock(std::move(olderEntry));
+void UndoBuffer::rollbackCatalogEntryRecord(ClientContext* context, const uint8_t* record) {
+    const auto& entryRecord = *reinterpret_cast<CatalogEntryRecord const*>(record);
+    applyIfOwnerGraphAlive(context, entryRecord.ownerCatalog, [&]() {
+        const auto entryToRollback = entryRecord.catalogEntry->getNext();
+        DASSERT(entryToRollback);
+        if (entryToRollback->getNext()) {
+            // If entryToRollback has a newer entry (next) in the version chain. Simple remove
+            // entryToRollback from the chain.
+            const auto newerEntry = entryToRollback->getNext();
+            newerEntry->setPrev(entryToRollback->movePrev());
+        } else {
+            // This is the beginning of the version chain.
+            auto olderEntry = entryToRollback->movePrev();
+            entryRecord.catalogSet->eraseNoLock(entryRecord.catalogEntry->getName());
+            if (olderEntry) {
+                entryRecord.catalogSet->emplaceNoLock(std::move(olderEntry));
+            }
         }
-    }
+    });
 }
 
 void UndoBuffer::commitSequenceEntry(const uint8_t*, transaction_t) {
     // DO NOTHING.
 }
 
-void UndoBuffer::rollbackSequenceEntry(const uint8_t* entry) {
+void UndoBuffer::rollbackSequenceEntry(ClientContext* context, const uint8_t* entry) {
     const auto& sequenceRecord = *reinterpret_cast<SequenceEntryRecord const*>(entry);
-    const auto sequenceEntry = sequenceRecord.sequenceEntry;
-    const auto& data = sequenceRecord.sequenceRollbackData;
-    sequenceEntry->rollbackVal(data.usageCount, data.currVal);
+    applyIfOwnerGraphAlive(context, sequenceRecord.ownerCatalog, [&]() {
+        const auto sequenceEntry = sequenceRecord.sequenceEntry;
+        const auto& data = sequenceRecord.sequenceRollbackData;
+        sequenceEntry->rollbackVal(data.usageCount, data.currVal);
+    });
 }
 
 void UndoBuffer::rollbackVersionInfo(ClientContext* context, UndoRecordType recordType,
     const uint8_t* record) {
     auto& undoRecord = *reinterpret_cast<VersionRecord const*>(record);
-    switch (recordType) {
-    case UndoRecordType::INSERT_INFO: {
-        undoRecord.versionRecordHandler->rollbackInsert(context, undoRecord.nodeGroupIdx,
-            undoRecord.startRow, undoRecord.numRows);
-    } break;
-    case UndoRecordType::DELETE_INFO: {
-        undoRecord.versionRecordHandler->applyFuncToChunkedGroups(&ChunkedNodeGroup::rollbackDelete,
-            undoRecord.nodeGroupIdx, undoRecord.startRow, undoRecord.numRows,
-            transaction::Transaction::Get(*context)->getCommitTS());
-    } break;
-    default: {
-        UNREACHABLE_CODE;
-    }
-    }
+    applyIfOwnerGraphAlive(context, undoRecord.ownerCatalog, [&]() {
+        switch (recordType) {
+        case UndoRecordType::INSERT_INFO: {
+            undoRecord.versionRecordHandler->rollbackInsert(context, undoRecord.nodeGroupIdx,
+                undoRecord.startRow, undoRecord.numRows);
+        } break;
+        case UndoRecordType::DELETE_INFO: {
+            undoRecord.versionRecordHandler->applyFuncToChunkedGroups(
+                &ChunkedNodeGroup::rollbackDelete, undoRecord.nodeGroupIdx, undoRecord.startRow,
+                undoRecord.numRows, transaction::Transaction::Get(*context)->getCommitTS());
+        } break;
+        default: {
+            UNREACHABLE_CODE;
+        }
+        }
+    });
 }
 
 void UndoBuffer::rollbackVectorUpdateInfo(const uint8_t* record) {

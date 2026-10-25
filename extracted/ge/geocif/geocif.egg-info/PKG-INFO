@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1090
+Version: 0.4.1092
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -324,6 +324,60 @@ is available.
 nothing else. Interval level, coverage, sample sizes and units provenance live
 in the companion CSVs (and the run log), so they can be quoted in the
 surrounding text rather than shrinking the plotting area.
+
+### Snake charts
+
+`geocif.viz.snake_run` draws, for each unit the model forecast (admin_1 or
+admin_2, as the run was set up), how the yield forecast moved from one issue
+month to the next and whether up to four crop-condition indicators moved the
+same way, in the layout of the NYT "How support for Trump has changed" chart
+(`docs/reference/nyt_uturn.png`). Every row shares one axis in standardized
+anomalies (σ, with 0 as normal), signed so right is more favorable for yield.
+A row switches lanes with a U-turn where its trajectory reverses by more than
+`deadband` (0.1σ). The dots are coloured by issue month (viridis by default:
+yellow for the first issue, purple for the latest) with a month key under the
+plot. The title is the unit's name; the right-hand column shows each row's
+latest value.
+
+It needs an outlook DB from `[ML] run_time_steps = all` with
+`method = monthly_r`. The yield row is the unit's predicted yield as a z-score
+against GEOCIF's own detrend of its observed yields, fitted with the target
+year left out and `[<country>] training_year_start` applied. Indicator rows
+come from the per-year CID tables, each read over the unit's own cumulative
+window (from its planting month to the latest complete month) and compared
+with the same window in the other years, or in the last N years with
+`baseline_last`. The default rows are total rainfall (`PRCPTOT`), evaporative
+stress as the mean of the 4-week ESI over the window (`MEAN_ESI4WK`; the
+minimum can only fall as the window grows, so it cannot show recovery) and
+greenness accumulated over the window (`AUC_NDVI`). Earlier issues of the live year are re-forecasts made with
+today's data, not the forecasts published at the time.
+
+```ini
+[ML]
+make_snake_plots = True    ; draw them at the end of yield_outlook.run; unset = on for admin_1, off for admin_2
+
+[snake]
+cids = ['PRCPTOT', 'MEAN_ESI4WK', 'AUC_NDVI']   ; any CID from cid/definitions.py, at most 4
+invert = {}                                      ; {CID: True/False}; Heat, Drought, ETREF inverted by default
+labels = {}                                      ; {CID: row label}; default label is the CID name
+baseline_last = 5                                ; indicator normal from the 5 years before
+regions = ['all']                                ; every modeled unit; or 'national', or names
+model = tabpfn                                   ; needed when the DB holds several models
+palette = viridis                                ; dot colours by issue month
+title = {region}                                 ; none = no title
+```
+
+Re-plot from an existing DB:
+
+```bash
+python -m geocif.viz.snake_run --config geobase.txt countries.txt crops.txt geocif.txt \
+    --db outlook_09_17_2026_14h18.db --table kenya_maize --model tabpfn --year 2026
+```
+
+Outputs land in `{dir_output}/{project}/ml/analysis/{Month_DD_YYYY_HHhmm}/snake/`
+as `plots/snake_{country}_{crop}_{model}_{region}_s{season}_{year}.png`, with
+the tidy table behind each figure (raw values, normals, spreads, observation
+dates, each row's role, sources and caveats) in `csvs/` under the same name.
 
 ### Crop-calendar validation
 

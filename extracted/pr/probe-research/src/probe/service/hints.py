@@ -95,6 +95,10 @@ HINTS_ENV = "PROBE_HINTS"
 ROUTE = "/v1/hints"
 #: Every followed transcript is looked at this often.
 POLL_S = 1.0
+#: A served session's hint marker (`mailbox.hints_live_path`) is touched at most
+#: this often; its daemon reads one older than `model.HINTS_LIVE_TTL_S` (120 s)
+#: as no hint lane here, and its reader wakes at prompts again.
+HINTS_LIVE_BEAT_S = 30.0
 #: Test-only: a shorter POLL_S (nothing in production sets it).
 POLL_ENV = "PROBE_SERVICE_HINTS_POLL_S"
 #: One request, connect to last byte.
@@ -558,7 +562,7 @@ def credentials(env: dict) -> Endpoint | None:
     if any(env.get(name) for name in _ENV_OVERRIDES):  # the session's own (its recorder's `env`)
         return None
     try:
-        return endpoint(str(caller._config_path(env)), KEYS)
+        return endpoint(str(caller._config_path(env)), KEYS, environ=env)
     except Exception:  # noqa: BLE001
         return None
 
@@ -577,6 +581,7 @@ class HintFetcher(Fetcher):
             "Accept": "application/json",
             "User-Agent": f"probe-service/{self.version}",
             **self._client_headers(),
+            **self._limit_headers(ep),
         }
         payload = json.dumps(body).encode("utf-8")
         deadline = time.monotonic() + TIMEOUT_S
@@ -826,6 +831,8 @@ class HintLane:
         self._swept_at: float | None = None
         #: What happened, counted (tests and the log): triggers, skips, posts.
         self.stats: Counter = Counter()
+        #: When each served session's hint marker was last touched (`clock`).
+        self._beats: dict[str, float] = {}
 
     # -- lifecycle --------------------------------------------------------------
 
@@ -887,14 +894,45 @@ class HintLane:
                 self._read(session)
             except Exception as exc:  # noqa: BLE001 -- one transcript never stops another
                 self._log(f"hints: session {session.sid}: a read failed: {exc!r}")
+            try:
+                self._beat(session)
+            except Exception as exc:  # noqa: BLE001 -- a stale marker only wakes the reader
+                self._log(f"hints: session {session.sid}: the hint marker failed: {exc!r}")
         # No longer read here (it ended, or its recorder let go of it). The
         # states too: a lookup in flight when its session went makes one anew.
-        for sid in [s for s in {*self._tails, *self._states} if s not in seen]:
+        for sid in [s for s in {*self._tails, *self._states, *self._beats} if s not in seen]:
+            self._beats.pop(sid, None)
             self._tails.pop(sid, None)
             with self._cv:
                 self._pending.pop(sid, None)
                 self._states.pop(sid, None)
         return bool(sessions)
+
+    def _beat(self, session: Followed) -> None:
+        """While this lane can hint `session` (followed here, a key its own config
+        resolves, the server neither refusing the key nor lacking the route nor
+        answering `mode: off`), its marker is touched, at most every
+        HINTS_LIVE_BEAT_S: the session's daemon then leaves prompt time to hints
+        (`model.hints_live`). Not touched, the marker goes stale and the reader
+        wakes at prompts again."""
+        now = self.clock()
+        if now - self._beats.get(session.sid, float("-inf")) < HINTS_LIVE_BEAT_S:
+            return
+        self._beats[session.sid] = now  # looked at, touched or not: the next look in a beat
+        ep = self.endpoint_of(session.env)
+        if ep is None:
+            return
+        key, server, _pair = _scopes(ep)
+        with self._cv:
+            if (max(self._holds.get(key, float("-inf")), self._holds.get(server, float("-inf"))) > now
+                    or self._off.get((ep.base_url, ep.key), float("-inf")) > now):
+                return  # a 429 (`pair`) passes: a busy server still hints
+        from probe.daemon import mailbox
+
+        with mailbox.rooted(session.state):
+            path = mailbox.hints_live_path(session.sid)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()  # an existing one's mtime moves to now
 
     def _tail(self, session: Followed) -> _Tail | None:
         tail = self._tails.get(session.sid)

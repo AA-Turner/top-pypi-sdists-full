@@ -101,6 +101,10 @@ _delivery_index: contextvars.ContextVar[int] = contextvars.ContextVar(
     "apprise_delivery_index", default=0
 )
 
+# Marks a whole message piece as accepted. A private object is used so it
+# can never match a key a plugin tracks its own targets under.
+_PIECE_DELIVERED = object()
+
 
 class NotifyBase(URLBase):
     """This is the base class for all notification services."""
@@ -913,7 +917,18 @@ class NotifyBase(URLBase):
 
         send_start = time.monotonic()
         try:
+            # A retry does not send a piece that was already accepted.
+            if self.is_delivered(_PIECE_DELIVERED):
+                self.logger.debug(
+                    "%s already accepted this message piece; skipping.",
+                    self.service_name,
+                )
+                return True
+
             result = send_fn(**kwargs)
+            if result:
+                # Remember the accepted piece so a retry can skip it.
+                self.mark_delivered(_PIECE_DELIVERED)
 
         finally:
             # Always restore the previous piece, even if send() raised.
@@ -1666,6 +1681,20 @@ class NotifyBase(URLBase):
 
         if not results:
             # We're done; we failed to parse our url
+            return results
+
+        # Apply the query string options every notification supports
+        return NotifyBase.parse_url_options(results)
+
+    @staticmethod
+    def parse_url_options(results: dict[str, Any]) -> dict[str, Any]:
+        """Apply the query string options every notification supports.
+
+        This reads ``format``, ``overflow``, ``emojis``, ``tz``, ``store``,
+        ``retry``, ``wait`` and ``optional`` from ``results["qsd"]``.
+        """
+        if not isinstance(results.get("qsd"), dict):
+            # There is no query string to read options from
             return results
 
         # Allow overriding the default format

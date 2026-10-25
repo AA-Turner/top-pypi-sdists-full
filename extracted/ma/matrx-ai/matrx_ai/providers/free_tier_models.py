@@ -247,8 +247,15 @@ async def swap_for_free_tier(config: Any, profile: Any) -> bool:
     """Called by ``_execute_dispatch`` right after the profile resolves. When the request's
     tier may not run ``profile``'s model and a stand-in exists, rewrites ``config.model``
     (dropping any offering pin, which named the old model's route) and returns True — the
-    caller re-resolves. Otherwise returns False and changes nothing."""
+    caller re-resolves. Otherwise returns False and changes nothing.
+
+    A device-served run (``served_via``) is never swapped: its one route is the person's own
+    computer, and a stand-in would be a cloud model they did not pick (L5 R1)."""
     from matrx_ai.context.app_context import try_get_app_context
+    from matrx_ai.providers.device.route_guard import is_device_served
+
+    if is_device_served(config) or is_device_served(profile):
+        return False
 
     ctx = try_get_app_context()
     policy = policy_for(ctx)
@@ -287,8 +294,16 @@ async def swap_for_free_tier(config: Any, profile: Any) -> bool:
 
 
 async def admit_free_tier_model(profile: Any) -> None:
-    """The seam backstop: refuse a premium model that reached the paid call for a free tier."""
+    """The seam backstop: refuse a premium model that reached the paid call for a free tier.
+
+    A device-served run (the person's own computer, ``route_kind == "device"``) is always
+    admitted: it costs 0.0 and spends nobody's money, so there is nothing to ceiling.
+    """
     from matrx_ai.context.app_context import try_get_app_context
+    from matrx_ai.providers.device.route_guard import is_device_served
+
+    if is_device_served(profile):
+        return
 
     ctx = try_get_app_context()
     policy = policy_for(ctx)

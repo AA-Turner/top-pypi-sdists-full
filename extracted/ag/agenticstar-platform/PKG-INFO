@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: agenticstar-platform
-Version: 3.1.3
+Version: 3.1.4
 Summary: AGENTICSTAR Platform SDK - Enterprise AI Agent Infrastructure
 Project-URL: Homepage, https://developers.fd.agenticstar.tm.softbank.jp/
 Project-URL: Documentation, https://developers.fd.agenticstar.tm.softbank.jp/
@@ -708,7 +708,7 @@ read-only mapping:
 | Key | Value |
 |---|---|
 | `kind` | `api` (a call to the platform's API) or `mail` (an email) |
-| `payload` | `api`: the caller's request as the platform received it (a JSON value, at most 8,000 characters as JSON; for A2A, the text of the message and the file IDs of its attachments). `None` for `mail` |
+| `payload` | `api`: the caller's request as the platform received it (a JSON value, at most 8,000 characters as JSON; for A2A, a string — the text parts of the message joined with newlines — or the object of its single data part. An A2A request carries no files). `None` for `mail` |
 | `subject` / `text` | `mail`: the subject and the body. `None` for `api` |
 | `external` | `True` for every API call and for an email from an external sender |
 
@@ -723,7 +723,8 @@ async def run(context):
     if request is None:
         task = context.parameters["task"]   # started from the screen or a schedule
     elif request["kind"] == "api":
-        task = json.dumps(request["payload"], ensure_ascii=False)
+        payload = request["payload"]
+        task = payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)
     else:
         task = f"{request['subject']}\n\n{request['text']}"
     ...
@@ -991,6 +992,11 @@ api_version = "2024-02-15-preview"
 See the [developer portal](https://developers.fd.agenticstar.tm.softbank.jp/) for the SDK guides and API reference.
 
 ## Changelog
+
+### 3.1.4 (2026-10-24) — docs: the A2A `payload` of an external request
+
+- **The README now describes the A2A `payload` as the platform passes it.** For an A2A request, `payload` is a string (the text parts of the message joined with newlines) or the object of its single data part. An A2A request carries no files. The example in "Reading the request of a run started from outside" (Workflow Runner section) uses a string `payload` as it is and serializes any other payload as JSON.
+- No code change. The package is the same as 3.1.3 except for the version and this README.
 
 ### 3.1.3 (2026-10-20) — security: retry Azure requests that were not sent / workflow: the cause chain of an agent failure
 
@@ -1415,4 +1421,4 @@ Marketplace SDK reliability fixes (surfaced while building agents from the guide
 
 ## Version
 
-3.1.3
+3.1.4

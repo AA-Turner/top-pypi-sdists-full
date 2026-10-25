@@ -145,7 +145,9 @@ void Drop::dropMacro(const main::ClientContext* context) {
     auto catalog = Catalog::Get(*context);
     auto transaction = transaction::Transaction::Get(*context);
     auto memoryManager = storage::MemoryManager::Get(*context);
-    handleMacroExistence(context);
+    if (!handleMacroExistence(context)) {
+        return;
+    }
     catalog->dropMacro(transaction, dropInfo.name);
     appendMessage(std::format("Macro {} has been dropped.", dropInfo.name), memoryManager);
 }
@@ -249,11 +251,14 @@ void Drop::dropIndex(const main::ClientContext* context) {
     if (inStorage) {
         // Removes the in-memory index; its pages are reclaimed on the next checkpoint.
         nodeTable->dropIndex(dropInfo.indexName);
+        // A storage-only index (the built-in PK hash index) has no catalog entry to record the
+        // drop, but cached plans may rely on it (e.g. COUNT of the key bound as the internal id).
+        transaction->recordCatalogChange(catalog);
     }
     appendMessage(std::format("Index {} has been dropped.", dropInfo.indexName), memoryManager);
 }
 
-void Drop::handleMacroExistence(const main::ClientContext* context) {
+bool Drop::handleMacroExistence(const main::ClientContext* context) {
     auto catalog = Catalog::Get(*context);
     auto transaction = transaction::Transaction::Get(*context);
     auto memoryManager = storage::MemoryManager::Get(*context);
@@ -262,7 +267,7 @@ void Drop::handleMacroExistence(const main::ClientContext* context) {
         switch (dropInfo.conflictAction) {
         case ConflictAction::ON_CONFLICT_DO_NOTHING: {
             appendMessage(message, memoryManager);
-            return;
+            return false;
         }
         case ConflictAction::ON_CONFLICT_THROW: {
             throw BinderException(message);
@@ -271,6 +276,7 @@ void Drop::handleMacroExistence(const main::ClientContext* context) {
             UNREACHABLE_CODE;
         }
     }
+    return true;
 }
 
 } // namespace processor

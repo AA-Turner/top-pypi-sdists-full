@@ -12,6 +12,9 @@ Env vars:
   PROBE_INGEST_TOKEN  an ingest token (ros_ing_...) for /ingest
   PROBE_HMAC_SECRET   optional shared secret for the X-Signature body HMAC on /ingest
   PROBE_WORKSPACE     this computer's workspace (an id or a slug), overriding the context file
+  PROBE_WORKSPACE_LIMIT  limit this process's reads to one workspace (an id or a slug), or
+                      `team` for none, overriding the context's limit (`workspace_limit.py`)
+  PROBE_WORKSPACE_LIMIT_TEAM_ITEMS  `show` (default) or `hide` team-wide items under that limit
   PROBE_PROJECT       the active project id/slug, overriding the context file
   PROBE_HEARTBEAT_SECONDS  run auto-heartbeat interval (default 60; <=0 disables —
                       see Run.start_heartbeat; env only, not read from this file)
@@ -45,10 +48,16 @@ endpoints or tenants without re-running ``login``::
       "contexts": {
         "default": {
           "base_url": "...", "token": "...", "mcp_token": "...",
-          "workspace": {"id": "<uuid>", "project": "<uuid-or-slug>"}
+          "workspace": {"id": "<uuid>", "project": "<uuid-or-slug>",
+                        "limit": true, "team_items": "show", "name": "...", "slug": "..."}
         }
       }
     }
+
+``limit`` / ``team_items`` / ``name`` / ``slug`` are this computer's WORKSPACE LIMIT
+(`probe workspace limit`, `probe.sdk.workspace_limit`): when ``limit`` is true every
+request names ``id`` and the API narrows its reads to that workspace. Absent or false is
+the whole team; ``id`` is the filing pin either way.
 
 **The active project nests *inside* ``workspace`` rather than sitting beside it.** That
 makes "a project from workspace A while workspace B is active" unrepresentable instead of
@@ -71,10 +80,14 @@ import tempfile
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 from probe._compat import StrEnum
 from pathlib import Path
 
 from . import homedir
+
+if TYPE_CHECKING:
+    from .workspace_limit import WorkspaceLimit
 
 DEFAULT_BASE_URL = "https://api.research.prbe.ai"
 #: The hosted Probe MCP that serves the stock API's tenants.
@@ -508,6 +521,10 @@ class Settings:
     hmac_secret: str | None = None
     workspace: str | None = None
     project: str | None = None
+    #: This computer's workspace limit (`probe.sdk.workspace_limit`), or None for the
+    #: whole team. Only `resolve()` fills it: a `Settings` built by hand (sign-in,
+    #: key checks, logout) carries none, so a stale limit never blocks fixing it.
+    workspace_limit: "WorkspaceLimit | None" = None
 
 
 def resolve(
@@ -523,8 +540,17 @@ def resolve(
     context: str | None = None,
 ) -> Settings:
     """Merge explicit args, env, and the config file into one Settings object."""
+    from .workspace_limit import Source, resolve_limit
+
     file = load_context(context)
     anchor = file.get("workspace") if isinstance(file.get("workspace"), dict) else {}
+    limit = resolve_limit(file)
+    # A job limited by `PROBE_WORKSPACE_LIMIT` files what it creates into that
+    # workspace too, unless PROBE_WORKSPACE says otherwise: a limited process that
+    # filed into the config's pin would make work it then cannot see.
+    env_limited = limit.ref if limit is not None and limit.source is Source.ENV and os.environ.get(
+        "PROBE_WORKSPACE_LIMIT", ""
+    ).strip() else None
     return Settings(
         # PROBE_BASE_URL outranks the context file and must keep doing so: the hosted
         # MCP pods set it (deploy/mcp/k8s.yaml) to the in-cluster service, and a context
@@ -548,8 +574,9 @@ def resolve(
         hmac_secret=(hmac_secret or os.environ.get("PROBE_HMAC_SECRET") or file.get("hmac_secret")),
         # Ambient anchors are a convenience, never a requirement: an explicit flag or an
         # env var always wins, so scripts and CI never depend on a developer's context.
-        workspace=workspace or os.environ.get("PROBE_WORKSPACE") or anchor.get("id"),
+        workspace=workspace or os.environ.get("PROBE_WORKSPACE") or env_limited or anchor.get("id"),
         project=project or os.environ.get("PROBE_PROJECT") or anchor.get("project"),
+        workspace_limit=limit,
     )
 
 

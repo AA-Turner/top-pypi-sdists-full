@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
+from typing import cast
 
 from pytestarch.eval_structure.evaluable_architecture import (
     EvaluableArchitecture,
@@ -45,7 +46,7 @@ class RuleConfiguration:
     rule_object_anything: bool = False
 
 
-class Rule(
+class Rule(  # pyrefly: ignore[invalid-inheritance]
     DependencySpecification,
     RuleBase,
     BehaviorSpecification,
@@ -126,14 +127,8 @@ class Rule(
         if self._modules_to_check_to_be_specified_next is None:
             raise ImproperlyConfigured("Specify a RuleSubject or RuleObject first.")
 
-        if isinstance(module_names, str):
-            module_names = [module_names]
-
-        modules = [create_module_fn(n) for n in module_names]
-        if self._modules_to_check_to_be_specified_next:
-            self._configuration.modules_to_check = modules
-        else:
-            self._configuration.modules_to_check_against = modules
+        names = [module_names] if isinstance(module_names, str) else module_names
+        self._store_modules([create_module_fn(name) for name in names], append=False)
 
     def _add_modules(
         self, modules: Sequence[tuple[str, bool]]
@@ -155,17 +150,30 @@ class Rule(
         module_names: Sequence[str],
         create_module_fns: Sequence[Callable[[str], ModuleFilter]],
     ) -> None:
-        modules = [fn(n) for n, fn in zip(module_names, create_module_fns)]
+        self._store_modules(
+            [fn(name) for name, fn in zip(module_names, create_module_fns)],
+            append=True,
+        )
+
+    def _store_modules(self, modules: list[ModuleFilter], append: bool) -> None:
+        """Stores the given module filters in the configuration slot that is to
+        be specified next, either overwriting or extending its current value."""
         if self._modules_to_check_to_be_specified_next:
-            if self._configuration.modules_to_check is None:
-                self._configuration.modules_to_check = []
-
-            self._configuration.modules_to_check.extend(modules)  # type: ignore
+            if append and self._configuration.modules_to_check is not None:
+                self._configuration.modules_to_check = [
+                    *self._configuration.modules_to_check,
+                    *modules,
+                ]
+            else:
+                self._configuration.modules_to_check = modules
         else:
-            if self._configuration.modules_to_check_against is None:
-                self._configuration.modules_to_check_against = []
-
-            self._configuration.modules_to_check_against.extend(modules)  # type: ignore
+            if append and self._configuration.modules_to_check_against is not None:
+                self._configuration.modules_to_check_against = [
+                    *self._configuration.modules_to_check_against,
+                    *modules,
+                ]
+            else:
+                self._configuration.modules_to_check_against = modules
 
     def should(self) -> DependencySpecification:
         self._configuration.should = True
@@ -219,10 +227,11 @@ class Rule(
         matcher.match(evaluable)
 
     def _prepare_rule_matcher(self) -> RuleMatcher:
+        config = self._configuration
         module_requirement = ModuleRequirement(
-            self._configuration.modules_to_check,  # type: ignore
-            self._configuration.modules_to_check_against,  # type: ignore
-            self._configuration.import_,  # type: ignore
+            cast(Sequence[ModuleFilter], config.modules_to_check),
+            cast(Sequence[ModuleFilter], config.modules_to_check_against),
+            cast(bool, config.import_),
         )
         behavior_requirement = BehaviorRequirement(
             self._configuration.should,
@@ -235,25 +244,25 @@ class Rule(
 
     def __str__(self) -> str:
         self._assert_required_configuration_present()
+        modules_to_check = cast(
+            Sequence[ModuleFilter], self._configuration.modules_to_check
+        )
+        modules_to_check_against = cast(
+            Sequence[ModuleFilter], self._configuration.modules_to_check_against
+        )
 
         method_name = f"{'should' if self._configuration.should else 'should only' if self._configuration.should_only else 'should not'}"
 
         subject_prefix = (
-            "Sub modules of "
-            if self._configuration.modules_to_check[0].identifier_is_parent_module  # type: ignore
-            else ""
+            "Sub modules of " if modules_to_check[0].identifier_is_parent_module else ""
         )
         if self._configuration.rule_object_anything:
             object_message = "anything "
         else:
-            object_message = f"modules that are {'sub modules of' if self._configuration.modules_to_check_against[0].identifier_is_parent_module else 'named'} "  # type: ignore
+            object_message = f"modules that are {'sub modules of' if modules_to_check_against[0].identifier_is_parent_module else 'named'} "
 
-        combined_rule_subjects = self._combine_names(
-            self._configuration.modules_to_check  # type: ignore
-        )
-        combined_rule_objects = self._combine_names(
-            self._configuration.modules_to_check_against  # type: ignore
-        )
+        combined_rule_subjects = self._combine_names(modules_to_check)
+        combined_rule_objects = self._combine_names(modules_to_check_against)
         return (
             f'{subject_prefix}"{combined_rule_subjects}" '
             f"{method_name} "

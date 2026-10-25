@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <shared_mutex>
+#include <vector>
 
 #include "common/types/types.h"
 #include "storage/index/hash_index.h"
@@ -98,7 +99,7 @@ struct IndexScanHelper {
 
 class NodeTableVersionRecordHandler final : public VersionRecordHandler {
 public:
-    explicit NodeTableVersionRecordHandler(NodeTable* table);
+    NodeTableVersionRecordHandler(NodeTable* table, catalog::Catalog* ownerCatalog);
 
     void applyFuncToChunkedGroups(version_record_handler_op_t func,
         common::node_group_idx_t nodeGroupIdx, common::row_idx_t startRow,
@@ -122,7 +123,7 @@ public:
     void initScanState(transaction::Transaction* transaction, TableScanState& scanState,
         bool resetCachedBoundNodeIDs = true) const override;
     void initScanState(transaction::Transaction* transaction, TableScanState& scanState,
-        common::table_id_t tableID, common::offset_t startOffset) const;
+        [[maybe_unused]] common::table_id_t tableID, common::offset_t startOffset) const;
 
     // Virtual method for operator-level scan coordination initialization
     // Called once per scan operation (not per scan state)
@@ -210,7 +211,9 @@ public:
         LocalTable* localTable) override;
     bool checkpoint(main::ClientContext* context, catalog::TableCatalogEntry* tableEntry,
         PageAllocator& pageAllocator, const transaction::Transaction* snapshotTxn = nullptr,
-        uint64_t epochWatermark = 0) override;
+        uint64_t epochWatermark = 0,
+        common::transaction_t retentionHorizon = common::INVALID_TRANSACTION,
+        const std::vector<common::transaction_t>& openStartTSs = {}) override;
     void rollbackCheckpoint() override;
     void finalizeCheckpoint(main::ClientContext& context) override;
     void reclaimStorage(PageAllocator& pageAllocator) const override;
@@ -224,6 +227,9 @@ public:
     }
 
     common::node_group_idx_t getNumNodeGroups() const { return nodeGroups->getNumNodeGroups(); }
+    // True while any group carries a retention horizon from a pinned checkpoint; a later
+    // unpinned checkpoint reclaims it (see NodeTable::checkpoint).
+    bool hasRetainedHorizon() const { return nodeGroups->hasRetainedHorizon(); }
     common::offset_t getNumTuplesInNodeGroup(common::node_group_idx_t nodeGroupIdx) const {
         return nodeGroups->getNodeGroup(nodeGroupIdx)->getNumRows();
     }
@@ -249,6 +255,10 @@ public:
     // numRowsToScan: number of rows being scanned
     static void applySemiMaskFilter(const TableScanState& state, common::row_idx_t startOffset,
         common::row_idx_t numRowsToScan, common::SelectionVector& selVector);
+    // Intersects the selection with masked node offsets, as returned by SemiMask::range for the
+    // rows starting at startOffset.
+    static void applySemiMaskFilter(const common::offset_vec_t& maskedOffsets,
+        common::row_idx_t startOffset, common::SelectionVector& selVector);
 
 private:
     void validatePkNotExists(const transaction::Transaction* transaction,
@@ -264,9 +274,8 @@ private:
         std::optional<uint64_t> queryID = std::nullopt) const;
 
 private:
-    // Protects the `columns` vector from concurrent access during checkpoint
-    // column vacuum. Readers/writers take shared_lock; checkpoint takes
-    // unique_lock during the brief column swap.
+    // Guards the `columns` vector: checkpoint's column vacuum swaps it and ALTER TABLE ADD grows
+    // it under a unique lock; readers take a shared lock.
     mutable std::shared_mutex schemaMtx;
     std::vector<std::unique_ptr<Column>> columns;
     std::unique_ptr<NodeGroupCollection> nodeGroups;

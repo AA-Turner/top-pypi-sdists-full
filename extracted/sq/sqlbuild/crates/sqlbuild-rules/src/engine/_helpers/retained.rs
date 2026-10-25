@@ -132,6 +132,8 @@ impl RowWriter {
             relative_path,
             query_sql: _,
             authored_sql: _,
+            query_line_offset: _,
+            typed_calls: _,
             config,
             authored_config_keys,
             logical_schema,
@@ -348,6 +350,8 @@ impl RowReader<'_> {
             relative_path: self.text()?,
             query_sql: String::new(),
             authored_sql: String::new(),
+            query_line_offset: 0,
+            typed_calls: Vec::new(),
             config: {
                 let count: usize = self.count()?;
                 let mut config: BTreeMap<String, Value> = BTreeMap::new();

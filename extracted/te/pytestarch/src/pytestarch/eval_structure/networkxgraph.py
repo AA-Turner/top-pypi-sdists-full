@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 from collections.abc import Sequence
 from typing import Any
 
@@ -11,6 +10,7 @@ from networkx import draw_networkx, has_path, spring_layout
 
 from pytestarch.eval_structure.evaluable_structures import AbstractGraph, AbstractNode
 from pytestarch.eval_structure.exceptions import ModuleUnknown
+from pytestarch.eval_structure.module_name_boundaries import is_internal_module
 from pytestarch.eval_structure.types import Import, get_parent_modules
 
 EXPECTED_EDGE_AND_NODE_TYPES = "Only str and tuple of two str supported."
@@ -47,7 +47,7 @@ class NetworkxGraph(AbstractGraph):
         """
         self._all_modules = all_modules
         self._imports = imports
-        self._graph = nx.DiGraph()
+        self._graph: nx.DiGraph[Node] = nx.DiGraph()
 
         self._level_limit = level_limit
 
@@ -106,10 +106,11 @@ class NetworkxGraph(AbstractGraph):
         Args:
             node: to add to the graph
         """
-        node = self._flatten_graph_node(node)
+        if self._level_limit is not None:
+            node = self._flatten_graph_node(node)
 
-        if node not in self._graph:
-            self._graph.add_node(node)
+        # add_node is idempotent, so no membership test is needed.
+        self._graph.add_node(node)
 
     def _create_edge(
         self, node_start: Node, node_end: Node, inherits: bool = False
@@ -121,15 +122,16 @@ class NetworkxGraph(AbstractGraph):
             node_end: node the edge points towards
             inherits: if True, edge will be marked as belonging to two nodes that are connected in a parent-child-relationship
         """
-        node_start = self._flatten_graph_node(node_start)
-        node_end = self._flatten_graph_node(node_end)
+        if self._level_limit is not None:
+            node_start = self._flatten_graph_node(node_start)
+            node_end = self._flatten_graph_node(node_end)
 
         if node_start == node_end:
             return
 
         # "from foo import bar" - bar could be a function/class in foo
         # or a submodule of foo
-        # in order to not add a function/class to the eval_structure, an ende to
+        # in order to not add a function/class to the eval_structure, an edge to
         # foo.bar will only be added if both importer
         # and importee are already part of the eval_structure (which they will
         # be if they correspond to modules in the file system
@@ -148,11 +150,11 @@ class NetworkxGraph(AbstractGraph):
             return self._graph.has_node(item)
 
         if (
-            len(item) > 2
+            len(item) != 2
             or not isinstance(item[0], str)
             or not isinstance(item[1], str)
         ):
-            TypeError(EXPECTED_EDGE_AND_NODE_TYPES)
+            raise TypeError(EXPECTED_EDGE_AND_NODE_TYPES)
 
         return self._graph.has_edge(*item) or has_path(self._graph, *item)
 
@@ -202,19 +204,17 @@ class NetworkxGraph(AbstractGraph):
         self._assert_node_exists(node)
         return sorted(self._graph.successors(node))
 
-    def parent_child_relationship(
-        self, supposed_parent_node: Node, supposed_child_node: Node
-    ) -> bool:
+    def parent_child_relationship(self, parent: Node, child: Node) -> bool:
         """Returns True if the given nodes are marked as a parent-child hierarchy.
 
         Args:
-            supposed_parent_node:
-            supposed_child_node:
+            parent: supposed parent node
+            child: supposed child node
 
         Returns:
             True if supposed parent is actually parent of supposed child node
         """
-        edge_data = self._graph.get_edge_data(supposed_parent_node, supposed_child_node)
+        edge_data = self._graph.get_edge_data(parent, child)
 
         return edge_data["inherits"]
 
@@ -225,16 +225,16 @@ class NetworkxGraph(AbstractGraph):
             spacing (float): optimal distance between nodes
             aliases (Dict[str, str]): module name aliases for plot labels. Keys are
                 module names and values the aliases. If no alias is specified the module
-                name is used a node label. If a module name has an alias, the module
+                name is used as a node label. If a module name has an alias, the module
                 name is replaced by the alias for the module and all its submodules,
-                e.g. for modules a, a.b, a.c, a.c.d and aliases == {'a', 'A'}, the plot
+                e.g. for modules a, a.b, a.c, a.c.d and aliases == {'a': 'A'}, the plot
                 labels for these modules will be A, A.b, A.c, A.c.d.
                 If a submodule also has an alias, the alias for the submodule takes
                 priority, e.g. with the same modules as above and
                 aliases == {'a': 'A', 'a.c': 'C'} the plot labels will be A, A.b, C,
                 C.d.
             **kwargs: Remaining keyword args are passed to draw_networkx. Notably, "ax"
-                can be used to draw the graph onto an existing matploblib Axis object.
+                can be used to draw the graph onto an existing matplotlib Axis object.
         """
         try:
             import matplotlib  # noqa: F401
@@ -295,9 +295,9 @@ class NetworkxGraph(AbstractGraph):
             most_specific_aliased_module = next(
                 module
                 for module in sorted_aliased_modules
-                if module_name.startswith(module)
+                if is_internal_module(module_name, module)
             )
-            alias = re.sub(rf"^{most_specific_aliased_module}", "", module_name)
+            alias = module_name[len(most_specific_aliased_module) :]
             alias = aliases[most_specific_aliased_module] + alias
             return alias
 

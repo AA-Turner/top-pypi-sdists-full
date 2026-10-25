@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ffsim
-Version: 0.0.84
+Version: 0.0.85
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -17,9 +17,14 @@ Requires-Dist: numpy
 Requires-Dist: opt-einsum
 Requires-Dist: orjson
 Requires-Dist: pyscf>=2.12
-Requires-Dist: qiskit>=2.0
 Requires-Dist: scipy
 Requires-Dist: typing-extensions
+Requires-Dist: jax[cuda12] ; extra == 'cuda12'
+Requires-Dist: jax[cuda13] ; extra == 'cuda13'
+Requires-Dist: qiskit>=2.0,<3 ; extra == 'qiskit'
+Provides-Extra: cuda12
+Provides-Extra: cuda13
+Provides-Extra: qiskit
 License-File: LICENSE
 Summary: Faster simulation of fermionic quantum circuits.
 Requires-Python: >=3.11

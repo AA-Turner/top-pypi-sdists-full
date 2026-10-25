@@ -38,6 +38,7 @@ TURN_CONTEXT_AFTER_CACHE_LINE: dict[str, bool] = {
 #: Chat wire routes (``ai.api.translator_key``) whose translator family differs from the prefix.
 _WIRE_FAMILY: dict[str, str] = {
     "moonshot_chat": "generic_openai",
+    "device_chat": "generic_openai",
     "generic_openai_chat": "generic_openai",
     "openai_responses": "openai",
 }
@@ -91,6 +92,7 @@ STRICT_ALTERNATION_WIRES: frozenset[str] = frozenset(
         "together_chat",
         "openai_chat",
         "moonshot_chat",
+        "device_chat",
         "generic_openai_chat",
     }
 )

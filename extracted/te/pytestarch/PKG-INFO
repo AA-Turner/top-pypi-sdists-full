@@ -1,31 +1,30 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: PyTestArch
-Version: 5.0.0
+Version: 5.1.0
 Summary: Test framework for software architecture based on imports between modules
+Project-URL: issues, https://github.com/zyskarch/pytestarch/issues
+Project-URL: documentation, https://zyskarch.github.io/pytestarch/latest
+Project-URL: repository, https://github.com/zyskarch/pytestarch
+Author-email: zyskarch <zyskarch@gmail.com>
+Maintainer-email: zyskarch <zyskarch@gmail.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Keywords: architecture,test
-Author: zyskarch
-Author-email: zyskarch@gmail.com
-Maintainer: zyskarch
-Maintainer-email: zyskarch@gmail.com
-Requires-Python: >=3.11
-Classifier: Programming Language :: Python :: 3.15
-Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.11
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Testing :: Unit
+Requires-Python: >=3.11
+Requires-Dist: networkx>=3.6
 Provides-Extra: visualization
-Requires-Dist: matplotlib (>=3.11) ; extra == "visualization"
-Requires-Dist: networkx (>=3.6)
-Project-URL: Documentation, https://zyskarch.github.io/pytestarch/latest
-Project-URL: Repository, https://github.com/zyskarch/pytestarch
-Project-URL: issues, https://github.com/zyskarch/pytestarch/issues
+Requires-Dist: matplotlib>=3.11; extra == 'visualization'
 Description-Content-Type: text/markdown
 
 # Welcome to PyTestArch
@@ -42,27 +41,27 @@ Three steps are required to test an architectural rule:
 
 1) Create an evaluable representation of the source code you want to test
 
-```
+```python
 from pytestarch import get_evaluable_architecture
 
 evaluable = get_evaluable_architecture("/home/dummy/project", "/home/dummy/project/src")
 ```
 This will scan all python files under /home/dummy/project/src for imports and build an internal representation that can
 later be queried. The first parameter /home/dummy/project helps PyTestArch to differentiate between internal and external 
-dependencies. This evaluable can be used for multiple architectural rule checks; if you are using [pytest](https://docs.pytest.org/en/7.1.x/),
+dependencies. This evaluable can be used for multiple architectural rule checks; if you are using [pytest](https://docs.pytest.org/),
 you could use a fixture for this evaluable object.
 
 2) Define an architectural rule
-```
+```python
 from pytestarch import Rule
 
 rule = (
-    Rule() 
-    .modules_that() 
-    .are_named("project.src.moduleB") 
-    .should_not() 
-    .be_imported_by_modules_that() 
-    .are_sub_modules_of("project.src.moduleA") 
+    Rule()
+    .modules_that()
+    .are_named("project.src.moduleB")
+    .should_not()
+    .be_imported_by_modules_that()
+    .are_sub_modules_of("project.src.moduleA")
 )
 ```
 
@@ -71,7 +70,7 @@ that is a submodule of "project.src.moduleA", excluding "project.src.moduleA" it
 
 3) Evaluate your code against this rule
 
-```
+```python
 rule.assert_applies(evaluable)
 ```
 That's it!
@@ -173,4 +172,3 @@ def test_top_level_module_structure(
   - [`tests/test_architecture.py`](https://github.com/zyskarch/pytestarch/blob/main/tests/test_architecture.py) — module boundary rules (shown above)
   - [`tests/diagram_extension/`](https://github.com/zyskarch/pytestarch/tree/main/tests/diagram_extension) — generating rules from PlantUML diagrams
   - [`tests/integration/`](https://github.com/zyskarch/pytestarch/tree/main/tests/integration) — extensive parametrized test cases
-

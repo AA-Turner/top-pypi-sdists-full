@@ -148,6 +148,30 @@ def test_the_backlog_a_skip_leaves_keeps_to_one_turns_window(tmp_path, mode, mon
     assert len(unread) == 3 and unread[-1].seq == last, "the newest three stay, the older drop off"
 
 
+@pytest.mark.parametrize("gate_mode", ["shadow", "on"])
+def test_with_prompt_wakes_off_the_gate_and_the_reader_read_the_newest_window(tmp_path, mode, monkeypatch,
+                                                                              gate_mode):
+    """Prod's reader gate (SHADOW) chooses the window it puts to the reader: with
+    prompt wakes off it is the newest too, and the cursor passes the older backlog."""
+    mode(gate_mode)
+    monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "off")
+    monkeypatch.setattr(rl, "READ_MAX_EVENTS", 3)
+    gate, reader = Gate(look=True), Reader(end="")
+    w = _worker(tmp_path)
+    lane = _lane(w, reader, gate)
+    for n in range(6):
+        _append_turn(w, f"backlog prompt {n}")
+    w.read_new()
+    newest = lane.store.newest_seq()
+    _wake(lane)
+    assert "backlog prompt 5" in gate.prompts[0] and "backlog prompt 0" not in gate.prompts[0]
+    [request, *_] = reader.seen
+    shown = "\n".join(getattr(p, "content", "") for p in request[0][-1].parts
+                      if isinstance(getattr(p, "content", None), str))
+    assert "backlog prompt 5" in shown and "backlog prompt 0" not in shown
+    assert lane.cursor() == newest
+
+
 def test_the_gate_reads_the_readers_job_and_its_own_line():
     text = reader_gate.instructions(rl.read_session_text())
     assert text.startswith(rl.read_session_text()), "same WHEN TO LOOK, and a prefix that caches"
@@ -169,9 +193,12 @@ def test_the_server_sets_the_mode_and_the_environment_wins(monkeypatch):
     assert model_mod.reader_gate_mode() == model_mod.GateMode.OFF
 
 
-def test_prompt_wakes_stay_on_unless_the_server_or_the_environment_turns_them_off(monkeypatch):
-    """Plan probe-hints T5: `x-probe-reader-prompt-wake` (on | off) per team; an
-    older server sends none, which is ON. The environment wins over the server."""
+def test_prompt_wakes_stay_on_unless_a_hint_serves_and_the_server_agrees(monkeypatch):
+    """`x-probe-reader-prompt-wake` (on | off) from the server, honoured only
+    while a Probe hint serves this session (`hints_live`); an older server sends
+    none, which is ON. The environment wins over both."""
+    live = [True]
+    monkeypatch.setattr(model_mod, "hints_live", lambda now=None: live[0])
     monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE, raising=False)
     monkeypatch.setattr(model_mod, "_PUSHED", {})
     assert model_mod.reader_prompt_wake() is True
@@ -179,6 +206,9 @@ def test_prompt_wakes_stay_on_unless_the_server_or_the_environment_turns_them_of
     assert model_mod.reader_prompt_wake() is True, "no header: on"
     model_mod.remember_pushed_settings({"x-probe-reader-prompt-wake": "OFF "})
     assert model_mod.reader_prompt_wake() is False
+    live[0] = False
+    assert model_mod.reader_prompt_wake() is True, "no hint serves the session now: the reader wakes"
+    live[0] = True
     model_mod.remember_pushed_settings({"x-probe-reader-prompt-wake": "sometimes"})
     assert model_mod.reader_prompt_wake() is False, "a malformed value keeps the last good one"
     monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "on")
@@ -188,6 +218,39 @@ def test_prompt_wakes_stay_on_unless_the_server_or_the_environment_turns_them_of
     monkeypatch.delenv(model_mod.ENV_READER_PROMPT_WAKE)
     model_mod.remember_pushed_settings({"x-probe-reader-prompt-wake": "on"})
     assert model_mod.reader_prompt_wake() is True
+
+
+def test_hints_are_live_while_the_lanes_marker_is_fresh(monkeypatch):
+    from probe.daemon import mailbox
+
+    monkeypatch.setattr(model_mod, "_HINTS_SID", None)
+    assert model_mod.hints_live() is False, "no session bound"
+    model_mod.bind_hints(SID)
+    path = mailbox.hints_live_path(SID)
+    assert not path.exists() and model_mod.hints_live() is False, "no marker"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    touched = path.stat().st_mtime
+    assert model_mod.hints_live(touched + model_mod.HINTS_LIVE_TTL_S) is True
+    assert model_mod.hints_live(touched + model_mod.HINTS_LIVE_TTL_S + 1) is False, "stale: the lane stopped"
+
+
+def test_every_chat_request_says_whether_hints_serve_its_session(monkeypatch):
+    """What the server answers `x-probe-reader-prompt-wake: off` to (only `on`)."""
+    import httpx
+
+    live = [True]
+    monkeypatch.setattr(model_mod, "hints_live", lambda now=None: live[0])
+    chat = f"https://api.example.test{model_mod.ROUTE_PREFIX}{model_mod._CHAT_PATH}"
+    for value, said in ((True, "on"), (False, "off")):
+        live[0] = value
+        request = httpx.Request("POST", chat)
+        asyncio.run(model_mod._prefer_served_model(request))
+        assert request.headers[model_mod.HINTS_LIVE_HEADER] == said
+    other = httpx.Request("GET", "https://api.example.test/v1/anything")
+    asyncio.run(model_mod._prefer_served_model(other))
+    assert model_mod.HINTS_LIVE_HEADER not in other.headers
+    assert model_mod.HINTS_LIVE_HEADER == "x-probe-hints-live"
 
 
 def test_the_gate_lane_sends_its_header_and_the_servers_alias(monkeypatch):

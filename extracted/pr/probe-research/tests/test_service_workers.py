@@ -175,6 +175,19 @@ def test_a_crashing_worker_is_started_again_after_a_doubling_wait(rig):
     assert len(rig.spawned) == 4 and rig.sup.crashes == 0 and rig.sup.gave_up_in is None
 
 
+def test_a_worker_stopped_by_a_full_disk_waits_like_a_crash_and_is_never_a_crash_loop(rig):
+    """new-workspace 2026-10-24: a full disk is the machine's, not a worker bug."""
+    reports: list = []
+    rig.sup.incident = lambda *args, **kwargs: reports.append(args)
+    rig.exits[:] = [workers.EXIT_DISK_FULL] * workers.REPORT_CRASHES + [None]
+    for n in range(workers.REPORT_CRASHES):
+        rig.poll()  # spawn
+        rig.poll()  # it stopped: wait
+        assert rig.sup.crashes == n + 1 and rig.sup.state == WorkerState.BACKOFF
+        rig.clock.now += workers.CRASH_BACKOFF_S * 2 ** n + 1
+    assert len(rig.spawned) == workers.REPORT_CRASHES and reports == []
+
+
 @pytest.mark.parametrize("code", [workers.EXIT_DO_NOT_RESPAWN, workers.EXIT_NO_COMMAND])
 def test_a_worker_that_says_respawning_cannot_help_waits_for_the_switch_to_move(rig, code):
     rig.exits[:] = [code, None]
@@ -636,8 +649,13 @@ def test_a_stopping_service_starts_nothing_but_keeps_the_tap_from_starting_one(t
 def test_the_exit_codes_and_rules_are_the_worker_s_and_the_tap_supervisor_s(tap_sup):
     from probe.daemon import worker
 
-    assert (workers.EXIT_DO_NOT_RESPAWN, workers.EXIT_CRASHED, workers.EXIT_RESPAWN_LATER, workers.EXIT_RETRY_LIBS) \
-        == (worker.EXIT_DO_NOT_RESPAWN, worker.EXIT_CRASHED, worker.EXIT_RESPAWN_LATER, worker.EXIT_RETRY_LIBS)
+    assert (workers.EXIT_DO_NOT_RESPAWN, workers.EXIT_CRASHED, workers.EXIT_RESPAWN_LATER, workers.EXIT_RETRY_LIBS,
+            workers.EXIT_DISK_FULL) \
+        == (worker.EXIT_DO_NOT_RESPAWN, worker.EXIT_CRASHED, worker.EXIT_RESPAWN_LATER, worker.EXIT_RETRY_LIBS,
+            worker.EXIT_DISK_FULL)
+    # A tap's supervisor knows no EXIT_DISK_FULL: it waits on it as on any crash.
+    assert workers.EXIT_DISK_FULL not in (tap_sup.EXIT_CRASHED, tap_sup.EXIT_RESPAWN_LATER, tap_sup.EXIT_RETRY_LIBS,
+                                          0, 2, 3)
     assert workers.SUPERVISOR_PID_ENV == worker.SUPERVISOR_PID_ENV
     assert workers.ENTER_CWD_ENV == worker.ENTER_CWD_ENV
     assert set(workers.SUPERVISOR_ENV) == {

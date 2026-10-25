@@ -263,3 +263,34 @@ def test_explicit_anchor_outranks_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("PROBE_PROJECT", "proj-env")
 
     assert resolve(project="proj-explicit").project == "proj-explicit"
+
+
+# -- the workspace limit lives in a context's pin ------------------------------
+_LIMITED = {"id": "11111111-1111-1111-1111-111111111111", "project": None, "limit": True, "team_items": "hide"}
+
+
+def test_the_workspace_limit_is_the_active_contexts():
+    """A limit is one team's workspace: another context's never applies."""
+    save_context({"token": "probe_pat_PROD", "workspace": _LIMITED}, name="prod")
+    save_context({"token": "probe_pat_STAGING"}, name="staging")
+
+    use_context("prod")
+    assert resolve().workspace_limit.id == _LIMITED["id"]
+    assert resolve().workspace_limit.hides_team_items
+    use_context("staging")
+    assert resolve().workspace_limit is None
+    assert resolve(context="prod").workspace_limit.id == _LIMITED["id"]
+
+
+def test_signing_out_clears_the_limit_with_the_pin():
+    save_context({"token": "probe_pat_PROD", "workspace": _LIMITED})
+    clear_context()
+    assert load_context().get("workspace") is None
+    assert resolve().workspace_limit is None
+
+
+def test_a_v1_flat_file_with_a_limited_pin_still_resolves_it(tmp_path, monkeypatch):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"token": "probe_pat_v1", "workspace": _LIMITED}))
+    monkeypatch.setenv("PROBE_CONFIG_PATH", str(path))
+    assert resolve().workspace_limit.id == _LIMITED["id"]

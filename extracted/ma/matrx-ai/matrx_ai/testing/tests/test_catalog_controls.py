@@ -145,8 +145,10 @@ class TestOutbound:
         assert out == {"thinking_config": {"thinking_level": "high", "include_thoughts": True}}
 
     def test_value_map_null_omits(self):
-        compiled = _compiled({"reasoning_effort": {"value_map": {"auto": None, "low": "low"}}})
-        out, adj = compiled.outbound({"reasoning_effort": "auto"})
+        # (A depth key's "auto" is decided by the platform reasoning default —
+        # test_reasoning_default.py — so the generic null-omit uses another key.)
+        compiled = _compiled({"verbosity": {"value_map": {"auto": None, "low": "low"}}})
+        out, adj = compiled.outbound({"verbosity": "auto"})
         assert out == {}
         assert len(adj) == 1
         assert adj[0].action == "omitted"
@@ -190,7 +192,13 @@ class TestOutbound:
             }
         )
         out, adj = compiled.outbound({})
-        assert out == {"reasoning_format": "parsed", "temperature": 1}
+        # The platform reasoning default (owner ruling 2026-10-24: unset -> "low")
+        # is a declared default like the others: it lands on a target offering it.
+        assert out == {
+            "reasoning": {"effort": "low"},
+            "reasoning_format": "parsed",
+            "temperature": 1,
+        }
         assert adj == []
 
     def test_explicit_none_value_treated_as_unset(self):

@@ -51,6 +51,7 @@ from uuid import uuid4
 from matrx_ai.orchestrator.visual_map_fixes import (
     PATCH_INSTRUCTIONS,
     apply_patch,
+    identity_fixes,
     mechanical_fixes,
     parse_patch,
     patch_from_whole_spec,
@@ -260,6 +261,11 @@ class VisualMapDelivery(Protocol):
     # gets it from here before validation; a host without it fills only ``diagram_type``.
     async def schema_version(self, type: str) -> int | None: ...
 
+    # Optional: the spec as the engine reads it. ``visual_map.spec``'s strict JSON Schema writes each open map
+    # as ``[{key, value}]`` entries; this turns them back into the map and leaves a map already there (the
+    # skill path's free JSON) untouched. A host without it hands the spec to the engine as written.
+    def spec_for_engine(self, type: str, spec: dict[str, Any]) -> dict[str, Any]: ...
+
 
 FallbackRepair = Callable[[dict[str, Any]], Awaitable[Any]]
 
@@ -348,10 +354,21 @@ async def fill_identity(
 ) -> tuple[dict[str, Any], list[str]]:
     """``spec`` with ``diagram_type`` and ``schema_version`` filled from the value's ``type`` when the model
     left them out (2026-10-23 S3: Haiku omitted both; every repair round chased the schema instead of the
-    layout). Deterministic, never overwrites a written value. Returns (spec, names filled)."""
+    layout), and ``diagram_type`` corrected to ``type`` when it disagrees (the engine's constant).
+    Deterministic; a written ``schema_version`` is left to the engine's check. Returns (spec, names filled)."""
     filled: list[str] = []
     out = dict(spec)
-    if not out.get("diagram_type"):
+    to_engine = getattr(delivery, "spec_for_engine", None)
+    if to_engine is not None:
+        # Both forms are accepted: entries arrays (a strict Output Schema's answer) become the engine's maps,
+        # a map already there is left as written.
+        decoded = to_engine(type_, out)
+        if isinstance(decoded, dict) and decoded != out:
+            out = dict(decoded)
+            filled.append("entry maps")
+    if out.get("diagram_type") != type_:
+        # Each engine schema's diagram_type is the constant of its type, so the value's ``type`` decides;
+        # a written "state" / "data_flow" (2026-10-24 S4/S5) can only fail, and the repairer may not edit it.
         out["diagram_type"] = type_
         filled.append("diagram_type")
     if out.get("schema_version") in (None, ""):
@@ -634,6 +651,12 @@ async def run_repair_loop(
         notes.append("the value has no known diagram type or no spec object; nothing could be checked")
         return RepairOutcome(_stamp(value, type_, spec, None, False, 0), rounds, "unreadable", notes)
 
+    if not set(spec) - {"schema_version", "diagram_type"}:
+        # 2026-10-24 live: a strict decoder forced ``"spec": {}``; checking the filled-in identity answered
+        # "/ must have required property 'meta'" for a diagram that was never written. Say what happened.
+        notes.append("the spec holds no diagram content (nothing but its identity); nothing could be drawn")
+        return RepairOutcome(_stamp(value, type_, spec, None, False, 0), rounds, "empty", notes)
+
     spec, filled = await fill_identity(delivery, type_, spec)
     if filled:
         notes.append(f"filled from the value's type before checking: {', '.join(filled)}")
@@ -668,6 +691,15 @@ async def run_repair_loop(
             if best.errors == 0:
                 reason = "clean"
                 break
+            # 0. Identity: the engine's constant, which no repairer may write — adopted unconditionally.
+            ident_spec, ident_edits = identity_fixes(best.spec, best.diagnostics)
+            if ident_edits and spec_sha(ident_spec) not in tried_mechanical:
+                tried_mechanical.add(spec_sha(ident_spec))
+                await persist(rounds[-1], best) if rounds[-1].persisted_id is None else None
+                best = await check(best.type, ident_spec, best.round)
+                rounds.append(_record(best, "mechanical", True, "applied: " + "; ".join(ident_edits)))
+                notes.append(f"identity set to the engine's constant: {'; '.join(ident_edits)}")
+                continue
             # 1. Mechanical: what the engine's own evidence fully determines, no model involved.
             fixed, edits = mechanical_fixes(best.type, best.spec, best.diagnostics)
             if edits and spec_sha(fixed) not in tried_mechanical:
@@ -1158,6 +1190,12 @@ async def visual_map_gate(current_request: Any, final_response: Any, exec_ctx: A
     """Check, repair and stamp every ``visual_map`` in this finishing turn's text. Never raises."""
     try:
         if _inside_repair_child():
+            return []
+        from matrx_ai.providers.device.route_guard import is_private_device_turn
+
+        if is_private_device_turn(exec_ctx, getattr(current_request, "config", None)):
+            # store:false on the person's own computer: the repair child runs a cloud model
+            # (the repair_model knob, a bound agent), so the diagram is delivered unchecked.
             return []
         parts = _assistant_text_parts(current_request, final_response)
         if not any(find_visual_maps(p.text) for p in parts):

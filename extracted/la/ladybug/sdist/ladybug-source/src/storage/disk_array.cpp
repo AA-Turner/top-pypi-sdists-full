@@ -1,5 +1,7 @@
 #include "storage/disk_array.h"
 
+#include <unordered_set>
+
 #include "common/exception/runtime.h"
 #include "common/types/types.h"
 #include "storage/file_handle.h"
@@ -52,14 +54,47 @@ DiskArrayInternal::DiskArrayInternal(FileHandle& fileHandle,
       lastAPPageIdx{INVALID_PAGE_IDX}, lastPageOnDisk{INVALID_PAGE_IDX} {
     if (this->header.firstPIPPageIdx != ShadowUtils::NULL_PAGE_IDX) {
         pips.emplace_back(fileHandle, header.firstPIPPageIdx);
+        std::unordered_set<page_idx_t> visitedPIPPages{header.firstPIPPageIdx};
         while (pips[pips.size() - 1].pipContents.nextPipPageIdx != ShadowUtils::NULL_PAGE_IDX) {
-            pips.emplace_back(fileHandle, pips[pips.size() - 1].pipContents.nextPipPageIdx);
+            const auto nextPipPageIdx = pips[pips.size() - 1].pipContents.nextPipPageIdx;
+            if (!visitedPIPPages.insert(nextPipPageIdx).second) {
+                throw RuntimeException(std::format(
+                    "Cannot read PIP page {}: the PIP chain contains a cycle. The database file "
+                    "may be corrupted.",
+                    nextPipPageIdx));
+            }
+            pips.emplace_back(fileHandle, nextPipPageIdx);
         }
     }
+    validateArrayPageIdxs();
     // If bypassing the WAL is disabled, just leave the lastPageOnDisk as invalid, as then all pages
     // will be treated as updates to existing ones
     if (bypassShadowing) {
         updateLastPageOnDisk();
+    }
+}
+
+// Array pages are read lazily and without bounds checks, so validate once at load time that
+// every array page the header claims is addressed by a PIP and lies within the file. Otherwise a
+// corrupted header or PIP only surfaces later as an invalid memory access in the buffer manager.
+void DiskArrayInternal::validateArrayPageIdxs() const {
+    const auto numAPs = getNumAPs(header);
+    const auto numPages = fileHandle.getNumPages();
+    if (numAPs > pips.size() * NUM_PAGE_IDXS_PER_PIP) {
+        throw RuntimeException(std::format(
+            "Cannot load disk array: header contains {} elements, which need {} array pages, but "
+            "its page index pages address at most {}. The database file may be corrupted.",
+            header.numElements, numAPs, pips.size() * NUM_PAGE_IDXS_PER_PIP));
+    }
+    for (uint64_t apIdx = 0; apIdx < numAPs; apIdx++) {
+        const auto apPageIdx =
+            pips[apIdx / NUM_PAGE_IDXS_PER_PIP].pipContents.pageIdxs[apIdx % NUM_PAGE_IDXS_PER_PIP];
+        if (apPageIdx >= numPages) {
+            throw RuntimeException(std::format(
+                "Cannot load disk array: array page {} is stored at page {}, out of bounds for "
+                "file with {} pages. The database file may be corrupted.",
+                apIdx, apPageIdx, numPages));
+        }
     }
 }
 
@@ -80,12 +115,11 @@ uint64_t DiskArrayInternal::getNumElements(TransactionType trxType) {
 
 bool DiskArrayInternal::checkOutOfBoundAccess(TransactionType trxType, uint64_t idx) const {
     auto currentNumElements = getNumElementsNoLock(trxType);
-    if (idx >= currentNumElements) {
-        // LCOV_EXCL_START
-        throw RuntimeException(
-            std::format("idx: {} of the DiskArray to be accessed is >= numElements in DiskArray{}.",
-                idx, currentNumElements));
-        // LCOV_EXCL_STOP
+    if (idx >= currentNumElements) [[unlikely]] {
+        throw RuntimeException(std::format(
+            "idx: {} of the DiskArray to be accessed is >= numElements in DiskArray {}. The "
+            "database file may be corrupted.",
+            idx, currentNumElements));
     }
     return true;
 }
@@ -93,7 +127,9 @@ bool DiskArrayInternal::checkOutOfBoundAccess(TransactionType trxType, uint64_t 
 void DiskArrayInternal::get(uint64_t idx, const Transaction* transaction,
     std::span<std::byte> val) {
     std::shared_lock sLck{diskArraySharedMtx};
-    DASSERT(checkOutOfBoundAccess(transaction->getType(), idx));
+    // The index can come from on-disk data (e.g. the overflow slot id stored in a hash index
+    // slot), so it is checked in release builds too.
+    checkOutOfBoundAccess(transaction->getType(), idx);
     auto apCursor = getAPIdxAndOffsetInAP(storageInfo, idx);
     page_idx_t apPageIdx = getAPPageIdxNoLock(apCursor.pageIdx, transaction->getType());
     if (transaction->getType() != TransactionType::CHECKPOINT || !hasTransactionalUpdates ||
@@ -132,7 +168,9 @@ void DiskArrayInternal::update(const Transaction* transaction, uint64_t idx,
     std::span<std::byte> val) {
     std::unique_lock xLck{diskArraySharedMtx};
     hasTransactionalUpdates = true;
-    DASSERT(checkOutOfBoundAccess(transaction->getType(), idx));
+    // The index can come from on-disk data, as in get(). DASSERT is compiled out of release
+    // builds, which would skip the throw in checkOutOfBoundAccess.
+    checkOutOfBoundAccess(transaction->getType(), idx);
     auto apCursor = getAPIdxAndOffsetInAP(storageInfo, idx);
     // TODO: We are currently supporting only DiskArrays that can grow in size and not
     // those that can shrink in size. That is why we can use
@@ -363,13 +401,17 @@ void DiskArrayInternal::WriteIterator::pushBack(PageAllocator& pageAllocator,
     auto [apPageIdx, isNewlyAdded] =
         diskArray.getAPPageIdxAndAddAPToPIPIfNecessaryForWriteTrxNoLock(pageAllocator, transaction,
             apCursor.pageIdx);
-    diskArray.lastAPPageIdx = apPageIdx;
-    // Used to calculate the number of APs, so it must be updated after the PIPs are.
-    diskArray.headerForWriteTrx.numElements++;
+    // Pin before publishing the new element: getPage() may throw (e.g. FlakyBM buffer-pool
+    // exhaustion during checkpoint). Publishing header/lastAPPageIdx first would count a
+    // failed element and leave lastAPPageIdx pointing at a leaked page. Global rollback
+    // restores headers/PIPs, but the iterator itself must stay consistent on failure.
     if (isNewlyAdded || shadowPageAndFrame.originalPage == INVALID_PAGE_IDX ||
         apCursor.pageIdx != oldPageIdx) {
         getPage(apPageIdx, isNewlyAdded);
     }
+    diskArray.lastAPPageIdx = apPageIdx;
+    // Used to calculate the number of APs, so it must be updated after the PIPs are.
+    diskArray.headerForWriteTrx.numElements++;
     memcpy(operator*().data(), val.data(), val.size());
 }
 
@@ -378,10 +420,17 @@ void DiskArrayInternal::WriteIterator::unpin() {
         // unpin current page
         diskArray.shadowFile->getShadowingFH().unpinPage(shadowPageAndFrame.shadowPage);
         shadowPageAndFrame.shadowPage = INVALID_PAGE_IDX;
+        // Clear the data-page id as well: after unpinning the shadow page this iterator holds
+        // nothing. Leaving the stale originalPage behind makes a later getPage() failure (or
+        // the destructor) take the direct-pin branch and call setLockedPageDirty() on a data
+        // page that was never pinned.
+        shadowPageAndFrame.originalPage = INVALID_PAGE_IDX;
+        shadowPageAndFrame.frame = nullptr;
     } else if (shadowPageAndFrame.originalPage != INVALID_PAGE_IDX) {
         diskArray.fileHandle.setLockedPageDirty(shadowPageAndFrame.originalPage);
         diskArray.fileHandle.unpinPage(shadowPageAndFrame.originalPage);
         shadowPageAndFrame.originalPage = INVALID_PAGE_IDX;
+        shadowPageAndFrame.frame = nullptr;
     }
 }
 

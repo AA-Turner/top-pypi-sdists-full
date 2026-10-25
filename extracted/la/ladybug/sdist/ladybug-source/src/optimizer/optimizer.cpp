@@ -25,7 +25,6 @@
 #include "optimizer/remove_unnecessary_distinct_optimizer.h"
 #include "optimizer/remove_unnecessary_join_optimizer.h"
 #include "optimizer/remove_unnecessary_order_by_optimizer.h"
-#include "optimizer/schema_populator.h"
 #include "optimizer/top_k_optimizer.h"
 #include "optimizer/unwind_dedup_optimizer.h"
 #include "planner/operator/extend/logical_extend.h"
@@ -46,6 +45,7 @@
 #include "planner/operator/scan/logical_count_anti_edge_chain.h"
 #include "planner/operator/scan/logical_count_extend_chain.h"
 #include "planner/operator/scan/logical_count_rel_table.h"
+#include "planner/operator/scan/logical_grouped_reachable_count.h"
 #include "planner/operator/scan/logical_query_primary_key_lookup.h"
 #include "planner/operator/scan/logical_reachable_count.h"
 #include "planner/operator/scan/logical_rel_degree_table.h"
@@ -236,6 +236,15 @@ void dumpLogicalTree(const planner::LogicalOperator* op, int depth,
             count.getBoundNode()->getUniqueName().c_str(),
             count.getNbrNode()->getUniqueName().c_str(), count.getLowerBound(),
             count.getUpperBound());
+    } else if (op->getOperatorType() == planner::LogicalOperatorType::GROUPED_REACHABLE_COUNT) {
+        auto& count = op->constCast<planner::LogicalGroupedReachableCount>();
+        fprintf(stderr, " [%s dir=%s bound=%s nbr=%s range=%u..%u keys=%llu%s%s]",
+            count.getRelGroupEntry()->getName().c_str(),
+            common::ExtendDirectionUtil::toString(count.getDirection()).c_str(),
+            count.getBoundNode()->getUniqueName().c_str(),
+            count.getNbrNode()->getUniqueName().c_str(), count.getLowerBound(),
+            count.getUpperBound(), (unsigned long long)count.getKeys().size(),
+            count.hasCount() ? " COUNT" : "", count.hasAvg() ? " AVG" : "");
     } else if (op->getOperatorType() == planner::LogicalOperatorType::REL_DEGREE_TABLE) {
         auto& degree = op->constCast<planner::LogicalRelDegreeTable>();
         fprintf(stderr, " [%s dir=%s mode=%s]", degree.getRelGroupEntry()->getName().c_str(),
@@ -383,10 +392,20 @@ void Optimizer::optimize(planner::LogicalPlan* plan, main::ClientContext* contex
             }
         }
     } else {
-        // we still need to compute the schema for each operator even if we have optimizations
-        // disabled
-        auto schemaPopulator = SchemaPopulator{};
-        schemaPopulator.rewrite(plan);
+        // Optimizer disabled: keep only the rewrites required for a runnable plan (fixes #1142).
+        // Correlated PK/scalar-seeded planning now bails without the optimizer, so no
+        // unresolvable ExpressionsScan is emitted; generic correlated subqueries still need
+        // CorrelatedSubqueryUnnestSolver here. The solver only recognizes ACC-hash-joins in
+        // unfactorized form, so strip factorization first and rebuild it after — the final
+        // FactorizationRewriter also populates schemas (subsumes the old SchemaPopulator pass).
+        auto removeFactorizationRewriter = RemoveFactorizationRewriter();
+        removeFactorizationRewriter.rewrite(plan);
+
+        auto correlatedSubqueryUnnestSolver = CorrelatedSubqueryUnnestSolver(nullptr);
+        correlatedSubqueryUnnestSolver.solve(plan->getLastOperator().get());
+
+        auto factorizationRewriter = FactorizationRewriter();
+        factorizationRewriter.rewrite(plan);
     }
     if (dumpLogicalEnabled) {
         dumpLogicalPlan(plan, "after optimization", catalog::Catalog::Get(*context),

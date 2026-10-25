@@ -649,6 +649,75 @@ fn publication_recovery_bindings_select_and_complete() {
         let value = py_to_json_value(result.bind(py)).unwrap();
         assert_eq!(value["fulfilled"], json!(true));
         assert_eq!(value["kind"], json!("run"));
+
+        let linked = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "request": {
+                    "global_agent": "alice.athena.foo",
+                    "local_agent": "foo",
+                    "primary_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    "scope": "linked"
+                },
+                "pages": [{
+                    "path": "agents/alice.athena.foo/README.md",
+                    "exists": true
+                }],
+                "runs": [{
+                    "global_name": "alice.athena.foo",
+                    "local_name": "foo",
+                    "commit_shas": ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
+                    "has_prompt_file": false
+                }],
+                "containers": []
+            }),
+        )
+        .unwrap();
+        let linked = linked.bind(py).downcast::<PyDict>().unwrap();
+        let linked_result =
+            py_decide_publication_request_completion(py, linked).unwrap();
+        let linked_value = py_to_json_value(linked_result.bind(py)).unwrap();
+        assert_eq!(linked_value["fulfilled"], json!(true));
+        assert_eq!(linked_value["kind"], json!("run"));
+        assert!(linked_value["reason"]
+            .as_str()
+            .unwrap()
+            .contains("linked-scope"));
+    });
+}
+
+#[test]
+fn stale_publication_repair_binding_round_trips() {
+    pyo3::prepare_freethreaded_python();
+    Python::with_gil(|py| {
+        let request = json_value_to_py(
+            py,
+            &json!({
+                "schema_version": 1,
+                "requested_revision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "scope": "revision",
+                "run_commit_shas": [
+                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    "cccccccccccccccccccccccccccccccccccccccc"
+                ],
+                "ancestor_commit_shas": [
+                    "cccccccccccccccccccccccccccccccccccccccc"
+                ],
+                "linked_revision": false
+            }),
+        )
+        .unwrap();
+        let request = request.bind(py).downcast::<PyDict>().unwrap();
+        let result =
+            py_classify_stale_publication_request(py, request).unwrap();
+        let value = py_to_json_value(result.bind(py)).unwrap();
+        assert_eq!(value["action"], json!("repaired"));
+        assert_eq!(
+            value["fulfilling_revision"],
+            json!("cccccccccccccccccccccccccccccccccccccccc")
+        );
+        assert_eq!(value["schema_version"], json!(1));
     });
 }
 

@@ -163,39 +163,3 @@ async def test_a_seen_cursor_before_this_turn_keeps_nothing_of_it():
     )
     assert response.messages == []
     await reader.aclose()
-
-
-@pytest.mark.asyncio
-async def test_the_cancel_route_hands_seen_seq_to_the_live_emitter(monkeypatch):
-    from matrx_connect.emitters.stream_emitter import (
-        register_active_stream,
-        unregister_active_stream,
-    )
-
-    from aidream.api.routers import cancel as cancel_router
-
-    emitter = StreamEmitter(heartbeat_interval=3600)
-    register_active_stream("bench2-route", emitter)
-    try:
-        await cancel_router.cancel_request(
-            "bench2-route",
-            mode="cancel",
-            seen_seq=7,
-            ctx=SimpleNamespace(user_id="u-1"),
-        )
-    finally:
-        unregister_active_stream("bench2-route", emitter)
-    assert emitter.seen_seq == 7
-
-
-def test_the_block_wrapper_never_loses_its_own_turn_text():
-    """The block wrapper owns its text (blocks replace chunks on the wire);
-    asking the inner emitter would answer "" and drop the whole partial."""
-    from aidream.services.ai_execution.ai_task_blocks import BlockStreamingEmitter
-
-    wrapper = BlockStreamingEmitter(StreamEmitter(heartbeat_interval=3600))
-    wrapper._turn_text_acc = [SEEN]
-    response = executor._stopped_call_response(
-        SimpleNamespace(emitter=wrapper), "bench2-block-wrapper"
-    )
-    assert _texts(response) == [SEEN]

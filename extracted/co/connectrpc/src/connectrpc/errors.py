@@ -33,7 +33,7 @@ class ErrorDetail:
         """Create a new error detail from a Protobuf message.
 
         If the message is an Any, it is used directly. Otherwise, the message
-        is packed into an Any, with it also stored to be recoverable from [value()][].
+        is packed into an Any, with it also stored to be recoverable from [value()][connectrpc.errors.ErrorDetail.value].
         """
         if isinstance(message, Any):
             self._message = None
@@ -105,11 +105,9 @@ class ConnectError(Exception):
         self._code = code
         self._message = message
 
-        self._details = (
-            [m if isinstance(m, ErrorDetail) else ErrorDetail(m) for m in details]
-            if details
-            else ()
-        )
+        self._details = [
+            m if isinstance(m, ErrorDetail) else ErrorDetail(m) for m in details
+        ]
 
     @property
     def code(self) -> Code:

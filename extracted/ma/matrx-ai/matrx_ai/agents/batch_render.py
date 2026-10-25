@@ -83,9 +83,12 @@ async def render_agent_provider_request(agent: Any) -> RenderedAgentRequest:
     await agent.run_first_turn_pass()  # idempotent; the same pass execute runs
 
     from matrx_ai.catalog.resolve import resolve_call_profile
+    from matrx_ai.config.served_via import served_via_kwargs
 
     profile = await resolve_call_profile(
-        agent.config.model, offering_id=getattr(agent.config, "routing_offering_id", None)
+        agent.config.model,
+        offering_id=getattr(agent.config, "routing_offering_id", None),
+        **served_via_kwargs(agent.config),
     )
     provider = _WIRE_FORMAT_PROVIDER.get(profile.wire_format or "")
     if provider is None:

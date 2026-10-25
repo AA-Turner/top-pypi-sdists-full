@@ -96,7 +96,9 @@ def versioned_dir(plugin_id: str, version: str) -> Path:
 
 #: How many versions of a plugin are always kept (the current one and the one
 #: before), and how long any other version stays: a long Kimi session may still
-#: run one that two updates have since replaced.
+#: run one that two updates have since replaced. Past that, its folder becomes a
+#: link to the kept version (`_prune_versions`), so such a session's hooks run
+#: the kept version's instead of nothing.
 KEEP_VERSIONS = 2
 KEEP_OLD_VERSIONS_SECONDS = 7 * 86400
 
@@ -350,6 +352,15 @@ def write_mcp_bearer(root: Path, token: str | None) -> bool:
         return False
     updated = {k: v for k, v in server.items() if k not in ("auth", "oauth")}
     headers = dict(updated.get("headers") or {}) if isinstance(updated.get("headers"), dict) else {}
+    # This computer's workspace limit is a copy too: replaced by what the Probe
+    # config stores now (none for the whole team), in either form, so a limit
+    # change re-renders it as a rotation re-renders the bearer.
+    from probe.sdk.workspace_limit import LIMIT_HEADER, TEAM_ITEMS_HEADER, stored_headers
+
+    for key in [k for k in headers if str(k).lower() in (LIMIT_HEADER.lower(), TEAM_ITEMS_HEADER.lower())]:
+        headers.pop(key, None)
+    if _same_deployment(server.get("url")):
+        headers.update(stored_headers())
     if token and _same_deployment(server.get("url")):
         headers["Authorization"] = f"Bearer {token}"
         updated["headers"] = headers
@@ -376,7 +387,8 @@ def _probe_research_roots() -> list[Path]:
     """Every installed copy of `probe-research`: the recorded root Kimi loads
     and the older versions kept beside it (`_prune_versions`)."""
     root_dir = managed_root()
-    roots = sorted(root_dir.glob("probe-research@*")) if root_dir.is_dir() else []
+    # Not a pruned version's link (`_prune_versions`): that is the kept copy.
+    roots = sorted(p for p in root_dir.glob("probe-research@*") if not p.is_symlink()) if root_dir.is_dir() else []
     recorded = _record_root("probe-research")
     if recorded is not None and recorded not in roots:
         roots.append(recorded)
@@ -409,7 +421,12 @@ def mcp_bearer_drifted() -> bool:
     except (OSError, ValueError, ManifestUnreadable):
         return False
     server = _server(manifest)
-    return server is not None and _same_deployment(server.get("url")) and sent != token
+    if server is None or not _same_deployment(server.get("url")):
+        return False
+    from probe.sdk.workspace_limit import limit_headers_of, stored_headers
+
+    headers = server.get("headers") if isinstance(server.get("headers"), dict) else {}
+    return sent != token or limit_headers_of(headers) != stored_headers()
 
 
 def sync_mcp_bearer() -> list[str]:
@@ -430,7 +447,8 @@ def sync_mcp_bearer() -> list[str]:
     if not changed_recorded:
         return []
     if token:
-        return ["Kimi Code's Probe MCP now uses your current read token (restart Kimi Code to load it)."]
+        return ["Kimi Code's Probe MCP now uses your current read token and workspace limit "
+                "(restart Kimi Code to load it)."]
     return ["Kimi Code's Probe MCP no longer holds a read token (restart Kimi Code to load it)."]
 
 
@@ -451,8 +469,12 @@ def _now() -> str:
 
 def _copy_plugin(source: Path, target: Path) -> None:
     """A complete copy of `source` at `target`. An existing `target` (the same
-    version, installed before) is left as it is: version folders never change."""
-    if (target / MANIFEST).is_file():
+    version, installed before) is left as it is: version folders never change.
+    A link there (a pruned version, `_prune_versions`, installed again) is
+    replaced by the copy: it points at another version's files."""
+    if target.is_symlink():
+        target.unlink()
+    elif (target / MANIFEST).is_file():
         return
     target.parent.mkdir(parents=True, exist_ok=True)
     staging = target.with_name(f".{target.name}.staging-{os.getpid()}")
@@ -463,21 +485,73 @@ def _copy_plugin(source: Path, target: Path) -> None:
     os.utime(target)  # its install time (copytree copied the source's mtime)
 
 
+def _link_to(folder: Path, keep: Path) -> bool:
+    """Put a link to `keep` (relative: a moved Kimi home keeps it right) where
+    `folder` is, replacing the folder or an older link. The folder is renamed
+    away first, so a hook starting at that moment finds the link or nothing
+    (and abstains), never half a folder. False when no link can be made here
+    (a Windows account without the right to make one). Never raises: a prune
+    never fails the install it follows."""
+    link = folder.with_name(f".{folder.name}.link-{os.getpid()}")
+    try:
+        link.unlink(missing_ok=True)
+        link.symlink_to(keep.name, target_is_directory=True)
+    except OSError:
+        return False
+    if folder.is_symlink():
+        try:
+            os.replace(link, folder)
+            return True
+        except OSError:
+            with contextlib.suppress(OSError):
+                link.unlink(missing_ok=True)
+            return False
+    trash = folder.with_name(f".{folder.name}.pruned-{os.getpid()}")
+    try:
+        os.replace(folder, trash)
+    except OSError:
+        with contextlib.suppress(OSError):
+            link.unlink(missing_ok=True)
+        return False
+    try:
+        os.replace(link, folder)
+    except OSError:
+        with contextlib.suppress(OSError):
+            link.unlink(missing_ok=True)
+            os.replace(trash, folder)  # put it back: never a folder lost with no link
+        return False
+    shutil.rmtree(trash, ignore_errors=True)
+    return True
+
+
 def _prune_versions(plugin_id: str, keep: Path) -> None:
-    """Drop all but the newest KEEP_VERSIONS version folders of a plugin."""
+    """Keep the newest KEEP_VERSIONS version folders of a plugin, and any other
+    one installed within KEEP_OLD_VERSIONS_SECONDS; every older one becomes a
+    link to `keep` (`_link_to`), and links already there are pointed at it.
+
+    A Kimi session keeps the folder it started with (`$KIMI_PLUGIN_ROOT`) for
+    as long as it runs, and its manifest entries run that folder's hooks. A
+    pruned folder deleted outright silenced every hook of a session older than
+    the week (plan C3); a link runs the kept version's hooks instead. Only the
+    folders are freed: the link costs nothing."""
     def version_key(folder: Path) -> tuple:
         # Newest by version, not mtime: copytree copies the source's mtimes.
         parts = folder.name.rpartition("@")[2].split(".")
         return tuple(int(x) if x.isdigit() else -1 for x in parts)
 
+    entries = [p for p in managed_root().glob(f"{plugin_id}@*") if p != keep]
+    for link in (p for p in entries if p.is_symlink()):
+        with contextlib.suppress(OSError):
+            if os.readlink(link) != keep.name:
+                _link_to(link, keep)
     folders = sorted(
-        (p for p in managed_root().glob(f"{plugin_id}@*") if p.is_dir() and p != keep),
+        (p for p in entries if p.is_dir() and not p.is_symlink()),
         key=version_key,
         reverse=True,
     )
     cutoff = time.time() - KEEP_OLD_VERSIONS_SECONDS
     for old in folders[KEEP_VERSIONS - 1:]:
-        if old.stat().st_mtime < cutoff:
+        if old.stat().st_mtime < cutoff and not _link_to(old, keep):
             shutil.rmtree(old, ignore_errors=True)
 
 
@@ -552,7 +626,11 @@ def uninstall_plugin(plugin_id: str) -> claude_cli.Result:
                 doc["plugins"] = kept
                 _write_installed(doc)
             for folder in (managed_dir(plugin_id), *managed_root().glob(f"{plugin_id}@*")):
-                if folder.is_dir() and folder.parent == managed_root():
+                if folder.parent != managed_root():
+                    continue
+                if folder.is_symlink():
+                    folder.unlink()  # a pruned version's link (`_prune_versions`)
+                elif folder.is_dir():
                     shutil.rmtree(folder)
     except OSError as exc:
         return claude_cli.Result(ok=False, detail=f"could not remove {plugin_id}: {exc}", command=command)

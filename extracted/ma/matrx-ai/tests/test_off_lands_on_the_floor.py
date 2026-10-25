@@ -54,11 +54,13 @@ def test_unsupported_minimal_reconciles_to_low() -> None:
     assert _level({"reasoning_effort": "minimal"}) == "low"
 
 
-def test_unset_still_takes_the_cell_default() -> None:
-    assert _level({}) == "medium"
+def test_unset_takes_the_platform_default_over_a_deeper_cell_default() -> None:
+    # Owner ruling 2026-10-24: unset is the platform default ("low"); a cell's
+    # deeper product default (medium) no longer decides an unset run.
+    assert _level({}) == "low"
 
 
-def test_auto_still_sends_nothing() -> None:
+def test_auto_is_the_providers_own_auto() -> None:
     assert _level({"reasoning_effort": "auto"}) is None
 
 

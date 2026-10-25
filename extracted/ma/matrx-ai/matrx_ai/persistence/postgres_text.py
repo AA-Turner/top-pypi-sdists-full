@@ -1,9 +1,19 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
 _POSTGRES_TEXT_REPLACEMENT = "\ufffd"
+
+# Two things a Python str can hold that PostgreSQL text/json/jsonb refuse:
+# the NUL byte, and a LONE surrogate half (a JS string cut mid-emoji, or a
+# scraped page's broken escape, decodes to one; json.dumps then writes
+# "\udc80" and Postgres answers 22P02 "Unicode low surrogate must follow a
+# high surrogate"). A properly paired high+low is legal and left alone.
+_POSTGRES_ILLEGAL_TEXT = re.compile(
+    "\x00|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,10 +28,10 @@ def sanitize_postgres_text(value: Any, *, path: str = "payload") -> PostgresText
 
     def _sanitize(current: Any, current_path: str) -> tuple[Any, int]:
         if isinstance(current, str):
-            count = current.count("\x00")
+            clean, count = _POSTGRES_ILLEGAL_TEXT.subn(_POSTGRES_TEXT_REPLACEMENT, current)
             if count:
                 paths.append(current_path)
-                return current.replace("\x00", _POSTGRES_TEXT_REPLACEMENT), count
+                return clean, count
             return current, 0
         if isinstance(current, dict):
             changed = False

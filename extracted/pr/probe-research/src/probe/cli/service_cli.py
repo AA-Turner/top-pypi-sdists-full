@@ -89,7 +89,9 @@ def update_line(update: object) -> str:
         parts.append("automatic updates off")
     last = update.get("last_result")
     if isinstance(last, dict):
-        verdict = "ok" if last.get("ok") else "failed"
+        from probe.cli.service_calls import cycle_ok
+
+        verdict = "ok" if cycle_ok(last) else "failed"
         parts.append(f"last check {_when(update.get('last_check'))} ({verdict})")
     else:
         parts.append(f"last check {_when(update.get('last_check'))}")

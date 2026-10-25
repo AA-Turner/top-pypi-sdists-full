@@ -253,6 +253,21 @@ def fail_task(client: httpx.Client, base_url: str, task_id: str, reason: str) ->
     client.post(f"{base_url}/tasks/{task_id}/fail", json={"reason": reason}).raise_for_status()
 
 
+def release_task(client: httpx.Client, base_url: str, task_id: str, reason: str) -> None:
+    """POST /tasks/{task_id}/release to hand a claimed task back to the open pool.
+
+    Unlike :func:`fail_task` the task is not failed: no retry is created and
+    its retry budget is untouched.
+
+    Args:
+        client: httpx client.
+        base_url: Server base URL.
+        task_id: ID of the claimed task.
+        reason: Why the claim is handed back.
+    """
+    client.post(f"{base_url}/tasks/{task_id}/release", json={"reason": reason}).raise_for_status()
+
+
 def block_task(client: httpx.Client, base_url: str, task_id: str, reason: str) -> None:
     """POST /tasks/{task_id}/block to mark a task as blocked (requires human intervention).
 
@@ -422,11 +437,14 @@ def _build_file_affinity_groups(
     for task in role_tasks:
         task_files = set(task.owned_files)
         matching_groups: list[int] = []
+        merged_tasks = [task]
         if task_files:
             for i, group in enumerate(affinity_groups):
                 group_files: set[str] = set().union(*(set(t.owned_files) for t in group))  # type: ignore[reportUnknownVariableType]
-                if task_files & group_files and _groups_can_merge(group, [task], agent_affinity):
+                # A bridge must be compatible with every group already selected.
+                if task_files & group_files and _groups_can_merge(group, merged_tasks, agent_affinity):
                     matching_groups.append(i)
+                    merged_tasks.extend(group)
 
         if matching_groups:
             first_idx = matching_groups[0]

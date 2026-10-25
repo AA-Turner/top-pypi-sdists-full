@@ -178,6 +178,33 @@ def test_persistent_storage_init(tmpdir):
         PersistentStore(namespace="%", path=str(tmpdir))
 
 
+def test_persistent_storage_path_traversal(tmpdir):
+    """Namespaces and keys that try to leave the storage path are rejected."""
+    bad_entries = (
+        "default/../../escaped_ns",
+        "pwned/../../../outside",
+        "abc/def",
+        "abc\\def",
+        "abc%",
+    )
+
+    for entry in bad_entries:
+        with pytest.raises(exception.AppriseImproperlyConfigured):
+            PersistentStore(namespace=entry, path=str(tmpdir))
+
+    pc = PersistentStore(path=str(tmpdir), mode="flush")
+    for entry in bad_entries:
+        with pytest.raises(exception.AppriseImproperlyConfigured):
+            pc.open(entry)
+
+        with pytest.raises(exception.AppriseImproperlyConfigured):
+            pc.write(b"data", key=entry)
+
+    # Nothing was written outside of our storage path
+    assert not os.path.exists(os.path.join(str(tmpdir), "..", "outside"))
+    assert not os.path.exists(os.path.join(str(tmpdir), "escaped_ns"))
+
+
 def test_persistent_storage_general(tmpdir):
     """Persistent Storage General Testing."""
     namespace = "abc"
@@ -1033,6 +1060,12 @@ def test_persistent_custom_io(tmpdir):
     with pc.open("new-key", "wb") as fd:
         fd.write(b"data")
 
+    # Omitting the key opens the same default file read() uses
+    with pc.open(mode="wb") as fd:
+        fd.write(b"default data")
+
+    assert pc.read(compress=False) == b"default data"
+
     with mock.patch(
         "builtins.open",
         new_callable=mock.mock_open,
@@ -1760,3 +1793,89 @@ def test_persistent_storage_writes_to_disk_when_left_on(tmpdir):
     service.flush_store()
 
     assert os.listdir(str(tmpdir)) == [service.url_id()]
+
+
+@pytest.mark.parametrize("expires", [None, -1])
+def test_persistent_storage_disk_prune_default_expiry(tmpdir, expires):
+    """Prune with no (or an invalid) expiry uses the default file expiry."""
+
+    for namespace in ("old", "new"):
+        pc = PersistentStore(
+            path=str(tmpdir),
+            namespace=namespace,
+            mode=PersistentStoreMode.FLUSH,
+        )
+        assert pc.write(b"data") is True
+
+    # Age everything in the "old" namespace past the default expiry
+    stale = time.time() - PersistentStore.default_file_expiry - 3600
+    for root, _, files in os.walk(str(tmpdir.join("old"))):
+        for name in files:
+            os.utime(os.path.join(root, name), (stale, stale))
+
+    results = PersistentStore.disk_prune(path=str(tmpdir), expires=expires)
+    assert len(results["old"]) > 0
+    assert len(results["new"]) == 0
+
+
+def test_persistent_storage_mixed_set(tmpdir):
+    """Mixing persistent and non-persistent set() calls saves correctly."""
+    store = PersistentStore(path=str(tmpdir), namespace="abc")
+    assert store.mode == PersistentStoreMode.AUTO
+
+    assert store.set("keep", "persistent value")
+    assert store.set("scratch", "temp value", persistent=False)
+
+    # The persistent entry is written out
+    assert store.flush()
+    del store
+
+    store = PersistentStore(path=str(tmpdir), namespace="abc")
+    assert store.get("keep") == "persistent value"
+    assert store.get("scratch") is None
+
+    # Turning a saved entry into a non-persistent one removes it from disk
+    assert store.set("keep", "temp value", persistent=False)
+    assert store.flush()
+    del store
+
+    store = PersistentStore(path=str(tmpdir), namespace="abc")
+    assert store.get("keep") is None
+
+
+@pytest.mark.parametrize("key", [None, "default", "named"])
+@pytest.mark.parametrize("cache", [False, True])
+@pytest.mark.parametrize("expires", [False, True])
+def test_persistent_storage_read_renews_served_file(
+    tmpdir, key, cache, expires
+):
+    """Reading renews the served file unless expiry is explicitly enabled."""
+    store = PersistentStore(path=str(tmpdir), namespace="abc")
+    if cache:
+        # Renewal must work whether or not the cache is also in use.
+        assert store.set("state", "present")
+
+    assert store.write(b"stored data", key=key)
+    file_key = store.base_key if key is None else key
+    data_file = os.path.join(store.path, store.data_dir, f"{file_key}.psdata")
+    stale = time.time() - PersistentStore.default_file_expiry - 3600
+    os.utime(data_file, (stale, stale))
+
+    kwargs = {"expires": expires}
+    if key is not None:
+        kwargs["key"] = key
+    assert store.read(**kwargs) == b"stored data"
+    assert store.flush()
+
+    results = PersistentStore.disk_prune(path=str(tmpdir), action=True)
+    assert os.path.exists(data_file) is (not expires)
+    assert not os.path.exists(
+        os.path.join(store.path, store.data_dir, "None.psdata")
+    )
+    if expires:
+        assert any(
+            entry["path"] == data_file and entry["removed"]
+            for entry in results["abc"]
+        )
+    else:
+        assert not results["abc"]

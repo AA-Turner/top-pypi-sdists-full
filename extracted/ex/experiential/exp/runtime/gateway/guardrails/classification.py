@@ -40,6 +40,7 @@ from exp.runtime.gateway.guardrails.classification_cache import (
 from exp.runtime.gateway.guardrails.classification_window import (
     ClassificationWindow,
     classification_window,
+    window_projection,
 )
 from exp.runtime.gateway.guardrails.contracts import (
     ClassifierCoverageError,
@@ -139,7 +140,9 @@ class DecisionModelAdapterDocument(ContractModel):
         state_bytes = self.window.kept_characters * _STATE_BYTES_PER_CHARACTER + _STATE_LABEL_BYTES
         if question_bytes + state_bytes > MAX_DECISION_INPUT_BYTES:
             raise ValueError(
-                "decision_model questions and window exceed the 262144-byte decision input limit"
+                "decision_model questions and window exceed the "
+                f"{MAX_DECISION_INPUT_BYTES}-byte decision input limit; "
+                "shorten questions or reduce the window"
             )
         return self
 
@@ -256,6 +259,10 @@ class DecisionModelClassifier:
                 }
             )
         ).hexdigest()
+
+    def project_input(self, request: GatewayRequest) -> GatewayRequest:
+        """Return the bounded subject this check reads identically to ``request``."""
+        return window_projection(request)
 
     @property
     def configuration_digest(self) -> str:

@@ -34,6 +34,64 @@ def is_unset_posture(value: Any) -> bool:
     return isinstance(value, str) and value in UNSET_POSTURES
 
 
+# ── THE PLATFORM REASONING DEFAULT (owner ruling, 2026-10-24) ────────────────
+# "When you don't provide a thinking level ... it is supposed to default to our
+# platform default, which is low. When we're given a thinking level, we use it.
+# If we are told explicitly that the thinking level is to be set to auto, meaning
+# a user physically changed a drop-down menu, then we send that to the provider
+# if the provider offers that. In every other instance, we hard set it to low."
+#
+# Three states, decided ONCE in ``CompiledControlsMap.apply_reasoning_default``
+# (every chat, session and media seam runs it inside ``outbound``):
+#   unset            -> the platform default effort (below), on every target
+#                       that carries a depth control;
+#   explicit level   -> that level (never touched here);
+#   explicit "auto"  -> the provider's own auto when the target natively offers
+#                       one (AUTO_NATIVE_PROCESSORS / a value_map "auto" word),
+#                       else the platform default.
+# The DATA home of the default is ``ai.setting.default_value`` of
+# ``reasoning_effort`` (an admin edits that row); this constant is only what
+# applies when the catalog carries no value (a DB-less client host).
+PLATFORM_DEFAULT_REASONING_EFFORT = "low"
+#: Canonical metadata key (never sent) recording that a PERSON chose "auto".
+REASONING_POSTURE_KEY = "_reasoning_posture"
+#: Canonical metadata (never sent) a GUARD sets to measure what the provider's own
+#: default sends (nothing for depth): the settings-translation T3 baseline.
+PROVIDER_DEFAULT_PROBE_KEY = "_provider_default_probe"
+#: The depth keys: any one of them set by the caller means "a level was given".
+REASONING_DEPTH_KEYS: tuple[str, ...] = ("reasoning_effort", "thinking_level", "thinking_budget")
+#: Processors whose UNSET path is the provider's own native auto (omitting the
+#: control lets the model decide): Gemini 2.5 dynamic budget / Gemini 3 dynamic
+#: level, and Together (omission = the model's own depth). anthropic_thinking is
+#: NOT: budget mode unset sends no thinking at all, so "auto" there is low. A
+#: cell overrides with ``processor_config.auto_native``.
+AUTO_NATIVE_PROCESSORS: frozenset[str] = frozenset({"google_thinking", "together_reasoning"})
+#: Processors that DROP sampling knobs once a thinking block is on (Anthropic:
+#: temperature must be 1, no top_k, top_p >= 0.95). The platform default never
+#: defeats a sampling value the person set: with one present the default yields
+#: (chair ruling R-a — a translation never defeats an explicit setting).
+THINKING_EXCLUDES_SAMPLING_PROCESSORS: frozenset[str] = frozenset({"anthropic_temp_topp_exclusion"})
+#: Canonical metadata (never sent) set by the chat seam when the request FORCES a
+#: tool call (``tool_choice="required"`` -> Anthropic ``{"type": "any"}``; the
+#: orchestrator's required-member intervention does this mid-loop).
+FORCED_TOOL_CHOICE_KEY = "_forced_tool_choice"
+#: Set by ``apply_reasoning_default`` when the target offers no level the platform default can
+#: land on: the cell's DEEPER declared default must not decide the run in its place (owner ruling
+#: 2026-10-24 — "a deeper one ... no longer decides an unset run"). Never reaches the wire.
+REASONING_DEFAULT_DECLINED_KEY = "_reasoning_default_declined"
+#: The canonical tool_choice values that force a tool call.
+FORCED_TOOL_CHOICES: frozenset[str] = frozenset({"required"})
+#: Anthropic MANUAL (budget) thinking rejects a forced tool_choice with a 400
+#: ("tool use with manual extended thinking only supports tool_choice auto or
+#: none" -- platform.claude.com/docs/en/build-with-claude/thinking); adaptive
+#: thinking accepts it. On a forced turn the platform default never turns budget
+#: thinking on, and an explicit level is dropped for THAT turn with a recorded
+#: Adjustment. A cell overrides with ``processor_config.forced_tool_with_thinking``.
+FORCED_TOOL_REFUSING_THINKING_MODES: dict[str, frozenset[str]] = {
+    "anthropic_thinking": frozenset({"budget"}),
+}
+
+
 # ── OFF (K6 ``off``) ─────────────────────────────────────────────────────────
 # Which canonical value MEANS off for a key. A rule's ``off`` acts only when the
 # incoming value is one of these. ``disable_reasoning=True`` reaches the engine

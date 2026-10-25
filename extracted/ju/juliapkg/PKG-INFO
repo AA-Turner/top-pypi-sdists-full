@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: juliapkg
-Version: 0.1.27
+Version: 0.1.28
 Summary: Julia version manager and package manager
 Project-URL: Homepage, http://github.com/JuliaPy/pyjuliapkg
 Project-URL: Repository, http://github.com/JuliaPy/pyjuliapkg.git
@@ -10,13 +10,15 @@ Author: Christopher Doris
 License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
-Requires-Dist: filelock<4.0,>=3.16
+Requires-Python: >=3.11
+Requires-Dist: filelock<5.0,>=3.16
 Requires-Dist: semver<4.0,>=3.0
 Requires-Dist: tomli<3.0,>=2.0
 Requires-Dist: tomlkit<0.16,>=0.13.3
 Provides-Extra: cli
 Requires-Dist: click<9.0,>=8.0; extra == 'cli'
+Provides-Extra: zstd
+Requires-Dist: backports-zstd; (python_version < '3.14') and extra == 'zstd'
 Description-Content-Type: text/markdown
 
 # JuliaPkg
@@ -166,3 +168,15 @@ will not attempt to download Julia or any packages.
 
 Resolving will fail if Julia is not already installed. It is up to you to install any
 required Julia packages.
+
+### Zstandard-compressed Julia registries
+
+On Python 3.11–3.13, looking up package UUIDs in `.tar.zst` Julia registries
+(for example, when calling `add()` without a UUID) requires the optional extra:
+
+```sh
+pip install "juliapkg[zstd]"
+```
+
+This extra installs the Zstandard backport only on Python below 3.14. Python 3.14
+and later support these registries through the standard library.

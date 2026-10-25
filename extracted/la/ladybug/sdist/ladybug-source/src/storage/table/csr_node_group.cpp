@@ -1,5 +1,9 @@
 #include "storage/table/csr_node_group.h"
 
+#include <algorithm>
+#include <limits>
+#include <vector>
+
 #include "common/constants.h"
 #include "common/serializer/buffer_reader.h"
 #include "common/serializer/buffer_writer.h"
@@ -13,12 +17,29 @@
 #include "storage/table/lazy_segment_scanner.h"
 #include "storage/table/rel_table.h"
 #include "transaction/transaction.h"
+#include <ranges>
 
 using namespace lbug::common;
 using namespace lbug::transaction;
 
 namespace lbug {
 namespace storage {
+
+// Partial header decodes per node group before a scan decodes the group's whole CSR header.
+static constexpr idx_t MAX_HEADER_SPANS_PER_GROUP = 16;
+// After the first decode in a group, a batch with more bound nodes that are not spread thinly over
+// their span decodes the whole header: such batches come from scans that walk the whole group,
+// where one decode costs less than a span per batch.
+static constexpr idx_t MAX_SPAN_BATCH_SIZE = DEFAULT_VECTOR_CAPACITY / 16;
+// Bound nodes whose header entries are less than CLUSTER_GAP apart share one decode: starting a
+// cluster costs more than decoding the entries in between.
+static constexpr offset_t CLUSTER_GAP = 256;
+static constexpr idx_t MAX_CLUSTERS_PER_BATCH = 256;
+// A neighbour-cache refill stops before a bound node whose list starts REFILL_GAP or more rows
+// past the lists before it: copying those rows costs more than another refill. Only the next
+// REFILL_LOOKAHEAD bound nodes are checked, so dense batches don't pay a header read per node.
+static constexpr row_idx_t REFILL_GAP = 256;
+static constexpr idx_t REFILL_LOOKAHEAD = 4;
 
 bool CSRNodeGroupScanState::tryScanCachedTuples(RelTableScanState& tableScanState) {
     if (numCachedRows == 0 ||
@@ -153,24 +174,246 @@ bool CSRNodeGroupScanState::tryScanCachedTuplesPacked(RelTableScanState& tableSc
     return true;
 }
 
+void CSRNodeGroup::captureLiveScanPin(const UniqLock& lock, CSRNodeGroupScanPin& pin) const {
+    if (!scanPagePin) {
+        scanPagePin = PageReclaimDeferral::create();
+    }
+    pin.pages = scanPagePin;
+    pin.index = csrIndex;
+    const auto& groups = chunkedGroups.getAllGroups(lock);
+    pin.inMemGroups.assign(groups.begin(), groups.end());
+    // The live group itself, not a copy. A checkpoint that finds it pinned works on its own
+    // copy and leaves this object to the scans that hold it (see CSRNodeGroup::checkpoint).
+    pin.persistent = persistentChunkGroup;
+}
+
+void CSRNodeGroup::captureRoutedScanPin(const UniqLock& lock, const Transaction* transaction,
+    CSRNodeGroupScanPin& pin) const {
+    if (transaction != nullptr) {
+        const auto startTS = transaction->getStartTS();
+        for (const auto& entry : retainedSnapshots) {
+            if (entry.floorTS <= startTS && startTS <= entry.snapshotTS) {
+                pin.persistent = entry.persistent;
+                pin.index = entry.index;
+                pin.inMemGroups = entry.inMemGroups;
+                pin.pages = entry.pages;
+                return;
+            }
+        }
+    }
+    captureLiveScanPin(lock, pin);
+}
+
+CSRNodeGroupScanPin CSRNodeGroup::captureScanPin(const Transaction* transaction) const {
+    CSRNodeGroupScanPin pin;
+    const auto lock = chunkedGroups.lock();
+    captureRoutedScanPin(lock, transaction, pin);
+    return pin;
+}
+
+void CSRNodeGroup::pruneRetainedSnapshotsNoLock(const std::vector<transaction_t>& openStartTSs) {
+    std::erase_if(retainedSnapshots, [&](const RetainedCSRSnapshot& entry) {
+        for (const auto startTS : openStartTSs) {
+            if (entry.floorTS <= startTS && startTS <= entry.snapshotTS) {
+                return false;
+            }
+        }
+        return true;
+    });
+}
+
+bool CSRNodeGroup::needsRetainedSnapshotNoLock(
+    const std::vector<transaction_t>& openStartTSs) const {
+    // A new snapshot is needed when some open reader falls in no existing entry's
+    // interval. Post-checkpoint live data serves no currently open reader (every open
+    // startTS predates this checkpoint's snapshot), so uncovered readers must be covered
+    // by a snapshot taken now. A reader whose startTS merely equals the floor still needs
+    // coverage: the merge below resets the live state its snapshot would otherwise come
+    // from.
+    for (const auto startTS : openStartTSs) {
+        auto covered = false;
+        for (const auto& entry : retainedSnapshots) {
+            if (entry.floorTS <= startTS && startTS <= entry.snapshotTS) {
+                covered = true;
+                break;
+            }
+        }
+        if (!covered) {
+            return true;
+        }
+    }
+    return false;
+}
+
+size_t CSRNodeGroup::getNumRetainedSnapshots() const {
+    const auto lock = chunkedGroups.lock();
+    return retainedSnapshots.size();
+}
+
+static std::pair<offset_t, offset_t> boundNodeOffsetRange(const RelTableScanState& relScanState) {
+    offset_t minNode = StorageConfig::NODE_GROUP_SIZE;
+    offset_t maxNode = 0;
+    const auto& boundSel = relScanState.cachedBoundNodeSelVector;
+    for (sel_t i = 0; i < boundSel.getSelSize(); i++) {
+        const auto nodeOffset = relScanState.nodeIDVector->readNodeOffset(boundSel[i]);
+        const auto offsetInGroup = nodeOffset % StorageConfig::NODE_GROUP_SIZE;
+        if (offsetInGroup < minNode) {
+            minNode = offsetInGroup;
+        }
+        if (offsetInGroup > maxNode) {
+            maxNode = offsetInGroup;
+        }
+    }
+    return {minNode, maxNode};
+}
+
+// One [start, end) of header indices per run of bound nodes whose needed entries sit within
+// CLUSTER_GAP of each other. RelTable::initScanState sorts bound nodes by offset; a batch out of
+// order or past MAX_CLUSTERS_PER_BATCH clusters gets none and decodes a span instead. Fills the
+// caller's vector so its capacity carries over between decodes.
+static void clustersForBoundNodes(const RelTableScanState& relScanState, offset_t headerSize,
+    std::vector<std::pair<offset_t, offset_t>>& clusters) {
+    clusters.clear();
+    const auto& boundSel = relScanState.cachedBoundNodeSelVector;
+    for (sel_t i = 0; i < boundSel.getSelSize(); i++) {
+        const auto n =
+            relScanState.nodeIDVector->readNodeOffset(boundSel[i]) % StorageConfig::NODE_GROUP_SIZE;
+        if (n >= headerSize) {
+            continue;
+        }
+        const auto start = n == 0 ? offset_t{0} : n - 1;
+        const auto end = n + 1;
+        if (!clusters.empty() && start < clusters.back().first) {
+            clusters.clear();
+            return;
+        }
+        if (!clusters.empty() && start < clusters.back().second + CLUSTER_GAP) {
+            clusters.back().second = std::max(clusters.back().second, end);
+        } else if (clusters.size() < MAX_CLUSTERS_PER_BATCH) {
+            clusters.emplace_back(start, end);
+        } else {
+            clusters.clear();
+            return;
+        }
+    }
+}
+
+static offset_t clusterEntryCount(const std::vector<std::pair<offset_t, offset_t>>& clusters) {
+    offset_t entries = 0;
+    for (const auto& [start, end] : clusters) {
+        entries += end - start;
+    }
+    return entries;
+}
+
+static bool headerCoversBatch(const InMemChunkedCSRHeader& header,
+    const RelTableScanState& relScanState, offset_t numGroupEntries) {
+    if (header.wholeHeader) {
+        return true;
+    }
+    const auto& ranges = header.decodedRanges;
+    if (ranges.empty()) {
+        return false;
+    }
+    idx_t r = 0;
+    const auto& boundSel = relScanState.cachedBoundNodeSelVector;
+    for (sel_t i = 0; i < boundSel.getSelSize(); i++) {
+        const auto n =
+            relScanState.nodeIDVector->readNodeOffset(boundSel[i]) % StorageConfig::NODE_GROUP_SIZE;
+        if (n >= numGroupEntries) {
+            continue;
+        }
+        const auto first = n == 0 ? offset_t{0} : n - 1;
+        const auto lastEx = n + 1;
+        while (r < ranges.size() && ranges[r].second <= first) {
+            r++;
+        }
+        if (r >= ranges.size() || ranges[r].first > first || ranges[r].second < lastEx) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void initDataColumnScanStates(const RelTableScanState& relScanState,
+    CSRNodeGroupScanState& nodeGroupScanState, ChunkedNodeGroup& persistent) {
+    for (auto i = 0u; i < relScanState.columnIDs.size(); i++) {
+        if (relScanState.columnIDs[i] == INVALID_COLUMN_ID ||
+            relScanState.columnIDs[i] == ROW_IDX_COLUMN_ID) {
+            continue;
+        }
+        auto& chunk = persistent.getColumnChunk(relScanState.columnIDs[i]);
+        chunk.initializeScanState(nodeGroupScanState.chunkStates[i], relScanState.columns[i]);
+    }
+}
+
+#if defined(RUNTIME_CHECKS) || !defined(NDEBUG)
+// Reads past numEntries clamp to the last entry, so only the first numEntries can be stale.
+static void poisonHeaderCache(InMemChunkedCSRHeader& header, offset_t numEntries) {
+    const auto num = std::min<offset_t>(numEntries, header.offset->getCapacity());
+    std::fill(header.offset->getData<offset_t>(), header.offset->getData<offset_t>() + num,
+        std::numeric_limits<offset_t>::max());
+    std::fill(header.length->getData<length_t>(), header.length->getData<length_t>() + num,
+        std::numeric_limits<length_t>::max());
+}
+#endif
+
 void CSRNodeGroup::initializeScanState(const Transaction* transaction,
     TableScanState& state) const {
     auto& relScanState = state.cast<RelTableScanState>();
     DASSERT(relScanState.nodeGroupScanState);
     auto& nodeGroupScanState = relScanState.nodeGroupScanState->cast<CSRNodeGroupScanState>();
-    if (relScanState.nodeGroupIdx != nodeGroupIdx || relScanState.randomLookup) {
+    if (relScanState.nodeGroupIdx != nodeGroupIdx || !nodeGroupScanState.pin.isHeld()) {
         relScanState.nodeGroupIdx = nodeGroupIdx;
-        if (persistentChunkGroup) {
+        nodeGroupScanState.resetEarlyFilterBackoff();
+        {
+            // Checkpoint holds this lock for the whole operation, so the pin never names a
+            // half-rewritten group, and a checkpoint sees every pin taken before it started.
+            // Everything after the capture reads the pin, so the lock is not needed for it.
+            const auto lock = chunkedGroups.lock();
+            captureRoutedScanPin(lock, transaction, nodeGroupScanState.pin);
+        }
+        if (nodeGroupScanState.pin.persistent) {
+            nodeGroupScanState.numHeaderEntriesDecoded = 0;
+            nodeGroupScanState.numHeaderSpansDecoded = 0;
+            initDataColumnScanStates(relScanState, nodeGroupScanState,
+                *nodeGroupScanState.pin.persistent);
+#if defined(RUNTIME_CHECKS) || !defined(NDEBUG)
+            if (nodeGroupScanState.header) {
+                poisonHeaderCache(*nodeGroupScanState.header,
+                    nodeGroupScanState.pin.persistent->cast<ChunkedCSRNodeGroup>()
+                        .getCSRHeader()
+                        .offset->getNumValues());
+            }
+#endif
+            initScanForCommittedPersistent(transaction, relScanState, nodeGroupScanState);
+        }
+    } else if (relScanState.randomLookup && nodeGroupScanState.pin.persistent) {
+        // Same node group, new bound node: only the cached CSR header entry is stale. Read it
+        // from the group this scan already pinned.
+        initScanForCommittedPersistent(transaction, relScanState, nodeGroupScanState);
+    } else if (nodeGroupScanState.pin.persistent &&
+               relScanState.cachedBoundNodeSelVector.getSelSize() > 0) {
+        // A later batch of bound nodes can fall outside the header ranges decoded for an
+        // earlier one; decode again for it. Each batch is covered by this check or by the decode
+        // run for it.
+        const auto numGroupEntries = nodeGroupScanState.pin.persistent->cast<ChunkedCSRNodeGroup>()
+                                         .getCSRHeader()
+                                         .offset->getNumValues();
+        const auto& header = *nodeGroupScanState.header;
+        if (!headerCoversBatch(header, relScanState, numGroupEntries)) {
             initScanForCommittedPersistent(transaction, relScanState, nodeGroupScanState);
         }
     }
     // Switch to a new Vector of bound nodes (i.e., new csr lists) in the node group.
-    if (persistentChunkGroup) {
+    // Use the pin, not the live group: a checkpoint may have replaced it since this scan
+    // state was initialized.
+    if (nodeGroupScanState.pin.persistent) {
         nodeGroupScanState.nextRowToScan = 0;
         nodeGroupScanState.numCachedRows = 0;
         nodeGroupScanState.nextCachedRowToScan = 0;
         nodeGroupScanState.source = CSRNodeGroupScanSource::COMMITTED_PERSISTENT;
-    } else if (csrIndex) {
+    } else if (nodeGroupScanState.pin.index) {
         initScanForCommittedInMem(relScanState, nodeGroupScanState);
     } else {
         nodeGroupScanState.source = CSRNodeGroupScanSource::NONE;
@@ -182,43 +425,103 @@ void CSRNodeGroup::initScanForCommittedPersistent(const Transaction* transaction
     RelTableScanState& relScanState, CSRNodeGroupScanState& nodeGroupScanState) const {
     // Scan the csr header chunks from disk.
     ChunkState offsetState, lengthState;
-    auto& csrChunkGroup = persistentChunkGroup->cast<ChunkedCSRNodeGroup>();
+    // The pinned group, not the live one: this also runs without the group lock.
+    auto& persistent = *nodeGroupScanState.pin.persistent;
+    auto& csrChunkGroup = persistent.cast<ChunkedCSRNodeGroup>();
     const auto& csrHeader = csrChunkGroup.getCSRHeader();
-    // We are switching to a new node group.
-    // Initialize the scan states of a new node group for the csr header.
     csrHeader.offset->initializeScanState(offsetState, relScanState.csrOffsetColumn);
     csrHeader.length->initializeScanState(lengthState, relScanState.csrLengthColumn);
-    nodeGroupScanState.header->offset->setNumValues(0);
-    nodeGroupScanState.header->length->setNumValues(0);
-    // Initialize the scan states of a new node group for data columns.
-    for (auto i = 0u; i < relScanState.columnIDs.size(); i++) {
-        if (relScanState.columnIDs[i] == INVALID_COLUMN_ID ||
-            relScanState.columnIDs[i] == ROW_IDX_COLUMN_ID) {
-            continue;
-        }
-        auto& chunk = persistentChunkGroup->getColumnChunk(relScanState.columnIDs[i]);
-        chunk.initializeScanState(nodeGroupScanState.chunkStates[i], relScanState.columns[i]);
-    }
+    auto& outHeader = *nodeGroupScanState.header;
+    outHeader.offset->setNumValues(0);
+    outHeader.length->setNumValues(0);
+    outHeader.indexBase = 0;
+    outHeader.wholeHeader = false;
+    outHeader.decodedRanges.clear();
     DASSERT(csrHeader.offset->getNumValues() == csrHeader.length->getNumValues());
+    const auto numGroupEntries = csrHeader.offset->getNumValues();
+    outHeader.headerLimit = numGroupEntries;
     if (relScanState.randomLookup) {
         auto pos = relScanState.nodeIDVector->state->getSelVector()[0];
         auto nodeOffset = relScanState.nodeIDVector->readNodeOffset(pos);
         auto offsetInGroup = nodeOffset % StorageConfig::NODE_GROUP_SIZE;
         auto offsetToScanFrom = offsetInGroup == 0 ? 0 : offsetInGroup - 1;
         csrHeader.offset->scanCommitted<ResidencyState::ON_DISK>(transaction, offsetState,
-            *nodeGroupScanState.header->offset, offsetToScanFrom, 1);
+            *outHeader.offset, offsetToScanFrom, 1);
         csrHeader.length->scanCommitted<ResidencyState::ON_DISK>(transaction, lengthState,
-            *nodeGroupScanState.header->length, offsetInGroup, 1);
-    } else {
-        auto numBoundNodes = csrHeader.offset->getNumValues();
-        csrHeader.offset->scanCommitted<ResidencyState::ON_DISK>(transaction, offsetState,
-            *nodeGroupScanState.header->offset);
-        csrHeader.length->scanCommitted<ResidencyState::ON_DISK>(transaction, lengthState,
-            *nodeGroupScanState.header->length);
-        nodeGroupScanState.numTotalRows =
-            nodeGroupScanState.header->getStartCSROffset(numBoundNodes);
+            *outHeader.length, offsetInGroup, 1);
+        outHeader.randomLookup = true;
+        return;
     }
-    nodeGroupScanState.header->randomLookup = relScanState.randomLookup;
+    outHeader.randomLookup = false;
+    const auto numBatchNodes = relScanState.cachedBoundNodeSelVector.getSelSize();
+    const auto [minNode, lastNode] = numBatchNodes > 0 ? boundNodeOffsetRange(relScanState) :
+                                                         std::pair<offset_t, offset_t>{0, 0};
+    const auto indexBase = minNode == 0 ? offset_t{0} : minNode - 1;
+    const auto span = (numBatchNodes == 0 || lastNode >= numGroupEntries) ?
+                          numGroupEntries :
+                          lastNode - indexBase + 1;
+    const bool sparse = numBatchNodes * 4 <= span;
+    const bool laterOk = nodeGroupScanState.numHeaderSpansDecoded == 0 ||
+                         numBatchNodes <= MAX_SPAN_BATCH_SIZE || sparse;
+    const bool canPartial = numBatchNodes > 0 && lastNode < numGroupEntries &&
+                            nodeGroupScanState.numHeaderSpansDecoded < MAX_HEADER_SPANS_PER_GROUP &&
+                            laterOk;
+    // Clusters beat the span only for bound nodes spread thinly over it.
+    auto& clusters = outHeader.decodedRanges;
+    if (canPartial && sparse) {
+        clustersForBoundNodes(relScanState, numGroupEntries, clusters);
+    }
+    const auto clusterEntries = clusterEntryCount(clusters);
+    const bool decodeClusters =
+        canPartial && !clusters.empty() && clusters.size() * CLUSTER_GAP < span &&
+        nodeGroupScanState.numHeaderEntriesDecoded + clusterEntries < numGroupEntries;
+    if (!decodeClusters) {
+        clusters.clear();
+    }
+    const bool decodeSpan = canPartial && !decodeClusters &&
+                            nodeGroupScanState.numHeaderEntriesDecoded + span < numGroupEntries;
+    if (decodeClusters) {
+        nodeGroupScanState.numHeaderEntriesDecoded += clusterEntries;
+        nodeGroupScanState.numHeaderSpansDecoded++;
+        for (const auto& [start, end] : clusters) {
+            outHeader.offset->setNumValues(start);
+            outHeader.length->setNumValues(start);
+            csrHeader.offset->scanCommitted<ResidencyState::ON_DISK>(transaction, offsetState,
+                *outHeader.offset, start, end - start);
+            csrHeader.length->scanCommitted<ResidencyState::ON_DISK>(transaction, lengthState,
+                *outHeader.length, start, end - start);
+        }
+        outHeader.offset->setNumValues(outHeader.decodedRanges.back().second);
+        outHeader.length->setNumValues(outHeader.decodedRanges.back().second);
+        // Release builds check the clusters too, since an uncovered read returns stale bytes
+        // instead of failing. If they miss a bound node, decode the whole header instead.
+        const bool covered = headerCoversBatch(outHeader, relScanState, numGroupEntries);
+        DASSERT(covered);
+        if (covered) {
+            nodeGroupScanState.numTotalRows = outHeader.getEndCSROffset(lastNode);
+            return;
+        }
+        outHeader.decodedRanges.clear();
+        outHeader.offset->setNumValues(0);
+        outHeader.length->setNumValues(0);
+    } else if (decodeSpan) {
+        nodeGroupScanState.numHeaderEntriesDecoded += span;
+        nodeGroupScanState.numHeaderSpansDecoded++;
+        outHeader.indexBase = indexBase;
+        outHeader.decodedRanges.emplace_back(indexBase, indexBase + span);
+        csrHeader.offset->scanCommitted<ResidencyState::ON_DISK>(transaction, offsetState,
+            *outHeader.offset, indexBase, span);
+        csrHeader.length->scanCommitted<ResidencyState::ON_DISK>(transaction, lengthState,
+            *outHeader.length, indexBase, span);
+        nodeGroupScanState.numTotalRows = outHeader.getEndCSROffset(lastNode);
+        return;
+    }
+    outHeader.wholeHeader = true;
+    csrHeader.offset->scanCommitted<ResidencyState::ON_DISK>(transaction, offsetState,
+        *outHeader.offset);
+    csrHeader.length->scanCommitted<ResidencyState::ON_DISK>(transaction, lengthState,
+        *outHeader.length);
+    nodeGroupScanState.numTotalRows = outHeader.getStartCSROffset(numGroupEntries);
 }
 
 void CSRNodeGroup::initScanForCommittedInMem(RelTableScanState& relScanState,
@@ -238,7 +541,7 @@ NodeGroupScanResult CSRNodeGroup::scan(const Transaction* transaction,
         switch (nodeGroupScanState.source) {
         case CSRNodeGroupScanSource::COMMITTED_PERSISTENT: {
             auto result = scanCommittedPersistent(transaction, relScanState, nodeGroupScanState);
-            if (result == NODE_GROUP_SCAN_EMPTY_RESULT && csrIndex) {
+            if (result == NODE_GROUP_SCAN_EMPTY_RESULT && nodeGroupScanState.pin.index) {
                 initScanForCommittedInMem(relScanState, nodeGroupScanState);
                 continue;
             }
@@ -273,6 +576,37 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedPersistent(const Transaction* tra
     return scanCommittedPersistentWithCache(transaction, tableState, nodeGroupScanState);
 }
 
+// End of a refill that starts in the current bound node's list. Without a gap among the next
+// REFILL_LOOKAHEAD lists it fills the window, but never past the batch's last list.
+static row_idx_t refillEnd(const RelTableScanState& tableState, const InMemChunkedCSRHeader& header,
+    row_idx_t listEnd, row_idx_t windowEnd) {
+    if (listEnd >= windowEnd) {
+        return windowEnd;
+    }
+    const auto& boundSel = tableState.cachedBoundNodeSelVector;
+    const auto offsetInGroup = [&](idx_t i) {
+        return tableState.nodeIDVector->readNodeOffset(boundSel[i]) %
+               StorageConfig::NODE_GROUP_SIZE;
+    };
+    const idx_t numBound = boundSel.getSelSize();
+    auto end = listEnd;
+    auto i = tableState.currBoundNodeIdx + 1;
+    for (; i < numBound && i <= tableState.currBoundNodeIdx + REFILL_LOOKAHEAD; i++) {
+        const auto node = offsetInGroup(i);
+        const auto start = header.getStartCSROffset(node);
+        if (start >= std::min(windowEnd, end + REFILL_GAP)) {
+            return std::min(end, windowEnd);
+        }
+        end = std::max(end, start + header.getCSRLength(node));
+    }
+    if (i >= numBound) {
+        return std::min(end, windowEnd);
+    }
+    const auto lastNode = offsetInGroup(numBound - 1);
+    const auto lastEnd = header.getStartCSROffset(lastNode) + header.getCSRLength(lastNode);
+    return std::min(windowEnd, std::max(end, lastEnd));
+}
+
 NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWithCache(const Transaction* transaction,
     RelTableScanState& tableState, CSRNodeGroupScanState& nodeGroupScanState) const {
     while (true) {
@@ -285,36 +619,51 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWithCache(const Transac
                     tableState.outState->getSelVector().getSelSize()};
             }
         }
-        if (nodeGroupScanState.nextRowToScan == nodeGroupScanState.numTotalRows ||
-            tableState.currBoundNodeIdx >= tableState.cachedBoundNodeSelVector.getSelSize()) {
+        if (!nodeGroupScanState.refillCache(transaction, tableState)) {
             return NODE_GROUP_SCAN_EMPTY_RESULT;
         }
-        const auto currNodeOffset = tableState.nodeIDVector->readNodeOffset(
-            tableState.cachedBoundNodeSelVector[tableState.currBoundNodeIdx]);
-        const auto offsetInGroup = currNodeOffset % StorageConfig::NODE_GROUP_SIZE;
-        const auto startCSROffset = nodeGroupScanState.header->getStartCSROffset(offsetInGroup);
-        if (startCSROffset > nodeGroupScanState.nextRowToScan) {
-            nodeGroupScanState.nextRowToScan = startCSROffset;
-        }
-        DASSERT(nodeGroupScanState.nextRowToScan <= nodeGroupScanState.numTotalRows);
-        const auto numToScan =
-            std::min(nodeGroupScanState.numTotalRows - nodeGroupScanState.nextRowToScan,
-                DEFAULT_VECTOR_CAPACITY);
-        persistentChunkGroup->scan(transaction, tableState, nodeGroupScanState,
-            nodeGroupScanState.nextRowToScan, numToScan);
-        nodeGroupScanState.numCachedRows = numToScan;
-        nodeGroupScanState.nextRowToScan += numToScan;
-        if (tableState.outState->getSelVector().isUnfiltered()) {
-            nodeGroupScanState.cachedScannedVectorsSelBitset.reset();
-        } else {
-            nodeGroupScanState.cachedScannedVectorsSelBitset =
-                std::bitset<DEFAULT_VECTOR_CAPACITY>();
-            for (auto i = 0u; i < tableState.outState->getSelVector().getSelSize(); i++) {
-                nodeGroupScanState.cachedScannedVectorsSelBitset->set(
-                    tableState.outState->getSelVector()[i], true);
-            }
+    }
+}
+
+bool CSRNodeGroupScanState::refillCache(const Transaction* transaction,
+    RelTableScanState& tableScanState) {
+    if (nextRowToScan == numTotalRows ||
+        tableScanState.currBoundNodeIdx >= tableScanState.cachedBoundNodeSelVector.getSelSize()) {
+        return false;
+    }
+    const auto currNodeOffset = tableScanState.nodeIDVector->readNodeOffset(
+        tableScanState.cachedBoundNodeSelVector[tableScanState.currBoundNodeIdx]);
+    const auto offsetInGroup = currNodeOffset % StorageConfig::NODE_GROUP_SIZE;
+    const auto csrLength = header->getCSRLength(offsetInGroup);
+    if (csrLength == 0) {
+        tableScanState.currBoundNodeIdx++;
+        return true;
+    }
+    const auto startCSROffset = header->getStartCSROffset(offsetInGroup);
+    if (startCSROffset > nextRowToScan) {
+        nextRowToScan = startCSROffset;
+    }
+    DASSERT(nextRowToScan <= numTotalRows);
+    const auto listEnd = startCSROffset + csrLength;
+    if (listEnd <= nextRowToScan) {
+        tableScanState.currBoundNodeIdx++;
+        return true;
+    }
+    const auto windowEnd =
+        nextRowToScan + std::min(numTotalRows - nextRowToScan, DEFAULT_VECTOR_CAPACITY);
+    const auto numToScan = refillEnd(tableScanState, *header, listEnd, windowEnd) - nextRowToScan;
+    pin.persistent->scan(transaction, tableScanState, *this, nextRowToScan, numToScan);
+    numCachedRows = numToScan;
+    nextRowToScan += numToScan;
+    if (tableScanState.outState->getSelVector().isUnfiltered()) {
+        cachedScannedVectorsSelBitset.reset();
+    } else {
+        cachedScannedVectorsSelBitset = std::bitset<DEFAULT_VECTOR_CAPACITY>();
+        for (auto i = 0u; i < tableScanState.outState->getSelVector().getSelSize(); i++) {
+            cachedScannedVectorsSelBitset->set(tableScanState.outState->getSelVector()[i], true);
         }
     }
+    return true;
 }
 
 NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWithoutCache(
@@ -331,7 +680,8 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedPersistentWithoutCache(
                           nodeGroupScanState.nextRowToScan;
     const auto numToScan =
         std::min(csrListLength - nodeGroupScanState.nextRowToScan, DEFAULT_VECTOR_CAPACITY);
-    persistentChunkGroup->scan(transaction, tableState, nodeGroupScanState, startRow, numToScan);
+    nodeGroupScanState.pin.persistent->scan(transaction, tableState, nodeGroupScanState, startRow,
+        numToScan);
     nodeGroupScanState.nextRowToScan += numToScan;
     tableState.setNodeIDVectorToFlat(
         tableState.cachedBoundNodeSelVector[tableState.currBoundNodeIdx]);
@@ -349,11 +699,13 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedInMem(const Transaction* transact
                 tableState.cachedBoundNodeSelVector[tableState.currBoundNodeIdx];
             const auto boundNodeOffset = tableState.nodeIDVector->readNodeOffset(boundNodePos);
             const auto offsetInGroup = boundNodeOffset % StorageConfig::NODE_GROUP_SIZE;
-            nodeGroupScanState.inMemCSRList = csrIndex->indices[offsetInGroup];
+            nodeGroupScanState.inMemCSRList = nodeGroupScanState.pin.index->indices[offsetInGroup];
         }
         if (!nodeGroupScanState.inMemCSRList.isSequential) {
-            DASSERT(std::is_sorted(nodeGroupScanState.inMemCSRList.rowIndices.begin(),
-                nodeGroupScanState.inMemCSRList.rowIndices.end()));
+            DASSERT(std::ranges::is_sorted(nodeGroupScanState.inMemCSRList.rowIndices |
+                                           std::views::filter([](common::row_idx_t row) {
+                                               return row != common::INVALID_ROW_IDX;
+                                           })));
         }
         auto scanResult =
             nodeGroupScanState.inMemCSRList.isSequential ?
@@ -384,18 +736,15 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedInMemSequential(const Transaction
     if (numRows == 0) {
         return NODE_GROUP_SCAN_EMPTY_RESULT;
     }
-    const ChunkedNodeGroup* chunkedGroup = nullptr;
-    {
-        const auto lock = chunkedGroups.lock();
-        // A stale CSR index entry (e.g. an INVALID_ROW_IDX sentinel) can yield an
-        // out-of-range chunk group index. Guard against it instead of dereferencing
-        // a null/out-of-bounds group. See LadybugDB/ladybug#611.
-        if (chunkIdx >= chunkedGroups.getNumGroups(lock)) {
-            return NODE_GROUP_SCAN_EMPTY_RESULT;
-        }
-        chunkedGroup = chunkedGroups.getGroup(lock, chunkIdx);
+    const auto& inMemGroups = nodeGroupScanState.pin.inMemGroups;
+    // A stale CSR index entry (e.g. an INVALID_ROW_IDX sentinel) can yield an
+    // out-of-range chunk group index. Guard against it instead of dereferencing
+    // a null/out-of-bounds group. See LadybugDB/ladybug#611.
+    if (chunkIdx >= inMemGroups.size() || !inMemGroups[chunkIdx]) {
+        return NODE_GROUP_SCAN_EMPTY_RESULT;
     }
-    chunkedGroup->scan(transaction, tableState, nodeGroupScanState, startRowInChunk, numRows);
+    inMemGroups[chunkIdx]->scan(transaction, tableState, nodeGroupScanState, startRowInChunk,
+        numRows);
     nodeGroupScanState.nextRowToScan += numRows;
     return NodeGroupScanResult{startRow, numRows};
 }
@@ -412,22 +761,22 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedInMemRandom(const Transaction* tr
     ChunkedNodeGroup* chunkedGroup = nullptr;
     node_group_idx_t currentChunkIdx = INVALID_NODE_GROUP_IDX;
     sel_t numSelected = 0;
+    const auto& inMemGroups = nodeGroupScanState.pin.inMemGroups;
     while (nextRow < numRows) {
         const auto rowIdx =
             nodeGroupScanState.inMemCSRList.rowIndices[nextRow + nodeGroupScanState.nextRowToScan];
         auto [chunkIdx, rowInChunk] =
             StorageUtils::getQuotientRemainder(rowIdx, StorageConfig::CHUNKED_NODE_GROUP_CAPACITY);
         if (chunkIdx != currentChunkIdx) {
-            const auto lock = chunkedGroups.lock();
             // A stale CSR index entry (e.g. an INVALID_ROW_IDX sentinel) can yield an
             // out-of-range chunk group index. Skip such rows instead of dereferencing
             // a null/out-of-bounds group. See LadybugDB/ladybug#611.
-            if (chunkIdx >= chunkedGroups.getNumGroups(lock)) {
+            if (chunkIdx >= inMemGroups.size() || !inMemGroups[chunkIdx]) {
                 nextRow++;
                 continue;
             }
             currentChunkIdx = chunkIdx;
-            chunkedGroup = chunkedGroups.getGroup(lock, chunkIdx);
+            chunkedGroup = inMemGroups[chunkIdx].get();
         }
         DASSERT(chunkedGroup);
         numSelected += chunkedGroup->lookup(transaction, tableState, nodeGroupScanState, rowInChunk,
@@ -439,6 +788,17 @@ NodeGroupScanResult CSRNodeGroup::scanCommittedInMemRandom(const Transaction* tr
     return NodeGroupScanResult{0, numRows};
 }
 
+void CSRNodeGroup::rollbackInsert(row_idx_t startRow) {
+    NodeGroup::rollbackInsert(startRow);
+    // appendChunkedCSRGroup mutates csrIndex outside versioned storage. When every
+    // in-memory row is rolled back, drop the index so the next COPY cannot append
+    // onto stale row ranges and inflate counts after a later COMMIT.
+    if (startRow == 0) {
+        const auto lock = chunkedGroups.lock();
+        csrIndex.reset();
+    }
+}
+
 void CSRNodeGroup::appendChunkedCSRGroup(const Transaction* transaction,
     const std::vector<column_id_t>& columnIDs, InMemChunkedCSRNodeGroup& chunkedGroup) {
     const auto& csrHeader = chunkedGroup.getCSRHeader();
@@ -448,12 +808,11 @@ void CSRNodeGroup::appendChunkedCSRGroup(const Transaction* transaction,
     }
     auto startRow = NodeGroup::append(transaction, columnIDs, chunkedGroupForProperties, 0,
         chunkedGroup.getNumRows());
-    if (!csrIndex) {
-        csrIndex = std::make_unique<CSRIndex>();
-    }
+    const auto lock = chunkedGroups.lock();
+    auto& index = getCSRIndexForAppend(lock);
     for (auto i = 0u; i < csrHeader.offset->getNumValues(); i++) {
         const auto length = csrHeader.length->getValue<length_t>(i);
-        updateCSRIndex(i, startRow, length);
+        updateCSRIndex(index, i, startRow, length);
         startRow += length;
     }
 }
@@ -463,15 +822,24 @@ void CSRNodeGroup::append(const Transaction* transaction, const std::vector<colu
     row_idx_t numRows) {
     const auto startRow =
         NodeGroup::append(transaction, columnIDs, chunks, startRowInChunks, numRows);
-    if (!csrIndex) {
-        csrIndex = std::make_unique<CSRIndex>();
-    }
-    updateCSRIndex(boundOffsetInGroup, startRow, 1 /*length*/);
+    const auto lock = chunkedGroups.lock();
+    updateCSRIndex(getCSRIndexForAppend(lock), boundOffsetInGroup, startRow, 1 /*length*/);
 }
 
-void CSRNodeGroup::updateCSRIndex(offset_t boundNodeOffsetInGroup, row_idx_t startRow,
-    length_t length) const {
-    auto& nodeCSRIndex = csrIndex->indices[boundNodeOffsetInGroup];
+// A scan pins the index under the group lock (captureLiveScanPin) and reads it without the lock,
+// so an append edits it under the lock, and edits a copy when a scan holds it.
+CSRIndex& CSRNodeGroup::getCSRIndexForAppend(const UniqLock& /*lock*/) {
+    if (!csrIndex) {
+        csrIndex = std::make_shared<CSRIndex>();
+    } else if (csrIndex.use_count() > 1) {
+        csrIndex = std::make_shared<CSRIndex>(*csrIndex);
+    }
+    return *csrIndex;
+}
+
+void CSRNodeGroup::updateCSRIndex(CSRIndex& index, offset_t boundNodeOffsetInGroup,
+    row_idx_t startRow, length_t length) {
+    auto& nodeCSRIndex = index.indices[boundNodeOffsetInGroup];
     const auto isEmptyCSR = nodeCSRIndex.rowIndices.empty();
     const auto appendToEndOfCSR =
         !isEmptyCSR && nodeCSRIndex.isSequential &&
@@ -586,6 +954,65 @@ void CSRNodeGroup::serialize(Serializer& serializer) {
 
 void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
     const auto lock = chunkedGroups.lock();
+    auto& csrState = state.cast<CSRNodeGroupCheckpointState>();
+    // Parked-reader retention runs on the snapshot path only: without a snapshot timestamp
+    // there is no coverage interval to reason about, so legacy checkpoints behave exactly
+    // as before (no prune, no capture, no floor update).
+    const auto snapshotTS =
+        state.transaction != nullptr ? state.transaction->getStartTS() : INVALID_TRANSACTION;
+    const auto retentionPath = state.transaction != nullptr;
+    if (retentionPath) {
+        // Prune first: dropping unneeded snapshots frees their pages immediately, outside
+        // the checkpoint's own deferral scope, exactly like a scan releasing its pin.
+        pruneRetainedSnapshotsNoLock(csrState.openStartTSs);
+    }
+    // The in-mem-only path resets nothing when there are no rels; anything captured there
+    // would alias live objects the checkpoint keeps mutating, so only prune there.
+    auto numInMemRels = 0u;
+    if (retentionPath && persistentChunkGroup == nullptr) {
+        for (const auto& chunkedGroup : chunkedGroups.getAllGroups(lock)) {
+            numInMemRels += chunkedGroup->getNumRows();
+        }
+    }
+    const auto inMemNoop = persistentChunkGroup == nullptr && numInMemRels == 0;
+
+    // A pending pre-checkpoint snapshot, appended to the retained set only if the merge
+    // below succeeds. Holding the pre-checkpoint objects before the copy checks elevates
+    // their use_counts, so the checkpoint works on its own copies while the entry keeps
+    // the pristine originals — the same sharing the pinned-scan path relies on.
+    RetainedCSRSnapshot pending;
+    // An in-flight scan pins the live objects via the pin machinery (private copies plus
+    // page deferral) and protects its own re-reads, but parked readers hold nothing: a
+    // single scan must not disable retention for every parked reader of the group. The
+    // checkpoint cannot tell scanning from parked transactions, so a pinned group still
+    // retains when multiple readers are open (a lone scanning transaction needs no
+    // snapshot and would only stall page reclamation past its pin release); the
+    // copy-on-write below keeps the retained entry pristine while working on copies.
+    const auto freshlyPinned = scanPagePin && scanPagePin.use_count() > 1;
+    const auto wantRetain = retentionPath && !inMemNoop &&
+                            (!freshlyPinned || csrState.openStartTSs.size() > 1) &&
+                            needsRetainedSnapshotNoLock(csrState.openStartTSs);
+    if (wantRetain) {
+        if (!scanPagePin) {
+            scanPagePin = PageReclaimDeferral::create();
+        }
+        pending.floorTS = lastCollapseTS;
+        pending.snapshotTS = snapshotTS;
+        pending.pages = scanPagePin;
+        pending.index = csrIndex;
+        const auto& groups = chunkedGroups.getAllGroups(lock);
+        pending.inMemGroups.assign(groups.begin(), groups.end());
+        pending.persistent = persistentChunkGroup;
+    }
+    // A scan holds the index object itself. setInvalid during this checkpoint must not
+    // change the row lists that scan is still walking.
+    if (csrIndex && csrIndex.use_count() > 1) {
+        csrIndex = std::make_shared<CSRIndex>(*csrIndex);
+    }
+    std::shared_ptr<PageReclaimDeferral> deferredPages;
+    if (scanPagePin && scanPagePin.use_count() > 1) {
+        deferredPages = scanPagePin;
+    }
     // A checkpoint that throws mid-group, after the rel data columns were checkpointed but
     // before the CSR header, would otherwise leave the live persistent chunks describing the
     // new data layout under the old header. Reads then return rels attached to the wrong
@@ -602,10 +1029,26 @@ void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
         persistentChunkGroup->cast<ChunkedCSRNodeGroup>().serializeForCheckpointRollback(
             serializer);
     }
+    if (persistentChunkGroup != nullptr && persistentChunkGroup.use_count() > 1) {
+        // A scan holds the group object itself. Checkpoint rewrites the group's chunks in
+        // place, so it takes its own copy (chunk metadata from the snapshot above, version
+        // info and pending updates shared) and the scans keep the object they started with.
+        common::Deserializer deserializer{std::make_unique<common::BufferReader>(
+            persistentSnapshot->getBlobData(), persistentSnapshot->getSize())};
+        std::shared_ptr<ChunkedNodeGroup> ownGroup =
+            ChunkedCSRNodeGroup::deserializeForCheckpointRollback(*state.mm, deserializer);
+        ownGroup->setVersionInfo(persistentChunkGroup->getVersionInfo());
+        DASSERT(ownGroup->getNumColumns() == persistentChunkGroup->getNumColumns());
+        for (auto i = 0u; i < ownGroup->getNumColumns(); i++) {
+            ownGroup->getColumnChunk(i).shareUpdateInfo(persistentChunkGroup->getColumnChunk(i));
+        }
+        persistentChunkGroup = std::move(ownGroup);
+    }
     auto* shadowFile = state.columns.empty() ? nullptr : state.columns[0]->getShadowFile();
     const auto shadowSavepoint =
         shadowFile == nullptr ? ShadowFile::ShadowSavepoint{0} : shadowFile->createSavepoint();
     try {
+        PageReclaimDeferralScope deferralScope{deferredPages.get()};
         if (!persistentChunkGroup) {
             checkpointInMemOnly(lock, state);
         } else {
@@ -613,6 +1056,9 @@ void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
         }
         checkpointDataTypesNoLock(state);
     } catch (...) {
+        if (deferredPages) {
+            deferredPages->discard();
+        }
         // Restore the pre-checkpoint persistent chunks, then drop this group's shadow pages,
         // so both reads and a retried checkpoint see the old data under the old header.
         if (persistentSnapshot != nullptr) {
@@ -640,6 +1086,18 @@ void CSRNodeGroup::checkpoint(MemoryManager&, NodeGroupCheckpointState& state) {
             shadowFile->rollbackToSavepoint(shadowSavepoint);
         }
         throw;
+    }
+    if (retentionPath && !inMemNoop) {
+        // Every merge path above resets version state, so the floor advances here. The
+        // pending entry (if any) covers readers down to the previous floor.
+        lastCollapseTS = snapshotTS;
+        if (wantRetain) {
+            retainedSnapshots.push_back(std::move(pending));
+        }
+    }
+    if (deferredPages) {
+        scanPagePin = PageReclaimDeferral::create();
+        deferredPages->commit(scanPagePin);
     }
 }
 
@@ -714,8 +1172,8 @@ void CSRNodeGroup::checkpointInMemAndOnDisk(const UniqLock& lock, NodeGroupCheck
         persistentChunkGroup = nullptr;
     } else {
         DASSERT(csrState.newHeader->sanityCheck());
-        for (const auto columnID : csrState.columnIDs) {
-            checkpointColumn(lock, columnID, csrState, regionsToCheckpoint);
+        for (auto i = 0u; i < csrState.columnIDs.size(); i++) {
+            checkpointColumn(lock, i, csrState, regionsToCheckpoint);
         }
         checkpointCSRHeaderColumns(csrState);
         persistentChunkGroup = createNewPersistentChunkGroup(
@@ -751,16 +1209,21 @@ void CSRNodeGroup::redistributeCSRRegions(const CSRNodeGroupCheckpointState& csr
     csrState.newHeader->finalizeCSRRegionEndOffsets(rightCSROffsetOfRegions);
 }
 
-void CSRNodeGroup::checkpointColumn(const UniqLock& lock, column_id_t columnID,
+void CSRNodeGroup::checkpointColumn(const UniqLock& lock, idx_t columnIdx,
     const CSRNodeGroupCheckpointState& csrState, const std::vector<CSRRegion>& regions) const {
+    // csrState.columns and CSRRegion::hasUpdates are positional; the persistent group is indexed
+    // by column ID.
+    const auto columnID = csrState.columnIDs[columnIdx];
+    auto* column = csrState.columns[columnIdx];
     std::vector<ChunkCheckpointState> chunkCheckpointStates;
     chunkCheckpointStates.reserve(regions.size());
     for (auto& region : regions) {
-        if (!region.needCheckpointColumn(columnID)) {
+        if (!region.needCheckpointColumn(columnIdx)) {
             // Skip checkpoint for the column if it has no changes in the region.
             continue;
         }
-        auto regionCheckpointStates = checkpointColumnInRegion(lock, columnID, csrState, region);
+        auto regionCheckpointStates =
+            checkpointColumnInRegion(lock, columnID, column, csrState, region);
         // If there are no rows to write for the region, we don't aggressively reclaim the space in
         // the region, but keep deleted rows as gaps. This can happen when all rows are deleted
         // within the region.
@@ -768,7 +1231,7 @@ void CSRNodeGroup::checkpointColumn(const UniqLock& lock, column_id_t columnID,
             chunkCheckpointStates.push_back(std::move(regionCheckpointState));
         }
     }
-    persistentChunkGroup->getColumnChunk(columnID).checkpoint(*csrState.columns[columnID],
+    persistentChunkGroup->getColumnChunk(columnID).checkpoint(*column,
         std::move(chunkCheckpointStates), csrState.pageAllocator);
 }
 
@@ -973,7 +1436,7 @@ static void fillCSRGaps(CheckpointReadCursor& readCursor, CheckpointWriteCursor&
 }
 
 std::vector<ChunkCheckpointState> CSRNodeGroup::checkpointColumnInRegion(const UniqLock& lock,
-    column_id_t columnID, const CSRNodeGroupCheckpointState& csrState,
+    column_id_t columnID, Column* column, const CSRNodeGroupCheckpointState& csrState,
     const CSRRegion& region) const {
     const auto* txn = csrState.transaction ? csrState.transaction : &DUMMY_CHECKPOINT_TRANSACTION;
     const auto leftCSROffset = csrState.oldHeader->getStartCSROffset(region.leftNodeOffset);
@@ -981,7 +1444,6 @@ std::vector<ChunkCheckpointState> CSRNodeGroup::checkpointColumnInRegion(const U
     const auto rightCSROffset = csrState.oldHeader->getEndCSROffset(region.rightNodeOffset);
     const auto numOldRowsInRegion = rightCSROffset - leftCSROffset;
 
-    Column* column = csrState.columns[columnID];
     LazySegmentScanner oldChunkScanner{*csrState.mm, column->getDataType().copy(),
         enableCompression};
     auto chunkState = scanCommittedUpdates(txn, persistentChunkGroup->getColumnChunk(columnID),

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <algorithm>
+#include <utility>
+#include <vector>
 
 #include "storage/enums/residency_state.h"
 #include "storage/table/chunked_node_group.h"
@@ -17,8 +19,8 @@ struct CSRRegion {
     common::offset_t leftNodeOffset = common::INVALID_OFFSET;
     common::offset_t rightNodeOffset = common::INVALID_OFFSET;
     int64_t sizeChange = 0;
-    // Track if there is any updates to persistent data in this region per column in table.
-    // Note: should be accessed with columnID.
+    // Track if there is any updates to persistent data in this region per checkpointed column.
+    // Note: indexed by position in the checkpoint state's columnIDs, not by column ID.
     std::vector<bool> hasUpdates;
     // Note: `sizeChange` equal to 0 is not enough to indicate the region has no insert or
     // delete. It might just be num of insertions are equal to num of deletions.
@@ -33,9 +35,9 @@ struct CSRRegion {
                std::any_of(hasUpdates.begin(), hasUpdates.end(),
                    [](bool hasUpdate) { return hasUpdate; });
     }
-    bool needCheckpointColumn(common::column_id_t columnID) const {
-        DASSERT(columnID < hasUpdates.size());
-        return hasInsertions || hasPersistentDeletions || hasUpdates[columnID];
+    bool needCheckpointColumn(common::idx_t columnIdx) const {
+        DASSERT(columnIdx < hasUpdates.size());
+        return hasInsertions || hasPersistentDeletions || hasUpdates[columnIdx];
     }
     bool hasDeletionsOrInsertions() const { return hasInsertions || hasPersistentDeletions; }
     common::idx_t getLeftLeafRegionIdx() const { return regionIdx << level; }
@@ -60,6 +62,20 @@ struct LBUG_API InMemChunkedCSRHeader {
     std::unique_ptr<ColumnChunkData> offset;
     std::unique_ptr<ColumnChunkData> length;
     bool randomLookup = false;
+    // Logical header index stored at position 0. A full-group header uses 0.
+    common::offset_t indexBase = 0;
+    // Scan-private cache: a full on-disk header, or the [start, end) index ranges last decoded
+    // for a bound-node batch. Nodes at or past headerLimit, the on-disk header size, have no
+    // lists and read as empty. Checkpoint headers leave these at the defaults.
+    bool wholeHeader = false;
+    common::offset_t headerLimit = 0;
+    std::vector<std::pair<common::offset_t, common::offset_t>> decodedRanges;
+
+    // Scans read the header only for nodes of the current bound-node batch (plus the group's end
+    // after a whole-header decode), and CSRNodeGroup::initializeScanState covers each batch by
+    // the decode it runs for it or by checking these ranges. The getters assert it; an uncovered
+    // read returns stale bytes from a gap, or the last entry at or past numValues.
+    bool coversNode(common::offset_t nodeOffset) const;
 
     InMemChunkedCSRHeader(MemoryManager& memoryManager, bool enableCompression, uint64_t capacity);
     InMemChunkedCSRHeader(std::unique_ptr<ColumnChunkData> offset,

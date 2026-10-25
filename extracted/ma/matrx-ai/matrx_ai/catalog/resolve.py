@@ -15,6 +15,9 @@ cannot be routed and RAISES — never a silent fallback.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import Any
+
 from matrx_utils import vcprint
 
 from matrx_ai.catalog.errors import CatalogRoutingError
@@ -22,6 +25,7 @@ from matrx_ai.catalog.lifecycle import gate_model_lifecycle
 from matrx_ai.catalog.manager import AiCatalogManager, ai_catalog_manager
 from matrx_ai.catalog.models import CatalogOffering, CatalogVoice, ResolvedCallProfile
 from matrx_ai.catalog.routes import client_attr_for_wire_format
+from matrx_ai.config.served_via import ServedVia, coerce_served_via, served_via_kwargs
 from matrx_ai.providers.resolved_capabilities import resolve_model_capabilities
 
 
@@ -182,12 +186,234 @@ def select_tts_default_voice(
     return default_voice_ids[0] if default_voice_ids else None
 
 
+async def _resolve_device_profile(
+    model: Any, served_via: ServedVia, *, model_ref: str
+) -> ResolvedCallProfile:
+    """The ONE route of a device-served call (``route_kind="device"``).
+
+    No ai.offering is consulted — a model on a person's computer usually has none, and a
+    cloud offering it does have is never a candidate: there is no alternative route, no
+    price and no class pin on this profile. Model facts (capabilities, output ceiling,
+    lifecycle) come from the model definition; the host's placement check
+    (``catalog/device_placement.py``) refuses a model that is not installed on that device.
+    """
+    from matrx_ai.catalog.device_placement import assert_model_on_device
+    from matrx_ai.catalog.host_catalog import CatalogModel, _fallback_controls
+    from matrx_ai.providers.device.device_api import device_model_key
+    from matrx_ai.providers.device.errors import DevicePinUnsupportedError
+
+    is_catalog_dict = isinstance(model, CatalogModel)
+
+    def fact(name: str) -> Any:
+        return model.get(name) if is_catalog_dict else getattr(model, name, None)
+
+    model_id = str(fact("id") or fact("name") or model_ref)
+    model_name = str(fact("name") or "") or model_id
+    manager = ai_catalog_manager
+    if is_catalog_dict:
+        catalog_row = dict(model.to_dict())
+        catalog_row.setdefault("id", model_id)
+        gate_model_lifecycle(model_id, {model_id: catalog_row}, model_name=model_name)
+        model_state: dict[str, Any] = catalog_row
+        provider_name = str(fact("provider") or "device")
+    else:
+        await manager.ensure_loaded()
+        gate_model_lifecycle(model_id, manager.model_states(), model_name=model_name)
+        model_state = manager.model_state(model_id)
+        provider_name = manager.provider_name(fact("provider_id")) or "device"
+
+    capabilities = resolve_model_capabilities(model)
+    # A MISSING tool fact on a device route is UNKNOWN, never false (L5 D2): local catalog
+    # models ship ``features: []`` and an own model has no definition, so tools are sent and
+    # llama-server (--jinja) decides — a refusal comes back typed (device_invalid_request),
+    # never a silent strip. Declared features without function_calling still strip.
+    raw_caps = fact("capabilities")
+    declared_features = raw_caps.get("features") if isinstance(raw_caps, dict) else None
+    if not declared_features and not capabilities.supports_function_calling:
+        capabilities = capabilities.model_copy(update={"supports_function_calling": True})
+    if capabilities.interaction not in (None, "turn") or (
+        capabilities.produces_audio and not capabilities.produces_text
+    ):
+        raise DevicePinUnsupportedError(
+            f"model {model_name!r} is not a chat model (interaction="
+            f"{capabilities.interaction!r}); a device runs chat turns only",
+            user_message=f"{model_name} can't run on your computer from here.",
+        )
+    await assert_model_on_device(served_via, model_id=model_id, model_name=model_name)
+
+    device_ref = f"device:{served_via.app_instance_id}"
+    return ResolvedCallProfile(
+        resolution_route="pinned",
+        route_kind="device",
+        served_via=served_via,
+        model_id=model_id,
+        model_name=model_name,
+        # The key Matrx 2 loads the model under — the relay's params.model: for a catalog
+        # model id, its desktop_id else its name; a device key the client sent stays as is; a
+        # person's own file keeps its file id (DeviceChat refuses it: the key is device-minted).
+        provider_model_id=(
+            device_model_key(fact("metadata"), model_name) or served_via.local_model_id
+            if str(served_via.local_model_id) == model_id
+            else served_via.local_model_id
+        ),
+        offering_id=device_ref,
+        endpoint_id=device_ref,
+        api_id="device:device_chat",
+        provider_name=provider_name,
+        vendor="device",
+        wire_format="device_chat",
+        client_attr=client_attr_for_wire_format("device_chat"),
+        capabilities=capabilities,
+        # llama-server speaks OpenAI chat-completions: the generic OpenAI wire rules.
+        controls=_fallback_controls("generic_openai_chat").with_output_maximum(
+            fact("max_tokens")
+        ),
+        pricing=None,
+        token_billed=False,
+        model_is_deprecated=bool(model_state.get("is_deprecated", False)),
+        model_is_primary=bool(model_state.get("is_primary", False)),
+        model_retired_at=(
+            str(model_state["retired_at"]) if model_state.get("retired_at") else None
+        ),
+        model_successor_id=(
+            str(model_state["successor_id"]) if model_state.get("successor_id") else None
+        ),
+    )
+
+
+#: The facts a person's own model file cannot vouch for until the device reports them.
+_OWN_FILE_UNKNOWN_FACTS: tuple[str, ...] = (
+    "max_output_tokens", "function_calling", "vision", "reasoning", "chat_template",
+)
+
+
+def _own_file_context_window(metadata: dict[str, Any]) -> int | None:
+    """The context length the file itself declares (GGUF header facts the device read), or None."""
+    for holder in (metadata.get("gguf"), metadata):
+        if isinstance(holder, dict):
+            for key in ("context_length", "context_window", "n_ctx_train"):
+                value = holder.get(key)
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    return value
+    return None
+
+
+#: The ONE name the device publishes for "this file's chat template takes tools" (metadata.gguf), pinned by
+#: apps/shared/desktop-protocol/fixtures/device-model-contract.json.
+_OWN_FILE_TOOLS_KEY = "supports_tools"
+
+
+def _own_file_tools_fact(metadata: dict[str, Any]) -> bool | None:
+    """The tools fact the DEVICE reported for the file (``metadata.gguf``), or None (unknown)."""
+    gguf = metadata.get("gguf")
+    if isinstance(gguf, dict):
+        value = gguf.get(_OWN_FILE_TOOLS_KEY)
+        if isinstance(value, bool):
+            return value
+    return None
+
+
+async def _resolve_own_device_file_profile(served_via: ServedVia) -> ResolvedCallProfile:
+    """The ONE route of a person's own uncatalogued model file (``route_kind="device"``).
+
+    There is no model definition: the placement seam must admit the file as the person's own
+    (``DeviceOwnFile``: ``artifact_id`` null, usable per the twin rule), else
+    ``model_not_on_device`` with the twin's code. The profile carries only what the file knows
+    (its name, a context length its header declares); everything else is labelled unknown in
+    ``offering_metadata["device_facts"]`` — never invented. Capabilities claim plain text in and
+    out only, the one thing every chat model file does.
+    """
+    from matrx_ai.catalog.device_placement import DeviceOwnFile, assert_model_on_device
+    from matrx_ai.catalog.host_catalog import _fallback_controls
+    from matrx_ai.providers.device.errors import ModelNotOnDeviceError
+
+    file_id = served_via.local_model_id
+    placeholder = f"own model file {file_id}"
+    own = await assert_model_on_device(served_via, model_id=file_id, model_name=placeholder)
+    if not isinstance(own, DeviceOwnFile):
+        raise ModelNotOnDeviceError(
+            f"{file_id!r} is not in ai.model_definition and the device did not admit it as the "
+            f"person's own file on {served_via.app_instance_id}",
+            user_message="That model file isn't one of your own models on that computer.",
+            details={"code": "not_own_file", "app_instance_id": served_via.app_instance_id,
+                     "local_model_id": file_id},
+        )
+    raw_name = (own.name or "").rsplit("/", 1)[-1]
+    name = raw_name[: -len(".gguf")] if raw_name.lower().endswith(".gguf") else raw_name
+    model_name = name or placeholder
+    context_window = _own_file_context_window(dict(own.metadata or {}))
+    tools_fact = _own_file_tools_fact(dict(own.metadata or {}))
+    unknown = [
+        f for f in _OWN_FILE_UNKNOWN_FACTS if not (f == "function_calling" and tools_fact is not None)
+    ] + ([] if context_window else ["context_window"])
+    model_key = own.model_key or None
+    if model_key is None:
+        unknown.append("model_key")
+    device_ref = f"device:{served_via.app_instance_id}"
+    return ResolvedCallProfile(
+        resolution_route="pinned",
+        route_kind="device",
+        served_via=served_via,
+        model_id=file_id,
+        model_name=model_name,
+        # The key the computer runs the file under; without one the transport refuses
+        # (own_file_key_unknown) rather than guess.
+        provider_model_id=model_key or file_id,
+        offering_id=device_ref,
+        endpoint_id=device_ref,
+        api_id="device:device_chat",
+        provider_name="device",
+        vendor="device",
+        wire_format="device_chat",
+        client_attr=client_attr_for_wire_format("device_chat"),
+        capabilities=resolve_model_capabilities(
+            SimpleNamespace(
+                id=file_id,
+                name=model_name,
+                capabilities={"input": ["text"], "output": ["text"], "interaction": "turn"},
+            )
+        ).model_copy(
+            # The tool fact is UNKNOWN unless the device reports one (L5 D2): unknown sends
+            # the tools and llama-server decides; a reported False strips them, announced.
+            update={"supports_function_calling": tools_fact is not False}
+        ),
+        controls=_fallback_controls("generic_openai_chat").with_output_maximum(None),
+        pricing=None,
+        token_billed=False,
+        offering_metadata={
+            "device_facts": {
+                "source": "device_model_file",
+                "device_model_file_id": file_id,
+                "name": {"value": model_name, "source": "device_reported" if name else "unknown"},
+                "context_window": {
+                    "value": context_window,
+                    "source": "device_reported" if context_window else "unknown",
+                },
+                "function_calling": {
+                    "value": tools_fact,
+                    "source": "device_reported" if tools_fact is not None else "unknown",
+                },
+                "model_key": {
+                    "value": model_key,
+                    "source": "device_reported" if model_key else "unknown",
+                },
+                "unknown": unknown,
+            }
+        },
+    )
+
+
 async def resolve_call_profile(
     model_ref: str,
     endpoint_hint: str | None = None,
     *,
     offering_id: str | None = None,
+    served_via: ServedVia | None = None,
 ) -> ResolvedCallProfile:
+    """Resolve ONE call. ``served_via`` (the run config's device pick) routes the model to
+    that device and nowhere else (:func:`_resolve_device_profile`); without it nothing about
+    cloud routing changes. A device call ignores ``offering_id`` — a cloud class pin names
+    no route on a device."""
     # Lazy import: the model manager's ORM path resolves get_model("AiModel"),
     # which must not fire on a bare ``import matrx_ai.catalog``.
     from matrx_ai.db.ai_models.ai_model_manager import ai_model_manager_instance
@@ -214,8 +440,18 @@ async def resolve_call_profile(
                     f"pinned offering '{offering_id}'.",
                     color="yellow",
                 )
+    if model is None and served_via is not None:
+        own_pick = coerce_served_via(served_via)
+        if str(model_ref) == own_pick.local_model_id:
+            # A person's own uncatalogued file: model = local_model_id = device_model_file.id.
+            return await _resolve_own_device_file_profile(own_pick)
     if model is None:
         raise CatalogRoutingError(f"resolve_call_profile: unknown model '{model_ref}'")
+
+    if served_via is not None:
+        return await _resolve_device_profile(
+            model, coerce_served_via(served_via), model_ref=model_ref
+        )
 
     # CLIENT-HOST / RUNTIME path: a model served by the injected catalog (or the
     # runtime registry) has no ai.endpoint / ai.api / ai.offering rows — the
@@ -403,9 +639,17 @@ async def resolve_tts_call_profile(
     quality: str | None = None,
     *,
     offering_id: str | None = None,
+    served_via: ServedVia | None = None,
 ) -> ResolvedCallProfile:
-    """Resolve a TTS call, including catalog-owned quality/default routing."""
-    profile = await resolve_call_profile(model_ref, offering_id=offering_id)
+    """Resolve a TTS call, including catalog-owned quality/default routing.
+
+    A device-served call (``served_via``) is never tier-rerouted: its one route returns as is.
+    """
+    profile = await resolve_call_profile(
+        model_ref, offering_id=offering_id, **served_via_kwargs(served_via)
+    )
+    if getattr(profile, "route_kind", None) == "device":
+        return profile
     caps = profile.capabilities
     if not (caps.produces_audio and not caps.produces_text):
         return profile

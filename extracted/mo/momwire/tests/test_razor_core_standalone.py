@@ -64,6 +64,9 @@ CORE_SOURCES = (
     # The sinusoidal basis' point-matched field tensors (momwire#1607 B1):
     # the extension TU's text over `_mw_nd.h`'s arrays.
     "_sinusoidal_core.cpp",
+    # The NEC-4 dialect's junction kernels and solve (momwire#1644), which
+    # the front half and the fill call.
+    "_sinusoidal_nec4_core.cpp",
     # The sinusoidal front half over the NEC-4.2 build (momwire#1607 B2),
     # linked into `sinusoidal_front_driver.cpp`.
     "_sinusoidal_front_core.cpp",
@@ -435,6 +438,7 @@ def test_the_sinusoidal_front_in_cxx_alone_is_pythons(driver):
     assert compared >= 50, compared
 
 
+@pytest.mark.slow  # median over the 5 s default-lane budget at 0.84.0
 def test_the_sinusoidal_fill_in_cxx_alone_is_pythons(driver):
     """momwire#1607 B3: the sinusoidal free-space fill and port solve (Z,
     the coefficients, Y), built from the core TUs alone
@@ -487,6 +491,7 @@ def test_the_sinusoidal_fill_in_cxx_alone_is_pythons(driver):
     assert compared >= 30, compared
 
 
+@pytest.mark.slow  # median over the 5 s default-lane budget at 0.84.1
 def test_the_nec42_sinusoidal_printout_in_cxx_alone_is_pythons(driver):
     """momwire#1607 B4a: deck text to the NEC-4.2 slot's printout for the
     sinusoidal basis, built from the core TUs alone
@@ -1070,6 +1075,7 @@ SEQUENCE_DECKS = [
 ]
 
 
+@pytest.mark.slow  # median over the 5 s default-lane budget at 0.84.0
 def test_the_sequence_decks_print_as_python_does(driver, tmp_path):
     """momwire#1602 / #1590: a deck read as a program (momwire 0.79.2) --
     RP then NE before each XQ of a two-excitation deck (a feed-to-probe
@@ -1696,6 +1702,132 @@ def test_the_wholly_buried_decks_print_as_python(driver, tmp_path):
     counts, reasons = _bspline_printouts(driver, decks, tmp_path)
     assert counts.get("served", 0) == 6 and not reasons, (counts, reasons)
     assert counts.get("runs", 0) == 7, counts
+
+
+GRAZING_1672_DECKS = ROOT / "tests" / "fixtures" / "buried_grazing_1672"
+
+
+def test_the_grazing_buried_decks_print_as_python(driver, tmp_path):
+    """momwire#1672: radials leaving a base at z = 0 a few centimetres into
+    the soil list below/below pairs whose remainder bs2 raises to their own
+    order (`_below_pair_correction`) -- in C++ alone, byte for byte as
+    `_shell.render(text, basis="bspline")` prints them, every run's arrays
+    included. None declines."""
+    decks = sorted(GRAZING_1672_DECKS.glob("*.nec"))
+    assert len(decks) == 3
+    counts, reasons = _bspline_printouts(driver, decks, tmp_path)
+    assert counts.get("served", 0) == 3 and not reasons, (counts, reasons)
+
+
+CARDS_1669_DECKS = ROOT / "tests" / "fixtures" / "nec5_4nec2_cards_1669"
+
+
+@pytest.mark.parametrize("basis", ["razor-2p", "bspline"])
+def test_the_4nec2_card_decks_print_as_python(driver, tmp_path, basis):
+    """momwire#1671: GA, GH, GM, GX, GS and PT, read as 4nec2 writes them
+    (#1669), through the whole C++ chain on both bases -- a bent wire as one
+    multi-vertex piece, each geometry card's echo, the Reflection symmetry
+    block and PT -1 -- byte for byte as `_shell.render` prints them, and
+    every run's arrays. None declines."""
+    decks = sorted(CARDS_1669_DECKS.glob("*.nec"))
+    assert len(decks) == 29
+    if basis == "bspline":
+        counts, reasons = _bspline_printouts(driver, decks, tmp_path)
+    else:
+        pc = _printout_compare_module()
+        if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+            pytest.skip(
+                "no bundled OpenBLAS beside SciPy / numpy (not a wheel install)"
+            )
+        saved = {k: os.environ.get(k) for k in _ONE_THREAD}
+        os.environ.update(_ONE_THREAD)
+        try:
+            answers = pc.run_driver(
+                driver[0]["nec5_razor_printout_driver"], decks, tmp_path, arrays=True
+            )
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        counts, reasons = {}, {}
+        with _one_thread():
+            for path, ans in zip(decks, answers, strict=True):
+                if ans["route"] == "declined":
+                    reasons[ans["reason"]] = reasons.get(ans["reason"], 0) + 1
+                    continue
+                counts[ans["seam"]] = counts.get(ans["seam"], 0) + 1
+                py_runs = []
+                text = path.read_bytes().decode("latin-1")
+                ref = pc.python_printout(text, runs=py_runs)
+                assert ans["printout"] == ref, (
+                    f"{path}: {pc.first_difference(ref, ans['printout'])}"
+                )
+                assert len(ans["runs"]) == len(py_runs), path
+                for k, (cx, py) in enumerate(zip(ans["runs"], py_runs, strict=True)):
+                    for name in pc.ARRAYS:
+                        mine = np.ascontiguousarray(py[name], dtype=np.complex128)
+                        assert cx[name] == mine.tobytes(), f"{path} run {k}: {name}"
+                    counts["runs"] = counts.get("runs", 0) + 1
+    assert not reasons, reasons
+    assert counts.get("served", 0) == 29, counts
+    assert counts.get("runs", 0) >= 29, counts
+
+
+def _razor_printouts(driver, decks, tmp_path):
+    """`({seam: n, "runs": n}, {decline reason: n})`: each deck through the
+    C++ razor chain, its printout and every run's arrays checked byte for byte
+    against `_shell.render`'s, at one thread."""
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    saved = {k: os.environ.get(k) for k in _ONE_THREAD}
+    os.environ.update(_ONE_THREAD)
+    try:
+        answers = pc.run_driver(
+            driver[0]["nec5_razor_printout_driver"], decks, tmp_path, arrays=True
+        )
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    counts, reasons = {}, {}
+    with _one_thread():
+        for path, ans in zip(decks, answers, strict=True):
+            if ans["route"] == "declined":
+                reasons[ans["reason"]] = reasons.get(ans["reason"], 0) + 1
+                continue
+            counts[ans["seam"]] = counts.get(ans["seam"], 0) + 1
+            py_runs = []
+            text = path.read_bytes().decode("latin-1")
+            ref = pc.python_printout(text, runs=py_runs)
+            assert ans["printout"] == ref, (
+                f"{path}: {pc.first_difference(ref, ans['printout'])}"
+            )
+            assert len(ans["runs"]) == len(py_runs), path
+            for k, (cx, py) in enumerate(zip(ans["runs"], py_runs, strict=True)):
+                for name in pc.ARRAYS:
+                    mine = np.ascontiguousarray(py[name], dtype=np.complex128)
+                    assert cx[name] == mine.tobytes(), f"{path} run {k}: {name}"
+                counts["runs"] = counts.get("runs", 0) + 1
+    return counts, reasons
+
+
+def test_the_grazing_buried_decks_print_as_python_on_razor(driver, tmp_path):
+    """momwire#1688: razor's below remainder at per-segment orders -- the
+    ragged node layout and `moment_reduce_ragged` in C++ -- byte for byte as
+    `_shell.render` prints the #1672 grazing decks, every run's arrays
+    included. The shallow decks' segments really do ask different orders
+    (`test_buried_grazing_remainder_1672.py` pins that), so the ragged route
+    is the one compared, not the uniform one."""
+    decks = sorted(GRAZING_1672_DECKS.glob("*.nec"))
+    assert len(decks) == 3
+    counts, reasons = _razor_printouts(driver, decks, tmp_path)
+    assert not reasons, reasons
+    assert counts.get("served", 0) == 3 and counts.get("runs", 0) >= 3, counts
 
 
 BSPLINE_CROSSING_DECKS = [

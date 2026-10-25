@@ -196,7 +196,7 @@ pub(crate) const PYTHON_RULE: &str = "python";
 pub(crate) const NON_NULL_NULLABILITY: &str = "non_null";
 pub(crate) const NULLABLE_NULLABILITY: &str = "nullable";
 /// Bumped whenever the stored outcome or a key's fields change; older entries never match.
-pub(crate) const ANALYSIS_CACHE_FORMAT: &str = "native-model-analysis-v2";
+pub(crate) const ANALYSIS_CACHE_FORMAT: &str = "native-model-analysis-v3";
 /// A stored varint byte at or above this value continues into the next byte.
 pub(crate) const VARINT_CONTINUATION: u64 = 0x80;
 /// The value bits each stored varint byte carries.
@@ -212,6 +212,8 @@ pub(crate) const ARRAY_PAYLOAD_KIND: &str = "array_func";
 pub(crate) const STRUCTURED_PAYLOAD_KINDS: [&str; 2] = ["parse_json", "struct"];
 pub(crate) const FUNCTION_PAYLOAD_KIND: &str = "function";
 pub(crate) const SELECT_PAYLOAD_KEY: &str = "select";
+/// Set operations whose output columns are named and typed by their first branch.
+pub(crate) const SET_OPERATION_PAYLOAD_KEYS: [&str; 3] = ["union", "intersect", "except"];
 /// `{literal_type: type}` Python's `_simple_expression_type` maps a literal to.
 pub(crate) const LITERAL_FIXTURE_TYPES: [(&str, &str); 3] = [
     ("string", "VARCHAR"),

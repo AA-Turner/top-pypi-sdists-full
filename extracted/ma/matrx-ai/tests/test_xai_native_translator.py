@@ -74,7 +74,8 @@ def test_xai_reasoning_allows_none_disable():
 
 def test_reasoning_maps_all_unified_values():
     expected = {
-        "auto": None, "none": "none", "minimal": "low", "low": "low",
+        # "auto": xAI has no native auto, so a person's auto is the platform default.
+        "auto": "low", "none": "none", "minimal": "low", "low": "low",
         "medium": "medium", "high": "high", "xhigh": "high",
     }
     for unified, want in expected.items():

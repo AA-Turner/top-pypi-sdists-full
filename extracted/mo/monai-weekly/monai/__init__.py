@@ -86,6 +86,7 @@ from .utils.module import load_submodules  # noqa: E402
 # *.so files and folder "_C" may not exist when the cpp extensions are not compiled
 excludes = "|".join(
     [
+        "(.*(nvimgcodec_pydicom_plugin)$)",
         "(^(monai.handlers))",
         "(^(monai.bundle))",
         "(^(monai.fl))",
@@ -136,4 +137,4 @@ except Exception:
 
     if MONAIEnvVars.debug():
         raise
-__commit_id__ = "8de81226c971dd27b5826d4bd60849d46aae9ff2"
+__commit_id__ = "4f150a8f26664d1452a8e420d118f4541597f686"

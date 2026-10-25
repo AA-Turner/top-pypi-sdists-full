@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: usearch
-Version: 2.26.5
+Version: 2.26.6
 Summary: Smaller & Faster Single-File Vector Search Engine from Unum
 Home-page: https://github.com/unum-cloud/USearch
 Author: Ash Vardanian
@@ -24,12 +24,12 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: System :: Clustering
 Classifier: Topic :: Database :: Database Engines/Servers
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy
 Requires-Dist: tqdm
-Requires-Dist: numkong
+Requires-Dist: numkong>=7.8.6
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -236,6 +236,12 @@ When compared to FAISS's `IndexFlatL2` in Google Colab, __[USearch may offer up 
 - `usearch.index.search`: __2.54 ms__.
 
 ## User-Defined Metrics
+
+Built-in metrics return distances, so a smaller `Match.distance` means closer.
+
+- `cos`, the Python default, returns $1 - \frac{a \cdot b}{\lVert a \rVert \lVert b \rVert}$ for vectors of any length.
+- `ip` returns $1 - a \cdot b$, matching `cos` only for unit-length vectors and turning negative once $a \cdot b > 1$.
+- `l2sq` returns the squared Euclidean distance $\sum_i (a_i - b_i)^2$, without the square root.
 
 While most vector search packages concentrate on just two metrics, "Inner Product distance" and "Euclidean distance", USearch allows arbitrary user-defined metrics.
 This flexibility allows you to customize your search for various applications, from computing geospatial coordinates with the rare [Haversine][haversine] distance to creating custom metrics for composite embeddings from multiple AI models, like joint image-text embeddings.
@@ -612,7 +618,7 @@ doi = {10.5281/zenodo.7949415},
 author = {Vardanian, Ash},
 title = {{USearch by Unum Cloud}},
 url = {https://github.com/unum-cloud/USearch},
-version = {2.26.5},
+version = {2.26.6},
 year = {2026},
 }
 ```

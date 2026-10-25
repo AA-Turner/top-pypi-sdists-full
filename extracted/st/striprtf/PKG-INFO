@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: striprtf
-Version: 0.0.34
+Version: 0.0.35
 Summary: A simple library to convert rtf to text
 Project-URL: Homepage, https://github.com/joshy/striprtf
 Project-URL: Repository, https://github.com/joshy/striprtf.git
@@ -11,7 +11,6 @@ License-File: LICENSE
 Keywords: rtf
 Classifier: License :: OSI Approved :: BSD License
 Requires-Python: >=3.8
-Requires-Dist: idna>=3.15
 Provides-Extra: dev
 Requires-Dist: build>=1.0.0; extra == 'dev'
 Requires-Dist: pytest>=7.0.0; extra == 'dev'

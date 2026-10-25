@@ -1,271 +1,409 @@
-"""async_dsss_pool_demo.py -- the multi-emitter pool as ONE object: two
-emitters on one code arrive, one leaves and is released, it returns and
-is a new detection -- the lifecycle :class:`~doppler.dsss.AsyncDsssPool`
-holds (``docs/design/async-dsss-receiver.md`` section 8.2), with the
-event log attached and a timeline of who held which slot when.
+"""async_dsss_pool_demo.py -- an :class:`~doppler.dsss.AsyncDsssPool` holding
+several emitters that come and go.
 
-The C twin (``native/examples/async_dsss_pool_demo.c``) manages the
-lifecycle the binding hides -- the symbol buffer, the borrowed log, the
-slot keyed by both coordinates. This page shows the *result*: the slots'
-occupancy against the truth, each tracked receiver's live Doppler, and
-the log's transitions in order.
+Three receivers share one stream. Four emitters on one Gold code reach it at
+different times, code phases and carriers: A, B and C arrive one after
+another, B leaves, and D arrives after it. Every receiver searches the
+whole carrier range for itself; the pool's controller only keeps them apart.
+It gives each searching receiver the code phases the others hold, so a
+search never takes a signal already held, and a rank, so two receivers that
+decide in the same dwell take different signals. When a receiver's emitter
+leaves, its release rule fires, the controller resets it, and it searches
+again.
 
-**The waveform is not built here.** Each emitter is the shipped
-continuous-DSSS :class:`~doppler.wfm.Synth` (the code from
-:class:`~doppler.wfm.Gold`, asynchronous BPSK from its own seeded PN) at
-its own carrier offset, and the noise is a ``type="noise"`` Synth scaled
-by :func:`~doppler.wfm.wfm_awgn_amplitude` from the C/N0 -- nothing here
-spreads a chip, draws a bit or a sigma.
+What the run shows:
 
-**A slot is the emitter's by both coordinates, never by a count.** The
-searcher's false alarms are part of the lifecycle: at pfa 1e-3 a noise
-peak seeds a free slot every few hundred milliseconds, refines to
-nothing and is released one interval later. So an emitter's slot is the
-one whose SEED is within the searcher's row of its Doppler AND within a
-chip of its code phase at the seed's sample -- the synth's own clock --
-and the figure colours every other assignment as what it is.
+- **One receiver per emitter.** While A, B and C are on the air, each is
+  held by exactly one receiver, and no two receivers hold one signal.
+- **A departure frees a receiver.** After B leaves, its receiver is
+  released once both of its lock detectors have stayed down for
+  ``lost_confirm_s``, and it searches again.
+- **The freed receiver takes the newcomer.** D is acquired by the receiver
+  that was free, without disturbing the two that track A and C.
+
+The pool is fed one code epoch per push. The checks and the figure read
+only what the pool reports: each receiver's ``status()``, after every push.
+An emitter is identified by its code phase, which this file knows because it
+placed each emitter on the stream.
+
+The design is ``docs/design/async-dsss-parallel.md``.
+
+Run:  python -m doppler.examples.async_dsss_pool_demo  [out.png]
 """
 
 from __future__ import annotations
 
-import json
-import os
 import sys
-import tempfile
 
-# --8<-- [start:geometry]
+# --8<-- [start:signal]
 import numpy as np
 
-from doppler.dsss import AsyncDsssPool
-from doppler.telemetry import EventLog
-from doppler.wfm import Gold, Synth, _SynthEngine, wfm_awgn_amplitude
+from doppler.source import AWGN
+from doppler.wfm import Gold, Synth, wfm_awgn_amplitude
 
-SF = 1023
-CHIP_RATE = 5.0e6
-SPC = 2
-FS = CHIP_RATE * SPC
-SYM_RATE = 2700.0
-TE = SF * SPC  # one code epoch, the push block
-CN0_DBHZ = 47.0
-DU = 6000.0  # the searcher's span: +-6 kHz
-# The code-only window the searcher aligns its blocks inside: 20 symbols of
-# every 270 (ten frames a second; the operating point's is 450 of 4950),
-# holding the 31 whole epochs a depth of 16 needs at any chip phase -- rows
-# of 305 Hz, inside the cell receivers' pull-in (the pool refuses a
-# shallower searcher).
-W_SYM, F_SYM, CODE_ONLY_EPOCHS = 20, 270, 31
-LOST_S = 0.3  # the release interval, short enough to see
-N_SLOTS = 4
-EMITTERS = {  # name: (Doppler Hz, code phase at sample 0 in chips, seed)
-    "A": (1500.0, 0, 1),
-    "B": (-3500.0, 900, 2),
-}
-ON_S, OFF_S = 1.0, 3.0 * LOST_S  # A always on; B on, off, on
-CODE = np.asarray(Gold().generate(SF)).astype(np.uint8)
-# --8<-- [end:geometry]
+SF = 1023  # Gold code period, chips (CCSDS)
+CHIP_RATE = 3.069e6  # chips per second
+SPC = 2  # samples per chip
+FS = CHIP_RATE * SPC  # sample rate, 6.138 MSa/s
+SYM_RATE = 2700.0  # BPSK symbols per second, asynchronous to the code
+TE = SF * SPC  # one code epoch, samples: one push
+EPOCH_S = TE / FS  # seconds per push
+CARRIER_UNCERTAINTY = 5000.0  # Hz, one-sided: the search range
+ESN0_DB = 10.0  # Es/N0 of each emitter at the input
+CN0_DBHZ = ESN0_DB + 10.0 * np.log10(SYM_RATE)  # C/N0, dB-Hz
+LOST_CONFIRM_S = 0.1  # both lock detectors down this long before a release
+N_RECEIVERS = 3
+SEED_NOISE = 5
+
+GOLD = np.asarray(Gold().generate(SF), np.uint8)
+
+#: The emitters: name, carrier (Hz), code-phase offset (samples into its
+#: first epoch, so each sits hundreds of chips from the others), and the
+#: epochs it is on the air, [first, end).
+EMITTERS = (
+    ("A", 1500.0, 0, (90, 9600)),
+    ("B", -2200.0, 600, (900, 4500)),
+    ("C", 700.0, 1300, (1800, 9600)),
+    ("D", -1000.0, 1800, (5700, 9600)),
+)
+N_EPOCHS = 9600  # 3.2 s
 
 
-# --8<-- [start:stimulus]
-def emitter(doppler_hz: float, chip0: int, seed: int) -> _SynthEngine:
-    """One emitter: the shipped continuous DSSS at a carrier offset, clean,
-    with the waveform's code-only window, its code `chip0` chips in at the
-    stream's first sample (a burn-in the caller discards) -- two emitters
-    must differ in code phase as well as Doppler, since one phase is one
-    peak to the searcher. The engine rather than ``Synth``: the window is
-    the engine's alone (#1294)."""
-    syn = _SynthEngine(
-        type="dsss",
-        fs=FS,
-        freq=doppler_hz,
-        snr=100.0,  # clean: the noise is added once, at the sum
-        sps=SPC,
-        seed=seed,
+def make_stream(seed: int = SEED_NOISE) -> np.ndarray:
+    """The capture: :data:`EMITTERS` on one Gold code, each from
+    :class:`~doppler.wfm.Synth` in continuous DSSS mode with its own PRBS
+    seed, placed on the stream at its own sample offset and carrier, plus
+    :class:`~doppler.source.AWGN` at the Es/N0 every emitter shares.
+
+    Returns
+    -------
+    x : NDArray[np.complex64]
+        :data:`N_EPOCHS` code epochs.
+    """
+    n = N_EPOCHS * TE
+    x = np.zeros(n, np.complex64)
+    for k, (_, freq, offset, (a, b)) in enumerate(EMITTERS):
+        s0, s1 = a * TE + offset, b * TE
+        x[s0:s1] += np.asarray(
+            Synth(
+                type="dsss",
+                fs=FS,
+                seed=11 + k,  # each emitter its own data
+                sps=SPC,
+                data_code=GOLD.tobytes(),
+                symbol_rate=SYM_RATE,
+                freq=freq,
+            ).steps(s1 - s0),
+            np.complex64,
+        )
+    amp = float(
+        wfm_awgn_amplitude(ESN0_DB - 10.0 * np.log10(FS / SYM_RATE), 1.0)
     )
-    syn.set_dsss_cont(CODE, CHIP_RATE / SYM_RATE, data="prbs")
-    syn.set_dsss_window(W_SYM, F_SYM)
-    if chip0:
-        syn.steps(chip0 * SPC)
-    return syn
+    x += AWGN(seed=seed, amplitude=amp).generate(n).astype(np.complex64)
+    return x
 
 
-def stimulus(seed: int = 7):
-    """Both emitters on for ON_S, B off for OFF_S (its synth keeps running:
-    coming back is not restarting), both on again; noise at the sum.
-    Returns the capture and B's on-air mask per epoch."""
-    a = emitter(*EMITTERS["A"])
-    b = emitter(*EMITTERS["B"])
-    n_on, n_off = int(ON_S * FS / TE), int(OFF_S * FS / TE)
-    on_b = np.array([1] * n_on + [0] * n_off + [1] * n_on, dtype=bool)
-    blocks = []
-    for on in on_b:
-        sa = a.steps(TE)
-        sb = b.steps(TE)
-        blocks.append(sa + sb if on else sa)
-    x = np.concatenate(blocks)
-    # C/N0 referred to fs; the Synth emits unit total power, the amplitude
-    # is per component, and the sqrt(2) bridges the two conventions.
-    amp = float(wfm_awgn_amplitude(CN0_DBHZ - 10.0 * np.log10(FS), 1.0))
-    noise = Synth(type="noise", fs=FS, seed=seed).steps(len(x))
-    return (x + amp * np.sqrt(2.0) * noise).astype(np.complex64), on_b
+def emitter_phase(k: int, sample: int) -> float:
+    """Emitter ``k``'s code phase, chips, at ``sample``: its code starts at
+    chip 0 on its first sample."""
+    _, _, offset, (a, _) = EMITTERS[k]
+    return ((sample - (a * TE + offset)) / SPC) % SF
 
 
-# --8<-- [end:stimulus]
+# --8<-- [end:signal]
+
+from doppler.dsss import AsyncDsssPool  # noqa: E402
+
+STATES = {0: "searching", 1: "refining", 2: "tracking", 4: "lost"}
 
 
 # --8<-- [start:pool]
-def owner(pool: AsyncDsssPool, slot: int) -> str | None:
-    """Which emitter a slot's SEED is -- row and chip phase -- or None
-    for a false alarm (a noise seed at another phase)."""
-    r = pool.status(slot)
-    if not r.assigned:
-        return None
-    for name, (f, chip0, _) in EMITTERS.items():
-        truth = (r.seed_sample / SPC + chip0) % SF
-        dc = abs(r.seed_chip_phase - truth)
-        dc = min(dc, SF - dc)
-        if abs(r.seed_doppler_hz - f) <= pool.doppler_res_hz and dc <= 1.0:
-            return name
-    return "false alarm"
+def run(x: np.ndarray) -> dict:
+    """Push the capture one code epoch at a time and record every
+    receiver's status after each push.
 
+    The pool is built like one :class:`~doppler.dsss.AsyncDsssReceiver`,
+    plus ``n_receivers``. ``lost_confirm_s`` arms each receiver's release
+    rule, which is what frees a receiver whose emitter left.
 
-def run(x: np.ndarray, events_path: str):
+    Returns
+    -------
+    rec : dict
+        ``state``, ``phase`` and ``locked``, each ``(epochs, receivers)``;
+        ``symbols``, each receiver's last 600 symbols; and the pool's
+        ``released_lost`` and ``released_duplicate`` counts.
+    """
     pool = AsyncDsssPool(
-        CODE,
+        GOLD,
+        n_receivers=N_RECEIVERS,
         chip_rate=CHIP_RATE,
         symbol_rate=SYM_RATE,
         spc=SPC,
         cn0_dbhz=CN0_DBHZ,
-        pfa=1e-3,
-        doppler_uncertainty=DU,
-        code_only_epochs=CODE_ONLY_EPOCHS,
-        n_slots=N_SLOTS,
-        lost_confirm_s=LOST_S,
-        threads=1,
+        doppler_uncertainty=CARRIER_UNCERTAINTY,
+        lost_confirm_s=LOST_CONFIRM_S,
     )
-    log = EventLog(events_path)
-    pool.set_event_log(log)
-    n_ep = len(x) // TE
-    who = np.full((N_SLOTS, n_ep), "", dtype=object)  # owner per epoch
-    dopp = np.full((N_SLOTS, n_ep), np.nan)  # live Doppler while tracking
-    n_syms = dict.fromkeys(EMITTERS, 0)
-    for k in range(n_ep):
-        pool.push(x[k * TE : (k + 1) * TE])
-        for i in range(N_SLOTS):
-            o = owner(pool, i)
-            r = pool.status(i)
-            who[i, k] = o or ""
-            if o in n_syms:
-                n_syms[o] += len(pool.symbols(i))
-            if r.assigned and r.state == 2:  # tracking
-                dopp[i, k] = r.doppler_hz
-    pool.set_event_log(None)
-    log.close()
-    with open(events_path) as fh:
-        events = [json.loads(line) for line in fh]
-    assert len(events) == pool.events, "every transition reached the log"
-    return who, dopp, n_syms, events
+    shape = (N_EPOCHS, N_RECEIVERS)
+    state = np.zeros(shape, int)
+    phase = np.zeros(shape)
+    locked = np.zeros(shape, int)
+    tail = [[] for _ in range(N_RECEIVERS)]
+    rx1_t, rx1_s = [], []  # every symbol receiver 1 emits, and when
+    for e in range(N_EPOCHS):
+        pool.push(x[e * TE : (e + 1) * TE])
+        for i in range(N_RECEIVERS):
+            st = pool.status(i)
+            state[e, i], phase[e, i], locked[e, i] = (
+                st.state,
+                st.chip_phase,
+                st.locked,
+            )
+            sym = pool.symbols(i)
+            tail[i] = (tail[i] + list(sym))[-600:]
+            if i == 1 and len(sym):
+                # Spread over the push that emitted them: a symbol's time
+                # to within one code epoch.
+                rx1_t.extend(
+                    e * EPOCH_S + EPOCH_S * np.arange(len(sym)) / len(sym)
+                )
+                rx1_s.extend(sym)
+    return {
+        "state": state,
+        "phase": phase,
+        "locked": locked,
+        "symbols": [np.asarray(t) for t in tail],
+        "rx1_t": np.asarray(rx1_t),
+        "rx1_s": np.asarray(rx1_s),
+        "released_lost": pool.released_lost,
+        "released_duplicate": pool.released_duplicate,
+    }
 
 
 # --8<-- [end:pool]
 
 
-def check(who, on_b, n_syms, events) -> None:
-    """The lifecycle, asserted against the stimulus's truth."""
-    t = np.arange(who.shape[1]) * TE / FS
-    held = {n: (who == n).sum(axis=0) for n in EMITTERS}  # slots per epoch
-    # Assigned once: never two slots on one emitter.
-    for n in EMITTERS:
-        assert held[n].max() == 1, f"{n} was held by two slots at once"
-    # A: tracked for the whole run once found; B: found in each stint.
-    first_a = np.argmax(held["A"] > 0)
-    assert held["A"][first_a:].mean() > 0.99, "A was not held throughout"
-    off = np.flatnonzero(~on_b)
-    t_off, t_back = t[off[0]], t[off[-1] + 1]
-    b_before = held["B"][: off[0]]
-    assert b_before.max() == 1, "B was never assigned in its first stint"
-    # Released by the rule after the departure -- inside the interval plus
-    # half a second, never before it -- and a new slot after the return.
-    rel = np.flatnonzero(held["B"][off[0] :] == 0)
-    assert len(rel), "B's slot was never released"
-    t_rel = t[off[0] + rel[0]] - t_off
-    assert LOST_S <= t_rel <= LOST_S + 0.5, f"released at {t_rel:.2f} s"
-    slot_before = int(np.flatnonzero(who[:, off[0] - 1] == "B")[0])
-    back = np.flatnonzero(held["B"][off[-1] + 1 :] > 0)
-    assert len(back), "B was not re-acquired on return"
-    slot_after = int(np.flatnonzero(who[:, off[-1] + 1 + back[0]] == "B")[0])
-    assert n_syms["A"] > 1000 and n_syms["B"] > 1000, "symbols by slot"
-    labels = [e["core:label"] for e in events]
-    want = ["seeded", "tracking", "lost", "released", "seeded"]
-    i = 0
-    for lab in labels:
-        if i < len(want) and lab == want[i]:
-            i += 1
-    assert i == len(want), f"the log's order: {labels}"
-    print(
-        f"A: one slot from {t[first_a]:.3f} s to the end; "
-        f"B: slot {slot_before} until it left at {t_off:.2f} s, released "
-        f"{t_rel * 1e3:.0f} ms later (the interval is {LOST_S * 1e3:.0f} ms), "
-        f"slot {slot_after} after it returned at {t_back:.2f} s; "
-        f"{n_syms['A']} + {n_syms['B']} symbols; {len(events)} events"
-    )
+# --8<-- [start:validate]
+def holder_of(rec: dict) -> np.ndarray:
+    """Which emitter each receiver holds at each epoch's end: the index of
+    the emitter within 1.5 chips of the receiver's code phase, or -1
+    (searching). A receiver still holding an emitter that has left -- until
+    its release fires -- reads that emitter."""
+    out = np.full(rec["state"].shape, -1)
+    for e in range(N_EPOCHS):
+        end = (e + 1) * TE
+        for i in range(N_RECEIVERS):
+            if rec["state"][e, i] not in (1, 2):
+                continue
+            for k, (_, _, _, (a, _b)) in enumerate(EMITTERS):
+                d = abs(rec["phase"][e, i] - emitter_phase(k, end))
+                if e >= a and min(d, SF - d) <= 1.5:
+                    out[e, i] = k
+    return out
 
 
-def figure(who, dopp, on_b, out_path: str) -> None:
+def check(rec: dict) -> dict:
+    """The run's claims, asserted from the pool's own reports.
+
+    Settling margins: an emitter is counted from 0.5 s after it arrives,
+    and a departed one from ``lost_confirm_s`` plus 0.2 s after it leaves.
+    """
+    held = holder_of(rec)
+    settle = int(0.5 / EPOCH_S)
+    gone = int((LOST_CONFIRM_S + 0.2) / EPOCH_S)
+    arrive_ms = {}
+    for k, (name, _, _, (a, b)) in enumerate(EMITTERS):
+        span = held[a + settle : b]
+        n_holders = (span == k).sum(axis=1)
+        assert (n_holders == 1).all(), (
+            f"{name}: held by {set(n_holders)} receivers while on the air"
+        )
+        first = np.flatnonzero((held[a:b] == k).any(axis=1))[0]
+        arrive_ms[name] = first * EPOCH_S * 1e3
+        if b < N_EPOCHS:  # left: released within the confirm time
+            assert not (held[b + gone :] == k).any(), (
+                f"{name} still held after it left"
+            )
+            last = np.flatnonzero((held == k).any(axis=1))[-1]
+            release_ms = (last + 1 - b) * EPOCH_S * 1e3
+    # A departure freed a receiver, and the newcomer took it.
+    assert rec["released_lost"] >= 1
+    b_rx = int(np.flatnonzero((held == 1).any(axis=0))[0])
+    d_rx = int(np.flatnonzero((held == 3).any(axis=0))[0])
+    assert b_rx == d_rx, "D was taken by the receiver B freed"
+    # Every receiver holding a signal at the end has symbol lock.
+    for i in range(N_RECEIVERS):
+        assert rec["locked"][-1, i] == 1, f"receiver {i} not symbol-locked"
+    return {"arrive_ms": arrive_ms, "b_rx": b_rx, "release_ms": release_ms}
+
+
+# --8<-- [end:validate]
+
+
+def main(out_path: str = "async_dsss_pool_demo.png") -> None:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    t = np.arange(who.shape[1]) * TE / FS
-    colours = {"A": "tab:blue", "B": "tab:orange", "false alarm": "tab:gray"}
-    fig, (ax0, ax1) = plt.subplots(
-        2, 1, figsize=(9, 5.5), sharex=True, constrained_layout=True
+    rec = run(make_stream())
+    t = check(rec)
+    held = holder_of(rec)
+    for name, ms in t["arrive_ms"].items():
+        print(f"{name}: held {ms:.0f} ms after it arrived")
+    print(
+        f"B left; receiver {t['b_rx']} was released "
+        f"{t['release_ms']:.0f} ms later "
+        f"({rec['released_lost']} release(s), "
+        f"{rec['released_duplicate']} duplicate(s)) and took D"
     )
-    seen: set[str] = set()
-    for i in range(N_SLOTS):
-        for name, c in colours.items():
-            m = who[i] == name
-            if not m.any():
-                continue
-            ax0.fill_between(
-                t,
-                i - 0.4,
-                i + 0.4,
-                where=m,
-                color=c,
-                step="mid",
-                label=None if name in seen else name,
+
+    colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
+    t_s = np.arange(N_EPOCHS) * EPOCH_S
+    fig = plt.figure(figsize=(10, 9.5))
+    gs = fig.add_gridspec(3, N_RECEIVERS, height_ratios=[1.3, 0.9, 1])
+    top = fig.add_subplot(gs[0, :])
+    # The emitters on the air, then what each receiver holds.
+    for k, (name, freq, _, (a, b)) in enumerate(EMITTERS):
+        top.broken_barh(
+            [(a * EPOCH_S, (b - a) * EPOCH_S)],
+            (N_RECEIVERS + 0.6 + 0.5 * k, 0.4),
+            color=colors[k],
+            alpha=0.5,
+        )
+        top.text(
+            a * EPOCH_S + 0.02,
+            N_RECEIVERS + 0.8 + 0.5 * k,
+            f"{name} ({freq:+.0f} Hz)",
+            fontsize=7,
+            va="center",
+        )
+    for i in range(N_RECEIVERS):
+        y = N_RECEIVERS - 1 - i
+        for k in range(len(EMITTERS)):
+            on = held[:, i] == k
+            edges = np.flatnonzero(np.diff(np.r_[0, on, 0]))
+            top.broken_barh(
+                [
+                    (s * EPOCH_S, (f - s) * EPOCH_S)
+                    for s, f in zip(edges[::2], edges[1::2])
+                ],
+                (y + 0.1, 0.8),
+                color=colors[k],
             )
-            seen.add(name)
-        ax1.plot(t, dopp[i], lw=1, label=f"slot {i}")
-    off = np.flatnonzero(~on_b)
-    for ax in (ax0, ax1):
-        ax.axvline(t[off[0]], color="k", ls="--", lw=0.8)
-        ax.axvline(t[off[-1] + 1], color="k", ls="--", lw=0.8)
-    ax0.set_yticks(range(N_SLOTS))
-    ax0.set_ylabel("slot")
-    ax0.set_title(
-        "AsyncDsssPool: who holds which slot -- B leaves at the first "
-        "dashed line, returns at the second"
+        for k, (_, _, _, (_, end)) in enumerate(EMITTERS):
+            late = (held[:, i] == k) & (np.arange(N_EPOCHS) >= end)
+            if late.any():
+                s0, s1 = np.flatnonzero(late)[[0, -1]]
+                top.broken_barh(
+                    [(s0 * EPOCH_S, (s1 + 1 - s0) * EPOCH_S)],
+                    (y + 0.1, 0.8),
+                    facecolor="none",
+                    edgecolor="k",
+                    hatch="///",
+                    lw=0,
+                    label="held after it left" if i == 1 else None,
+                )
+        busy = rec["state"][:, i] == 1
+        top.fill_between(
+            t_s,
+            y + 0.1,
+            y + 0.9,
+            where=busy,
+            step="post",
+            color="0.6",
+            lw=0,
+            label="refining" if i == 0 else None,
+        )
+    top.set_yticks(
+        [y + 0.5 for y in range(N_RECEIVERS)]
+        + [N_RECEIVERS + 0.8 + 0.5 * k for k in range(len(EMITTERS))]
     )
-    ax0.legend(loc="upper right", fontsize=8)
-    for f, _, _ in EMITTERS.values():
-        ax1.axhline(f, color="k", lw=0.5, alpha=0.4)
-    ax1.set_ylabel("live Doppler (Hz)")
-    ax1.set_xlabel("time (s)")
-    ax1.legend(loc="upper right", fontsize=8)
+    top.set_yticklabels(
+        [f"receiver {N_RECEIVERS - 1 - i}" for i in range(N_RECEIVERS)]
+        + ["on air"] * len(EMITTERS),
+        fontsize=8,
+    )
+    top.set_xlim(0, N_EPOCHS * EPOCH_S)
+    top.set_xlabel("time (s)")
+    top.set_title(
+        "What each receiver holds (colour = emitter; gaps = searching)",
+        fontsize=9,
+    )
+    top.legend(fontsize=7, loc="lower left")
+    top.grid(alpha=0.25, axis="x")
+    # Receiver 1 over time: B's symbols, silence while it searches after
+    # the release, then D's.
+    mid = fig.add_subplot(gs[1, :], sharex=top)
+    mid.plot(
+        rec["rx1_t"], rec["rx1_s"].real, ".", ms=1.2, color="k", label="I"
+    )
+    mid.plot(
+        rec["rx1_t"], rec["rx1_s"].imag, ".", ms=1.2, color="0.6", label="Q"
+    )
+    for k in (1, 3):
+        on = held[:, 1] == k
+        idx = np.flatnonzero(on)
+        if idx.size:
+            mid.axvspan(
+                idx[0] * EPOCH_S,
+                (idx[-1] + 1) * EPOCH_S,
+                color=colors[k],
+                alpha=0.12,
+                lw=0,
+            )
+    mid.set_ylim(-2.0, 2.0)
+    mid.set_ylabel("symbol")
+    # The symbol lock flag, status().locked, on its own 0/1 axis: what says
+    # the symbols are a signal's (it drops when B leaves, before the
+    # release, and the receiver emits noise until then).
+    lk = mid.twinx()
+    lk.step(
+        t_s,
+        rec["locked"][:, 1],
+        where="post",
+        color="#9467bd",
+        lw=1.4,
+        label="symbol lock",
+    )
+    lk.set_ylim(-0.1, 1.1)
+    lk.set_yticks([0, 1])
+    lk.set_ylabel("locked", color="#9467bd")
+    # One legend, on the left, holding both axes' entries; drawn on the
+    # twin, which sits on top.
+    h1, l1 = mid.get_legend_handles_labels()
+    h2, l2 = lk.get_legend_handles_labels()
+    lk.legend(h1 + h2, l1 + l2, fontsize=7, loc="upper left", markerscale=6)
+    mid.set_xlabel("time (s)")
+    mid.set_title(
+        "Receiver 1's symbols and its symbol lock: B, then "
+        "searching, then D (shading = emitter held)",
+        fontsize=9,
+    )
+    mid.grid(alpha=0.25)
+    for i in range(N_RECEIVERS):
+        ax = fig.add_subplot(gs[2, i])
+        s = rec["symbols"][i]
+        k = held[-1, i]
+        ax.plot(s.real, s.imag, ".", ms=2, color=colors[k] if k >= 0 else "k")
+        ax.set_aspect("equal")
+        lim = 1.6 * max(1e-9, np.abs(s).max())
+        ax.set_xlim(-lim, lim)
+        ax.set_ylim(-lim, lim)
+        ax.set_title(
+            f"receiver {i}: {EMITTERS[k][0] if k >= 0 else '-'}, "
+            "last 600 symbols",
+            fontsize=8,
+        )
+        ax.grid(alpha=0.25)
+    fig.suptitle(
+        f"AsyncDsssPool: {N_RECEIVERS} receivers, 4 emitters on Gold-{SF}, "
+        f"Es/N0={ESN0_DB:.0f} dB each",
+        fontsize=10,
+    )
+    fig.tight_layout()
     fig.savefig(out_path, dpi=120)
-    plt.close(fig)
-
-
-def main(out_path: str = "async_dsss_pool_demo.png") -> None:
-    x, on_b = stimulus()
-    with tempfile.TemporaryDirectory() as d:
-        who, dopp, n_syms, events = run(x, os.path.join(d, "run.events"))
-    check(who, on_b, n_syms, events)
-    figure(who, dopp, on_b, out_path)
     print(f"wrote {out_path}")
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:2])
+    main(sys.argv[1] if len(sys.argv) > 1 else "async_dsss_pool_demo.png")

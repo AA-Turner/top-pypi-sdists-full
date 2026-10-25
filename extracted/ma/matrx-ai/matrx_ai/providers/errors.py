@@ -2211,6 +2211,14 @@ def _classify_stainless_by_status(
 # UNIVERSAL DISPATCH
 # ============================================================================
 
+def classify_device_error(exception: Exception) -> RetryableError:
+    """A model on a person's own computer (``providers/device/classify.py``): every relay
+    answer is ONE typed device error, never retryable, never overload-class."""
+    from matrx_ai.providers.device.classify import classify_device_error as classify
+
+    return classify(exception)
+
+
 _PROVIDER_CLASSIFIERS: dict[str, object] = {
     "anthropic": classify_anthropic_error,
     "openai": classify_openai_error,
@@ -2223,10 +2231,18 @@ _PROVIDER_CLASSIFIERS: dict[str, object] = {
     "huggingface": classify_generic_openai_error,
     "moonshot": classify_moonshot_error,
     "elevenlabs": classify_elevenlabs_error,
+    "device": classify_device_error,
 }
+
+#: Providers whose classifier owns EVERY failure — the shared transport pass
+#: (``classify_common_error``) would read a relay hop's httpx error as a
+#: retryable connection error and invite a re-send a device run never gets.
+_OWNS_EVERY_FAILURE: frozenset[str] = frozenset({"device"})
 
 
 def classify_provider_error(provider: str, exception: Exception) -> RetryableError:
+    if provider.lower() in _OWNS_EVERY_FAILURE:
+        return _PROVIDER_CLASSIFIERS[provider.lower()](exception)  # type: ignore[operator]
     common = classify_common_error(exception, provider)
     if common is not None:
         return common

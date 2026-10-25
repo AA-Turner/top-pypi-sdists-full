@@ -68,6 +68,7 @@ from typing import Any
 
 from matrx_utils import vcprint
 
+from matrx_ai.tools.knobs import AGENT_CALL_MAX_DEPTH_MIRROR
 from matrx_ai.tools.models import (
     AGENT_DEPTH_METADATA_KEY,
     ToolContext,
@@ -76,12 +77,12 @@ from matrx_ai.tools.models import (
     build_agent_media_content,
 )
 
-# Hard ceiling on nested agent_call depth. A CAPS constant (not an env var) per
-# the repo's config doctrine: changing it is a code push, and a missing value
-# can never silently disable the guard. depth 0 = the top-level request's agent;
-# each nested agent_call increments it. 3 lets an agent call an agent that calls
-# an agent, then stops — enough for real composition, short of a runaway loop.
-MAX_AGENT_CALL_DEPTH = 3
+# The ceiling on nested agent_call depth is a KNOB (``agents.tool_dispatch /
+# agent_call_max_depth``, read live through the host via ``tools.knobs``); this is
+# its mirror, used only when no host value can be read (announced). depth 0 = the
+# top-level request's agent; each nested agent_call increments it. 3 lets an agent
+# call an agent that calls an agent, then stops.
+MAX_AGENT_CALL_DEPTH = AGENT_CALL_MAX_DEPTH_MIRROR
 
 # Key under AppContext.metadata carrying the current nesting depth. Canonical
 # constant lives in tools/models.py — the SAME key feeds the ToolType.AGENT
@@ -643,13 +644,16 @@ async def agent_call(
         depth = int(app_ctx.metadata.get(_AGENT_CALL_DEPTH_KEY, 0))
     except (TypeError, ValueError):
         depth = 0
-    if depth >= MAX_AGENT_CALL_DEPTH:
+    from matrx_ai.tools.knobs import agent_call_max_depth
+
+    max_depth = agent_call_max_depth()
+    if depth >= max_depth:
         return _fail(
             ctx,
             started_at,
             error_type="recursion_limit",
             message=f"agent_call nesting limit reached (depth {depth} ≥ "
-            f"{MAX_AGENT_CALL_DEPTH}). Refusing to run another nested agent.",
+            f"{max_depth}). Refusing to run another nested agent.",
             suggested_action="Flatten the agent composition or do the remaining work directly.",
         )
 

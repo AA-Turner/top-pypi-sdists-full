@@ -43,7 +43,7 @@ model), so only calls that failed BEFORE producing output reroute.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -176,8 +176,14 @@ def is_overload_error(error_info: RetryableError) -> bool:
     )
 
 
-def is_reroutable_provider_error(error_info: RetryableError) -> bool:
-    """Failures safe to reroute only when the failed call produced no output."""
+def is_reroutable_provider_error(error_info: RetryableError, *, served_via: Any = None) -> bool:
+    """Failures safe to reroute only when the failed call produced no output.
+
+    Never for a DEVICE-SERVED run (``served_via``): it has one route — the person's own
+    computer — and every reroute would move their data to a cloud they did not pick.
+    """
+    if served_via is not None:
+        return False
     return is_overload_error(error_info) or error_info.error_type == "billing_error"
 
 
@@ -193,6 +199,7 @@ def decide_overload_action(
     current_offering_id: str | None = None,
     sibling_offering_ids: list[str] | None = None,
     offering_hops: int = 0,
+    served_via: Any = None,
 ) -> RerouteDecision:
     """The ONE decision function for an overload-class provider failure.
 
@@ -214,6 +221,11 @@ def decide_overload_action(
     Rungs 2-4 all require ``produced_output=False`` — a paid call that produced
     output is never re-run anywhere.
     """
+    if served_via is not None:
+        return RerouteDecision(
+            action="give_up",
+            reason="a device-served run has one route and is never retried or rerouted",
+        )
     if not is_reroutable_provider_error(error_info):
         return RerouteDecision(
             action="give_up",
@@ -311,13 +323,18 @@ def decide_overload_action(
     )
 
 
-async def load_overload_policy(model_ref: str, state: OverloadRerouteState) -> OverloadPolicy:
+async def load_overload_policy(
+    model_ref: str, state: OverloadRerouteState, *, served_via: Any = None
+) -> OverloadPolicy:
     """Read (and cache per-iteration) the model row's overload policy.
 
     Degrades to the default policy (retry_max_attempts=2, no fallback) when the
     model row cannot be read (client host without a DB-backed catalog, unknown
     ref) — the existing generic retry machinery then still applies.
     """
+    if served_via is not None:
+        # A device-served run: no same-model retries, no fallback model — ever.
+        return OverloadPolicy(retry_max_attempts=0, fallback_ref=None)
     cached = state.policies.get(model_ref)
     if cached is not None:
         return cached
@@ -357,6 +374,7 @@ async def load_offering_ladder(
     *,
     routing_offering_id: str | None,
     offerings_tried: list[str],
+    served_via: Any = None,
 ) -> OfferingLadder | None:
     """Build the same-model offering picture for a failing dispatch.
 
@@ -369,8 +387,11 @@ async def load_offering_ladder(
     already tried this iteration — never another class.
 
     Degrades to ``None`` (→ classic model-level behavior only) when the model or
-    catalog cannot be read — the lookup must never break the retry loop.
+    catalog cannot be read — the lookup must never break the retry loop. ``None``
+    always for a device-served run (``served_via``): it has no sibling routes.
     """
+    if served_via is not None:
+        return None
     try:
         from matrx_ai.catalog.manager import ai_catalog_manager
         from matrx_ai.db.ai_models.ai_model_manager import ai_model_manager_instance

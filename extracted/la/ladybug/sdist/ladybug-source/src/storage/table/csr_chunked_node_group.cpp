@@ -51,11 +51,11 @@ CSRRegion CSRRegion::upgradeLevel(const std::vector<CSRRegion>& leafRegions,
         newRegion.sizeChange += leafRegions[leafRegionIdx].sizeChange;
         newRegion.hasPersistentDeletions |= leafRegions[leafRegionIdx].hasPersistentDeletions;
         newRegion.hasInsertions |= leafRegions[leafRegionIdx].hasInsertions;
-        for (auto columnID = 0u; columnID < leafRegions[leafRegionIdx].hasUpdates.size();
-             columnID++) {
-            newRegion.hasUpdates[columnID] =
-                static_cast<bool>(newRegion.hasUpdates[columnID]) ||
-                static_cast<bool>(leafRegions[leafRegionIdx].hasUpdates[columnID]);
+        for (auto columnIdx = 0u; columnIdx < leafRegions[leafRegionIdx].hasUpdates.size();
+             columnIdx++) {
+            newRegion.hasUpdates[columnIdx] =
+                static_cast<bool>(newRegion.hasUpdates[columnIdx]) ||
+                static_cast<bool>(leafRegions[leafRegionIdx].hasUpdates[columnIdx]);
         }
     }
     return newRegion;
@@ -391,9 +391,31 @@ void InMemChunkedCSRHeader::fillDefaultValues(const offset_t newNumValues) const
 InMemChunkedCSRHeader::InMemChunkedCSRHeader(MemoryManager& memoryManager, bool enableCompression,
     uint64_t capacity) {
     offset = ColumnChunkFactory::createColumnChunkData(memoryManager, LogicalType::UINT64(),
-        enableCompression, capacity, ResidencyState::IN_MEMORY, false);
+        enableCompression, capacity, ResidencyState::IN_MEMORY, false /*hasNullData*/,
+        false /*initializeToZero*/);
     length = ColumnChunkFactory::createColumnChunkData(memoryManager, LogicalType::UINT64(),
-        enableCompression, capacity, ResidencyState::IN_MEMORY, false);
+        enableCompression, capacity, ResidencyState::IN_MEMORY, false /*hasNullData*/,
+        false /*initializeToZero*/);
+}
+
+bool InMemChunkedCSRHeader::coversNode(offset_t nodeOffset) const {
+    if (randomLookup || wholeHeader || decodedRanges.empty()) {
+        return true;
+    }
+    if (headerLimit > 0 && nodeOffset >= headerLimit) {
+        return true;
+    }
+    const auto first = nodeOffset == 0 ? offset_t{0} : nodeOffset - 1;
+    const auto lastEx = nodeOffset + 1;
+    for (const auto& [start, end] : decodedRanges) {
+        if (start <= first && end >= lastEx) {
+            return true;
+        }
+        if (start > first) {
+            break;
+        }
+    }
+    return false;
 }
 
 offset_t InMemChunkedCSRHeader::getStartCSROffset(offset_t nodeOffset) const {
@@ -406,7 +428,9 @@ offset_t InMemChunkedCSRHeader::getStartCSROffset(offset_t nodeOffset) const {
     if (randomLookup) {
         return offset->getValue<offset_t>(0);
     }
-    return offset->getValue<offset_t>(nodeOffset >= numValues ? (numValues - 1) : nodeOffset - 1);
+    DASSERT(coversNode(nodeOffset));
+    const auto stored = nodeOffset - 1 - indexBase;
+    return offset->getValue<offset_t>(stored >= numValues ? (numValues - 1) : stored);
 }
 
 offset_t InMemChunkedCSRHeader::getEndCSROffset(offset_t nodeOffset) const {
@@ -419,12 +443,18 @@ offset_t InMemChunkedCSRHeader::getEndCSROffset(offset_t nodeOffset) const {
     if (randomLookup) {
         return offset->getValue<offset_t>(nodeOffset == 0 ? 0 : 1);
     }
-    return offset->getValue<offset_t>(nodeOffset >= numValues ? (numValues - 1) : nodeOffset);
+    DASSERT(coversNode(nodeOffset));
+    const auto stored = nodeOffset - indexBase;
+    return offset->getValue<offset_t>(stored >= numValues ? (numValues - 1) : stored);
 }
 
 length_t InMemChunkedCSRHeader::getCSRLength(offset_t nodeOffset) const {
-    const auto offset = randomLookup ? 0 : nodeOffset;
-    return offset >= length->getNumValues() ? 0 : length->getValue<length_t>(offset);
+    if (randomLookup) {
+        return length->getNumValues() == 0 ? 0 : length->getValue<length_t>(0);
+    }
+    DASSERT(coversNode(nodeOffset));
+    const auto stored = nodeOffset - indexBase;
+    return stored >= length->getNumValues() ? 0 : length->getValue<length_t>(stored);
 }
 
 length_t InMemChunkedCSRHeader::getGapSize(offset_t nodeOffset) const {

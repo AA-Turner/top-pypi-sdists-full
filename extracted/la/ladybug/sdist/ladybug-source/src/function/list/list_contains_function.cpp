@@ -12,6 +12,9 @@ using namespace lbug::binder;
 namespace lbug {
 namespace function {
 
+// `x IN list` is parsed into list_contains, so this also defines IN over a list: a NULL element
+// never matches, and a list without a match is false even if it holds NULLs, not NULL as SQL's
+// three-valued IN would give. DuckDB's list_contains behaves the same way.
 struct ListContains {
     template<typename T>
     static void operation(common::list_entry_t& list, T& element, uint8_t& result,
@@ -32,7 +35,9 @@ static std::unique_ptr<FunctionBindData> bindFunc(const ScalarBindFuncInput& inp
     LogicalType childType;
     auto listExpr = input.arguments[0];
     auto elementExpr = input.arguments[1];
-    if (ExpressionUtil::isEmptyList(*listExpr)) {
+    // A NULL literal (or unbound parameter) list has type ANY and no child type.
+    if (ExpressionUtil::isEmptyList(*listExpr) ||
+        listExpr->getDataType().getLogicalTypeID() == LogicalTypeID::ANY) {
         childType = elementExpr->getDataType().copy();
     } else {
         auto& listChildType = ListType::getChildType(listExpr->getDataType());

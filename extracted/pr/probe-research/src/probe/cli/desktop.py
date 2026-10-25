@@ -519,7 +519,26 @@ FIELDS = {
     "start_backfill": {"previewId": str}, "resume_job": {"id": str}, "cancel_job": {"id": str},
     "delivery": {}, "profile": {}, "analytics_policy": {}, "set_capture": {"source": str, "enabled": bool},
     "onboarding_complete": {"userId": str, "customerId": str},
+    "workspaces": {},
 }
+
+
+def workspaces(client):
+    """The Settings → Workspace picker: every workspace on the team, fetched WITHOUT
+    this computer's workspace limit (so the menu always lists them all), and the
+    limit itself (`probe status --json`'s `account.workspace_limit`)."""
+    from . import workspace_limit_cmd
+
+    rows = workspace_limit_cmd.list_workspaces(client)
+    limit = workspace_limit_cmd.effective()
+    return {
+        "workspaces": [
+            {"id": str(row["id"]), "name": row.get("name"), "slug": row.get("slug"), "kind": row.get("kind")}
+            for row in rows
+            if isinstance(row, dict) and row.get("id")
+        ],
+        "workspace_limit": None if limit is None else limit.as_json(),
+    }
 
 
 def _dispatch(request):
@@ -552,7 +571,17 @@ def _dispatch(request):
         return complete_onboarding(request)
     with _client() as client:
         if op == "profile":
-            return client.transport.get("/v1/desktop/profile")
+            # The account the app's shell opens with (team, role, members): no
+            # workspace content, so it is read WITHOUT this computer's workspace
+            # limit. A limit naming a since-deleted workspace makes the API refuse
+            # every limited request (422 `workspace_limit_unknown`), and the shell
+            # that holds Settings, where that limit is fixed, must still open.
+            from probe.sdk import workspace_limit as _workspace_limit
+
+            with _workspace_limit.without_limit():
+                return client.transport.get("/v1/desktop/profile")
+        if op == "workspaces":
+            return workspaces(client)
         identity = _identity(client)
         if op == "delivery":
             return snapshot_delivery(identity)

@@ -180,6 +180,7 @@ def settings_adjustment_rows(adjustments: list[Any]) -> list[dict[str, Any]]:
                             "engine_action": adj.action,
                             "expected": bool(adj.expected),
                             "converted_from": adj.converted_from,
+                            "faithful": bool(getattr(adj, "faithful", False)),
                         }
                     ),
                     default=str,
@@ -189,7 +190,9 @@ def settings_adjustment_rows(adjustments: list[Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def publish_settings_adjustments(adjustments: list[Any], *, model: Any = "?", seam: str = "chat") -> None:
+def publish_settings_adjustments(
+    adjustments: list[Any], *, model: Any = "?", seam: str = "chat", announce: bool = True
+) -> None:
     """NOTHING A SETTING DOES IS SILENT (PB-03 defect 7, 2026-10-17).
 
     Every outbound seam (chat, session, structural, media) calls this with its
@@ -223,6 +226,18 @@ def publish_settings_adjustments(adjustments: list[Any], *, model: Any = "?", se
     except Exception as exc:  # noqa: BLE001
         vcprint(f"[outbound_params] settings_adjustments not stored: {exc!r}", color="yellow")
 
+    if not announce:
+        # Our own plumbing (a per-provider tool-schema translation the executor still
+        # enforces): stored on the snapshot above, never shown to the person.
+        return
+    # SHOWN only when something the person set actually changed. A value carried in
+    # the provider's own words or shape (Claude's effort as output_config.effort) is
+    # the system working — announcing it told people on nearly every Anthropic
+    # request that their settings were adjusted (Arman, 2026-10-24). Stored above
+    # either way.
+    rows = [r for r in rows if not r.get("faithful")]
+    if not rows:
+        return
     # One event per distinct list per REQUEST: every loop iteration re-runs the
     # seam in a fresh task copy, so the memory lives on the request's AppContext.
     signature = json.dumps([str(model), seam, rows], sort_keys=True, default=str)
@@ -519,6 +534,16 @@ def resolve_outbound_params(
     canonical = canonical_settings_from_config(config)
     for key in _STRUCTURAL_CANONICAL_KEYS:
         canonical.pop(key, None)
+    if getattr(config, "served_via", None) is not None:
+        # A device route (llama-server on the person's computer) keeps nothing provider-side:
+        # ``store`` is the run's own saved/unsaved choice, never a setting to send or to drop
+        # there, so dropping it changes nothing and is not announced (L5, 2026-10-24). The
+        # run's persistence reads ``store`` off the context, untouched by this.
+        canonical.pop("store", None)
+        # reasoning_effort is APPLIED on the device route, as the chat template's own switch
+        # (DeviceChat.to_provider_config → chat_template_kwargs.enable_thinking); it is never
+        # a request param the generic controls could drop and announce.
+        canonical.pop("reasoning_effort", None)
 
     foreign_adjustments: list[Any] = []
     drop_foreign_canonical_keys(
@@ -527,6 +552,13 @@ def resolve_outbound_params(
         model=getattr(config, "model", "?"),
         adjustments=foreign_adjustments,
     )
+
+    # A forced tool call (structural, never a param) changes what thinking the
+    # target may carry: the outbound pass reads it as metadata (never sent).
+    from matrx_ai.catalog import translation_defaults as _D
+
+    if getattr(config, "tool_choice", None) in _D.FORCED_TOOL_CHOICES:
+        canonical[_D.FORCED_TOOL_CHOICE_KEY] = True
 
     params, adjustments = controls.outbound(canonical, context=context)
     adjustments = foreign_adjustments + _undeclared_speech_drops(config, controls) + adjustments
@@ -557,6 +589,35 @@ def resolve_outbound_params(
     warn_client_about_dropped_settings(adjustments, model=getattr(config, "model", "?"))
     publish_settings_adjustments(adjustments, model=getattr(config, "model", "?"), seam="chat")
     return params
+
+
+def preview_outbound_translation(
+    config: Any,
+    controls: CompiledControlsMap,
+    *,
+    context: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """What a request with ``config`` would carry — the chat seam's own gate and
+    outbound pass, with NOTHING published, remembered or warned. One row per
+    adjustment (``settings_adjustment_rows`` shape, ``faithful`` included), so a
+    settings screen can show a kept value beside what it is sent as.
+    """
+    from matrx_ai.catalog import translation_defaults as _D
+    from matrx_ai.catalog.canonicalize import canonical_settings_from_config
+
+    controls = with_candidate_rules(controls)
+    canonical = canonical_settings_from_config(config)
+    for key in _STRUCTURAL_CANONICAL_KEYS:
+        canonical.pop(key, None)
+    gate: list[Any] = []
+    translated, gate_adjustments, _removed = controls.translate_foreign(
+        canonical, model=getattr(config, "model", "?")
+    )
+    gate.extend(gate_adjustments)
+    if getattr(config, "tool_choice", None) in _D.FORCED_TOOL_CHOICES:
+        translated = {**translated, _D.FORCED_TOOL_CHOICE_KEY: True}
+    _params, adjustments = controls.outbound(translated, context=context)
+    return settings_adjustment_rows(gate + adjustments)
 
 
 def translate_session_settings(
@@ -687,4 +748,5 @@ __all__ = [
     "send_client_warning",
     "translate_session_settings",
     "warn_client_about_dropped_settings",
+    "preview_outbound_translation",
 ]

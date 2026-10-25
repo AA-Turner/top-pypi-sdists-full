@@ -101,6 +101,9 @@ async def admit_child_safety(config: Any = None) -> None:
                 log_level="WARNING",
             )
         return
+    # A DEVICE-SERVED run (served_via) has one route: if the host's step swaps its model, the
+    # run is REFUSED and the model put back — never moved to a cloud model (L5 R1).
+    before_model = getattr(config, "model", None) if config is not None else None
     try:
         await _gate(config)
     except ChildSafetyRefusedError:
@@ -111,6 +114,11 @@ async def admit_child_safety(config: Any = None) -> None:
             color="red",
             log_level="ERROR",
         )
+        return
+    if config is not None:
+        from matrx_ai.providers.device.route_guard import refuse_device_move
+
+        refuse_device_move(config, before_model=before_model, site="the child-safety model swap")
 
 
 __all__ = [

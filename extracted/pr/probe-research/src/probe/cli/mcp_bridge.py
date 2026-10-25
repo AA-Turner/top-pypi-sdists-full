@@ -112,6 +112,10 @@ def target(base_url: str | None = None, env: Mapping[str, str] | None = None) ->
         headers[agent_session.AGENT_HEADER] = resolved[0]
         headers[agent_session.AGENT_SESSION_HEADER] = resolved[1]
     headers.update(client_version_headers("cli", __version__))
+    # This computer's workspace limit: the hosted MCP forwards it on its API calls.
+    from ..sdk.workspace_limit import headers_or_fail_closed
+
+    headers.update(headers_or_fail_closed(settings, bearer=settings.mcp_token))
     return Target(url=url, headers=headers)
 
 

@@ -797,6 +797,25 @@ def ensure_normalized_citations(items: list[Any]) -> list[dict[str, Any]]:
     return out
 
 
+def collect_message_citations(message: Any) -> list[dict[str, Any]]:
+    """Every canonical citation a finished message's text blocks carry, in order.
+
+    Reads ``TextContent.metadata["citations"]`` (the one home every provider
+    normalizes into at ingestion). Consumed by ``AgentRunResult.citations`` so
+    a caller of a finished run — a mandate whose answer is grounded web search —
+    gets the sources without reading the stored conversation back.
+    """
+    if message is None:
+        return []
+    found: list[dict[str, Any]] = []
+    for item in getattr(message, "content", None) or []:
+        metadata = getattr(item, "metadata", None)
+        if not isinstance(metadata, dict):
+            continue
+        found.extend(c for c in metadata.get("citations") or [] if isinstance(c, dict))
+    return found
+
+
 # ---------------------------------------------------------------------------
 # Enable-by-default gate (ratified: ON for user-facing, OFF for machine runs,
 # every exclusion explicit and LOUD — never silent)

@@ -12,7 +12,6 @@
 
 from __future__ import annotations
 
-import itertools
 from typing import overload
 
 import jax
@@ -21,26 +20,68 @@ import numpy as np
 import scipy.linalg
 from opt_einsum import contract
 
+from ffsim.linalg.linalg import logm_special_orthogonal, logm_unitary
 
-def antihermitian_to_parameters(mat: np.ndarray, real: bool = False) -> np.ndarray:
+
+def upper_triangular_indices(dim: int) -> list[tuple[int, int]]:
+    """Return the upper triangular indices of a matrix, including the diagonal.
+
+    The indices are returned in the same order as ``np.triu_indices(dim)``.
+    """
+    return [(row, col) for row in range(dim) for col in range(row, dim)]
+
+
+def all_indices(dim: int) -> list[tuple[int, int]]:
+    """Return all indices of a matrix, in row-major order."""
+    return [(row, col) for row in range(dim) for col in range(dim)]
+
+
+def rows_and_cols(indices: list[tuple[int, int]]) -> tuple[list[int], list[int]]:
+    """Split a list of index pairs into lists of row and column indices.
+
+    Unlike ``zip(*indices)``, this handles an empty list of indices.
+    """
+    rows = [row for row, _ in indices]
+    cols = [col for _, col in indices]
+    return rows, cols
+
+
+def mask_from_indices(
+    dim: int, indices: list[tuple[int, int]], symmetric: bool = False
+) -> np.ndarray:
+    """Return a boolean matrix that is True at the given indices, and False elsewhere.
+
+    Args:
+        dim: The width and height of the matrix.
+        indices: The indices at which the matrix is True.
+        symmetric: Whether to also set the transposes of the given indices to True.
+
+    Returns:
+        The boolean matrix.
+    """
+    rows, cols = rows_and_cols(indices)
+    mask = np.zeros((dim, dim), dtype=bool)
+    mask[rows, cols] = True
+    if symmetric:
+        mask[cols, rows] = True
+    return mask
+
+
+def antihermitian_to_parameters(mat: np.ndarray) -> np.ndarray:
     """Convert an antihermitian matrix to parameters.
 
     Converts an antihermitian matrix to a real-valued parameter vector.
 
     Args:
         mat: The antihermitian matrix.
-        real: Whether to take only the real part of the matrix, and discard the
-            imaginary part.
 
     Returns:
         The list of real numbers parameterizing the antihermitian matrix.
     """
-    return antihermitians_to_parameters(mat[None, :], real=real)
+    return antihermitians_to_parameters(mat[None, :])
 
 
-def antihermitian_from_parameters(
-    params: np.ndarray, dim: int, real: bool = False
-) -> np.ndarray:
+def antihermitian_from_parameters(params: np.ndarray, dim: int) -> np.ndarray:
     """Construct an antihermitian matrix from parameters.
 
     Converts a real-valued parameter vector to an antihermitian matrix.
@@ -48,50 +89,148 @@ def antihermitian_from_parameters(
     Args:
         params: The real-valued parameters.
         dim: The width and height of the matrix.
-        real: Whether the parameter vector describes a real-valued antihermitian matrix.
 
     Returns:
         The antihermitian matrix.
     """
-    return antihermitians_from_parameters(params, dim, 1, real=real)[0]
+    return antihermitians_from_parameters(params, dim, 1)[0]
 
 
 def antihermitian_from_parameters_jax(
-    params: jax.Array | np.ndarray, dim: int, real: bool = False
+    params: jax.Array | np.ndarray, dim: int
 ) -> jax.Array:
     """JAX version of antihermitian_from_parameters."""
-    return antihermitians_from_parameters_jax(params, dim, 1, real=real)[0]
+    return antihermitians_from_parameters_jax(params, dim, 1)[0]
 
 
-def antihermitians_to_parameters(mats: np.ndarray, real: bool = False) -> np.ndarray:
+def antihermitians_to_parameters(mats: np.ndarray) -> np.ndarray:
     """Convert a batch of antihermitian matrices to parameters.
 
     Converts an array of antihermitian matrices to a real-valued parameter vector.
 
     Args:
         mats: The batch of antihermitian matrices, with shape (n_mats, dim, dim).
-        real: Whether to take only the real part of the matrices, and discard the
-            imaginary part.
 
     Returns:
         The list of real numbers parameterizing the antihermitian matrices.
     """
     n_mats, dim, _ = mats.shape
-    triu_indices = np.triu_indices(dim, k=1)
     n_triu = dim * (dim - 1) // 2
-    n_params_per_mat = n_triu if real else dim**2
-    params = np.zeros((n_mats, n_params_per_mat))
+    params = np.zeros((n_mats, dim**2))
     # real part
-    params[:, :n_triu] = mats[:, triu_indices[0], triu_indices[1]].real
+    rows, cols = np.triu_indices(dim, k=1)
+    params[:, :n_triu] = mats[:, rows, cols].real
     # imaginary part
-    if not real:
-        triu_indices = np.triu_indices(dim)
-        params[:, n_triu:] = mats[:, triu_indices[0], triu_indices[1]].imag
+    rows, cols = np.triu_indices(dim)
+    params[:, n_triu:] = mats[:, rows, cols].imag
     return params.reshape(-1)
 
 
+def real_antisymmetric_to_parameters(mat: np.ndarray) -> np.ndarray:
+    """Convert a real antisymmetric matrix to parameters.
+
+    Converts a real antisymmetric matrix to a real-valued parameter vector. The
+    parameter vector can be converted back to the matrix using
+    :func:`real_antisymmetric_from_parameters`.
+
+    Args:
+        mat: The real antisymmetric matrix. A complex dtype is accepted as long as
+            the imaginary part is zero.
+
+    Returns:
+        The list of real numbers parameterizing the real antisymmetric matrix.
+
+    Raises:
+        ValueError: The matrix has a nonzero imaginary part.
+    """
+    return real_antisymmetrics_to_parameters(mat[None, :])
+
+
+def real_antisymmetrics_to_parameters(mats: np.ndarray) -> np.ndarray:
+    """Convert a batch of real antisymmetric matrices to parameters.
+
+    Converts an array of real antisymmetric matrices to a real-valued parameter vector.
+    The parameter vector can be converted back to the matrices using
+    :func:`real_antisymmetrics_from_parameters`.
+
+    Args:
+        mats: The batch of real antisymmetric matrices, with shape (n_mats, dim, dim).
+            A complex dtype is accepted as long as the imaginary part is zero.
+
+    Returns:
+        The list of real numbers parameterizing the real antisymmetric matrices.
+
+    Raises:
+        ValueError: The matrix has a nonzero imaginary part.
+    """
+    if np.iscomplexobj(mats):
+        if np.any(mats.imag):
+            raise ValueError("The matrix has a nonzero imaginary part.")
+        mats = mats.real
+    _, dim, _ = mats.shape
+    rows, cols = np.triu_indices(dim, k=1)
+    return mats[:, rows, cols].reshape(-1)
+
+
+def real_antisymmetric_from_parameters(params: np.ndarray, dim: int) -> np.ndarray:
+    """Construct a real antisymmetric matrix from parameters.
+
+    Converts a real-valued parameter vector to a real antisymmetric matrix.
+
+    Args:
+        params: The real-valued parameters.
+        dim: The width and height of the matrix.
+
+    Returns:
+        The real antisymmetric matrix.
+    """
+    return real_antisymmetrics_from_parameters(params, dim, 1)[0]
+
+
+def real_antisymmetric_from_parameters_jax(
+    params: jax.Array | np.ndarray, dim: int
+) -> jax.Array:
+    """JAX version of real_antisymmetric_from_parameters."""
+    return real_antisymmetrics_from_parameters_jax(params, dim, 1)[0]
+
+
+def real_antisymmetrics_from_parameters(
+    params: np.ndarray, dim: int, n_mats: int
+) -> np.ndarray:
+    """Construct a batch of real antisymmetric matrices from parameters.
+
+    Converts a real-valued parameter vector to an array of real antisymmetric matrices.
+
+    Args:
+        params: The 1D real-valued parameters.
+        dim: The width and height of each matrix.
+        n_mats: The number of matrices in the batch.
+
+    Returns:
+        The array of real antisymmetric matrices, with shape (n_mats, dim, dim).
+    """
+    params = params.reshape(n_mats, dim * (dim - 1) // 2)
+    mats = np.zeros((n_mats, dim, dim))
+    rows, cols = np.triu_indices(dim, k=1)
+    mats[:, rows, cols] = params
+    mats[:, cols, rows] = -params
+    return mats
+
+
+def real_antisymmetrics_from_parameters_jax(
+    params: jax.Array | np.ndarray, dim: int, n_mats: int
+) -> jax.Array:
+    """JAX version of real_antisymmetrics_from_parameters."""
+    params = params.reshape(n_mats, dim * (dim - 1) // 2)
+    mats = jnp.zeros((n_mats, dim, dim))
+    rows, cols = jnp.triu_indices(dim, k=1)
+    mats = mats.at[:, rows, cols].set(params)
+    mats = mats.at[:, cols, rows].set(-params)
+    return mats
+
+
 def antihermitians_from_parameters(
-    params: np.ndarray, dim: int, n_mats: int, real: bool = False
+    params: np.ndarray, dim: int, n_mats: int
 ) -> np.ndarray:
     """Construct a batch of antihermitian matrices from parameters.
 
@@ -101,21 +240,18 @@ def antihermitians_from_parameters(
         params: The 1D real-valued parameters.
         dim: The width and height of each matrix.
         n_mats: The number of matrices in the batch.
-        real: Whether the parameter vector describes real-valued antihermitian matrices.
 
     Returns:
         The array of antihermitian matrices, with shape (n_mats, dim, dim).
     """
-    n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
-    params = params.reshape(n_mats, n_params_per_mat)
-    mats = np.zeros((n_mats, dim, dim), dtype=float if real else complex)
+    params = params.reshape(n_mats, dim**2)
+    mats = np.zeros((n_mats, dim, dim), dtype=complex)
     n_triu = dim * (dim - 1) // 2
-    if not real:
-        # imaginary part
-        rows, cols = np.triu_indices(dim)
-        vals = 1j * params[:, n_triu:]
-        mats[:, rows, cols] = vals
-        mats[:, cols, rows] = vals
+    # imaginary part
+    rows, cols = np.triu_indices(dim)
+    vals = 1j * params[:, n_triu:]
+    mats[:, rows, cols] = vals
+    mats[:, cols, rows] = vals
     # real part
     vals = params[:, :n_triu]
     rows, cols = np.triu_indices(dim, k=1)
@@ -125,19 +261,17 @@ def antihermitians_from_parameters(
 
 
 def antihermitians_from_parameters_jax(
-    params: jax.Array | np.ndarray, dim: int, n_mats: int, real: bool = False
+    params: jax.Array | np.ndarray, dim: int, n_mats: int
 ) -> jax.Array:
     """JAX version of antihermitians_from_parameters."""
-    n_params_per_mat = dim * (dim - 1) // 2 if real else dim**2
-    params = params.reshape(n_mats, n_params_per_mat)
-    mats = jnp.zeros((n_mats, dim, dim), dtype=float if real else complex)
+    params = params.reshape(n_mats, dim**2)
+    mats = jnp.zeros((n_mats, dim, dim), dtype=complex)
     n_triu = dim * (dim - 1) // 2
-    if not real:
-        # imaginary part
-        rows, cols = jnp.triu_indices(dim)
-        vals = 1j * params[:, n_triu:]
-        mats = mats.at[:, rows, cols].set(vals)
-        mats = mats.at[:, cols, rows].set(vals)
+    # imaginary part
+    rows, cols = jnp.triu_indices(dim)
+    vals = 1j * params[:, n_triu:]
+    mats = mats.at[:, rows, cols].set(vals)
+    mats = mats.at[:, cols, rows].set(vals)
     # real part
     vals = params[:, :n_triu]
     rows, cols = jnp.triu_indices(dim, k=1)
@@ -146,7 +280,7 @@ def antihermitians_from_parameters_jax(
     return mats
 
 
-def unitary_to_parameters(mat: np.ndarray, real: bool = False) -> np.ndarray:
+def unitary_to_parameters(mat: np.ndarray) -> np.ndarray:
     """Convert a unitary matrix to parameters.
 
     Converts a unitary to a real-valued parameter vector. The parameter vector
@@ -155,18 +289,14 @@ def unitary_to_parameters(mat: np.ndarray, real: bool = False) -> np.ndarray:
 
     Args:
         mat: The unitary.
-        real: Whether to take only the real part of the matrix logarithm of the unitary,
-            and discard the imaginary part.
 
     Returns:
         The list of real numbers parameterizing the unitary.
     """
-    return unitaries_to_parameters(mat[None, :], real=real)
+    return unitaries_to_parameters(mat[None, :])
 
 
-def unitary_from_parameters(
-    params: np.ndarray, dim: int, real: bool = False
-) -> np.ndarray:
+def unitary_from_parameters(params: np.ndarray, dim: int) -> np.ndarray:
     """Construct a unitary matrix from parameters.
 
     Converts a real-valued parameter vector to a unitary matrix. The parameter vector
@@ -176,22 +306,19 @@ def unitary_from_parameters(
     Args:
         params: The real-valued parameters.
         dim: The width and height of the unitary matrix.
-        real: Whether the parameter vector describes a real-valued unitary matrix.
 
     Returns:
         The unitary.
     """
-    return unitaries_from_parameters(params, dim, 1, real=real)[0]
+    return unitaries_from_parameters(params, dim, 1)[0]
 
 
-def unitary_from_parameters_jax(
-    params: jax.Array | np.ndarray, dim: int, real: bool = False
-) -> jax.Array:
+def unitary_from_parameters_jax(params: jax.Array | np.ndarray, dim: int) -> jax.Array:
     """JAX version of unitary_from_parameters."""
-    return unitaries_from_parameters_jax(params, dim, 1, real=real)[0]
+    return unitaries_from_parameters_jax(params, dim, 1)[0]
 
 
-def unitaries_to_parameters(mats: np.ndarray, real: bool = False) -> np.ndarray:
+def unitaries_to_parameters(mats: np.ndarray) -> np.ndarray:
     """Convert a batch of unitary matrices to parameters.
 
     Converts an array of unitaries to a real-valued parameter vector. The parameter
@@ -200,18 +327,113 @@ def unitaries_to_parameters(mats: np.ndarray, real: bool = False) -> np.ndarray:
 
     Args:
         mats: The batch of unitary matrices, with shape (n_mats, dim, dim).
-        real: Whether to take only the real part of the matrix logarithm of the unitary,
-            and discard the imaginary part.
 
     Returns:
         The list of real numbers parameterizing the unitaries.
     """
-    return antihermitians_to_parameters(scipy.linalg.logm(mats), real=real)
+    return antihermitians_to_parameters(np.stack([logm_unitary(mat) for mat in mats]))
 
 
-def unitaries_from_parameters(
-    params: np.ndarray, dim: int, n_mats: int, real: bool = False
+def special_orthogonal_to_parameters(mat: np.ndarray) -> np.ndarray:
+    """Convert a special orthogonal matrix to parameters.
+
+    Converts a special orthogonal matrix to a real-valued parameter vector. The
+    parameter vector contains the non-redundant elements of the real antisymmetric
+    matrix logarithm of the matrix, and can be converted back to the matrix using
+    :func:`special_orthogonal_from_parameters`.
+
+    Args:
+        mat: The special orthogonal matrix.
+
+    Returns:
+        The list of real numbers parameterizing the special orthogonal matrix.
+
+    Raises:
+        ValueError: The matrix has a nonzero imaginary part.
+        ValueError: The matrix has an odd number of -1 eigenvalues, so it is not
+            special orthogonal.
+    """
+    return special_orthogonals_to_parameters(mat[None, :])
+
+
+def special_orthogonals_to_parameters(mats: np.ndarray) -> np.ndarray:
+    """Convert a batch of special orthogonal matrices to parameters.
+
+    Converts an array of special orthogonal matrices to a real-valued parameter vector.
+    The parameter vector contains the non-redundant elements of the real antisymmetric
+    matrix logarithms of the matrices, and can be converted back to the matrices using
+    :func:`special_orthogonals_from_parameters`.
+
+    Args:
+        mats: The batch of special orthogonal matrices, with shape (n_mats, dim, dim).
+
+    Returns:
+        The list of real numbers parameterizing the special orthogonal matrices.
+
+    Raises:
+        ValueError: The matrix has a nonzero imaginary part.
+        ValueError: The matrix has an odd number of -1 eigenvalues, so it is not
+            special orthogonal.
+    """
+    return real_antisymmetrics_to_parameters(
+        np.stack([logm_special_orthogonal(mat) for mat in mats])
+    )
+
+
+def special_orthogonal_from_parameters(params: np.ndarray, dim: int) -> np.ndarray:
+    """Construct a special orthogonal matrix from parameters.
+
+    Converts a real-valued parameter vector to a special orthogonal matrix. The
+    parameter vector contains the non-redundant elements of the real antisymmetric
+    matrix logarithm of the special orthogonal matrix.
+
+    Args:
+        params: The real-valued parameters.
+        dim: The width and height of the matrix.
+
+    Returns:
+        The special orthogonal matrix.
+    """
+    return special_orthogonals_from_parameters(params, dim, 1)[0]
+
+
+def special_orthogonal_from_parameters_jax(
+    params: jax.Array | np.ndarray, dim: int
+) -> jax.Array:
+    """JAX version of special_orthogonal_from_parameters."""
+    return special_orthogonals_from_parameters_jax(params, dim, 1)[0]
+
+
+def special_orthogonals_from_parameters(
+    params: np.ndarray, dim: int, n_mats: int
 ) -> np.ndarray:
+    """Construct a batch of special orthogonal matrices from parameters.
+
+    Converts a real-valued parameter vector to an array of special orthogonal matrices.
+    The parameter vector contains the non-redundant elements of the real antisymmetric
+    matrix logarithms of the special orthogonal matrices.
+
+    Args:
+        params: The real-valued parameters.
+        dim: The width and height of each matrix.
+        n_mats: The number of matrices in the batch.
+
+    Returns:
+        The array of special orthogonal matrices, with shape (n_mats, dim, dim).
+    """
+    return scipy.linalg.expm(real_antisymmetrics_from_parameters(params, dim, n_mats))
+
+
+def special_orthogonals_from_parameters_jax(
+    params: jax.Array | np.ndarray, dim: int, n_mats: int
+) -> jax.Array:
+    """JAX version of special_orthogonals_from_parameters."""
+    return jax.scipy.linalg.expm(
+        real_antisymmetrics_from_parameters_jax(params, dim, n_mats)
+    )
+
+
+def unitaries_from_parameters(params: np.ndarray, dim: int, n_mats: int) -> np.ndarray:
     """Construct a batch of unitary matrices from parameters.
 
     Converts a real-valued parameter vector to an array of unitary matrices.
@@ -222,22 +444,19 @@ def unitaries_from_parameters(
         params: The real-valued parameters.
         dim: The width and height of the unitary matrix.
         n_mats: The number of matrices in the batch.
-        real: Whether the parameter vector describes a real-valued unitary matrix.
 
     Returns:
         The array of unitary matrices, with shape (n_mats, dim, dim).
     """
-    return scipy.linalg.expm(
-        antihermitians_from_parameters(params, dim, n_mats, real=real)
-    )
+    return scipy.linalg.expm(antihermitians_from_parameters(params, dim, n_mats))
 
 
 def unitaries_from_parameters_jax(
-    params: jax.Array | np.ndarray, dim: int, n_mats: int, real: bool = False
+    params: jax.Array | np.ndarray, dim: int, n_mats: int
 ) -> jax.Array:
     """JAX version of unitaries_from_parameters."""
     return jax.scipy.linalg.expm(
-        antihermitians_from_parameters_jax(params, dim, n_mats, real=real)
+        antihermitians_from_parameters_jax(params, dim, n_mats)
     )
 
 
@@ -300,10 +519,9 @@ def real_symmetrics_to_parameters(
     """
     n_mats, dim, _ = mats.shape
     if triu_indices is None:
-        rows, cols = np.triu_indices(dim)
-    else:
-        rows, cols = zip(*triu_indices)  # type: ignore
-    n_params_per_mat = len(rows)
+        triu_indices = upper_triangular_indices(dim)
+    rows, cols = rows_and_cols(triu_indices)
+    n_params_per_mat = len(triu_indices)
     params = np.zeros((n_mats, n_params_per_mat))
     params[:, :] = mats[:, rows, cols]
     return params.reshape(-1)
@@ -330,11 +548,9 @@ def real_symmetrics_from_parameters(
         The array of real symmetric matrices, with shape (n_mats, dim, dim).
     """
     if triu_indices is None:
-        rows, cols = np.triu_indices(dim)
-        n_params_per_mat = dim * (dim + 1) // 2
-    else:
-        rows, cols = zip(*triu_indices)  # type: ignore
-        n_params_per_mat = len(triu_indices)
+        triu_indices = upper_triangular_indices(dim)
+    rows, cols = rows_and_cols(triu_indices)
+    n_params_per_mat = len(triu_indices)
     params = params.reshape(n_mats, n_params_per_mat)
     mats = np.zeros((n_mats, dim, dim))
     mats[:, rows, cols] = params
@@ -350,11 +566,9 @@ def real_symmetrics_from_parameters_jax(
 ) -> jax.Array:
     """JAX version of real_symmetrics_from_parameters."""
     if triu_indices is None:
-        rows, cols = jnp.triu_indices(dim)
-        n_params_per_mat = dim * (dim + 1) // 2
-    else:
-        rows, cols = zip(*triu_indices)  # type: ignore
-        n_params_per_mat = len(triu_indices)
+        triu_indices = upper_triangular_indices(dim)
+    rows, cols = rows_and_cols(triu_indices)
+    n_params_per_mat = len(triu_indices)
     params = params.reshape(n_mats, n_params_per_mat)
     mats = jnp.zeros((n_mats, dim, dim))
     mats = mats.at[:, rows, cols].set(params)
@@ -378,10 +592,9 @@ def real_matrices_to_parameters(
     """
     n_mats, dim, _ = mats.shape
     if indices is None:
-        rows, cols = zip(*itertools.product(range(dim), repeat=2))
-    else:
-        rows, cols = zip(*indices)  # type: ignore
-    n_params_per_mat = len(rows)
+        indices = all_indices(dim)
+    rows, cols = rows_and_cols(indices)
+    n_params_per_mat = len(indices)
     params = np.zeros((n_mats, n_params_per_mat))
     params[:, :] = mats[:, rows, cols]
     return params.reshape(-1)
@@ -408,11 +621,9 @@ def real_matrices_from_parameters(
         The array of real matrices, with shape (n_mats, dim, dim).
     """
     if indices is None:
-        rows, cols = zip(*itertools.product(range(dim), repeat=2))
-        n_params_per_mat = dim**2
-    else:
-        rows, cols = zip(*indices)  # type: ignore
-        n_params_per_mat = len(indices)
+        indices = all_indices(dim)
+    rows, cols = rows_and_cols(indices)
+    n_params_per_mat = len(indices)
     params = params.reshape(n_mats, n_params_per_mat)
     mats = np.zeros((n_mats, dim, dim))
     mats[:, rows, cols] = params
@@ -427,11 +638,9 @@ def real_matrices_from_parameters_jax(
 ) -> jax.Array:
     """JAX version of real_matrices_from_parameters."""
     if indices is None:
-        rows, cols = zip(*itertools.product(range(dim), repeat=2))
-        n_params_per_mat = dim**2
-    else:
-        rows, cols = zip(*indices)  # type: ignore
-        n_params_per_mat = len(indices)
+        indices = all_indices(dim)
+    rows, cols = rows_and_cols(indices)
+    n_params_per_mat = len(indices)
     params = params.reshape(n_mats, n_params_per_mat)
     mats = jnp.zeros((n_mats, dim, dim))
     mats = mats.at[:, rows, cols].set(params)
@@ -454,13 +663,16 @@ def df_tensors_to_params(
         orbital_rotations: The orbital rotations.
         diag_coulomb_indices: Allowed indices for nonzero values of the diagonal
             Coulomb matrices.
-        real: Whether to keep only the real parts of the logarithms of the orbital
-            rotations, and discard the imaginary parts.
+        real: Whether the orbital rotations are special orthogonal matrices, to be
+            parameterized by their real antisymmetric matrix logarithms.
 
     Returns:
         The list of real numbers parameterizing the double factorization tensors.
     """
-    orbital_rotation_params = unitaries_to_parameters(orbital_rotations, real=real)
+    to_parameters = (
+        special_orthogonals_to_parameters if real else unitaries_to_parameters
+    )
+    orbital_rotation_params = to_parameters(orbital_rotations)
     diag_coulomb_params = real_symmetrics_to_parameters(
         diag_coulomb_mats, diag_coulomb_indices
     )
@@ -487,7 +699,8 @@ def df_tensors_from_params(
             matrices.
         diag_coulomb_indices: Allowed indices for nonzero values of the diagonal
             Coulomb matrices.
-        real: Whether the parameter vector describes real-valued orbital rotations.
+        real: Whether the parameter vector describes special orthogonal orbital
+            rotations, parameterized by their real antisymmetric matrix logarithms.
 
     Returns:
         Two arrays. The first contains the diagonal Coulomb matrices, and the
@@ -497,8 +710,11 @@ def df_tensors_from_params(
     n_params_orb_rot = n_tensors * n_params_per_orb_rot
     orbital_rotation_params = params[:n_params_orb_rot]
     diag_coulomb_params = params[n_params_orb_rot:]
-    orbital_rotations = unitaries_from_parameters(
-        orbital_rotation_params, dim=norb, n_mats=n_tensors, real=real
+    from_parameters = (
+        special_orthogonals_from_parameters if real else unitaries_from_parameters
+    )
+    orbital_rotations = from_parameters(
+        orbital_rotation_params, dim=norb, n_mats=n_tensors
     )
     diag_coulomb_mats = real_symmetrics_from_parameters(
         diag_coulomb_params,
@@ -521,8 +737,13 @@ def df_tensors_from_params_jax(
     n_params_orb_rot = n_tensors * n_params_per_orb_rot
     orbital_rotation_params = params[:n_params_orb_rot]
     diag_coulomb_params = params[n_params_orb_rot:]
-    orbital_rotations = unitaries_from_parameters_jax(
-        orbital_rotation_params, dim=norb, n_mats=n_tensors, real=real
+    from_parameters = (
+        special_orthogonals_from_parameters_jax
+        if real
+        else unitaries_from_parameters_jax
+    )
+    orbital_rotations = from_parameters(
+        orbital_rotation_params, dim=norb, n_mats=n_tensors
     )
     diag_coulomb_mats = real_symmetrics_from_parameters_jax(
         diag_coulomb_params,
@@ -554,16 +775,17 @@ def df_tensors_alpha_beta_to_params(
         orbital_rotations: The orbital rotations.
         diag_coulomb_indices: Allowed indices for nonzero values of the diagonal
             Coulomb matrices.
-        real: Whether to keep only the real parts of the logarithms of the orbital
-            rotations, and discard the imaginary parts.
+        real: Whether the orbital rotations are special orthogonal matrices, to be
+            parameterized by their real antisymmetric matrix logarithms.
 
     Returns:
         The list of real numbers parameterizing the double factorization tensors.
     """
     _, _, norb, _ = diag_coulomb_mats.shape
-    orbital_rotation_params = unitaries_to_parameters(
-        orbital_rotations.reshape(-1, norb, norb), real=real
+    to_parameters = (
+        special_orthogonals_to_parameters if real else unitaries_to_parameters
     )
+    orbital_rotation_params = to_parameters(orbital_rotations.reshape(-1, norb, norb))
     if diag_coulomb_indices is None:
         pairs_aa, pairs_ab, pairs_bb = None, None, None
     else:
@@ -612,7 +834,8 @@ def df_tensors_alpha_beta_from_params(
             matrices.
         diag_coulomb_indices: Allowed indices for nonzero values of the diagonal
             Coulomb matrices.
-        real: Whether the parameter vector describes real-valued orbital rotations.
+        real: Whether the parameter vector describes special orthogonal orbital
+            rotations, parameterized by their real antisymmetric matrix logarithms.
 
     Returns:
         Two arrays. The first contains the diagonal Coulomb matrices, and the
@@ -644,8 +867,11 @@ def df_tensors_alpha_beta_from_params(
         ],
     )
 
-    orbital_rotations = unitaries_from_parameters(
-        orbital_rotation_params, dim=norb, n_mats=n_tensors * 2, real=real
+    from_parameters = (
+        special_orthogonals_from_parameters if real else unitaries_from_parameters
+    )
+    orbital_rotations = from_parameters(
+        orbital_rotation_params, dim=norb, n_mats=n_tensors * 2
     ).reshape(n_tensors, 2, norb, norb)
     diag_coulomb_mats_aa = real_symmetrics_from_parameters(
         diag_coulomb_params_aa,
@@ -711,8 +937,13 @@ def df_tensors_alpha_beta_from_params_jax(
         ],
     )
 
-    orbital_rotations = unitaries_from_parameters_jax(
-        orbital_rotation_params, dim=norb, n_mats=n_tensors * 2, real=real
+    from_parameters = (
+        special_orthogonals_from_parameters_jax
+        if real
+        else unitaries_from_parameters_jax
+    )
+    orbital_rotations = from_parameters(
+        orbital_rotation_params, dim=norb, n_mats=n_tensors * 2
     ).reshape(n_tensors, 2, norb, norb)
     diag_coulomb_mats_aa = real_symmetrics_from_parameters_jax(
         diag_coulomb_params_aa,

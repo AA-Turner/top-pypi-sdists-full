@@ -76,7 +76,7 @@ import time
 import uuid
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, suppress
 from dataclasses import dataclass, field
 from probe._compat import StrEnum
 from pathlib import Path
@@ -669,6 +669,14 @@ def classify(exc: Exception) -> str:
         return "permanent"
     if isinstance(exc, (errors.AuthError, errors.ScopeError)):
         return "auth"
+    if isinstance(exc, errors.WorkspaceLimitError):
+        # Checked BEFORE ValidationError, which it subclasses. This computer's
+        # workspace limit was refused (it names a deleted workspace, say): the
+        # same for every op, and fixed by `probe workspace limit`, not by the
+        # op. Kept queued and retried -- and exempt from the transient budget in
+        # `drain` -- so the queue delivers once it is fixed: dead-lettering
+        # would fail every queued write one by one.
+        return "transient"
     if isinstance(exc, errors.ConflictError):
         return "idempotent" if exc.existing_id else "permanent"
     if isinstance(exc, errors.ValidationError):
@@ -966,8 +974,37 @@ def _status_count(value: Any) -> int:
     """A status.json count, 0 for one that is not a number."""
     try:
         return max(0, int(value or 0))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0
+
+
+def _forget_idle_refusals(status: dict, queue: Path) -> None:
+    """A refusal stops writes; once a queue holds none, it stops nothing. Its
+    record outlives them when they go any other way than delivery -- a
+    discard, an older release's cleanup -- and then said "auth-blocked" on
+    every command and reported a stuck queue every six hours for a queue with
+    nothing in it. So a queue with no write pending (its count says 0 and
+    neither `ops/` nor `multipart/ops/` holds one) reads with no refusal and
+    nothing held. The file keeps what the drain wrote: a credential that
+    queues again is refused at most once more."""
+    if _status_count(status.get("pending")) > 0:
+        return
+    if not (status.get("refused_fingerprints") or status.get("auth_blocked_since") or status.get("held")):
+        return
+    # The count is the last write's; the folders are the truth (a status write
+    # that failed leaves a stale 0 beside writes still queued).
+    for folder in (queue / "ops", queue / "multipart" / "ops"):
+        try:
+            if any(n.endswith(".json") for n in os.listdir(folder)):
+                return
+        except FileNotFoundError:
+            continue
+        except OSError:
+            return
+    status["refused_fingerprints"] = {}
+    status["auth_blocked_since"] = None
+    status["held"] = 0
+    status["close_held"] = 0
 
 
 def _blocked_marker(status: dict) -> dict:
@@ -1010,14 +1047,24 @@ def _credential_queue_dirs(root: Path) -> list[Path]:
     return [p for p in entries if re.fullmatch(r"[0-9a-f]{16}", p.name) and p.is_dir()]
 
 
+def credential_queue_dirs(root: Path) -> list[Path]:
+    """The credential queues (#2035) under the outbox ``root``."""
+    return _credential_queue_dirs(Path(root))
+
+
 def _queue_is_empty(path: Path) -> bool:
-    """Nothing queued, dead-lettered, waiting or staged in the queue at
-    ``path``, and no receipt namespace under it."""
+    """Nothing queued, dead-lettered, discarded, waiting or staged in the
+    queue at ``path``, and no receipt namespace under it."""
     if (path / DELIVERY_NAMESPACE).exists() or (path / ".recover").exists():
         return False
     # `multipart/*` (plan (g)): a queue holding only an upload in progress --
     # its op, its staged bytes -- is not empty, and must never be pruned.
-    for sub in ("ops", "failed", "waiting", "blobs", "multipart/ops", "multipart/staged", "multipart/failed"):
+    # `discarded/`: writes someone set aside are kept, not deleted with the
+    # folder (`relocate_discards` moves them to the root first).
+    for sub in (
+        "ops", "failed", "discarded", "waiting", "blobs",
+        "multipart/ops", "multipart/staged", "multipart/failed",
+    ):
         try:
             if os.listdir(path / sub):
                 return False
@@ -1028,12 +1075,19 @@ def _queue_is_empty(path: Path) -> bool:
     return True
 
 
+#: How many discards one `prune_credential_queues` moves to the root at most.
+_PRUNE_MOVE_LIMIT = 1000
 #: A credential queue left empty this long is removed (`prune_credential_queues`).
 CREDENTIAL_QUEUE_IDLE_SECONDS = 3600.0
 _last_prune = float("-inf")
 
 
-def prune_credential_queues(root: Path, *, idle_seconds: float = CREDENTIAL_QUEUE_IDLE_SECONDS) -> int:
+def prune_credential_queues(
+    root: Path,
+    *,
+    idle_seconds: float = CREDENTIAL_QUEUE_IDLE_SECONDS,
+    counts: "DiscardCounts | None" = None,
+) -> int:
     """Remove credential queues (#2035) that are empty, idle for
     ``idle_seconds`` and whose drain lock and worker lease are free: one
     folder per token ever used piled up (#2041 round 3: 420 of them made every
@@ -1041,19 +1095,32 @@ def prune_credential_queues(root: Path, *, idle_seconds: float = CREDENTIAL_QUEU
     its next write (`Journal._append` re-asserts a missing layout). The folder
     is renamed away under its append lock before it is deleted, so a write
     racing the prune lands in the recreated folder, never in the doomed one.
-    At most once per process per 10 minutes. Returns how many went."""
+    A queue's discards go to the root first (`_move_discards`), counted into
+    ``counts``: they are never deleted with it. At most once per process per
+    10 minutes. Returns how many went."""
     global _last_prune
     if time.monotonic() - _last_prune < 600.0:
         return 0
     _last_prune = time.monotonic()
     removed = 0
+    moved = counts if counts is not None else DiscardCounts()
+    # Bounded: this runs as a worker starts, before it sends anything; the
+    # rescuer moves the rest (`relocate_discards`, unbounded, its own process).
+    budget = [_PRUNE_MOVE_LIMIT]
+
+    def move(path: Path) -> None:
+        if budget[0] > 0:
+            budget[0] -= _move_discards(path, root, moved, limit=budget[0])
     try:
         leftovers = [p for p in (root / CREDENTIAL_NAMESPACE).iterdir() if p.name.startswith(".pruned-")]
     except OSError:
         leftovers = []
     for path in leftovers:  # a prune that died between the rename and the delete
-        shutil.rmtree(path, ignore_errors=True)
+        move(path)  # an older release's prune left them there
+        if not _holds_discards(path):  # one that would not move stays for the next pass
+            shutil.rmtree(path, ignore_errors=True)
     for path in _credential_queue_dirs(root):
+        move(path)
         try:
             newest = max(p.stat().st_mtime for p in (path, *path.iterdir()))
         except (OSError, ValueError):
@@ -1079,6 +1146,217 @@ def prune_credential_queues(root: Path, *, idle_seconds: float = CREDENTIAL_QUEU
             for handle in handles:
                 handle.close()
     return removed
+
+
+#: A request's `delivery_state` while it is not delivered: what a discard moves.
+WAITING_STATES = frozenset({"queued", "pending", "failed"})
+#: How many days of enqueue dates `outbox.discarded` reports, newest first.
+DISCARD_DAYS = 14
+
+
+@dataclass
+class DiscardCounts:
+    """What a discard moved -- or a pass moving earlier ones to the root
+    (`relocate_discards`) -- for `outbox.discarded`: counts, never a key,
+    body, name or path. ``credentials`` holds fingerprints only so they can
+    be counted; ``base_urls`` the servers the writes were pinned to, so the
+    event goes only where the writes were going (`outbox_context`)."""
+
+    writes: int = 0
+    uploads: int = 0
+    bytes: int = 0
+    run_closes: int = 0
+    credentials: set = field(default_factory=set)
+    base_urls: set = field(default_factory=set)
+    by_enqueue_day: dict = field(default_factory=dict)
+
+    def add(self, op: Any, *, mtime: float | None = None) -> None:
+        """Count one write; ``op`` is its parsed file (anything else for one
+        that will not parse: a write, and nothing more is known about it).
+        Never raises: a discard is never stopped by its count."""
+        self.writes += 1
+        if not isinstance(op, dict):
+            op = {}
+        day = op_day(op)
+        if day is None and mtime is not None:
+            day = time.strftime("%Y-%m-%d", time.gmtime(mtime))
+        if day:
+            self.by_enqueue_day[day] = self.by_enqueue_day.get(day, 0) + 1
+        upload = op.get("upload") if isinstance(op.get("upload"), dict) else {}
+        context = op.get("context") if isinstance(op.get("context"), dict) else {}
+        if op.get("kind") == "upload":
+            self.uploads += 1
+            self.bytes += _status_count(upload.get("size_bytes"))
+        try:
+            if _is_run_close(op):
+                self.run_closes += 1
+        except (AttributeError, TypeError):
+            pass
+        stamp = context.get("principal")
+        if isinstance(stamp, dict) and stamp.get("fingerprint"):
+            self.credentials.add(str(stamp["fingerprint"]))
+        self.base_urls.add(op_base_url(op))
+
+    def merge(self, other: "DiscardCounts") -> None:
+        self.writes += other.writes
+        self.uploads += other.uploads
+        self.bytes += other.bytes
+        self.run_closes += other.run_closes
+        self.credentials |= other.credentials
+        self.base_urls |= other.base_urls
+        for day, n in other.by_enqueue_day.items():
+            self.by_enqueue_day[day] = self.by_enqueue_day.get(day, 0) + n
+
+    @property
+    def base_url(self) -> str | None:
+        """The one server every counted write was pinned to, else None (none
+        counted, one unpinned, two that differ): nothing is reported then."""
+        if len(self.base_urls) != 1:
+            return None
+        return next(iter(self.base_urls))
+
+
+_DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def op_day(op: Any) -> str | None:
+    """The UTC day ``op`` was queued (`enqueued_at`, which a retry does not
+    rewrite, unlike its file's mtime), as YYYY-MM-DD, or None."""
+    at = op.get("enqueued_at") if isinstance(op, dict) else None
+    return at[:10] if isinstance(at, str) and _DAY.fullmatch(at[:10]) else None
+
+
+def op_base_url(op: Any) -> str | None:
+    """The server ``op`` is pinned to, or None (no pin, or not an op)."""
+    context = op.get("context") if isinstance(op, dict) else None
+    pinned = context.get("base_url") if isinstance(context, dict) else None
+    return str(pinned).rstrip("/") if isinstance(pinned, str) and pinned else None
+
+
+def _read_op_file(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def _move_discards(queue: Path, root: Path, counts: DiscardCounts, *, limit: int | None = None) -> int:
+    """Move what the credential queue ``queue`` holds in ``discarded/`` to the
+    root's ``discarded/``, counting it into ``counts``. A credential queue is
+    deleted once idle (`prune_credential_queues`), by this release and every
+    older one -- an older SDK in a job's own environment included -- and the
+    root never is, so writes someone set aside are kept there. Each file keeps
+    its name (and its mtime: a rename); a name the root already holds gets the
+    queue's name in front, never an overwrite. A file another mover (or a
+    move cut short) already linked there is not moved or counted twice. A
+    receipt namespace's ``discarded/`` is not touched: it is how
+    `recover_intents` knows a request was tombstoned. At most ``limit`` files
+    (None: all). Never raises; returns how many moved."""
+    source = queue / "discarded"
+    try:
+        names = sorted(n for n in os.listdir(source) if not n.startswith("."))
+    except OSError:
+        return 0
+    if not names:
+        return 0
+    target = root / "discarded"
+    try:
+        target.mkdir(parents=True, exist_ok=True, mode=0o700)
+    except OSError:
+        return 0
+    label = queue.name.removeprefix(".pruned-").split("-", 1)[0]
+    moved = 0
+    for name in names:
+        if limit is not None and moved >= limit:
+            break
+        path = source / name
+        try:
+            st = path.stat()
+        except OSError:
+            continue
+        op = _read_op_file(path)
+        for attempt in range(100):
+            dest = target / (name if attempt == 0 else f"{label}-{attempt}-{name}")
+            try:
+                os.link(path, dest)  # fails on an existing name: no overwrite
+            except FileExistsError:
+                if _same_inode(st, dest):
+                    # Linked already, by another mover or a move cut short
+                    # before its unlink: the copy stands, the source goes.
+                    with suppress(OSError):
+                        os.unlink(path)
+                    break
+                continue
+            except OSError:
+                # No hard links here (some filesystems): a rename, checked first.
+                if dest.exists():
+                    continue
+                try:
+                    os.replace(path, dest)
+                except OSError:
+                    break
+            else:
+                try:
+                    os.unlink(path)
+                except FileNotFoundError:
+                    pass  # another mover saw the link landed and removed it: still this one's move
+                except OSError:
+                    # Kept where it was: the next pass finds the link and
+                    # removes this one then, so nothing is counted twice.
+                    break
+            counts.add(op, mtime=st.st_mtime)
+            moved += 1
+            break
+    if moved:
+        for directory in (target, source):
+            try:
+                fsync_directory(directory)
+            except OSError:
+                pass
+    return moved
+
+
+def _same_inode(st: os.stat_result, path: Path) -> bool:
+    try:
+        return os.path.samestat(st, path.stat())
+    except OSError:
+        return False
+
+
+def relocate_discards(root: Path) -> DiscardCounts:
+    """Move every credential queue's discards under the outbox ``root`` to
+    the root's ``discarded/`` (`_move_discards`), the queues a prune left
+    half-removed (`.pruned-*`) included, whether or not a queue is idle.
+    Returns what moved. Never raises."""
+    counts = DiscardCounts()
+    try:
+        leftovers = sorted(p for p in (root / CREDENTIAL_NAMESPACE).iterdir() if p.name.startswith(".pruned-"))
+    except OSError:
+        return counts
+    for path in [*leftovers, *_credential_queue_dirs(root)]:
+        _move_discards(path, root, counts)
+    return counts
+
+
+def _holds_discards(queue: Path) -> bool:
+    try:
+        with os.scandir(queue / "discarded") as entries:
+            return any(not e.name.startswith(".") for e in entries)
+    except OSError:
+        return False
+
+
+def discards_to_relocate(root: Path) -> bool:
+    """Whether some credential queue under ``root`` holds discards
+    (`relocate_discards` has work). Listings only."""
+    try:
+        entries = list((root / CREDENTIAL_NAMESPACE).iterdir())
+    except OSError:
+        return False
+    return any(
+        (p.name.startswith(".pruned-") or re.fullmatch(r"[0-9a-f]{16}", p.name)) and _holds_discards(p)
+        for p in entries
+    )
 
 
 class RunOps:
@@ -3410,22 +3688,31 @@ class Journal:
         """Move dead letters (one, or all) to ``discarded/`` -- an audit-safe
         tombstone rather than deletion. Covers quarantined-corrupt files too
         (matched by name when they cannot be parsed), which retry can never
-        requeue (red team: without a discard verb they nagged forever)."""
-        children_moved = sum(child.discard_failed(op_id) for child in self.namespaces()[1:])
-        target = self.failed_dir.parent / "discarded"
+        requeue (red team: without a discard verb they nagged forever).
+        Returns how many moved (`discard_failed_counts` says what)."""
+        return self.discard_failed_counts(op_id).writes
+
+    def discard_failed_counts(self, op_id: str | None = None) -> DiscardCounts:
+        """`discard_failed`, returning what moved (`DiscardCounts`). A credential
+        queue's go to the root's ``discarded/``, which no cleanup deletes."""
+        counts = DiscardCounts()
+        for child in self.namespaces()[1:]:
+            counts.merge(child.discard_failed_counts(op_id))
+        target = self._discard_dir()
         moved = 0
         with file_lock(self.append_lock):
             if self.failed_dir.exists():
                 target.mkdir(parents=True, exist_ok=True, mode=0o700)
                 for path in sorted(self.failed_dir.iterdir()):
+                    op = _read_op_file(path)
                     if op_id is not None:
-                        try:
-                            if json.loads(path.read_text()).get("op_id") != op_id:
+                        if isinstance(op, dict):
+                            if op.get("op_id") != op_id:
                                 continue
-                        except (OSError, json.JSONDecodeError, ValueError):
-                            if op_id not in path.name:
-                                continue
+                        elif op_id not in path.name:
+                            continue
                     os.replace(path, target / path.name)
+                    counts.add(op)
                     moved += 1
             if moved:
                 fsync_directory(target)
@@ -3434,7 +3721,17 @@ class Journal:
                 self._record_dead_letters()
         if moved:
             self.gc_blobs()
-        return moved + children_moved
+        return counts
+
+    def _discard_dir(self) -> Path:
+        """Where this queue's discards go: its own ``discarded/``, or for a
+        credential queue the root's -- a credential queue is deleted once
+        idle, by older releases too, and its discards with it
+        (`_move_discards`). A receipt namespace keeps its own: `recover_intents`
+        reads it there."""
+        if self.dir.parent.name == CREDENTIAL_NAMESPACE and not self.receipt_enabled:
+            return self.dir.parent.parent / "discarded"
+        return self.dir / "discarded"
 
     def discard_request(self, correlation: str, *, timeout: float = 5.0) -> dict:
         """Tombstone one receipt request wherever it waits -- queued,
@@ -3449,7 +3746,7 @@ class Journal:
         `discard_failed` re-reads every dead letter and then all of the queue
         in `gc_blobs`, which made a repair of 1,200 requests take 166 s under
         the append lock."""
-        waiting = {"queued", "pending", "failed"}
+        waiting = WAITING_STATES
         state = self.delivery_state(correlation)
         if state["state"] not in waiting:
             return state
@@ -3506,6 +3803,10 @@ class Journal:
                 handle.close()
 
     def discard_held(self, *, credential: str | None = None) -> int:
+        """`discard_held_counts`, returning how many moved."""
+        return self.discard_held_counts(credential=credential).writes
+
+    def discard_held_counts(self, *, credential: str | None = None) -> DiscardCounts:
         """Move to ``discarded/`` the PENDING ops, in this queue and the ones
         under it, that no credential on this machine will send as things stand:
         a stored login's write whose account is unknown or another account's,
@@ -3516,24 +3817,27 @@ class Journal:
         now is not "held". ``credential`` names a fingerprint (as `probe outbox
         drain` prints it): then that credential's queued writes go too, which
         is how a stranded job's writes are dropped on purpose. An unstamped op
-        is never touched. Returns how many moved. Each queue's drain lock is
-        taken, so no pass is mid-way through them."""
-        moved = 0
+        is never touched. Returns what moved (`DiscardCounts`). Each queue's
+        drain lock is taken, so no pass is mid-way through them. A credential
+        queue's writes go to the root's ``discarded/`` (`_discard_dir`), and a
+        credential whose writes all went no longer reads as refused."""
+        counts = DiscardCounts()
         for queue in self.namespaces():
-            moved += queue._discard_held_here(credential)
-        return moved
+            counts.merge(queue._discard_held_here(credential))
+        return counts
 
-    def _discard_held_here(self, credential: str | None) -> int:
+    def _discard_held_here(self, credential: str | None) -> DiscardCounts:
         from .config import load_context
 
+        counts = DiscardCounts()
         if not self.ops_dir.exists():
-            return 0
+            return counts
         status = Journal.read_status(self.dir, include_receipts=False) or {}
         refused = status.get("refused_fingerprints") or {}
         handle = self.drain_lock.open("a+")
         try:
             if not _take_drain_lock(handle, wait_for_lock=True, timeout=30.0):
-                return 0
+                return counts
             held: list[Path] = []
             adopted_here: dict = {}
             queued = self._read_dir(self.ops_dir)
@@ -3579,8 +3883,9 @@ class Journal:
                 except Exception:  # noqa: BLE001 -- logged out, unroutable: not "held"
                     continue
             if not held:
-                return 0
-            target = self.dir / "discarded"
+                return counts
+            by_path = dict(queued)
+            target = self._discard_dir()
             with file_lock(self.append_lock):
                 target.mkdir(parents=True, exist_ok=True, mode=0o700)
                 for path in held:
@@ -3589,16 +3894,30 @@ class Journal:
                     except FileNotFoundError:
                         continue  # delivered meanwhile
                     self._scan_forget(path.name)
+                    counts.add(by_path.get(path))
                 fsync_directory(target)
                 fsync_directory(self.ops_dir)
-                self._write_status_locked(held=0, close_held=0, held_at=None)
+                gone = set(held)
+                emptied = {op_credential(op)[0] for path, op in queued if path in gone and isinstance(op, dict)}
+                emptied -= {op_credential(op)[0] for path, op in queued if path not in gone and isinstance(op, dict)}
+                try:
+                    written = json.loads(self.status_file.read_text()).get("refused_fingerprints") or {}
+                except (OSError, ValueError, AttributeError):
+                    written = {}
+                self._write_status_locked(
+                    held=0,
+                    close_held=0,
+                    held_at=None,
+                    # A credential with nothing left here is refused nothing.
+                    refused_fingerprints={fp: at for fp, at in dict(written).items() if fp not in emptied},
+                )
         finally:
             try:
                 oscompat.flock(handle.fileno(), oscompat.LOCK_UN)
             finally:
                 handle.close()
         self.gc_blobs()
-        return len(held)
+        return counts
 
     def clear_auth_block(self) -> None:
         """Forget a recorded auth block (after re-login / explicit retry) so
@@ -3835,9 +4154,15 @@ class Journal:
         *,
         include_receipts: bool = True,
         credential_queues: bool = True,
+        keep_idle_refusals: bool = False,
     ) -> dict | None:
         """Banner-grade counts, including the fenced delivery namespace and
-        (``credential_queues``) every credential queue under this root."""
+        (``credential_queues``) every credential queue under this root.
+
+        A queue holding no writes reads with no refusal and nothing held
+        (`_forget_idle_refusals`), each queue judged on its own before any
+        is folded in. ``keep_idle_refusals``: the file as written, for the
+        drain, whose cooldowns count from those stamps."""
         root = Path(directory).expanduser() if directory else default_dir()
         path = root / "status.json"
         try:
@@ -3845,6 +4170,8 @@ class Journal:
         except (OSError, json.JSONDecodeError, ValueError):
             status = None
         if isinstance(status, dict):
+            if not keep_idle_refusals:
+                _forget_idle_refusals(status, root)
             status.update(_blocked_marker(status))
         if include_receipts and root.name != DELIVERY_NAMESPACE:
             child = Journal.read_status(root / DELIVERY_NAMESPACE, include_receipts=False)
@@ -4039,11 +4366,15 @@ def _settings_for(context: dict | None):
         if stored_base == pinned.rstrip("/") and (
             stored.get("token") or stored.get("ingest_token")
         ):
+            from .workspace_limit import resolve_limit
+
             return Settings(
                 base_url=pinned.rstrip("/"),
                 token=stored.get("token"),
                 ingest_token=stored.get("ingest_token"),
                 hmac_secret=stored.get("hmac_secret"),
+                # The pinned context's own limit: its writes are its requests.
+                workspace_limit=resolve_limit(stored),
             )
         if stored and stored_base != pinned.rstrip("/"):
             # A context record EXISTS and names a different endpoint: no login
@@ -5165,7 +5496,7 @@ def _cooling_refusals(journal: "Journal") -> dict[str, str]:
     """Refused credentials still inside their cooldown, from status.json."""
     from datetime import datetime, timezone
 
-    status = Journal.read_status(journal.dir, include_receipts=False) or {}
+    status = Journal.read_status(journal.dir, include_receipts=False, keep_idle_refusals=True) or {}
     recorded = status.get("refused_fingerprints")
     cooling: dict[str, str] = {}
     if not isinstance(recorded, dict):
@@ -6007,6 +6338,11 @@ def drain(
             op["last_error"] = _redact(f"{type(exc).__name__}: {exc}")
             if (
                 verdict == "transient"
+                # This computer's workspace limit refused (it names a deleted
+                # workspace, say): every op fails the same way until a person
+                # runs `probe workspace limit`, so none may run out of patience
+                # meanwhile. It keeps the lane's ordinary backoff, never a hot loop.
+                and not isinstance(exc, errors.WorkspaceLimitError)
                 and _failing_for_seconds(op, time.time()) >= _transient_budget_seconds()
                 and op["attempts"] >= MIN_TRANSIENT_ATTEMPTS
             ):
@@ -6373,7 +6709,7 @@ def drain(
             # Merged with what is on disk NOW, under the append lock: a `probe
             # login` during this pass cleared the list (clear_auth_block), and
             # writing back the one read at the start undid it (#2041 re-review).
-            previous = Journal.read_status(journal.dir, include_receipts=False) or {}
+            previous = Journal.read_status(journal.dir, include_receipts=False, keep_idle_refusals=True) or {}
             on_disk = previous.get("refused_fingerprints") or {}
             if not isinstance(on_disk, dict):
                 on_disk = {}

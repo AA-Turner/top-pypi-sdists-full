@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tree-sitter-markdown
-Version: 0.5.1
+Version: 0.5.4
 Summary: Markdown grammar for tree-sitter
 Author: MDeiml
 License: MIT
@@ -11,7 +11,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Software Development :: Compilers
 Classifier: Topic :: Text Processing :: Linguistic
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: core

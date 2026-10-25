@@ -1,138 +1,168 @@
-/* bench_async_dsss_pool_core.c -- the population's cost per input sample
- * (docs/design/async-dsss-receiver.md §6.4): one push() of one epoch through a
- * pool of twelve receivers with one emitter assigned and tracking, serial and
- * across the threads the pool is given. The budget is 100 ns per output sample
- * per core at the operating point, the working target half of that; the number
- * reported here is the whole population's, per input sample. */
+/* bench_async_dsss_pool_core.c -- what a pool costs per sample, and what
+ * its workers buy back.
+ *
+ * The question the API does not answer: a pool of N receivers does N
+ * receivers' work on every sample (every receiver searches the whole
+ * range, docs/design/async-dsss-parallel.md §2), and push() spreads them
+ * over its workers, one receiver per task. Does a pool of 3 on 3 workers
+ * cost about what one receiver does, or does the hand-out and the join eat
+ * the gain at a block this size?
+ *
+ * Predicted: serial ~3x one receiver's search
+ * (bench_async_dsss_receiver_core's search row), and 3 workers back within
+ * ~1.3x of one receiver, the controller's serial step being a few status
+ * reads a block. Measured 2026-10-22 on swiftgo-ai9465 (`make bench
+ * BENCH_ARGS="--c-only async_dsss_pool"`, then `make bench-rx`): one
+ * receiver searches at 53.9 ns/sample; the pool of 3 at 112.1 serial and
+ * 56.6 on 3 workers -- 1.05x one receiver, 1.98x over serial. The workers
+ * half holds. The serial half does not: 2.08x one receiver, not 3x, from
+ * two separate processes, and why is not measured. A first cut that fed
+ * each push in one call per receiver measured 47.1 on 3 workers (2.42x);
+ * feeding exactly one code period per call, which makes the pool's result
+ * independent of the blocking (doppler#2548 review), costs a worker join
+ * every 2,046 samples, and that is the difference.
+ *
+ * Both rows feed a pool of 3 at the SPEC point, the configuration the
+ * receiver's own search row times, noise alone from the shipped awgn, so
+ * every receiver searches all along; a row is recorded only if every
+ * receiver searched for every sample fed (a false alarm's refine would be
+ * timed as search). The two thread counts are interleaved round by round,
+ * so the ratio is measured on one machine state.
+ */
 #include "doppler/async_dsss_pool/async_dsss_pool_core.h"
-#include "doppler/dp_complex.h"
+#include "doppler/awgn/awgn_core.h"
 #include "jm_bench.h"
 #include <math.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 
-#define SF 1023u
-#define SPC 2u
-#define TE (SF * SPC)
-#define CHIP_RATE 5.0e6
-#define FS (CHIP_RATE * (double)SPC)
-#define SYM_RATE 2700.0
-#define ITERATIONS 200
-#define N_SLOTS 12
-/* The code-only window the searcher aligns inside: 20 symbols of every
-   270, holding the 31 whole epochs a depth of 16 needs at any chip phase
-   (the pool refuses a searcher without one, or with a row past its
-   receivers' pull-in). */
-#define W_SYM 20u
-#define F_SYM 270u
-#define CODE_ONLY_EPOCHS 31u
+#define BLOCK 65536
+#define LEAD 4
+#define ITERATIONS 20
+#define N_RX 3
+
+static uint32_t
+xorshift32 (uint32_t *s)
+{
+  *s ^= *s << 13;
+  *s ^= *s >> 17;
+  *s ^= *s << 5;
+  return *s;
+}
 
 static double
 min_sec (const double *t, int n)
 {
   double m = t[0];
-  for (int i = 1; i < n; i++)
-    if (t[i] < m)
-      m = t[i];
+  for (int r = 1; r < n; r++)
+    if (t[r] < m)
+      m = t[r];
   return m;
 }
 
-/* A clean DSSS capture built here rather than pulled from native/tests's
-   dp_dsss_capture(), for the reason bench_async_dsss_receiver_core.c
-   gives: a benchmark that includes a test header acquires the test tree's
-   build wiring. Async BPSK data on the code at a carrier offset; the cost
-   of a push does not depend on the noise. */
-static size_t
-build_capture (const uint8_t *code, size_t n_sym, double doppler_hz,
-               float _Complex **out)
+/* Every receiver searching for every sample fed, or a message. The
+   receivers have been fed the whole periods pushed: the pool carries the
+   rest to the next push. */
+static int
+all_searching (dp_async_dsss_pool_state_t *p, uint64_t pushed, const char *tag)
 {
-  const double    tsym = FS / SYM_RATE;
-  const size_t    n    = (size_t)((double)n_sym * tsym) + 4 * TE;
-  float _Complex *x    = malloc (n * sizeof *x);
-  if (!x)
-    return 0;
-  uint32_t lfsr = 0xA57Bu;
-  float    a    = 1.0f;
-  size_t   sym  = (size_t)-1;
-  for (size_t i = 0; i < n; i++)
+  const uint64_t fed = pushed - p->carry_len;
+  for (size_t i = 0; i < N_RX; i++)
     {
-      size_t si = (size_t)((double)i / tsym);
-      if (si != sym)
+      async_dsss_receiver_status_t st = dp_async_dsss_pool_status (p, i);
+      if (st.state != ASYNC_DSSS_RX_SEARCHING || st.state_samples != fed
+          || st.refused_hits != 0)
         {
-          lfsr = (lfsr >> 1) ^ (uint32_t)(-(int32_t)(lfsr & 1u) & 0xB400u);
-          /* The window: the first W_SYM symbols of every F_SYM carry the
-             code alone (+1), the synth's rule. */
-          a   = (si % F_SYM < W_SYM) ? 1.0f : (lfsr & 1u) ? -1.0f : 1.0f;
-          sym = si;
+          (void)fprintf (stderr,
+                         "bench_async_dsss_pool[%s]: receiver %zu state=%d "
+                         "state_samples=%llu of %llu -- not a search all "
+                         "along\n",
+                         tag, i, st.state,
+                         (unsigned long long)st.state_samples,
+                         (unsigned long long)fed);
+          return 0;
         }
-      double ph = 2.0 * M_PI * doppler_hz / FS * (double)i;
-      x[i]      = a * (code[(i / SPC) % SF] ? -1.0f : 1.0f)
-                  * (float _Complex) (cos (ph) + I * sin (ph));
     }
-  *out = x;
-  return n;
+  return 1;
 }
 
 int
 main (void)
 {
-  /* A hashed 1023-chip code, the receiver bench's own way. */
-  uint8_t  code[SF];
-  uint32_t h = 0x9E3779B9u;
-  for (size_t i = 0; i < SF; i++)
-    {
-      h ^= h << 13;
-      h ^= h >> 17;
-      h ^= h << 5;
-      code[i] = (uint8_t)(h & 1u);
-    }
-  float _Complex *x;
-  size_t          n = build_capture (code, 2700, 1500.0, &x);
-  if (!n)
-    return 1;
-
   jm_bench_t _bench = { 0 };
-  printf ("=== async_dsss_pool benchmark ===\n");
-  printf ("block = %u samples (one epoch), %d slots, %d iterations\n\n", TE,
-          N_SLOTS, ITERATIONS);
-  const int threads[2] = { 1, 0 }; /* serial, then every core */
+  /* A synthetic 1023-chip code: its exact chips do not matter for a cost
+     benchmark (the receiver's bench makes the same choice). */
+  static uint8_t code[1023];
+  uint32_t       cs = 7;
+  for (size_t c = 0; c < 1023; c++)
+    code[c] = (uint8_t)(xorshift32 (&cs) & 1u);
+
+  const double chip = 3.069e6, sym = 2700.0;
+  const size_t spc  = 2;
+  const double fs   = chip * (double)spc;
+  const double span = fs / (double)(1023 * spc); /* 1/T_E */
+  const double cn0  = 10.0 + 10.0 * log10 (sym);
+  const size_t n    = (LEAD + ITERATIONS) * (size_t)BLOCK;
+
+  dp_awgn_state_t *g = dp_awgn_create (
+      7919u,
+      dp_awgn_amplitude_for_snr ((float)(cn0 - 10.0 * log10 (fs)), 1.0f));
+  float _Complex             *x = malloc (n * sizeof *x);
+  dp_async_dsss_pool_state_t *p[2];
+  static const int            threads[2] = { 1, N_RX };
+  for (int k = 0; k < 2; k++)
+    p[k] = dp_async_dsss_pool_create (code, 1023, N_RX, chip, sym, spc, 2, cn0,
+                                      1e-3, 0.9, span, 4, 8, 0, 0.5, 4, 14.0,
+                                      64, 8, false, 100000, 0.0, 2.0, false,
+                                      0.0, 0.0, threads[k]);
+  if (!g || !x || !p[0] || !p[1])
+    {
+      (void)fprintf (stderr, "bench_async_dsss_pool: setup failed\n");
+      return 1;
+    }
+  (void)dp_awgn_generate (g, n, x, n);
+
+  printf ("=== async_dsss_pool benchmark: %d receivers at the SPEC point, "
+          "searching ===\n",
+          N_RX);
+  printf ("block = %d samples, %d rounds; workers available: %d\n\n", BLOCK,
+          ITERATIONS, dp_async_dsss_pool_get_threads (p[1]));
+
+  size_t pos = 0;
+  for (size_t b = 0; b < LEAD; b++, pos += BLOCK)
+    for (int k = 0; k < 2; k++)
+      (void)dp_async_dsss_pool_push (p[k], x + pos, BLOCK);
+  double times[2][ITERATIONS];
+  for (int r = 0; r < ITERATIONS; r++, pos += BLOCK)
+    for (int k = 0; k < 2; k++)
+      {
+        uint64_t t0 = jm_bench_now_ns ();
+        (void)dp_async_dsss_pool_push (p[k], x + pos, BLOCK);
+        uint64_t t1 = jm_bench_now_ns ();
+        times[k][r] = jm_bench_elapsed_sec (t0, t1);
+      }
+  static const char *names[2]
+      = { "push[search,n=3,threads=1]", "push[search,n=3,threads=3]" };
+  double sec[2];
   for (int k = 0; k < 2; k++)
     {
-      dp_async_dsss_pool_state_t *p = dp_async_dsss_pool_create (
-          code, SF, CHIP_RATE, SYM_RATE, SPC, 2, 47.0, 1e-2, 0.9, 6000.0,
-          CODE_ONLY_EPOCHS, 0.0, 4, N_SLOTS, threads[k], 0.0, 2.0, 0.0, 4, 8,
-          0, ASYNC_DSSS_RX_CELL_GAIN, ASYNC_DSSS_RX_CELL_PULLIN);
-      if (!p)
+      if (!all_searching (p[k], pos, names[k]))
         return 1;
-      /* Warm: the emitter acquired and tracking before the timed pushes. */
-      size_t pos = 0;
-      for (; pos + TE <= n / 2; pos += TE)
-        (void)dp_async_dsss_pool_push (p, x + pos, TE);
-      double   times[ITERATIONS];
-      uint64_t t0, t1;
-      size_t   sink = 0;
-      for (int r = 0; r < ITERATIONS; r++)
-        {
-          if (pos + TE > n)
-            pos = n / 2;
-          t0 = jm_bench_now_ns ();
-          sink += dp_async_dsss_pool_push (p, x + pos, TE);
-          t1       = jm_bench_now_ns ();
-          times[r] = jm_bench_elapsed_sec (t0, t1);
-          pos += TE;
-        }
-      char name[64];
-      (void)snprintf (name, sizeof name, "push[%d slots, %s]", N_SLOTS,
-                      threads[k] == 1 ? "serial" : "all cores");
-      jm_bench_add_unit (&_bench, name, times, ITERATIONS, (int)TE,
+      jm_bench_add_unit (&_bench, names[k], times[k], ITERATIONS, BLOCK,
                          JM_BENCH_SAMPLE);
-      double sec = min_sec (times, ITERATIONS);
-      printf ("  %-28s %8.3f us/epoch  %7.2f ns/sample  (assigned %zu)\n",
-              name, sec * 1e6, sec / (double)TE * 1e9, sink / ITERATIONS);
-      dp_async_dsss_pool_destroy (p);
+      sec[k] = min_sec (times[k], ITERATIONS);
+      printf ("  %-30s %8.3f ms/block  %7.2f ns/sample  %6.2fx real time\n",
+              names[k], sec[k] * 1e3, sec[k] / (double)BLOCK * 1e9,
+              (double)BLOCK / sec[k] / fs);
     }
+  printf ("\n  3 workers over serial: %.2fx faster (%d workers ran)\n",
+          sec[0] / sec[1], dp_async_dsss_pool_get_threads (p[1]));
+
   jm_bench_write_json (&_bench, "async_dsss_pool");
+  for (int k = 0; k < 2; k++)
+    dp_async_dsss_pool_destroy (p[k]);
+  dp_awgn_destroy (g);
   free (x);
   return 0;
 }

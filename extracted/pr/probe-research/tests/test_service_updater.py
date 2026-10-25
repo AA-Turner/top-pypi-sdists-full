@@ -32,6 +32,7 @@ from pathlib import Path
 import pytest
 
 import probe
+from probe._shared import installs as installs_mod
 from probe.service import appupdate, barrier, client, paths
 from probe.service import updater
 from probe.service.protocol import Client, Method, Mode, StopReason
@@ -61,6 +62,12 @@ _ROOT = Path(__file__).resolve().parent.parent
 #: instead of the fake one these tests build.
 no_real_app = pytest.mark.skipif(
     (Path("/Applications") / appupdate.APP_NAME).exists(), reason="a real /Applications/Probe.app is found first"
+)
+#: A closed app is `skipped: app_closed` where there is no desktop app (Linux,
+#: where these run in CI). On macOS the service installs a closed app's update
+#: itself, from the real release: tests/test_service_appinstall.py.
+closed_app_skips = pytest.mark.skipif(
+    sys.platform == "darwin", reason="on macOS the service installs a closed app's update (test_service_appinstall.py)"
 )
 UPDATE_TOPICS = ["update.started", "update.step", "update.deferred", "update.done", "service.stopping"]
 STEP = {"event": "step", "name": "persistent_install", "status": "done", "message": "CLI current", "agent": None}
@@ -101,6 +108,7 @@ def _hold(path: Path):
 
 
 @no_real_app
+@closed_app_skips
 def test_a_cycle_runs_cli_and_plugins_then_the_app_then_reads_the_version(service_home, machine, monkeypatch):
     monkeypatch.setenv("PROBE_TOKEN", "probe_pat_launcher_secret")
     fake_app(service_home.home)
@@ -354,16 +362,91 @@ def test_a_running_action_defers_the_update_and_the_update_holds_the_slot(servic
 def test_a_cli_start_waits_for_the_barrier(service_home):
     token = "t" * 32
     barrier.raise_barrier(token)  # this test process stands in for the service
-    script = "import sys; from probe._entry import main; sys.exit(main(['--version']))"
+    script = (
+        "import sys; from probe import _entry\n"
+        "_entry.main = None\n"  # nothing past the barrier runs: only whether it waited
+        "busy = _entry._update_barrier(['log', 'loss', '0.1']); print('passed' if busy is None else busy)"
+    )
     started = time.monotonic()
     child = subprocess.Popen([sys.executable, "-c", script], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     time.sleep(1.0)
     assert child.poll() is None  # still waiting: nothing of the CLI imported yet
     barrier.lower(token)
     out, err = child.communicate(timeout=60)
-    assert child.returncode == 0, err
-    assert probe.__version__ in out
+    assert child.returncode == 0 and out.strip() == "passed", err
     assert time.monotonic() - started >= 1.0
+
+
+@pytest.mark.parametrize("kind", ["side-by-side", "plugins-only", "pinned-env", "hook", "read-only", "in-place"])
+def test_a_cli_start_during_an_update_runs_on_the_installed_version_at_once(service_home, monkeypatch, kind):
+    """Every `probe` waited up to 10 s during an update, then exited 75 (live
+    test, 2026-10-24): a training loop's `probe log`, a hook's call, `probe
+    status`. An update side by side (D6), or of the plugins only, replaces
+    nothing a `probe` runs from: it runs on the installed version at once. A
+    process already pinned to a version env (`probe-versions/<v>`) is never
+    replaced either. Only an in-place update still holds a start back, and even
+    then a hook or a read-only command never waits: it answers busy at once."""
+    from probe import _entry
+
+    token = "v" * 32
+    barrier.raise_barrier(token)
+    if kind in ("side-by-side", "plugins-only"):
+        # What the updater writes for them (`raise_barrier(..., replaces_cli=False)`).
+        record = json.loads(paths.barrier_path().read_text())
+        paths.barrier_path().write_text(json.dumps({**record, "replaces_cli": False}))
+    if kind == "pinned-env":
+        monkeypatch.setattr(sys, "prefix", "/home/x/.local/share/uv/probe-versions/0.300.0/probe-research")
+    if kind == "hook":
+        monkeypatch.setenv(barrier.DEADLINE_ENV, repr(time.time() + 8))
+    argv = ["status"] if kind == "read-only" else ["log", "loss", "0.1"]
+    try:
+        started = time.monotonic()
+        busy = _entry._update_barrier(argv)
+        took = time.monotonic() - started
+    finally:
+        barrier.lower(token)
+    if kind in ("side-by-side", "plugins-only", "pinned-env"):
+        assert busy is None and took < 0.5, (busy, took)
+    elif kind in ("hook", "read-only"):
+        assert busy == barrier.BUSY_EXIT_CODE and took < 0.5, (busy, took)
+    else:
+        assert busy == barrier.BUSY_EXIT_CODE and took >= barrier.WAIT_S - 0.5, (busy, took)
+
+
+@pytest.mark.parametrize(("deadline", "never"), [
+    (8.0, True),        # a hook's own call: its turn is the deadline
+    (-5.0, True),       # just past: the hook is out of time, still a hook
+    (-3600.0, False),   # a detached job that outlived its hook waits as any command
+    ("nan", False),
+    ("not a number", False),
+    (None, False),
+])
+def test_only_a_live_hook_deadline_never_waits(monkeypatch, deadline, never):
+    """`barrier.budget()` reads a deadline more than STALE_DEADLINE_S past as a
+    process the hook left behind, which waits like any command: `_never_waits`
+    held every PROBE_HOOK_DEADLINE a hook, so such a job answered busy at once
+    during an in-place update."""
+    from probe import _entry
+
+    if deadline is None:
+        monkeypatch.delenv(barrier.DEADLINE_ENV, raising=False)
+    elif isinstance(deadline, float):
+        monkeypatch.setenv(barrier.DEADLINE_ENV, repr(time.time() + deadline))
+    else:
+        monkeypatch.setenv(barrier.DEADLINE_ENV, deadline)
+    assert _entry._never_waits(["log", "loss", "0.1"]) is never
+    assert barrier.hook_deadline_live() is never
+
+
+def test_the_barrier_knows_a_version_env_as_installs_does():
+    assert barrier.PINNED_DIR == f"/{installs_mod.VERSIONS_DIRNAME}/"
+    assert barrier.pinned("/h/.local/share/uv/probe-versions/1.2.3/probe-research") is True
+    assert barrier.pinned("/h/.local/share/uv/tools/probe-research") is False
+    barrier.raise_barrier("w" * 32, replaces_cli=False)
+    try:
+        assert barrier.read()["replaces_cli"] is False
+    finally:
+        barrier.lower("w" * 32)
 
 
 def test_a_cli_start_gives_up_busy_and_the_update_s_own_children_pass(service_home, monkeypatch):
@@ -613,6 +696,7 @@ def _next_cycle(service_home, previous: str | None) -> dict:
 
 
 @no_real_app
+@closed_app_skips
 @pytest.mark.parametrize(
     ("machine_has", "outcome"),
     [
@@ -655,6 +739,7 @@ def test_no_cycle_ever_launches_the_app(service_home, machine, machine_has, outc
 
 
 @no_real_app
+@closed_app_skips
 def test_an_app_open_then_closed_is_not_launched_by_the_next_cycle(service_home, machine):
     """The bug this replaced: while the app ran the app step recorded no
     check, so the first cycle after the app closed launched a hidden copy
@@ -1230,6 +1315,69 @@ def test_an_update_child_that_wrote_no_done_failed(service_home, machine):
         _check_now(conn)
         done = _done(conn)[-1]
     assert done["steps"]["cli_and_plugins"]["state"] == "failed" and done["ok"] is False
+
+
+def test_an_update_that_did_not_complete_failed(service_home, machine):
+    """The update child exits 0 and says `complete: false` when a step it ran
+    failed or was skipped (a CLI install that left nothing while the plugins
+    moved: live test C, 2026-10-24). Read as done, every surface said `(ok)`,
+    nothing counted the failure and the next try was six hours off: it is a
+    failed step, a cycle not ok, one failure in a row, and a sooner retry."""
+    machine.plan("update", steps=[
+        {"event": STEP},
+        {"event": {"event": "done", "ok": True, "complete": False, "exit_code": 0, "steps": []}},
+        {"exit": 0},
+    ])
+    service_home.start()
+    with service_home.connect() as conn:
+        conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+        _check_now(conn)
+        done = _done(conn)[-1]
+        status = conn.call(Method.UPDATE_STATUS)
+    step = done["steps"]["cli_and_plugins"]
+    assert step["state"] == "failed" and step["complete"] is False and done["ok"] is False, step
+    saved = json.loads(paths.update_state_path().read_text())
+    assert saved["failed_in_a_row"] == 1 and saved["last_result"]["ok"] is False
+    assert status["last_result"]["ok"] is False
+    assert 0 < status["next_check"] - status["last_check"] < updater.CHECK_EVERY_S
+
+
+@pytest.mark.parametrize("reachable, streak", [(False, 0), (True, 1), (None, 1)])
+def test_an_update_that_failed_offline_is_not_a_failure_in_a_row(service_home, machine, reachable, streak):
+    """Offline, `uv tool upgrade` fails every cycle, and three in a row were an
+    `update_failed` report about a laptop on a plane. A failed cycle whose
+    release manifest got no answer at all does not count; one it answered (or
+    an older CLI's read that cannot say) still does."""
+    machine.plan("update", steps=[
+        {"event": STEP},
+        {"event": {"event": "done", "ok": False, "complete": False, "exit_code": 1, "steps": []}},
+        {"exit": 1},
+    ])
+    answer = {"cli_version": probe.__version__, "cli_latest": None}
+    if reachable is not None:
+        answer["reachable"] = reachable
+    machine.plan("version", stdout=answer)
+    service_home.start()
+    with service_home.connect() as conn:
+        conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+        _check_now(conn)
+        done = _done(conn)[-1]
+    assert done["steps"]["cli_and_plugins"]["state"] == "failed" and done["ok"] is False
+    saved = json.loads(paths.update_state_path().read_text())
+    assert saved["failed_in_a_row"] == streak and saved["last_result"]["ok"] is False
+    assert saved["last_result"].get("offline", False) is (reachable is False)
+
+
+def test_failures_in_a_row_retry_sooner_up_to_the_usual_interval():
+    check = updater.Updater(
+        version="1", emit=lambda *a: None, changed=lambda: None, stop=lambda r: None,
+        action_running=lambda: False, discovering=lambda: False,
+    )
+    seen = []
+    for streak in (0, 1, 2, 3, 4, 10):
+        check.state["failed_in_a_row"] = streak
+        seen.append(check.interval())
+    assert seen == [updater.CHECK_EVERY_S, 3600, 7200, 14400, updater.CHECK_EVERY_S, updater.CHECK_EVERY_S]
 
 
 # -- an update child past its time limit (UPDATE_TIMEOUT_S) ---------------------------
@@ -2122,3 +2270,103 @@ def test_the_guard_starts_when_the_service_really_stops(monkeypatch):
     assert spawned == ["0.2.0"] and u.guard_pending is None
     u.before_exit(StopReason.UPDATE)
     assert spawned == ["0.2.0"]
+
+
+# -- after an update: what open sessions read follows it (plan C9) ----------------
+
+
+def _claude_cache(home: Path) -> Path:
+    return home / ".claude" / "plugins" / "cache" / "research-os-agent"
+
+
+def _ledger(home: Path, **installed: Path) -> None:
+    ledger = home / ".claude" / "plugins" / "installed_plugins.json"
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_text(json.dumps({"version": 2, "plugins": {
+        f"{name}@research-os-agent": [{"scope": "user", "installPath": str(path)}] for name, path in installed.items()
+    }}))
+
+
+def _probe_plugin(home: Path, version: str, mark: str) -> Path:
+    root = _claude_cache(home) / "probe-research" / version
+    (root / "hooks").mkdir(parents=True)
+    (root / "hooks" / "statusline.py").write_text(f"# renderer {mark}\n")
+    (root / "hooks" / "_session_marker.py").write_text(f"# marker reader {mark}\n")
+    return root
+
+
+@pytest.mark.parametrize("cli_moved", [False, True], ids=["plugins-only", "new-cli"])
+def test_after_an_update_open_sessions_read_the_installed_copy(service_home, machine, cli_moved):
+    """An update replaced the plugins under open sessions. The hooks follow at
+    their next event; the status-line renderer, the managed block and the
+    recorders' tap followed only a NEW session (live test D, 2026-10-24): the
+    swarm ran 20 minutes after an update on the old renderer, block and tap.
+    After the cycle the renderer is the installed copy's, the note sync runs
+    `agent-rules refresh` and the reconcile that rewrites the block, and the
+    service restarts onto the installed tap, the session's recorder resuming
+    on it with nothing lost. With a new CLI the next service (the new code)
+    does it."""
+    from tests.test_service_recorders import _events, _params, _saw, _tap
+
+    home = service_home.home
+    machine.plan("cli", exit=0)
+    if cli_moved:
+        machine.plan("version", stdout={"cli_version": "999.0.0"})
+    old_tap = _tap(_claude_cache(home) / "probe-research-tap" / "0.10.0", "0.10.0")
+    old_plugin = _probe_plugin(home, "0.170.0", "old")
+    _ledger(home, **{"probe-research": old_plugin, "probe-research-tap": old_tap})
+    (home / ".claude" / "probe-research-statusline").mkdir(parents=True)
+    (home / ".claude" / "probe-research-statusline" / "statusline.py").write_text("# renderer old\n")
+    proc, owner = spawn_agent()
+    try:
+        first = service_home.start()
+        params = _params("s1", owner, old_tap, "0.10.0", home)
+        assert service_home.call(Method.SESSION_RECORD, params)["recording"]
+        assert _saw(home, "s1", "started")
+        # The update installs the new plugin and tap (Claude Code keeps the old folders).
+        new_tap = _tap(_claude_cache(home) / "probe-research-tap" / "0.10.1", "0.10.1")
+        new_plugin = _probe_plugin(home, "0.171.0", "new")
+        _ledger(home, **{"probe-research": new_plugin, "probe-research-tap": new_tap})
+        with service_home.connect() as conn:
+            conn.call(Method.EVENTS_SUBSCRIBE, {"topics": UPDATE_TOPICS})
+            _check_now(conn)
+            _done(conn)
+        assert service_home.wait_exit(first["pid"], 15), service_home.log()
+        if cli_moved:
+            # The new code's service follows up once it starts (a session's next ask).
+            second = service_home.start()
+            assert second["pid"] != first["pid"]
+        assert _saw(home, "s1", "started", count=2, timeout=15), service_home.log()
+        assert _events(home, "s1")[-1]["version"] == "0.10.1", "s1 resumed on the installed tap"
+        assert [e["event"] for e in _events(home, "s1")] == ["started", "paused", "started"]
+        renderer = home / ".claude" / "probe-research-statusline" / "statusline.py"
+        assert wait_for(lambda: renderer.read_text() == "# renderer new\n", 10), renderer.read_text()
+        calls = wait_for(lambda: len(machine.stand_in_calls("cli")) >= 2 and machine.stand_in_calls("cli"), 15)
+        assert calls, service_home.log()
+        ran = [(c["args"], c["env"]["PROBE_AGENT"]) for c in calls]
+        assert (["agent-rules", "refresh"], "claude_code") in ran and (["notes", "sync"], None) in ran, ran
+    finally:
+        kill_agent(proc)
+
+
+def test_the_first_start_after_an_older_services_update_follows_it_up(service_home):
+    """The update that brings this code is run by a service before it, which
+    marks nothing: the first service of the new version follows up the update
+    the last cycle restarted onto it, once; a later start does not, nor does a
+    fresh machine's first start."""
+    def checker():
+        return updater.Updater(
+            version="2.0.0", emit=lambda *a: None, changed=lambda: None, stop=lambda r: None,
+            action_running=lambda: False, discovering=lambda: False,
+        )
+
+    assert checker().take_followup() is False, "a fresh machine has no update to follow"
+    paths.update_state_path().write_text(json.dumps({"v": 1, "last_check": time.time(), "last_result": {
+        "ok": True, "at": time.time(), "restart": True,
+        "steps": {"self": {"state": "done", "from_version": "1.0.0", "to_version": "2.0.0", "restart": True}}}}))
+    assert checker().take_followup() is True
+    assert checker().take_followup() is False, "once"
+    old = json.loads(paths.update_state_path().read_text())
+    assert old["followed_version"] == "2.0.0"
+    paths.update_state_path().write_text(json.dumps({**old, "followed_version": "1.9.0"}))
+    assert checker().take_followup() is True, "a version moved by hand since the last follow-up"

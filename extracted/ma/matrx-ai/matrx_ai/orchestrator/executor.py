@@ -125,6 +125,22 @@ def _caller_refusal_details(error_info: Any) -> dict[str, Any]:
     return details
 
 
+def _device_error_types() -> frozenset[str]:
+    from matrx_ai.providers.device.errors import DEVICE_ERROR_TYPES
+
+    return DEVICE_ERROR_TYPES
+
+
+def _device_error_details(error_info: Any) -> dict[str, Any]:
+    """The error event's ``details`` for a typed device failure (L5 D3): the error's own details
+    (``code`` = the reason, the device, the relay code) plus the status it answers with."""
+    details = dict(getattr(error_info, "details", None) or {})
+    status_code = getattr(error_info, "status_code", None)
+    if isinstance(status_code, int) and status_code:
+        details.setdefault("status_code", status_code)
+    return details
+
+
 def _is_valid_uuid_str(value: str | None) -> bool:
     """True only for a non-empty string that parses as a UUID.
 
@@ -1584,6 +1600,23 @@ def _response_has_live_client_delegated_call(response: UnifiedResponse) -> bool:
     return _response_has_client_delegated_call(response, client_tools)
 
 
+def _checkpointed_response_last_position(
+    current_request: AIMatrixRequest, response: UnifiedResponse
+) -> int:
+    """Ledger index of the LAST message this response adds (before add_response).
+
+    The checkpoint folds every message of the response into one row (OpenAI
+    sends text and tool calls as separate assistant messages) and add_response
+    appends them all, so all of them are committed. Marking only the first let
+    the turn barrier write the tool-call message again as a second row, and the
+    call rendered twice (conversation 6fd1c446, 2026-10-24).
+    """
+    messages = response.messages
+    if isinstance(messages, UnifiedMessage):
+        messages = [messages]
+    return len(current_request.config.messages.to_list()) + max(len(messages or []), 1) - 1
+
+
 async def _flush_assistant_message_mid_loop(
     *,
     response: UnifiedResponse,
@@ -1612,7 +1645,8 @@ async def _flush_assistant_message_mid_loop(
 
     The position is derived from ``current_request.config.messages`` BEFORE
     ``AIMatrixRequest.add_response`` has run — so it matches the position this
-    assistant message will occupy in msg_list at end-of-loop persistence. That
+    assistant message (the FIRST of the response's messages, all folded into
+    this one row) will occupy in msg_list at end-of-loop persistence. That
     alignment lets ``persist_completed_request`` find our reserved id and UPDATE
     (not double-insert) the row when the loop eventually completes.
     """
@@ -2452,6 +2486,52 @@ async def _change_claim_gate(
         loop_guard_intervened=state.loop_guard_intervened or state.ceiling_wrap_up,
     )
     return action, report
+
+
+async def _answer_check_gate(
+    current_request: AIMatrixRequest,
+    api_response: UnifiedResponse | None,
+    state: ExecutionState | None,
+) -> tuple[str, Any]:
+    """THE ANSWER CHECK at a finishing exit — see ``answer_checks.py``. ``(action, report)``, action one of
+    ``proceed | force | disclose``. Only a turn whose text is a kind instance (JSON with ``__kind``) asks the host."""
+    if state is None:
+        return "proceed", None
+    from matrx_ai._ext import get_answer_check
+    from matrx_ai.orchestrator.answer_checks import (
+        AnswerCheckReport,
+        decide_answer_check_action,
+        structured_answer,
+    )
+
+    check = get_answer_check()
+    if check is None:
+        return "proceed", None
+    answer = structured_answer(_assistant_text_from_response(api_response))
+    if answer is None:
+        return "proceed", None
+    from matrx_connect.context.app_context import try_get_app_context
+
+    ctx = try_get_app_context()
+    metadata = getattr(ctx, "metadata", None) if ctx is not None else None
+    mandate_key = None
+    for source in (current_request.metadata, metadata):
+        if isinstance(source, dict) and isinstance(source.get(MANDATE_KEY_METADATA_KEY), str):
+            mandate_key = source[MANDATE_KEY_METADATA_KEY].strip() or None
+            if mandate_key:
+                break
+    try:
+        payload = await check(
+            answer=answer, kind=str(answer["__kind"]), mandate_key=mandate_key,
+            agent_id=getattr(ctx, "agent_id", None) if ctx is not None else None,
+            user_id=getattr(ctx, "user_id", None) if ctx is not None else None,
+            organization_id=getattr(ctx, "organization_id", None) if ctx is not None else None,
+        )
+    except Exception as exc:  # noqa: BLE001 — an unanswered seam is "no gate", never a failed turn
+        vcprint(f"[answer check] host seam failed: {type(exc).__name__}: {exc} — no gate on this turn", color="red")
+        return "proceed", None
+    report = AnswerCheckReport.from_host(payload)
+    return decide_answer_check_action(report, corrections_used=state.answer_check_corrections), report
 
 
 async def _finalize_handoff(
@@ -4837,11 +4917,15 @@ async def _catalog_vendor_for(config: Any) -> str:
     # Lightning is cerebras, not the preferred class's groq. Resolving without
     # the pin mislabeled telemetry AND fed the wrong vendor's error classifier.
     return await _catalog_vendor_for_model(
-        model, offering_id=getattr(config, "routing_offering_id", None)
+        model,
+        offering_id=getattr(config, "routing_offering_id", None),
+        served_via=getattr(config, "served_via", None),
     )
 
 
-async def _catalog_vendor_for_model(model: str, offering_id: str | None = None) -> str:
+async def _catalog_vendor_for_model(
+    model: str, offering_id: str | None = None, *, served_via: Any = None
+) -> str:
     """The model-id twin of ``_catalog_vendor_for`` — same catalog, same
     contract, for callers that hold the id rather than the config (the
     snapshot writer). Never raises; "unknown" when the ref won't resolve."""
@@ -4850,6 +4934,10 @@ async def _catalog_vendor_for_model(model: str, offering_id: str | None = None) 
     try:
         from matrx_ai.catalog.resolve import resolve_call_profile
 
+        if served_via is not None:
+            # A device run's vendor is the device — never a cloud vendor's classifier.
+            # (No placement read here: telemetry must not re-ask the host.)
+            return "device"
         profile = await resolve_call_profile(model, offering_id=offering_id)
         return profile.vendor
     except Exception:
@@ -5783,6 +5871,7 @@ async def _execute_until_complete_inner(
             load_offering_ladder,
             load_overload_policy,
         )
+        from matrx_ai.providers.device.route_guard import may_retry_provider_error
 
         overload_state = OverloadRerouteState()
 
@@ -6734,9 +6823,18 @@ async def _execute_until_complete_inner(
                 # only feeds it and applies its verdict through the EXISTING
                 # retry machinery (no parallel retry path).
                 _overload_backoff_attempt = retry_attempt
-                if is_reroutable_provider_error(error_info):
+                # A DEVICE-SERVED run (served_via) has ONE route: never rerouted,
+                # never a sibling offering, never a fallback model, never retried
+                # (providers/device/route_guard.py).
+                _served_via = getattr(current_request.config, "served_via", None)
+                if is_reroutable_provider_error(error_info, served_via=_served_via):
+                    # served_via only when set: a cloud run calls the seam exactly as before.
+                    from matrx_ai.config.served_via import served_via_kwargs
+
                     _ov_policy = await load_overload_policy(
-                        current_request.config.model, overload_state
+                        current_request.config.model,
+                        overload_state,
+                        **served_via_kwargs(_served_via),
                     )
                     _attempts_on_model = retry_attempt - overload_state.attempt_base + 1
                     # Backoff schedule position is per-MODEL, not global — the
@@ -6758,6 +6856,7 @@ async def _execute_until_complete_inner(
                             current_request.config.model or "",
                             routing_offering_id=current_request.config.routing_offering_id,
                             offerings_tried=overload_state.offerings_tried,
+                            served_via=_served_via,
                         )
                     _ov_decision = decide_overload_action(
                         error_info=error_info,
@@ -6774,6 +6873,7 @@ async def _execute_until_complete_inner(
                             _ov_ladder.sibling_offering_ids if _ov_ladder else []
                         ),
                         offering_hops=overload_state.offering_hops,
+                        served_via=_served_via,
                     )
                     if (
                         _ov_decision.action == "reroute_offering"
@@ -6983,7 +7083,10 @@ async def _execute_until_complete_inner(
                         )
                         continue
 
-                _will_retry = error_info.is_retryable and retry_attempt < effective_max_retries
+                _will_retry = (
+                    may_retry_provider_error(current_request.config, error_info)
+                    and retry_attempt < effective_max_retries
+                )
 
                 # Handle retryable errors (error_info is now set)
                 if _will_retry:
@@ -7198,6 +7301,11 @@ async def _execute_until_complete_inner(
                     # failure: no ops issue, no provider-failure record, and its
                     # numbers ride the error event so the client can show them.
                     _caller_refusal = bool(getattr(e, "is_caller_refusal", False))
+                    # A device-served failure (providers/device/errors.py) is typed: its code
+                    # and details (details.code = the reason) ride the error event (L5 D3).
+                    _device_error = (getattr(error_info, "details", None) or {}).get(
+                        "provider"
+                    ) == "device" and str(error_info.error_type) in _device_error_types()
                     if not _caller_refusal:
                         await capture_issue(
                             _issue_key,
@@ -7240,8 +7348,14 @@ async def _execute_until_complete_inner(
                         user_message=error_info.user_message
                         if not error_info.is_retryable
                         else f"Failed after {retry_attempt + 1} attempts. {error_info.user_message}",
-                        code=error_info.error_type if _caller_refusal else None,
-                        details=_caller_refusal_details(error_info) if _caller_refusal else None,
+                        code=error_info.error_type if _caller_refusal or _device_error else None,
+                        details=(
+                            _caller_refusal_details(error_info)
+                            if _caller_refusal
+                            else _device_error_details(error_info)
+                            if _device_error
+                            else None
+                        ),
                     )
 
                     # Containment: finalize this request as failed and return
@@ -7386,7 +7500,7 @@ async def _execute_until_complete_inner(
                 _delegate_coord = get_coordinator()
                 if _delegate_coord is None:
                     raise RuntimeError("stored delegated turn has no persistence coordinator")
-                _assistant_pos = len(current_request.config.messages.to_list())
+                _assistant_pos = _checkpointed_response_last_position(current_request, response)
                 _req_id = current_request.request_id or getattr(exec_ctx, "request_id", None)
                 if _req_id:
                     from datetime import UTC, datetime
@@ -8050,6 +8164,55 @@ async def _execute_until_complete_inner(
                         )
                     )
                     continue  # one forced turn — full toolset, honest exits only
+
+                # ── THE ANSWER CHECK (answer_checks.py) ───────────────────
+                # A structured answer that breaks a rule its own kind sets (the host names each offending text) is
+                # sent back once; past the budget it goes through, announced, and the host's save drops what still
+                # offends. After the change-claim gate, before persistence.
+                _ac_action, _ac_report = await _answer_check_gate(current_request, api_response, state)
+                if _ac_action == "force" and _ac_report is not None and state is not None:
+                    from matrx_ai.orchestrator.answer_checks import (
+                        ANSWER_CHECK_CORRECTION_CODE,
+                        correction_notice,
+                    )
+
+                    state.answer_check_corrections += 1
+                    current_request.config.messages.append(
+                        host_authored_user_turn(correction_notice(_ac_report), reason="answer_check")
+                    )
+                    vcprint(
+                        f"⚠️  Answer check: {len(_ac_report.problems)} problem(s) in a {_ac_report.kind} answer — "
+                        f"forcing one corrective turn.",
+                        "[AI REQUESTS EXECUTE UNTIL COMPLETE] Answer Check",
+                        color="yellow",
+                    )
+                    await exec_ctx.emitter.send_phase("processing")
+                    await exec_ctx.emitter.send_warning(
+                        WarningPayload(
+                            code=ANSWER_CHECK_CORRECTION_CODE,
+                            system_message="The answer broke a rule of its own format; sent back once with the "
+                            "offending text named.",
+                            user_message="Checking the answer and asking for one correction.",
+                            level="medium",
+                            recoverable=True,
+                            metadata={**_ac_report.as_metadata(), "iteration": iteration},
+                        )
+                    )
+                    continue
+                if _ac_action == "disclose" and _ac_report is not None:
+                    from matrx_ai.orchestrator.answer_checks import ANSWER_CHECK_UNMET_CODE
+
+                    await exec_ctx.emitter.send_warning(
+                        WarningPayload(
+                            code=ANSWER_CHECK_UNMET_CODE,
+                            system_message="The answer still breaks a rule of its own format after its correction "
+                            "turn; the save step drops what offends.",
+                            user_message="Some parts of this answer broke its rules and will not be saved.",
+                            level="medium",
+                            recoverable=True,
+                            metadata={**_ac_report.as_metadata(), "iteration": iteration},
+                        )
+                    )
 
                 _cc_unbacked: dict[str, Any] | None = None
                 if _cc_action == "disclose" and _cc_report is not None:

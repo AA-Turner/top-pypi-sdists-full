@@ -26,7 +26,7 @@ from pathlib import Path
 import httpx
 
 from probe._shared import installs
-from probe.cli import claude_cli, plugin_cli
+from probe.cli import claude_cli, plugin_cli, service_calls
 from probe.cli.capabilities import (
     DAEMON_PLUGIN_NAME,
     TAP_PLUGIN_ID,
@@ -38,6 +38,10 @@ from probe.cli.versions import _LEGACY_TAP_PLUGINS
 from probe.harness import get_registry
 from probe.sdk import session_marker
 from probe.sdk.redaction import scrub_text
+# Loaded here, not when `service_calls.recorders` asks: the update report reads
+# the service's recorders AFTER the CLI upgrade replaced this tree (see above).
+from probe.service import client as _service_client  # noqa: F401
+from probe.service import protocol as _service_protocol  # noqa: F401
 from probe.sdk.tls import ssl_context
 
 # H8: `scrub_text` imports this lazily, and it runs AFTER the CLI upgrade has
@@ -916,6 +920,9 @@ class PluginResult:
     #: every one older than `tap_after` (`stale_tap_daemons`): sessions that
     #: started before the tap was updated. Set by `perform_update`.
     tap_running_stale: tuple[str, ...] = ()
+    #: Open sessions follow this update with no restart
+    #: (`follows_without_restart`). Set by `perform_update`.
+    follows: bool = False
 
 
 #: The tap's counterpart of the plugin's "returned success but did not advance".
@@ -962,13 +969,19 @@ def tap_verdict(result: PluginResult, target: str | None) -> tuple[str, bool]:
     else:
         line = f"transcript tap at {after}"
     # Not "behind": the update did its part, and the manual commands would not
-    # help. What is left is a restart, which the line says.
+    # help. What is left the line says.
     note = running_stale_note(result)
     return (f"{line}; {note}" if note else line, False)
 
 
 def running_stale_note(result: PluginResult) -> str:
-    """One sentence for live capture daemons still on an older tap, or ""."""
+    """One sentence for live capture daemons still on an older tap, or "".
+
+    Where open sessions follow the update (`result.follows`), they move by
+    themselves: the plugin's prompt hook hands a watcher from before tap
+    0.10.13 to the Probe service at its session's next prompt
+    (`hooks/tap_handover.py`), a newer one hands itself over, and the service
+    records on the newest installed tap. Anywhere else, a restart."""
     stale = result.tap_running_stale
     if not stale or not result.tap_after:
         return ""
@@ -976,6 +989,12 @@ def running_stale_note(result: PluginResult) -> str:
     versions = ", ".join(dict.fromkeys(stale))
     sessions = "1 session" if count == 1 else f"{count} sessions"
     run, them = ("runs", "it") if count == 1 else ("run", "them")
+    if result.follows:
+        moves = "moves" if count == 1 else "move"
+        return (
+            f"{sessions} started before the update still {run} tap {versions}; "
+            f"{'it' if count == 1 else 'they'} {moves} to {result.tap_after} at the next prompt, no restart needed"
+        )
     return (
         f"{sessions} started before the update still {run} tap {versions}; "
         f"restart {them} to switch to {result.tap_after}"
@@ -1057,9 +1076,11 @@ def _daemon_version(session_id: str, root: str) -> str | None:
     name = Path(root).name
     if _VERSION_DIR.match(name):
         return name
+    from probe.cli import capture_state
+
     harnesses = [h for h in get_registry().all() if h.capture is not None]
     for harness in harnesses:
-        record = Path("/tmp") / f"{harness.capture.watcher_prefix}-watcher-{session_id}.version"
+        record = capture_state._watcher_dir(harness.id) / f"{harness.capture.watcher_prefix}-watcher-{session_id}.version"  # noqa: SLF001
         try:
             text = record.read_text(encoding="utf-8").strip()
         except OSError:
@@ -1092,11 +1113,35 @@ def tap_daemons() -> list[TapDaemon]:
     return list(found.values())
 
 
+def hosted_taps(source: str) -> dict[str, str]:
+    """`{session id: tap version}` for each session of `source` the Probe
+    service records now: the tap the service LOADED, which every one of its
+    recorders runs, whatever tap the session named when it asked. It loads one
+    tap and keeps it until a session names a newer one, so after an update its
+    sessions keep the old tap, and no `tap watch` command line shows it.
+
+    From `service.status` alone (`recorders[].tap_version`, `harness`): a
+    service too old to say which tap it loaded, or a recorder that names no
+    agent, is left out rather than guessed at. Empty when no service answers:
+    then nothing is recorded there."""
+    rows = service_calls.recorders()
+    found: dict[str, str] = {}
+    for row in rows or []:
+        sid, agent, version = row.get("sid"), row.get("harness"), row.get("tap_version")
+        if row.get("alive") is False or agent != source:
+            continue
+        if isinstance(sid, str) and isinstance(version, str) and version:
+            found[sid] = version
+    return found
+
+
 def stale_tap_daemons(source: str, installed: str | None) -> tuple[str, ...]:
     """The version each live capture daemon of `source` runs, for every one
-    older than the tap `installed` now, oldest first. A daemon is `source`'s
-    when it was started from a folder under that agent's home. NEVER RAISES:
-    an observation for the report, never a reason an update fails."""
+    older than the tap `installed` now, oldest first: each session's own `tap
+    watch` (a daemon is `source`'s when it was started from a folder under
+    that agent's home), and each session the Probe service records on the tap
+    it loaded (`hosted_taps`), one per session. NEVER RAISES: an observation
+    for the report, never a reason an update fails."""
     if not installed:
         return ()
     try:
@@ -1105,13 +1150,22 @@ def stale_tap_daemons(source: str, installed: str | None) -> tuple[str, ...]:
         if home is None:
             return ()
         home = home.resolve()
-        stale = [
-            daemon.version
-            for daemon in tap_daemons()
-            if daemon.version
-            and Path(daemon.root).resolve().is_relative_to(home)
-            and is_newer(installed, daemon.version)
-        ]
+        running: dict[str, str] = {}
+        stale = []
+        for daemon in tap_daemons():
+            if daemon.version and Path(daemon.root).resolve().is_relative_to(home):
+                running.setdefault(daemon.session_id, daemon.version)
+                if is_newer(installed, daemon.version):
+                    stale.append(daemon.version)
+        try:
+            hosted = hosted_taps(source)
+        except Exception:  # noqa: BLE001 - the daemons above are still worth reporting
+            hosted = {}
+        for sid, version in hosted.items():
+            # A session whose own `tap watch` still holds it is counted above
+            # (the service's recorder waits for that one to let go).
+            if sid not in running and is_newer(installed, version):
+                stale.append(version)
         return tuple(sorted(stale, key=lambda v: _triplet(v) or (0, 0, 0)))
     except Exception:  # noqa: BLE001 - see docstring
         return ()
@@ -1119,6 +1173,76 @@ def stale_tap_daemons(source: str, installed: str | None) -> tuple[str, ...]:
 
 def tap_changed(result: PluginResult) -> bool:
     return is_newer(result.tap_after, result.tap_before)
+
+
+#: The first tap whose `tap watch` hands its session to the Probe service
+#: (`hooks/tap_handover.py` HANDBACK_TAP), and the first on protocol 2, which
+#: the prompt hook can move at all (PROTOCOL2_TAP).
+HANDBACK_TAP = "0.10.13"
+PROTOCOL2_TAP = "0.4.5"
+def _harness_can(source: str, capability: str) -> bool:
+    """Does the registry row `source` names have `capability`? False for a
+    name the registry does not know."""
+    harness = get_registry().find(source)
+    return harness is not None and harness.can(capability)
+
+
+def _ledger_user_scope(plugin_ids: tuple[str, ...]) -> bool:
+    """Is every install Claude Code's ledger records for these plugins user
+    scope, with the first of them installed at all? A project-scoped install
+    serves its project only, and an open session's hooks never hand over to
+    it (`dispatch.installed_root`)."""
+    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+    try:
+        plugins = json.loads(path.read_text()).get("plugins") or {}
+        if not plugins.get(plugin_ids[0]):
+            return False
+        return all(
+            isinstance(entry, dict) and entry.get("scope") == "user"
+            for plugin_id in plugin_ids
+            for entry in plugins.get(plugin_id) or []
+        )
+    except Exception:  # noqa: BLE001 - unreadable: unproven, so the restart line
+        return False
+
+
+def _windows() -> bool:
+    return os.name == "nt"
+
+
+def follows_without_restart(source: str, result: PluginResult, tap_after: str | None = None) -> bool:
+    """Do this agent's open sessions follow the update with no restart, so
+    "no restart needed" is true? Only for an agent whose open sessions follow
+    updates (the registry's `follows_updates`: Claude Code, Codex), not on
+    Windows (the prompt hook leaves its sessions alone: no Git Bash pid can be
+    proven there, `tap_handover.watchers_movable`), every install at user scope
+    where the agent's ledger has scopes (`scoped_installs`: Claude Code's), a
+    tap that hands its sessions
+    to the Probe service (`tap_after`, default the one installed now:
+    HANDBACK_TAP or later, or none at all) and every session still on an
+    older tap on protocol 2 (PROTOCOL2_TAP), which the prompt hook can move:
+    that hook ships in the Probe plugin (`result.after`), so a watcher from
+    before the hand-back follows only where it is installed (a session the
+    service records moves with the service). Anything else keeps the restart
+    line. Never raises."""
+    try:
+        from probe.harness.registry import CAPABILITY_FOLLOWS_UPDATES, CAPABILITY_SCOPED_INSTALLS
+
+        if not _harness_can(source, CAPABILITY_FOLLOWS_UPDATES) or _windows():
+            return False
+        if _harness_can(source, CAPABILITY_SCOPED_INSTALLS) and not _ledger_user_scope(
+            (tracking_plugin_id(source), TAP_PLUGIN_ID)
+        ):
+            return False
+        tap = result.tap_after if tap_after is None else tap_after
+        if tap and is_newer(HANDBACK_TAP, tap):
+            return False
+        stale = result.tap_running_stale
+        if not result.after and any(is_newer(HANDBACK_TAP, version) for version in stale):
+            return False
+        return not any(is_newer(PROTOCOL2_TAP, version) for version in stale)
+    except Exception:  # noqa: BLE001 - see docstring
+        return False
 
 
 def listed_version(listing: str | None, name: str) -> str | None:

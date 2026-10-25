@@ -278,7 +278,13 @@ from local_operator.session.credential_binding import (
 )
 from local_operator.session.goal import GoalHistoryEntry, GoalJudgeState, GoalState
 from local_operator.session.mcp_status import McpStartupOutcome
-from local_operator.session.model_selection import SELECTED_MODEL_CUSTOM_TYPE
+
+# ONE implementation of "what dial does this row state", shared with the
+# runtime-less cold frame so the pane and the first turn cannot disagree.
+from local_operator.session.model_selection import (
+    SELECTED_MODEL_CUSTOM_TYPE,
+    fast_dial_from_row,
+)
 from local_operator.session.naming import (
     CONVERSATION_NAME_CUSTOM_TYPE,
     MAX_TITLE_CHARS,
@@ -1700,6 +1706,21 @@ def _collect_tool_call_delta(state: dict[int, dict[str, Any]], event: Any) -> No
         entry["name"] += event.name
     if event.argument_delta:
         entry["arg_parts"].append(event.argument_delta)
+
+
+def _last_stop_reason(event: AgentEndEvent) -> str | None:
+    """The terminal ``stop_reason`` of the turn's own last assistant message.
+
+    Read from the end event's messages rather than from the context: a turn
+    that FAILED may have persisted a partial tail, and the verdict must
+    describe what the provider said about the request it answered.
+    """
+
+    for message in reversed(list(getattr(event, "messages", None) or [])):
+        value = getattr(message, "stop_reason", None)
+        if value:
+            return str(value)
+    return None
 
 
 def _assemble_aside_tool_calls(state: dict[int, dict[str, Any]]) -> list[ToolCall]:
@@ -3638,11 +3659,13 @@ class Session:
         #: read by ``_build_tool_context`` on every turn, which is what makes
         #: it reach both the createIf checks and the executors.
         self._confinement_root = confinement_root
-        #: Settled model-owned jobs whose auto-delivery was declined because a
-        #: turn was streaming (see ``_on_job_completed``), in settle order. The
-        #: turn's ``finally`` hands them over once it is idle again; see
-        #: ``_deliver_deferred_job_results``. Holds the JOB OBJECT and its
-        #: settled text, not just the id: the manager sweeps a settled row
+        #: Settled model-owned jobs whose results are durably journaled but have
+        #: not yet committed into this turn's model context, in settle order.
+        #: Safe aside boundaries offer the SAME canonical rows to the running
+        #: loop; the turn's ``finally`` handles only leftovers after its last
+        #: safe boundary (see ``_deliver_deferred_job_results``). Holds the JOB
+        #: OBJECT and its settled text, not just the id: the manager sweeps a
+        #: settled row
         #: ``retention_ms`` (5 min) after it settles, on any read, so a turn
         #: that outlives that window would find nothing to re-look-up (review
         #: round 1, R1-1). Holding the object keeps ``consumed`` observable
@@ -4286,6 +4309,16 @@ class Session:
         # whether the run continues, `_logical_generation` remembers which
         # agent_start the eventual end belongs to. Both are None outside a run.
         self._held_end: AgentEndEvent | None = None
+        #: This turn's claim on a pending conversation BODY, if any. ``None``
+        #: means the turn is an ordinary one; the transform is attached only
+        # when ``_open_pending_body_turn`` actually won a reservation, so a
+        # session with nothing pending never pays for the per-call gate.
+        self._pending_body_turn: Any | None = None
+        #: The turn's terminal verdict, captured where the loop's agent_end is
+        #: handled. Settlement runs in the ``finally``, after ``_flush_held_end``
+        #: has already released that event, so the verdict must be captured
+        #: here rather than re-read there.
+        self._pending_body_verdict: tuple[str | None, str | None, bool] | None = None
         #: How the last logical turn ended, published on the canonical snapshot
         #: as ``last_turn_outcome``. A viewer that dropped mid-turn and rebinds
         #: after the turn settled cannot recover this from ``live_events``
@@ -6846,7 +6879,7 @@ class Session:
                 withdraw = getattr(self._stream_fn, "withdraw_fallback", None)
                 if callable(withdraw):
                     withdraw()
-                self._journal_effort_if_selection_changed(previous, model, previous_choice)
+                self._journal_knobs_if_selection_changed(previous, model, previous_choice)
                 self.refresh_frontend_state()
                 # The label moved even though the pair did not (the pin came
                 # off), so the baked tier descriptions are stale for the same
@@ -6878,12 +6911,12 @@ class Session:
             # change. The SELECTION row is a different matter and is re-written
             # below: a level the user chose is a durable property of the
             # conversation, not an in-memory knob (see
-            # `_journal_effort_if_selection_in_force`).
+            # `_journal_knobs_if_selection_changed`).
             if self._active_route is not None:
                 refreshed = self._spec_for_route(*self._active_route)
                 if refreshed is not None:
                     self._active_fallback = refreshed
-            self._journal_effort_if_selection_changed(previous, model, previous_choice)
+            self._journal_knobs_if_selection_changed(previous, model, previous_choice)
             self.refresh_frontend_state()
             return
         # A genuine model change is a SELECTION, and selections outlive the
@@ -6995,12 +7028,20 @@ class Session:
         """
         return self._chosen_effort
 
-    def _journal_effort_if_selection_changed(
+    def _journal_knobs_if_selection_changed(
         self, previous: ModelSpec, model: ModelSpec, previous_choice: str | None
     ) -> None:
-        """Re-journal the selection when an effort DECISION moved it.
+        """Re-journal the selection when an EFFORT or FAST decision moved it.
 
-        "Decision" covers both halves the row stores: the level the selected
+        Both dials are SAME-PAIR knob changes (``model_copy(update=...)``), so
+        both take ``set_model``'s same-pair early return and never reach the
+        switch's own journal write. Whatever this method does not re-write, a
+        resume silently reverts — which is the defect each half of the row
+        exists to prevent: an ``/effort max`` decaying to the seed (``#240``,
+        ``#797``) and the fast toggle coming back OFF after a reopen
+        (``damianvtran/local-operator-ui#1266``).
+
+        "Decision" covers both halves the EFFORT stores: the level the selected
         model now expresses, and the level the CONVERSATION chose
         (``effort_choice``). ``/effort auto`` can change only the second one
         when the spec already sits on its seed, and the row must still be
@@ -7033,13 +7074,16 @@ class Session:
 
         Bounded twice, and each bound is load-bearing:
 
-        - **Only an actual effort decision.** A sampling-only override
+        - **Only an actual effort or fast decision.** A sampling-only override
           (temperature / top_p, the server's ``ChatRequest.options`` path)
           rides ``set_model`` on the same pair too, and the journal stores no
           sampling — so re-journalling on those would append identical rows for
-          a change the row cannot even express. The spec level and the chosen
-          level are compared SEPARATELY; a settled call that moved neither is
-          still skipped.
+          a change the row cannot even express. The spec level, the CHOSEN
+          level and the speed dial are compared SEPARATELY; a settled call that
+          moved none of them is still skipped. That is what keeps the write
+          one-per-change rather than one-per-keystroke: the request path calls
+          ``set_model`` for every message, and ``/fast`` cycling re-writes
+          nothing until a toggle settles.
         - **Coalesced, not one append per keystroke.** ``/effort`` cycling
           (``shift+tab``) lands one write per SETTLED level: the writer
           snapshots the spec at write time, and a second change while a write
@@ -7055,6 +7099,7 @@ class Session:
         # the next restart to resurrect (review round 1, M3).
         if (
             previous.reasoning_effort == model.reasoning_effort
+            and previous.fast_mode == model.fast_mode
             and previous_choice == self._chosen_effort
         ):
             return
@@ -9894,16 +9939,28 @@ class Session:
         reason its sibling in ``process`` does: the body returns early on several
         paths, and every one of them is a state the settle has to be asked about.
         """
+        from local_operator.session.runtime.inbox import (
+            claim_read_batch_or_defer,
+            settle_read_batch,
+            try_enter_read_batch,
+        )
+
+        directory = getattr(self._transcript, "directory", None)
+        if directory is None:
+            return
+        batch = try_enter_read_batch(directory)
+        if batch is None:
+            return  # BEFORE the rows helper's one-shot flag and any settlement
+        body_error: BaseException | None = None
         try:
-            await self._drain_spooled_peer_inbox_rows()
-        finally:
-            directory = getattr(self._transcript, "directory", None)
-            if directory is not None:
-                from local_operator.session.runtime.inbox import settle_owed_turn
+            if await claim_read_batch_or_defer(batch):
+                await self._drain_spooled_peer_inbox_rows(batch)
+        except BaseException as exc:
+            body_error = exc
+        await settle_read_batch(batch, body_error)
+        self._peer_inbox_drained = not batch.pending_after_commit
 
-                settle_owed_turn(directory)
-
-    async def _drain_spooled_peer_inbox_rows(self) -> None:
+    async def _drain_spooled_peer_inbox_rows(self, batch) -> None:
         """Deliver any inbox rows spooled for this session. Once per lifetime.
 
         Called by ``_run_turn_pipeline`` AFTER the turn's own messages are
@@ -9925,29 +9982,23 @@ class Session:
         """
         if self._peer_inbox_drained:
             return
-        self._peer_inbox_drained = True
+        # Completion flag is set only after durable handled-only commit.
         # Imported in-function: the runtime inbox lives behind the mobile
         # package's config-path machinery, and this module does not carry a
         # module-level dependency on it for a once-per-session path.
-        from local_operator.session.runtime.inbox import (
-            SOURCE_USER,
-            coalesce_wake_rows,
-            drain_inbox,
-        )
+        from local_operator.session.runtime.inbox import SOURCE_USER, admit_batch_row
 
         directory = getattr(self._transcript, "directory", None)
         if directory is None:
             return
-        try:
-            lines = await asyncio.to_thread(drain_inbox, directory)
-        except Exception:  # noqa: BLE001 — a bad spool must not fail the turn
-            logger.warning("peer inbox drain failed", exc_info=True)
-            return
+        entries = batch.delivery_rows()
+        ordinals = {id(line): indices for indices, line in entries}
+        lines = [line for _, line in entries]
         # BEFORE anything is delivered: a long handover spools one row per fired
         # occurrence, and every row would otherwise be its own wake and its own
         # turn (the reported 52-alarm flood). Coalescing first is also what keeps
         # this drain's own steer arm from queueing N copies of one reminder.
-        lines = coalesce_wake_rows(lines)
+        # Batch coalescing preserves original raw ordinals.
         # Rows of ONE batch carrying the same owner ``command_id``: ``drain_inbox``
         # empties the file, so a crash between the read and its receipt can
         # re-deliver the whole batch, and the steer arm's identity does not
@@ -9977,29 +10028,34 @@ class Session:
                 # ``_run_spooled_owner_prompt``).
                 if getattr(line, "source", "") == SOURCE_USER:
                     self._run_spooled_owner_prompt(line, seen=seen_owner_ids)
+                    batch.handled.update(ordinals[id(line)])
                 else:
-                    await self.receive_peer_message(
-                        line.text,
-                        mode="mailbox",
-                        wake=bool(getattr(line, "wake", False)),
-                        sender=line.sender,
-                        # The SENDER's own id, so a row that reached the spool
-                        # twice (a crash between the write and the ack, or a
-                        # successor that drained it once already) is answered as
-                        # a duplicate instead of delivered twice. Absent on rows
-                        # an older build wrote, which read as ``""`` and deliver
-                        # exactly as before.
-                        message_id=getattr(line, "message_id", "") or None,
-                        # The row's OWN provenance kind and bridge locator, as the
-                        # live/wake delivery carries them. Dropping them here
-                        # delivered a spooled team-bridge request as a plain peer
-                        # message: the bridge receive hook keys on
-                        # ``TEAM_BRIDGE_MESSAGE_TYPE`` (see ``_maybe_raise_bridge_ask``),
-                        # so the human ask was never raised. Empty/absent (rows an
-                        # older build wrote) read as ``None`` and deliver exactly
-                        # as before.
-                        custom_type=getattr(line, "custom_type", "") or None,
-                        bridge_meta=getattr(line, "bridge_meta", None) or None,
+                    await admit_batch_row(
+                        batch,
+                        ordinals[id(line)],
+                        self.receive_peer_message(
+                            line.text,
+                            mode="mailbox",
+                            wake=bool(getattr(line, "wake", False)),
+                            sender=line.sender,
+                            # The SENDER's own id, so a row that reached the spool
+                            # twice (a crash between the write and the ack, or a
+                            # successor that drained it once already) is answered as
+                            # a duplicate instead of delivered twice. Absent on rows
+                            # an older build wrote, which read as ``""`` and deliver
+                            # exactly as before.
+                            message_id=getattr(line, "message_id", "") or None,
+                            # The row's OWN provenance kind and bridge locator, as the
+                            # live/wake delivery carries them. Dropping them here
+                            # delivered a spooled team-bridge request as a plain peer
+                            # message: the bridge receive hook keys on
+                            # ``TEAM_BRIDGE_MESSAGE_TYPE`` (see ``_maybe_raise_bridge_ask``),
+                            # so the human ask was never raised. Empty/absent (rows an
+                            # older build wrote) read as ``None`` and deliver exactly
+                            # as before.
+                            custom_type=getattr(line, "custom_type", "") or None,
+                            bridge_meta=getattr(line, "bridge_meta", None) or None,
+                        ),
                     )
             except Exception:  # noqa: BLE001 — one bad row is not the others' problem
                 logger.warning("spooled peer message could not be delivered", exc_info=True)
@@ -16348,13 +16404,33 @@ class Session:
 
         Through :meth:`set_model` so every consumer sees it the way a user's
         ``/fast off`` would be seen: the spec the next request is built from,
-        the frontend state the band repaints from, and a pinned fallback's
-        derived display spec. Not ``explicit`` — this is a knob adjustment on
-        the model that is serving, never a model choice.
+        the frontend state the band repaints from, a pinned fallback's derived
+        display spec, AND the durable row — a refusal is a real change to the
+        conversation's dial, so the journalled snapshot must record it or the
+        next resume would re-arm a tier this account cannot buy. Not
+        ``explicit`` — this is a knob adjustment on the model that is serving,
+        never a model choice.
         """
         if not getattr(self._model, "fast_mode", False):
             return
         self.set_model(self._model.model_copy(update={"fast_mode": False}))
+        # THE RESET IS STATED, from the side that owns the dial. The stream fn
+        # narrates the same edge from its own copy, but it cannot tell a latched
+        # refusal on an already-standard route (nothing to explain) from the
+        # first one, where a toggle the user set has just stopped applying — and
+        # "explain the effective limitation instead of silently losing the saved
+        # preference" is the issue's own wording (ui#1266). One narrator, the one
+        # that knows whether anything moved; emitted AFTER the dial so a host
+        # repainting from this notice reads the post-reset state.
+        await self._emit(
+            _notice(
+                _nt.fast_mode_refused(
+                    selector=selector,
+                    reason=message.strip().rstrip(".") or "no reason given",
+                ),
+                kind="warning",
+            )
+        )
 
     async def _on_route_settled(self, target: Any, reason: str) -> None:
         """The stream fn's effective route moved; record it and tell the host.
@@ -17148,6 +17224,147 @@ class Session:
             self._turn_settled_event.clear()
             await self._turn_settled_event.wait()
 
+    def _pending_body_budget(self) -> Any:
+        """This turn's measured capacity for one whole body frame.
+
+        The number comes from the model spec's window minus the output reserve
+        and the tokens the provider last reported, and it is labelled with that
+        provenance rather than passed as a bare int: the recorded size-ledger
+        gap means nobody can audit an unlabelled budget.
+
+        IT CAN ERR IN BOTH DIRECTIONS, and saying so is the point: the
+        4-bytes-per-token factor is an approximation (low for CJK, high for
+        escape-heavy text), and the subtraction uses the LAST REPORTED prompt
+        size rather than the request being built — if this turn has grown since
+        that report, the budget is TOO HIGH and a frame that fits it may still
+        overflow the provider's real headroom. A frame that does not fit is
+        refused, so erring low costs a retry; erring high costs a provider
+        error. The request-local size ledger is still the fix, and this is an
+        advisory cap in the meantime, not a guarantee.
+        """
+
+        from local_operator.team_bridge.request_body import BodyBudget
+
+        window = int(getattr(self._model, "context_window", 0) or 0)
+        reserve = int(getattr(self._model, "max_output_tokens", 0) or 0)
+        used = int(self._context_tokens_hint or 0)
+        available = max(0, window - reserve - used) * 4
+        return BodyBudget(
+            available_bytes=available,
+            measured_from=(
+                "model_spec.context_window minus max_output_tokens " "and reported context tokens"
+            ),
+        )
+
+    async def _fetch_pending_body(self, conversation_id: str, message_id: str) -> Any:
+        """Fetch one reserved message's body through the bridge's own authority.
+
+        The SAME endpoint/member/consent/joined-seq route the connector used,
+        with the owner-pinned credential the runtime already holds — no second
+        access path and no person-only fallback. A missing route or a refusal
+        reads as "not now" and leaves the row pending.
+        """
+
+        from local_operator.team_bridge.pending_turn import FetchedBody
+
+        runtime = getattr(self, "bridge_runtime", None)
+        if runtime is None:
+            return None
+        try:
+            access = await runtime.client.current_access()
+            fetched = await runtime.client.conversation_body(
+                conversation_id,
+                message_id,
+                tenant_id=runtime.tenant_id,
+                endpoint_id=getattr(runtime.owner, "endpoint_id", None),
+                access=access,
+            )
+        except Exception:  # noqa: BLE001 — closed outcome, never an echo
+            return None
+        if not isinstance(fetched, Mapping) or fetched.get("message_id") != message_id:
+            return None
+        body = fetched.get("body")
+        body_hash = fetched.get("body_hash")
+        if not isinstance(body, str) or not isinstance(body_hash, str):
+            return None
+        name = fetched.get("conversation_name")
+        kind = fetched.get("sender_kind")
+        sender = fetched.get("sender_label")
+        return FetchedBody(
+            body=body,
+            body_sha256=body_hash,
+            conversation_label=name if isinstance(name, str) else "",
+            sender_label=sender if isinstance(sender, str) else "",
+            sender_kind=kind if isinstance(kind, str) else "unknown",
+        )
+
+    async def _open_pending_body_turn(self) -> None:
+        """Claim this session's oldest pending BODY for the turn about to run.
+
+        ONLY a session the bridge runtime already admitted reaches here (owner
+        pinned, generation live, designated, consenting — all inside
+        ``bridge_runtime_for_session``), and only when a read-only check finds a
+        ``pending`` row for THIS session. Anything else leaves
+        ``transform_context`` unset, so an ordinary turn pays nothing and no
+        other session's row is ever served.
+        """
+
+        self._pending_body_turn = None
+        self._pending_body_verdict = None
+        runtime = getattr(self, "bridge_runtime", None)
+        if runtime is None:
+            return
+        try:
+            from local_operator.team_bridge.pending_turn import PendingTurn
+
+            turn = PendingTurn(runtime.owner, runtime.session_id, config_dir=runtime.config_dir)
+            won = await turn.open(
+                budget=self._pending_body_budget(), fetch=self._fetch_pending_body
+            )
+        except Exception:  # noqa: BLE001 — an ordinary request is the fallback
+            logger.debug("bridge: pending body unavailable", exc_info=True)
+            return
+        if won:
+            self._pending_body_turn = turn
+
+    def _settle_pending_body(self) -> None:
+        """Complete or release the turn's reservation, once, at the finally.
+
+        WHY here and not ``_persist_progress``: the tool loop calls that per
+        batch, so a gate inside it would fire at every mid-turn boundary and
+        complete a reservation for a turn that is still running (S-22). This is
+        the one place per turn where the verdict and the durability write are
+        both known.
+        """
+
+        turn = self._pending_body_turn
+        if turn is None:
+            return
+        error, stop_reason, aborted = self._pending_body_verdict or (None, None, False)
+        entry_id = None
+        # The witness is the turn's last durable ASSISTANT entry. A plain
+        # ``Message`` carries ``role`` (attribution lives on the custom-message
+        # side), so reading only the custom field found nothing and settlement
+        # released every real turn as ``never_appended``.
+        for message in reversed(list(self._context.messages)):
+            role = getattr(message, "role", None) or getattr(message, "attribution", "")
+            if role == "assistant" and getattr(message, "id", ""):
+                entry_id = str(message.id)
+                break
+        try:
+            outcome = turn.settle(
+                entry_id=entry_id,
+                error=error,
+                stop_reason=stop_reason,
+                aborted=aborted,
+            )
+            logger.debug("bridge: body reservation settlement=%s", outcome)
+        except Exception:  # noqa: BLE001 — settlement never fails a turn
+            logger.debug("bridge: body settlement failed", exc_info=True)
+        finally:
+            self._pending_body_turn = None
+            self._pending_body_verdict = None
+
     async def _flush_held_end(self) -> None:
         """Emit the boundary event the pipeline was holding, if any."""
         held = self._held_end
@@ -17446,7 +17663,17 @@ class Session:
 
                 return witness()
 
+            await self._open_pending_body_turn()
             config = LoopConfig(
+                # The conversation BODY goes in HERE and nowhere else: the loop
+                # calls this once per PHYSICAL request, so a turn that makes
+                # several calls gets the same cached bytes every time (the
+                # per-call invariant lives in ``PendingTurn.for_call``).
+                transform_context=(
+                    self._pending_body_turn.transform
+                    if self._pending_body_turn is not None
+                    else None
+                ),
                 capture_prepared_write=(
                     self._capture_prepared_write if self._prepared_capture_enabled else None
                 ),
@@ -17601,6 +17828,16 @@ class Session:
                         self._turn_items.extend(snapped)
                     except Exception:  # noqa: BLE001 — an instrument never fails a turn
                         logger.debug("supplement snapshot failed", exc_info=True)
+                    if self._pending_body_turn is not None and event.type == "agent_end":
+                        # Capture the terminal verdict HERE: settlement runs in
+                        # the ``finally`` after ``_flush_held_end`` released the
+                        # event, and re-deriving it there would mean trusting a
+                        # second source for the same fact (S-11/S-18).
+                        self._pending_body_verdict = (
+                            event.error,
+                            _last_stop_reason(event),
+                            bool(event.aborted),
+                        )
                     if event.aborted or event.error:
                         # A failed or interrupted run is a real boundary: never
                         # hold it behind a compaction that may not happen. The
@@ -17772,6 +18009,7 @@ class Session:
             # write that fails must not replace the original exception (which
             # is what the caller and the incident journal need to see).
             await self._persist_progress(self._context.messages)
+            self._settle_pending_body()
             # …and the notices that turn queued are DISCARDED rather than flushed. What
             # that means depends on how the turn ended, and there are three cases:
             #
@@ -20292,10 +20530,11 @@ class Session:
         """Auto-deliver one settled model-owned job back into the conversation.
 
         WHOSE DELIVERY IS BEING DECIDED, because the two halves now differ.
-        The MODEL's hand-over is idle-only: a running turn already owns the
-        conversation (its model either waited or can 'jobs'), and
-        steering-injecting a result nobody asked for mid-turn is noise. The
-        HUMAN's copy is not: the row is journaled durably the moment the job
+        The MODEL's hand-over waits for a noninterrupting aside/tool or yield
+        boundary: a running tool keeps its pairings and floor, but the next
+        eligible request can incorporate the result instead of publishing a
+        stale final. The HUMAN's copy does not wait: the row is journaled
+        durably the moment the job
         settles even while a turn streams, because a turn can run for many
         hours and holding the row to its end bunched a marathon turn's every
         completion at its tail (2026-09-26 incident; see the streaming branch).
@@ -20313,7 +20552,7 @@ class Session:
         if self._job_id is not None:
             return
         # ``video`` rides this gate as of the video phase (media wave-2): a
-        # settled video job opens the review turn exactly like a child does,
+        # settled video job delivers its review result exactly like a child,
         # and its cancellations never reach here (the manager's task-cancel
         # arm returns before delivery, as for every type).
         if getattr(job, "consumed", False) or job.type not in ("task", "bash", "video"):
@@ -20330,13 +20569,13 @@ class Session:
             await self._deliver_job_results([(job_id, text, job)])
             return
         if self._is_streaming:
-            # DEFERRED for the MODEL, DURABLE for the HUMAN. The batch below
-            # still hands the model one result row per job at the turn's end --
-            # the semantics this path was built for (dropping these, the
-            # pre-deferral behaviour, left a parent idle forever with finished
-            # children: "session wedged waiting on its subagents", reproduced
-            # with two children settling during the parent's own tool call).
-            # What changes here is WHO waits for that end: only the model.
+            # PENDING for the MODEL, DURABLE for the HUMAN. The next safe
+            # aside/tool or yield boundary offers the model this canonical row;
+            # the turn-end batch is only the fallback when no boundary can take
+            # it. Dropping the pending entry would revive the pre-deferral
+            # behaviour that left a parent idle forever with finished children
+            # ("session wedged waiting on its subagents", reproduced with two
+            # children settling during the parent's own tool call).
             #
             # WHY (2026-09-26 incident). One real turn ran 23.5 h (opened
             # 09-25 09:29, ended 09-26 09:06:51). Every completion inside that
@@ -20347,23 +20586,24 @@ class Session:
             # bunched at the end of the conversation; the notices are supposed
             # to appear as the jobs complete.
             #
-            # The batch re-sends THIS message object rather than minting a
-            # twin (see ``_deferred_job_results``), and every write path dedups
-            # by message id, so the early row and the model's batch are one
+            # Both the safe-boundary carrier and the fallback re-send THIS
+            # message object rather than minting a twin, and every write path
+            # dedups by message id, so the early row and model delivery are one
             # row. Deliberately NOT parked in ``_pending_context_journal``:
-            # the batch hands the message to the loop as an INITIAL, and the
-            # loop extends the live context with initials -- parking it here
-            # too would put the same row into the context twice.
+            # aside injection commits into the live context itself, while the
+            # fallback hands the message to the loop as an INITIAL -- parking
+            # it here too would put the same row into the context twice.
             #
             # Best-effort: a failed early write must not fail the settle path
-            # or the deferral, which is still the delivery of record.
+            # or the pending delivery. The safe boundary retries before commit;
+            # the turn-end fallback remains the recovery of last resort.
             message = self._job_result_message(job_id, text, job)
             try:
                 await self._transcript.append_message(message)
             except Exception:  # noqa: BLE001 -- visibility must not fail the delivery
                 logger.warning(
-                    "could not journal job %s's result early; the turn-end batch "
-                    "still delivers it",
+                    "could not journal job %s's result early; a safe boundary "
+                    "or the turn-end batch will retry it",
                     job_id,
                     exc_info=True,
                 )
@@ -20842,12 +21082,14 @@ class Session:
         )
 
     async def _deliver_deferred_job_results(self) -> None:
-        """Hand over job results that settled while a turn was streaming.
+        """Hand over job results no safe boundary committed.
 
         Called from the turn pipeline's ``finally`` AFTER ``_is_streaming`` is
-        cleared, so it runs exactly when ``_on_job_completed`` would have
-        accepted the delivery in the first place. Everything deferred during
-        the turn goes out as ONE ``_prompt_messages`` turn (see
+        cleared. Ordinary boundaries acknowledge and remove their entries on
+        the loop's ``on_commit`` hook, so everything still pending here is a
+        genuine leftover: it arrived after the last boundary, lost a race with
+        abort/budget exhaustion, or the turn had no eligible boundary. The
+        leftovers go out as ONE ``_prompt_messages`` turn (see
         ``_deliver_job_results``), in settle order -- unless the runtime has
         committed to leaving, in which case the batch is HELD durably and opens
         no turn at all (the no-turn arm in ``_deliver_job_results``).
@@ -20888,6 +21130,11 @@ class Session:
         results: list[tuple[str, str, Any]] = []
         messages: list[CustomMessage] = []
         for job_id, (job, text, message) in pending:
+            # The fallback now owns the canonical object. Hooks from an
+            # uncommitted aside attempt must not acknowledge a later delivery
+            # turn (whose INITIAL never passes through the aside commit path).
+            message.on_commit = None
+            message.on_discard = None
             try:
                 if getattr(job, "consumed", False):
                     continue
@@ -21036,12 +21283,18 @@ class Session:
         return self._steering_queue.qsize() > self._courtesy_wake_count
 
     async def _drain_asides(self) -> list[Aside]:
-        """Materialize and durably publish live asides before loop injection.
+        """Materialize durable asides and pending job results for safe injection.
 
         Historically the synchronous thunk scheduled a fire-and-forget append.
         Offloading that write made a child act on context missing from its
         durable transcript. This async boundary now acknowledges the batch
         first; the loop still owns commit/discard hooks and ordered injection.
+
+        A settled job's transcript row is durable, NOT model-acknowledged. Offer
+        that same object here so the next eligible request sees it before a
+        stale final. Its pending entry remains until ``on_commit``: a discarded
+        or aborted carrier therefore leaves the finally fallback responsible
+        for the result, while ``wait`` can still win consumption at any point.
         """
         thunks = self._aside_thunks
         self._aside_thunks = []
@@ -21051,6 +21304,127 @@ class Session:
         await self._transcript.append_messages(
             [message for message in messages if not self._transcript.has_entry(message.id)]
         )
+
+        # Materialize AFTER the awaited writes above: a wait that returned while
+        # durability was in flight has now marked the retained job consumed and
+        # must suppress this carrier. Departure/abort likewise wins over
+        # opening another continuation; finally will hold the pending row.
+        for job_id, (job, _text, message) in list(self._deferred_job_results.items()):
+            if self._leaving_deliveries or self._abort_requested:
+                break
+            current = self._deferred_job_results.get(job_id)
+            if current is None or current[0] is not job or current[2] is not message:
+                continue
+            if getattr(job, "consumed", False):
+                self._deferred_job_results.pop(job_id, None)
+                continue
+            if not self._transcript.has_entry(message.id):
+                try:
+                    # The settle-time best-effort write may have failed. Unlike
+                    # an INITIAL fallback, aside injection has no later journal
+                    # pass: this stable-ID retry must succeed BEFORE the carrier
+                    # can commit, or restart would lose the consumed result.
+                    await self._transcript.append_message(message)
+                except Exception:  # noqa: BLE001 -- fallback retains delivery ownership
+                    logger.warning(
+                        "could not journal job %s's result at a safe boundary; "
+                        "leaving it pending for the turn-end fallback",
+                        job_id,
+                        exc_info=True,
+                    )
+                    continue
+                # The retry awaited I/O. Re-read every ownership signal before
+                # arming hooks: wait may have consumed, a new attempt may have
+                # replaced the entry, or departure may have won meanwhile.
+                current = self._deferred_job_results.get(job_id)
+                if current is None or current[0] is not job or current[2] is not message:
+                    continue
+                if getattr(job, "consumed", False):
+                    self._deferred_job_results.pop(job_id, None)
+                    continue
+                if self._leaving_deliveries or self._abort_requested:
+                    break
+            if any(existing.id == message.id for existing in self._context.messages):
+                # A rebuilt context or an already-admitted INITIAL already owns
+                # this exact row. Re-adding it would duplicate one canonical
+                # event; its presence in live context is the commit we needed.
+                job.consumed = True
+                self._deferred_job_results.pop(job_id, None)
+                self._note_run_input(message)
+                continue
+
+            def commit(
+                job_id: str = job_id,
+                job: Any = job,
+                message: CustomMessage = message,
+            ) -> None:
+                if self._leaving_deliveries or self._abort_requested:
+                    # Departure/abort can win AFTER materialization but before
+                    # the loop's synchronous append+commit. The append is not
+                    # delivery in that state: remove this carrier and leave the
+                    # pending entry for the same finally/durable hold as any
+                    # other pre-commit discard. The loop re-reads cancellation
+                    # after its pending hooks, BEFORE another provider request;
+                    # the leaving latch has its own flag, so join its existing
+                    # graceful cancellation path here rather than merely
+                    # emptying the carrier and buying an empty continuation.
+                    if self._leaving_deliveries:
+                        self.request_graceful_cancel("runtime is leaving")
+                    if self._context.messages and self._context.messages[-1] is message:
+                        self._context.messages.pop()
+                    if message.on_commit is commit:
+                        message.on_commit = None
+                    if message.on_discard is discard:
+                        message.on_discard = None
+                    return
+                current = self._deferred_job_results.get(job_id)
+                owned = current is not None and current[0] is job and current[2] is message
+                consumed_elsewhere = getattr(job, "consumed", False)
+                if owned:
+                    self._deferred_job_results.pop(job_id, None)
+                    if not consumed_elsewhere:
+                        job.consumed = True
+                        # Attention origin is a COMMIT fact, not a settle or
+                        # materialization fact. A peer+job run keeps the job's
+                        # loud completion policy; wait/discard/departure paths
+                        # never reach this registration.
+                        self._note_run_input(message)
+                if not owned or consumed_elsewhere:
+                    # The loop appends before firing on_commit. If wait (or an
+                    # already-committed identical carrier) won during an awaited
+                    # boundary, remove THIS just-appended object before the next
+                    # provider request instead of acknowledging a duplicate.
+                    if self._context.messages and self._context.messages[-1] is message:
+                        self._context.messages.pop()
+                if message.on_commit is commit:
+                    message.on_commit = None
+                if message.on_discard is discard:
+                    message.on_discard = None
+
+            def discard(
+                job_id: str = job_id,
+                job: Any = job,
+                message: CustomMessage = message,
+            ) -> None:
+                # Do NOT consume: budget exhaustion, staleness and abort all
+                # arrive here before context commit. Keeping the entry is the
+                # requeue; the existing finally/hold path retains ownership.
+                current = self._deferred_job_results.get(job_id)
+                if (
+                    current is not None
+                    and current[0] is job
+                    and current[2] is message
+                    and getattr(job, "consumed", False)
+                ):
+                    self._deferred_job_results.pop(job_id, None)
+                if message.on_commit is commit:
+                    message.on_commit = None
+                if message.on_discard is discard:
+                    message.on_discard = None
+
+            message.on_commit = commit
+            message.on_discard = discard
+            messages.append(message)
         return list(messages)
 
     def queue_aside(self, thunk: Callable[[], AsideResult]) -> None:
@@ -21490,6 +21864,13 @@ class Session:
         cuts to already-persisted history, which is where a cut belongs
         mid-run anyway.
         """
+        # TOOL-BATCH BOUNDARY: this runs after each tool batch and before the
+        # next model call, so it is the second place (besides every provider
+        # call) where a live turn can prove it still holds its BODY lease.
+        # Renewing here is what keeps a long tool run from letting the lease
+        # expire and a second turn claim the same reservation (S-12).
+        if self._pending_body_turn is not None:
+            self._pending_body_turn.renew()
         if self._disposed:
             return None
         # Durability FIRST, unconditionally, and before any compaction
@@ -27151,6 +27532,12 @@ class Session:
             # target's ladder, so a restore re-derives exactly the level in
             # force — no clamped value is ever replayed as a choice.
             "effort": self._chosen_effort or model.reasoning_effort,
+            # A SNAPSHOT, so the dial is written on BOTH edges. An OFF that was
+            # not journalled leaves the earlier ``"fast": true`` row as the
+            # newest evidence on disk, and the backward scan then resurrects the
+            # toggle the user had already turned off — the same class of defect
+            # as an unjournalled level, one field over.
+            "fast": bool(model.fast_mode),
             "boot": self._boot_selector,
         }
         await self._transcript.append_custom(SELECTED_MODEL_CUSTOM_TYPE, payload)
@@ -27164,9 +27551,11 @@ class Session:
         if (
             f"{current.provider}/{current.model_id}",
             self._chosen_effort or current.reasoning_effort,
+            bool(current.fast_mode),
         ) == (
             payload["selector"],
             payload["effort"],
+            payload["fast"],
         ):
             self._selected_model_dirty = False
         else:
@@ -27252,6 +27641,19 @@ class Session:
             # The row names this very spec, so the birth spec IS the target and
             # its own seed is the right comparison.
             self._chosen_effort = _chosen_level_from(effort, self._model)
+            # The DIAL belongs here too, and this branch is exactly where the
+            # reported reset was NOT observed: the conversation was already on
+            # the row's pair, so nothing below ran and the dial stayed at the
+            # birth spec's ``False`` even after the row learned to carry it.
+            #
+            # BOTH EDGES APPLY: the create path can hand this session a spec
+            # that is already switched on (the marker's seed, ui#1265), so an
+            # OFF row has to clear it or the decision is undone by the next
+            # reopen — the same defect (ui#1266) through the new field. ``None``
+            # is no evidence and leaves the incoming spec alone.
+            dial = fast_dial_from_row(saved.fast, self._model)
+            if dial is not None:
+                self._model = self._model.model_copy(update={"fast_mode": dial})
             return
         # The SAME derivation `/model` itself lands on: `spec_for_target`
         # builds the target model's own spec (its base_url, window,
@@ -27291,6 +27693,20 @@ class Session:
                     )
                 }
             )
+        # The DIAL last, against the target the row resolved to, so both halves
+        # of the clamp in ``fast_dial_from_row`` are read from the spec that
+        # will actually serve. Placed after the effort clamp above because the
+        # dial is independent of it (a speed preference is orthogonal to how
+        # hard the model thinks) and before ``self._model`` is published, so no
+        # reader can observe a spec still carrying the previous dial.
+        #
+        # Written for ``False`` as well as ``True``: ``spec_for_target`` builds
+        # the target's own spec and ``build_model_spec`` never seeds the dial, so
+        # this is where an OFF row lands too — an explicit assignment rather than
+        # an OR is what makes the row, not the constructor, the authority.
+        dial = fast_dial_from_row(saved.fast, spec)
+        if dial is not None:
+            spec = spec.model_copy(update={"fast_mode": dial})
         self._model = spec
         # AGAINST THE TARGET SPEC, not the birth spec (review round 2, M5). A
         # withdrawal row now stores the TARGET's seed, so comparing it to the

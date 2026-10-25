@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.15)
 
-project(Lbug VERSION 0.21.2 LANGUAGES CXX C)
+project(Lbug VERSION 0.22.0 LANGUAGES CXX C)
 
 option(SINGLE_THREADED "Single-threaded mode" FALSE)
 if(SINGLE_THREADED)
@@ -224,6 +224,9 @@ if(MSVC)
     # Windows target architecture macros are set above from the detected compiler target.
     # Non-english windows system may use other encodings other than utf-8 (e.g. Chinese use GBK).
     add_compile_options("/utf-8")
+    # Large test objects (e.g. test/transaction/checkpoint_test.cpp) exceed the
+    # default 64k section limit; /bigobj raises it (fatal error C1128 otherwise).
+    add_compile_options("/bigobj")
     # Enables support for custom hardware exception handling
     add_compile_options("/EHa")
     # Reduces the size of the static library by roughly 1/2
@@ -517,6 +520,26 @@ if (ENABLE_BACKTRACES)
 endif()
 if (NOT BUILD_WASM)
     find_package(OpenSSL 3 REQUIRED)
+    # Pin to OpenSSL 3.x. `find_package(OpenSSL 3 ...)` accepts any version >= 3,
+    # but the macOS Homebrew runner now also provides OpenSSL 4, whose deprecated
+    # APIs break -Werror builds and whose libssl.4/libcrypto.4 install names break
+    # the macOS relocate/delocate packaging scripts, which all assume OpenSSL 3.
+    if (DEFINED OPENSSL_VERSION)
+        set(_LBUG_OPENSSL_VERSION "${OPENSSL_VERSION}")
+    elseif (DEFINED OpenSSL_VERSION)
+        set(_LBUG_OPENSSL_VERSION "${OpenSSL_VERSION}")
+    else ()
+        set(_LBUG_OPENSSL_VERSION "")
+    endif ()
+    if (_LBUG_OPENSSL_VERSION MATCHES "^([0-9]+)\\.")
+        if (NOT CMAKE_MATCH_1 STREQUAL "3")
+            message(FATAL_ERROR "Ladybug requires OpenSSL 3.x but found ${_LBUG_OPENSSL_VERSION}. "
+                "Point CMake at an OpenSSL 3 install, e.g. -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) on macOS.")
+        endif ()
+    else ()
+        message(WARNING "Could not determine OpenSSL major version; Ladybug requires OpenSSL 3.x and may fail to build against OpenSSL >= 4.")
+    endif ()
+    unset(_LBUG_OPENSSL_VERSION)
     # Prefer modern imported targets when available (OpenSSL 3 provides OpenSSL::SSL/OpenSSL::Crypto)
     if (TARGET OpenSSL::SSL AND TARGET OpenSSL::Crypto)
         list(APPEND LBUG_LINK_LIBRARIES OpenSSL::SSL OpenSSL::Crypto)
@@ -530,7 +553,7 @@ unset(LBUG_LINK_LIBRARIES)
 
 add_definitions(-DLBUG_ROOT_DIRECTORY="${PROJECT_SOURCE_DIR}")
 add_definitions(-DLBUG_CMAKE_VERSION="${CMAKE_PROJECT_VERSION}")
-add_definitions(-DLBUG_EXTENSION_VERSION="0.21.0")
+add_definitions(-DLBUG_EXTENSION_VERSION="0.22.0")
 
 if(BUILD_LBUG OR LBUG_API_USE_PRECOMPILED_LIB)
 include_directories(

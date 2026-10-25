@@ -314,6 +314,9 @@ EXIT_RESPAWN_LATER = 5
 #: puts them back. Only to a supervisor that sets SUPERVISOR_RETRIES_LIBS_ENV
 #: (tap 0.9.19+); an older tap gets EXIT_DO_NOT_RESPAWN, which it understands.
 EXIT_RETRY_LIBS = 6
+#: The machine's disk is full: a crash's wait before the next start, never a
+#: crash the Probe service reports (a tap's supervisor reads it as a crash).
+EXIT_DISK_FULL = 7
 #: Set by a supervisor that retries after EXIT_RETRY_LIBS.
 SUPERVISOR_RETRIES_LIBS_ENV = "PROBE_TAP_RETRIES_LIBS"
 #: Set by the Probe service's supervisor (`probe.service.workers`):
@@ -439,6 +442,8 @@ class Worker:
         self.last_request_run_at = float("-inf")
         #: Why this worker released the lease; renewing waits until a model round answers again.
         self.released_reason: str | None = None
+        #: The last release had no network at all (`probe._shared.offline`).
+        self.released_offline = False
         self.parent_pid = os.getppid()
         #: The supervisor's identity (SUPERVISOR_PID_ENV), when it gave one.
         self.supervisor: tuple[int, str | None] | None = None
@@ -512,9 +517,10 @@ class Worker:
             return False
         return lease.renew(sid)
 
-    def _release(self, reason: str) -> None:
-        lease.release(self.session.session_id, reason)
+    def _release(self, reason: str, *, offline: bool = False) -> None:
+        lease.release(self.session.session_id, reason, offline=offline)
         self.released_reason = reason
+        self.released_offline = offline
 
     def _quota_inline(self, exc: BaseException, expected_state: str) -> bool:
         """A confirmed monthly allowance refusal hands this session to the agent.
@@ -1841,11 +1847,17 @@ class Worker:
         else:
             alerts.report_bite_failure(exc, session_id=self.session.session_id, lane=LANE_WRITE)
         if _gateway_failure(exc):
+            from probe._shared import offline
+
             self.gateway_failures += 1
-            if self.gateway_failures >= GATEWAY_FAILURES_BEFORE_RELEASE and self.released_reason is None:
+            no_network = offline.no_network(exc)
+            # Released while it had no network, and now it fails WITH one (back
+            # behind a proxy, or our gateway down): said again, as not offline.
+            again = self.released_reason == lease.REASON_GATEWAY and self.released_offline and not no_network
+            if self.gateway_failures >= GATEWAY_FAILURES_BEFORE_RELEASE and (self.released_reason is None or again):
                 # The model is unreachable: the agent records until a round answers again.
                 log.warning("the model's gateway failed %s bites in a row: releasing the lease", self.gateway_failures)
-                self._release(lease.REASON_GATEWAY)
+                self._release(lease.REASON_GATEWAY, offline=no_network)
                 _device_error(f"session {self.session.session_id}: the daemon's model failed "
                               f"{self.gateway_failures} times in a row ({text[:200]}); the agent records until it "
                               "answers again")
@@ -3270,6 +3282,8 @@ def main(argv: list[str] | None = None) -> int:
     # Before anything is recorded: whose traces these are (`shipper.bind`). A
     # folder recorded under another account or server stays local, unshipped.
     shipper_mod.bind(args.session_id, ep.base_url, ep.key)
+    # Whose hint marker the reader's prompt wake and every chat request read.
+    model_mod.bind_hints(args.session_id)
     sid = args.session_id
     worker: Worker | None = None
     stop = {"asked": False}
@@ -3329,6 +3343,21 @@ def main(argv: list[str] | None = None) -> int:
             except Exception:  # noqa: BLE001
                 pass
             return 0
+        if alerts.disk_full(exc):
+            # Not a bug: the machine's disk is full (new-workspace 2026-10-24: the
+            # store's COMMIT, pinged as "Daemon crashed"). Said where the
+            # researcher looks, no ping; its supervisor waits as after a crash.
+            log.error("the daemon worker stopped: the disk is full (%s)", _crash_detail(exc))
+            try:
+                _device_error(f"session {sid}: the daemon stopped: the disk is full ({_crash_detail(exc)}; "
+                              f"its state folder: {_state_base()}); it starts again once there is space")
+            except OSError:
+                pass  # the disk that is full may be this log's too
+            try:
+                lease.release(sid, lease.REASON_DISK_FULL)
+            except Exception:  # noqa: BLE001
+                pass
+            return EXIT_DISK_FULL
         log.exception("the daemon worker crashed")
         _device_error(f"session {sid}: the daemon crashed ({_crash_detail(exc)}); "
                       "the agent records until capture starts it again")

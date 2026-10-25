@@ -726,6 +726,7 @@ fn completion_requires_session_page_and_revision_not_an_unrelated_readme() {
             global_agent: "alice.athena.foo.bar".to_string(),
             local_agent: "foo.bar".to_string(),
             primary_revision: revision.clone(),
+            scope: String::new(),
         },
         pages: vec![
             PublicationPageObservationWire {
@@ -764,6 +765,7 @@ fn completion_rejects_preexisting_run_page_without_revision() {
             global_agent: "alice.athena.foo".to_string(),
             local_agent: "foo".to_string(),
             primary_revision: sha('a'),
+            scope: String::new(),
         },
         pages: vec![PublicationPageObservationWire {
             path: "agents/alice.athena.foo/README.md".to_string(),
@@ -792,6 +794,7 @@ fn historical_member_spelling_requires_the_run_page() {
             global_agent: "alice.athena.foo--code".to_string(),
             local_agent: "foo--code".to_string(),
             primary_revision: revision.clone(),
+            scope: String::new(),
         },
         pages: vec![
             PublicationPageObservationWire {
@@ -823,6 +826,68 @@ fn historical_member_spelling_requires_the_run_page() {
         "agents/alice.athena.foo--code/README.md"
     );
     assert!(decision.fulfilled);
+}
+
+#[test]
+fn omitted_scope_deserializes_as_revision_bound() {
+    let identity: PublicationRequestIdentityWire =
+        serde_json::from_value(serde_json::json!({
+            "global_agent": "alice.athena.foo",
+            "local_agent": "foo",
+            "primary_revision": sha('a'),
+        }))
+        .unwrap();
+    assert!(identity.scope.is_empty());
+}
+
+#[test]
+fn linked_scope_fulfills_when_the_required_page_exists_without_revision() {
+    let request = PublicationCompletionRequestWire {
+        schema_version: PUBLICATION_RECOVERY_WIRE_SCHEMA_VERSION,
+        request: PublicationRequestIdentityWire {
+            global_agent: "alice.athena.foo".to_string(),
+            local_agent: "foo".to_string(),
+            primary_revision: sha('a'),
+            scope: PUBLICATION_SCOPE_LINKED.to_string(),
+        },
+        pages: vec![PublicationPageObservationWire {
+            path: "agents/alice.athena.foo/README.md".to_string(),
+            exists: true,
+        }],
+        runs: vec![PublicationRunObservationWire {
+            global_name: "alice.athena.foo".to_string(),
+            local_name: "foo".to_string(),
+            commit_shas: vec![sha('b')],
+            has_prompt_file: false,
+        }],
+        containers: vec![],
+    };
+    let decision = decide_publication_request_completion(&request).unwrap();
+    assert_eq!(decision.kind, PUBLICATION_KIND_RUN);
+    assert!(decision.fulfilled);
+    assert!(decision.reason.contains("linked-scope"));
+}
+
+#[test]
+fn linked_scope_still_requires_the_publication_page() {
+    let request = PublicationCompletionRequestWire {
+        schema_version: PUBLICATION_RECOVERY_WIRE_SCHEMA_VERSION,
+        request: PublicationRequestIdentityWire {
+            global_agent: "alice.athena.foo".to_string(),
+            local_agent: "foo".to_string(),
+            primary_revision: sha('a'),
+            scope: PUBLICATION_SCOPE_LINKED.to_string(),
+        },
+        pages: vec![PublicationPageObservationWire {
+            path: "agents/alice.athena.foo/README.md".to_string(),
+            exists: false,
+        }],
+        runs: vec![],
+        containers: vec![],
+    };
+    let decision = decide_publication_request_completion(&request).unwrap();
+    assert!(!decision.fulfilled);
+    assert!(decision.reason.contains("absent"));
 }
 
 #[test]
@@ -871,4 +936,115 @@ fn existing_archive_or_snapshot_without_prompt_file_are_not_losses() {
     .unwrap();
     assert_eq!(not_applicable.status, PROMPT_STATUS_NOT_APPLICABLE);
     assert!(!not_applicable.blocks_acknowledgment);
+}
+
+fn stale_request(
+    requested: &str,
+    scope: &str,
+    run_commits: &[String],
+    ancestors: &[String],
+    linked: bool,
+) -> StalePublicationRepairRequestWire {
+    StalePublicationRepairRequestWire {
+        schema_version: PUBLICATION_RECOVERY_WIRE_SCHEMA_VERSION,
+        requested_revision: requested.to_string(),
+        scope: scope.to_string(),
+        run_commit_shas: run_commits.to_vec(),
+        ancestor_commit_shas: ancestors.to_vec(),
+        linked_revision: linked,
+    }
+}
+
+#[test]
+fn stale_repair_keeps_rows_whose_revision_is_already_recorded() {
+    let decision = classify_stale_publication_request(&stale_request(
+        &sha('a'),
+        "revision",
+        &[sha('b'), sha('a')],
+        &[],
+        false,
+    ))
+    .unwrap();
+    assert_eq!(decision.action, STALE_REPAIR_ACTION_UNCHANGED);
+    assert_eq!(decision.fulfilling_revision, None);
+}
+
+#[test]
+fn stale_repair_keeps_linked_scope_rows_without_evidence() {
+    let decision = classify_stale_publication_request(&stale_request(
+        &sha('c'),
+        "linked",
+        &[],
+        &[],
+        false,
+    ))
+    .unwrap();
+    assert_eq!(decision.action, STALE_REPAIR_ACTION_UNCHANGED);
+}
+
+#[test]
+fn stale_repair_routes_linked_repo_revisions_to_linked_scope() {
+    let decision = classify_stale_publication_request(&stale_request(
+        &sha('c'),
+        "revision",
+        &[sha('a')],
+        &[],
+        true,
+    ))
+    .unwrap();
+    assert_eq!(decision.action, STALE_REPAIR_ACTION_LINKED);
+    assert_eq!(decision.fulfilling_revision, None);
+}
+
+#[test]
+fn stale_repair_selects_the_earliest_descendant_run_commit() {
+    let commits = vec![sha('x'), sha('b'), sha('y')];
+    let ancestors = vec![sha('y'), sha('b')];
+    let decision = classify_stale_publication_request(&stale_request(
+        &sha('a'),
+        "",
+        &commits,
+        &ancestors,
+        false,
+    ))
+    .unwrap();
+    assert_eq!(decision.action, STALE_REPAIR_ACTION_REPAIRED);
+    assert_eq!(decision.fulfilling_revision, Some(sha('b')));
+    assert_eq!(decision.evidence_commit, Some(sha('b')));
+}
+
+#[test]
+fn stale_repair_leaves_rows_without_evidence_untouched() {
+    let without_runs = classify_stale_publication_request(&stale_request(
+        &sha('a'),
+        "revision",
+        &[],
+        &[],
+        false,
+    ))
+    .unwrap();
+    assert_eq!(without_runs.action, STALE_REPAIR_ACTION_UNRESOLVED);
+    assert_eq!(without_runs.fulfilling_revision, None);
+
+    let without_ancestry = classify_stale_publication_request(&stale_request(
+        &sha('a'),
+        "revision",
+        &[sha('b')],
+        &[],
+        false,
+    ))
+    .unwrap();
+    assert_eq!(without_ancestry.action, STALE_REPAIR_ACTION_UNRESOLVED);
+}
+
+#[test]
+fn stale_repair_rejects_unknown_scopes() {
+    let result = classify_stale_publication_request(&stale_request(
+        &sha('a'),
+        "sidecar",
+        &[sha('a')],
+        &[],
+        false,
+    ));
+    assert!(result.is_err());
 }

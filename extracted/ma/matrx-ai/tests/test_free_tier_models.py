@@ -177,3 +177,17 @@ async def test_execute_dispatch_swaps_before_anything_runs(monkeypatch):
     with pytest.raises(_Stop):
         await client._execute_dispatch(request)  # type: ignore[arg-type]
     assert asked == ["sonnet", "haiku"]
+
+
+@pytest.mark.asyncio
+async def test_seam_backstop_admits_a_device_served_run(monkeypatch):
+    """A run on the person's own computer (route_kind "device") costs 0.0 and spends nobody's
+    money, so the free-tier ceiling never refuses it — whatever the model's cost rating."""
+    ctx = _ctx(GUEST)
+    monkeypatch.setattr("matrx_ai.context.app_context.try_get_app_context", lambda: ctx)
+    premium = dict(model_name="image-premium", model_id="id-image-premium", model_cost_rating=5,
+                   capabilities=SimpleNamespace(interaction="turn"))
+    with pytest.raises(ftm.FreeTierModelRefusedError):  # the same model in the cloud is refused
+        await ftm.admit_free_tier_model(SimpleNamespace(**premium))
+    device = SimpleNamespace(**premium, route_kind="device", served_via=object())
+    await ftm.admit_free_tier_model(device)

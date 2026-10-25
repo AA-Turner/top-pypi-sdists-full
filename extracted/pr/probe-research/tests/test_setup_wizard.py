@@ -4952,7 +4952,7 @@ def test_a_codex_update_still_uses_the_codex_path(isolate, monkeypatch):
 
     outcome = upgrading.perform_update(base_url="https://x", include_plugin=True)
 
-    assert outcome.restart_needed is True
+    assert outcome.plugins_moved is True and outcome.restart_needed is False
     assert any("Codex plugins:" in line for line in outcome.lines)
 
 
@@ -5981,6 +5981,8 @@ def test_read_and_off_say_which_half_of_probe_they_stop():
     assert "still works" in read, "read has to say the searching survives"
     assert "no probe calls at all" in off, off
     assert "either" in off, "off has to say the searching stops too"
+    # Probe off: the Probe service does not capture an off session's transcript.
+    assert "the service captures none" in off, off
 
 
 def test_enter_on_each_band_end_does_that_end_s_job():
@@ -8580,3 +8582,29 @@ def test_research_plan_review_renders_what_the_config_holds_not_its_argument(iso
     setup.apply_settings({setup.Setting.PLAN_REVIEW: False})
     assert session_marker.plan_review_on() is True
     assert agent_rules.PLAN_REVIEW_PARAGRAPHS[agent_rules.Profile.AGENT] in claude.read_text()
+
+
+def test_switching_capture_with_its_plugin_already_installed_needs_no_restart():
+    """The capture plugin is already in every open session: clearing its
+    killswitch is picked up by the hook each session already runs, and turning
+    it off stopped the recorders already. "Restart Claude Code to load Probe"
+    was false for both (owner's rule: no restart an update or a switch does not
+    need). A plugin installed now still needs one: no open session loaded it."""
+    installed = dict(claude_available=True, tracking_plugin_installed=True, logged_in_as="richard@prbe.ai",
+                     capture_plugin_installed=True)
+    back_on = setup.restart_notice(
+        _caps(**installed, capture_killswitched=True, capture_token_sources=(TokenSource.PAIRED_FILE,)),
+        setup.Selection(tracking=True, capture=True, auto_update=False, agent_rules=False),
+    )
+    assert back_on and not any("Restart" in line for line in back_on), back_on
+    assert any("No restart needed" in line for line in back_on), back_on
+    off = setup.restart_notice(
+        _caps(**installed, capture_token_sources=(TokenSource.PAIRED_FILE,), capture_credential_valid=True),
+        setup.Selection(tracking=True, capture=False, auto_update=False, agent_rules=False),
+    )
+    assert off and not any("Restart" in line for line in off), off
+    fresh_capture = setup.restart_notice(
+        _caps(claude_available=True, tracking_plugin_installed=True, logged_in_as="richard@prbe.ai"),
+        setup.Selection(tracking=True, capture=True, auto_update=False, agent_rules=False),
+    )
+    assert fresh_capture == ["Restart Claude Code to load Probe."], fresh_capture

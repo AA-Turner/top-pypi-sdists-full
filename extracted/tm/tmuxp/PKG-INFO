@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: tmuxp
-Version: 1.74.0
+Version: 1.76.0
 Summary: Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files.
 Project-URL: Bug Tracker, https://github.com/tmux-python/tmuxp/issues
 Project-URL: Documentation, https://tmuxp.git-pull.com
@@ -26,13 +26,15 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Shells
 Classifier: Topic :: Utilities
 Requires-Python: <4.0,>=3.10
-Requires-Dist: libtmux~=0.61.0
+Requires-Dist: libtmux~=0.62.0
 Requires-Dist: pyyaml>=6.0
 Description-Content-Type: text/markdown
 
 # tmuxp
 
-Session manager for tmux. Save and load your tmux sessions through simple configuration files. Powered by [libtmux](https://github.com/tmux-python/libtmux).
+Session manager for tmux. Save and load your tmux sessions through
+declarative workspace files. Powered by
+[libtmux](https://github.com/tmux-python/libtmux).
 
 [![Python Package](https://img.shields.io/pypi/v/tmuxp.svg)](https://pypi.org/project/tmuxp/)
 [![Docs](https://github.com/tmux-python/tmuxp/workflows/docs/badge.svg)](https://tmuxp.git-pull.com/)
@@ -45,75 +47,76 @@ is available on Leanpub and [Amazon Kindle](http://amzn.to/2gPfRhC).
 Read and browse the book for free [on the
 web](https://leanpub.com/the-tao-of-tmux/read).
 
-**Have some spare time?** Help us triage and code-review on the tracker. See [issue
-#290](https://github.com/tmux-python/tmuxp/discussions/290)!
+**Have some spare time?** Help us triage and code-review on the tracker. See
+[issue #290](https://github.com/tmux-python/tmuxp/discussions/290)!
 
 # Installation
 
 pip:
 
 ```console
-pip install --user tmuxp
+$ pip install --user tmuxp
 ```
 
-If you're managing the project with [uv](https://docs.astral.sh/uv/), add tmuxp as a dependency instead:
+If you're managing the project with [uv](https://docs.astral.sh/uv/), add
+tmuxp as a dependency instead:
 
 ```console
-uv add tmuxp
+$ uv add tmuxp
 ```
 
-To run tmuxp without installing it globally, similar to `pipx`, invoke it with
-[uvx](https://docs.astral.sh/uv/guides/tools/):
+To run tmuxp without installing it globally, similar to `pipx`, invoke it
+with [uvx](https://docs.astral.sh/uv/guides/tools/):
 
 ```console
-uvx tmuxp
+$ uvx tmuxp
 ```
 
 Homebrew:
 
 ```console
-brew install tmuxp
+$ brew install tmuxp
 ```
 
 Debian / ubuntu:
 
 ```console
-sudo apt install tmuxp
+$ sudo apt install tmuxp
 ```
 
 Nix:
 
 ```console
-[[ -z $(which tmux) ]] && (nix-env -i tmux && nix-env -i tmuxp) || nix-env -i tmuxp
+$ [[ -z $(which tmux) ]] && (nix-env -i tmux && nix-env -i tmuxp) || nix-env -i tmuxp
 ```
 
-Find the package for your distro on repology: <https://repology.org/project/tmuxp/versions>
+Find the package for your distro on repology:
+<https://repology.org/project/tmuxp/versions>
 
 Developmental releases:
 
 - [pip](https://pip.pypa.io/en/stable/):
 
   ```console
-  pip install --user --upgrade --pre tmuxp
+  $ pip install --user --upgrade --pre tmuxp
   ```
 
-  Or request the pre-release from a uv project environment:
+  Or allow a pre-release from a uv project environment:
 
   ```console
-  uv add 'tmuxp>=1.10.0b1'
+  $ uv add tmuxp --prerelease allow
   ```
-
 
 - [uvx](https://docs.astral.sh/uv/guides/tools/):
 
   ```console
-  uvx tmuxp
+  $ uvx --from 'tmuxp' --prerelease allow tmuxp
   ```
 
 - [pipx](https://pypa.github.io/pipx/docs/):
 
   ```console
-  pipx install --suffix=@next 'tmuxp' --pip-args '\--pre' --force
+  $ pipx install --suffix=@next 'tmuxp' --pip-args '\--pre' --force
   ```
 
   Then use `tmuxp@next load [session]`.
@@ -143,30 +146,30 @@ windows:
 Save as _mysession.yaml_, and load:
 
 ```console
-tmuxp load ./mysession.yaml
+$ tmuxp load ./mysession.yaml
 ```
 
 Projects with _.tmuxp.yaml_ or _.tmuxp.json_ load via directory:
 
 ```console
-tmuxp load path/to/my/project/
+$ tmuxp load path/to/my/project/
 ```
 
 Load multiple at once (in bg, offer to attach last):
 
 ```console
-tmuxp load mysession ./another/project/
+$ tmuxp load mysession ./another/project/
 ```
 
 Name a session:
 
 ```console
-tmuxp load -s session_name ./mysession.yaml
+$ tmuxp load -s session_name ./mysession.yaml
 ```
 
-[simple](https://tmuxp.git-pull.com/configuration/examples/#short-hand-inline-style) and
-[very
-elaborate](https://tmuxp.git-pull.com/configuration/examples/#super-advanced-dev-environment)
+[simple](https://tmuxp.git-pull.com/configuration/examples/#short-hand-inline-style)
+and
+[very elaborate](https://tmuxp.git-pull.com/configuration/examples/#super-advanced-dev-environment)
 config examples
 
 # User-level configurations
@@ -181,11 +184,11 @@ Load your tmuxp config from anywhere by using the filename, assuming
 _\~/.config/tmuxp/mysession.yaml_ (or _.json_):
 
 ```console
-tmuxp load mysession
+$ tmuxp load mysession
 ```
 
-See [author's tmuxp configs](https://github.com/tony/tmuxp-config) and
-the projects'
+See [author's tmuxp configs](https://github.com/tony/tmuxp-config) and the
+projects'
 [tmuxp.yaml](https://github.com/tmux-python/tmuxp/blob/master/.tmuxp.yaml).
 
 # Shell
@@ -194,11 +197,9 @@ _New in 1.6.0_:
 
 `tmuxp shell` launches into a python console preloaded with the attached
 server, session, and window in
-[libtmux](https://github.com/tmux-python/libtmux) objects.
+[libtmux](https://github.com/tmux-python/libtmux) objects:
 
 ```console
-tmuxp shell
-
 (Pdb) server
 <libtmux.server.Server object at 0x7f7dc8e69d10>
 (Pdb) server.sessions
@@ -217,25 +218,26 @@ Window(@3 1:your_window, Session($1 your_project))
 Pane(%6 Window(@3 1:your_window, Session($1 your_project))
 ```
 
-Supports [PEP
-553](https://www.python.org/dev/peps/pep-0553/) `breakpoint()`
+Supports [PEP 553](https://www.python.org/dev/peps/pep-0553/) `breakpoint()`
 (including `PYTHONBREAKPOINT`). Also supports direct commands via `-c`:
 
 ```console
-tmuxp shell -c 'print(window.name)'
+$ tmuxp shell -c 'print(window.name)'
 my_window
+```
 
-tmuxp shell -c 'print(window.name.upper())'
+```console
+$ tmuxp shell -c 'print(window.name.upper())'
 MY_WINDOW
 ```
 
-Read more on [tmuxp shell](https://tmuxp.git-pull.com/cli/shell/) in
-the CLI docs.
+Read more on [tmuxp shell](https://tmuxp.git-pull.com/cli/shell/) in the CLI
+docs.
 
 # Pre-load hook
 
-Run custom startup scripts (such as installing project dependencies)
-before loading tmux. See the
+Run custom startup scripts (such as installing project dependencies) before
+loading tmux. See the
 [before_script](https://tmuxp.git-pull.com/configuration/examples/#bootstrap-project-before-launch)
 example
 
@@ -252,18 +254,18 @@ You can also load sessions in the background by passing `-d` flag
 Snapshot your tmux layout, pane paths, and window/session names.
 
 ```console
-tmuxp freeze session-name
+$ tmuxp freeze session-name
 ```
 
-See more about [freezing
-tmux](https://tmuxp.git-pull.com/cli/freeze/) sessions.
+See more about [freezing tmux](https://tmuxp.git-pull.com/cli/freeze/)
+sessions.
 
 # Convert a session file
 
 Convert a session file from yaml to json and vice versa.
 
 ```console
-tmuxp convert filename
+$ tmuxp convert filename
 ```
 
 This will prompt you for confirmation and shows you the new file that is
@@ -272,34 +274,38 @@ going to be written.
 You can auto confirm the prompt. In this case no preview will be shown.
 
 ```console
-tmuxp convert -y filename
-tmuxp convert --yes filename
+$ tmuxp convert -y filename
+```
+
+Or the long form:
+
+```console
+$ tmuxp convert --yes filename
 ```
 
 # Plugin System
 
-tmuxp has a plugin system to allow for custom behavior. See more about
-the [Plugin System](https://tmuxp.git-pull.com/topics/plugins/).
+tmuxp has a plugin system to allow for custom behavior. See more about the
+[Plugin System](https://tmuxp.git-pull.com/topics/plugins/).
 
 # Debugging Helpers
 
-The `load` command provides a way to log output to a log file for
-debugging purposes.
+The `load` command provides a way to log output to a log file for debugging
+purposes.
 
 ```console
-tmuxp load --log-file <log-file-name> .
+$ tmuxp load --log-file <log-file-name> .
 ```
 
 Collect system info to submit with a Github issue:
 
 ```console
-tmuxp debug-info
+$ tmuxp debug-info
 ------------------
 environment:
     system: Linux
     arch: x86_64
-
-# ... so on
+...
 ```
 
 # Docs / Reading material
@@ -312,12 +318,25 @@ See the [Quickstart](https://tmuxp.git-pull.com/quickstart/).
 Want to learn more about tmux itself? [Read The Tao of Tmux
 online](https://tmuxp.git-pull.com/about_tmux/).
 
+## Attribution
+
+Please use the following BibTeX template to cite tmuxp in scientific discourse:
+
+```bibtex
+@misc{tmuxp,
+   author = {Tony Narlock},
+   year = {2013},
+   note = {https://tmuxp.git-pull.com},
+   title = {tmuxp: workspace manager for tmux}
+}
+```
+
 # Donations
 
-Your donations fund development of new features, testing and support.
-Your money will go directly to maintenance and development of the
-project. If you are an individual, feel free to give whatever feels
-right for the value you get out of the project.
+Your donations fund development of new features, testing and support. Your
+money will go directly to maintenance and development of the project. If you
+are an individual, feel free to give whatever feels right for the value you
+get out of the project.
 
 See donation options at <https://tony.sh/support.html>.
 

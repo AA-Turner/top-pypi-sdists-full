@@ -669,6 +669,18 @@ class CompletedRequest:
                     row.setdefault("metadata", {})["billed_to_own_key"] = (
                         len(own_key_attempts) == len(iteration_usages) or "partial"
                     )
+                # WHERE IT RAN: a call served by a person's own device names the
+                # device (UnifiedAIClient._stamp_offering_usage) — no schema change.
+                served_via = next(
+                    (
+                        item.metadata["served_via"]
+                        for item in iteration_usages
+                        if isinstance(item.metadata.get("served_via"), dict)
+                    ),
+                    None,
+                )
+                if served_via is not None:
+                    row.setdefault("metadata", {})["served_via"] = dict(served_via)
                 attempt_costs = [item.calculate_cost() for item in iteration_usages]
                 if all(cost is not None for cost in attempt_costs):
                     row["cost"] = round(

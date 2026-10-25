@@ -118,8 +118,8 @@ def test_thinking_level_none_is_an_off_too() -> None:
 def test_owner_omit_decides_a_consumed_off_and_says_so() -> None:
     controls = _google_legacy(off={"omit": True, "why": "this model does not think unless asked"})
     wire, adjustments = _wire(controls, thinking_budget=0)
-    unset, _ = _wire(controls)
-    assert wire == unset
+    # An off is a depth the caller SET: nothing is sent, never the platform default.
+    assert wire == {}
     assert any(a.action == "omitted" and a.expected for a in adjustments)
     # T3 reads the same deciding rule the engine uses.
     assert controls.off_rule_for("thinking_budget").off.omit is True
@@ -128,8 +128,7 @@ def test_owner_omit_decides_a_consumed_off_and_says_so() -> None:
 def test_undeclared_off_that_reaches_nothing_is_voiced_not_silent() -> None:
     # google legacy with NO off: its own path for none is "send nothing".
     wire, adjustments = _wire(_google_legacy(), reasoning_effort="none")
-    unset, _ = _wire(_google_legacy())
-    assert wire == unset
+    assert wire == {}
     voiced = [a for a in adjustments if a.key == "reasoning_effort" and a.action == "dropped"]
     assert voiced and voiced[0].expected is False and voiced[0].provenance == "computed"
 
@@ -158,20 +157,25 @@ def test_hiding_thoughts_on_an_always_on_model_never_lowers_the_effort() -> None
     wire, _ = _wire(_anthropic(thinking_always_on=True), include_thoughts=False)
     assert wire["thinking.type"] == "adaptive"
     assert wire["thinking.display"] == "omitted"
-    assert "output_config.effort" not in wire  # the model's own default depth
+    # Unset depth is the platform default (owner ruling 2026-10-24), never lowered by hiding.
+    assert wire["output_config.effort"] == "low"
 
 
 def test_hiding_thoughts_on_a_model_that_thinks_by_default() -> None:
     wire, _ = _wire(_anthropic(thinks_by_default=True), reasoning_summary="never")
     assert wire["thinking.type"] == "adaptive"
     assert wire["thinking.display"] == "omitted"
-    assert "output_config.effort" not in wire
+    assert wire["output_config.effort"] == "low"
 
 
 def test_hiding_thoughts_of_a_model_that_is_not_thinking_turns_nothing_on() -> None:
-    wire, _ = _wire(_anthropic(), include_thoughts=False)
-    unset, _ = _wire(_anthropic())
-    assert wire == unset
+    wire, _ = _wire(_anthropic(), include_thoughts=False, reasoning_effort="none")
+    off, _ = _wire(_anthropic(), reasoning_effort="none")
+    assert wire == off
+    # ...and hiding never changes the depth the platform default chose.
+    hidden, _ = _wire(_anthropic(), include_thoughts=False)
+    shown, _ = _wire(_anthropic())
+    assert hidden["output_config.effort"] == shown["output_config.effort"] == "low"
 
 
 def test_declared_visibility_omit_is_voiced_and_never_unhides_real_thinking() -> None:
@@ -184,8 +188,12 @@ def test_declared_visibility_omit_is_voiced_and_never_unhides_real_thinking() ->
         },
         {},
     )
-    _, adjustments = _wire(controls, include_thoughts=False)
-    assert any(a.key == "include_thoughts" and a.action == "omitted" for a in adjustments)
+    # Not thinking (unset depth now runs at the platform default, so "not
+    # thinking" is the explicit off): hiding has nothing to act on and says so.
+    _, adjustments = _wire(controls, include_thoughts=False, reasoning_effort="none")
+    assert any(
+        a.key == "include_thoughts" and a.action in ("omitted", "dropped") for a in adjustments
+    )
     wire, _ = _wire(controls, include_thoughts=False, reasoning_effort="medium")
     assert wire["thinking.display"] == "omitted"
 

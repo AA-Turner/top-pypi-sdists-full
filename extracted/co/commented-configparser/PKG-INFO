@@ -1,42 +1,25 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: commented-configparser
-Version: 3.0.0
+Version: 3.1.1
 Summary: A custom ConfigParser class that preserves comments and most formatting when writing loaded config out.
+Project-URL: homepage, https://github.com/Preocts/commented-configparser
 Author-email: Preocts <preocts@preocts.com>
 License-Expression: MIT
-Project-URL: homepage, https://github.com/Preocts/commented-configparser
+License-File: LICENSE
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Provides-Extra: dev
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: flake8-builtins; extra == "dev"
-Requires-Dist: flake8-pep585; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: isort; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-randomly; extra == "test"
-Requires-Dist: coverage; extra == "test"
-Dynamic: license-file
 
-[![Python 3.9 | 3.10 | 3.11 | 3.12 | 3.13 | 3.14](https://img.shields.io/badge/Python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://www.python.org/downloads)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/Preocts/commented-configparser/main.svg)](https://results.pre-commit.ci/latest/github/Preocts/commented-configparser/main)
+[![Python >=3.11](https://img.shields.io/badge/Python->=3.11-blue)](https://www.python.org/downloads)
+[![PyPI - Version](https://img.shields.io/pypi/v/commented-configparser)](https://pypi.org/project/commented-configparser)
 [![Python tests](https://github.com/Preocts/commented-configparser/actions/workflows/python-tests.yml/badge.svg?branch=main)](https://github.com/Preocts/commented-configparser/actions/workflows/python-tests.yml)
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Nox](https://img.shields.io/badge/%F0%9F%A6%8A-Nox-D85E00.svg)](https://github.com/wntrblm/nox)
+
 # commented-configparser
-
-- [Contributing Guide and Developer Setup Guide](./CONTRIBUTING.md)
-- [License: MIT](./LICENSE)
-
----
 
 A custom ConfigParser class that preserves comments and most formatting when
 writing loaded config out.

@@ -15,7 +15,7 @@ origin/main (no routing at all), green after.
 from __future__ import annotations
 
 import asyncio
-import inspect
+from matrx_utils.source_guard import stable_source
 from typing import Any
 
 import pytest
@@ -83,7 +83,7 @@ def test_two_conversations_route_apart_and_no_id_means_no_header() -> None:
 
 def test_the_execute_path_attaches_the_header() -> None:
     """Wired into XAIChat.execute, after the chat is created — not only callable."""
-    source = inspect.getsource(xai_api.XAIChat.execute)
+    source = stable_source(xai_api.XAIChat.execute)
     create = source.index("self.client.chat.create(")
     routed = source.index("route_chat_to_conversation(chat, get_app_context().conversation_id)")
     assert routed > create

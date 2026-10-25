@@ -16,7 +16,7 @@ Each test below was run RED on the code before this round.
 from __future__ import annotations
 
 import ast
-import inspect
+from matrx_utils.source_guard import stable_source
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +48,7 @@ def test_a_workflow_step_never_owns_the_tree_it_runs_in() -> None:
 def test_the_executor_asks_owns_tree_before_releasing() -> None:
     from matrx_ai.orchestrator import executor
 
-    src = inspect.getsource(executor)
+    src = stable_source(executor)
     at = src.index("release_tree_budget(req_id)")
     window = src[at - 1500 : at]
     assert "owns_tree(" in window, "the finalize release must ask cost_budget.owns_tree, not parent_request_id alone"

@@ -409,14 +409,19 @@ def _small(path: Path, cap: int = 256) -> str | None:
 
 def _newest(sink: Sink, folder: Path, prefix: str, count: int) -> None:
     try:
-        files = sorted((p for p in folder.iterdir() if p.is_file()), key=lambda p: p.stat().st_mtime, reverse=True)
+        files = report.newest_first(p for p in folder.iterdir() if p.is_file())
     except OSError:
         return
-    for path in files[:count]:
+    written = 0
+    for path in files:
+        if written >= count:
+            break
+        # One gone since its date was read gives its slot to the next newest.
         if path.suffix == ".log":
-            sink.log_file(f"{prefix}/{path.name}", path)
-        else:
-            sink.text(f"{prefix}/{path.name}", report.read_tail(path, FILE_CAP) or "")
+            written += sink.log_file(f"{prefix}/{path.name}", path)
+        elif (text := report.read_tail(path, FILE_CAP)) is not None:
+            sink.text(f"{prefix}/{path.name}", text)
+            written += 1
     if len(files) > count:
         sink.notes.append(f"{prefix}: the newest {count} of {len(files)} files")
 
@@ -622,7 +627,12 @@ def _agent(harness) -> Callable[[Sink], None]:
         facts["recent_models"] = sorted({t["model"] for t in transcripts if t.get("model")})
         sink.json(f"{base}/facts.json", facts)
         if home is not None and home.is_dir():
-            for path in sorted(home.iterdir()):
+            try:
+                entries = sorted(home.iterdir())
+            except OSError as exc:  # gone since the check, or not this user's (`sudo claude`)
+                sink.notes.append(f"{base}/home: not listed ({type(exc).__name__})")
+                entries = []
+            for path in entries:
                 # Its settings, not its caches (`stats-cache.json`).
                 if path.is_file() and path.suffix in (".json", ".toml") and "cache" not in path.name.lower():
                     sink.config_file(f"{base}/home/{path.name}", path)
@@ -655,7 +665,10 @@ _PLUGIN_RECORDS = ("installed_plugins.json", "known_marketplaces.json", "install
 
 def _plugin_files(sink: Sink, home: Path, prefix: str) -> None:
     plugins = home / "plugins"
-    if not plugins.is_dir():
+    try:
+        if not plugins.is_dir():
+            return
+    except OSError:  # a folder this user cannot enter (the home's own note says so)
         return
     for name in _PLUGIN_RECORDS:
         if (plugins / name).is_file():
@@ -678,23 +691,53 @@ def _transcripts(harness, sink: Sink | None = None) -> list[dict]:
     """The newest transcripts, by metadata: path, size, time, line count, last
     event type, the model last used and the working folder -- never content."""
     root = harness.transcript_root()
-    if root is None or not root.is_dir():
-        return []
+    if sink is not None:
+        sink.step("transcript listing")
     try:
-        pattern = harness.transcript_pattern()
-        # Main sessions only: a subagent's transcript is part of its parent's.
-        files = [p for p in root.glob(pattern) if p.is_file() and "subagents" not in p.parts]
-    except Exception:  # noqa: BLE001
+        # `is_dir` raises on Python 3.10-3.13 for a folder this user cannot enter (`sudo claude`).
+        if root is None or not root.is_dir():
+            return []
+        files = _transcript_files(root, harness.transcript_pattern(), sink)
+    except _Cancelled:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        # Said, so an empty list never reads as an agent with no sessions.
+        if sink is not None:
+            sink.notes.append(f"agents/{harness.id}/transcripts.json: not listed ({type(exc).__name__})")
         return []
-    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
     rows = []
-    for path in files[:RECENT_TRANSCRIPTS]:
+    # A transcript deleted since the listing (an agent pruning its old sessions) costs only itself.
+    for path in report.newest_first(files):
+        if len(rows) >= RECENT_TRANSCRIPTS:
+            break
         if sink is not None:
             sink.step(f"transcript {path.name}")
         row = describe(path)
+        if row.get("exists") is False:
+            continue
         row.update(_transcript_shape(path))
         rows.append(row)
     return rows
+
+
+#: How many times the transcript folder is walked before its listing is given up.
+TRANSCRIPT_WALKS = 3
+
+
+def _transcript_files(root: Path, pattern: str, sink: Sink | None = None) -> list[Path]:
+    """Main sessions only: a subagent's transcript is part of its parent's. A session folder
+    deleted during the walk fails it on Python 3.10 and 3.11 (3.12 skips it), and an agent
+    pruning a burst of them can fail it again, so it walks up to `TRANSCRIPT_WALKS` times,
+    stopping between walks once the collector has given up."""
+    for walk in range(TRANSCRIPT_WALKS):
+        if walk and sink is not None:
+            sink.check()
+        try:
+            return [p for p in root.glob(pattern) if p.is_file() and "subagents" not in p.parts]
+        except OSError:
+            if walk == TRANSCRIPT_WALKS - 1:
+                raise
+    return []
 
 
 def _transcript_shape(path: Path) -> dict:
@@ -1186,7 +1229,7 @@ def _readme(collection: Collection, trimmed: dict[str, str]) -> str:
         lines.append("")
     notes = [*collection.notes, *(f"{path}: {why}" for path, why in sorted(trimmed.items()))]
     if notes:
-        lines.append("Trimmed")
+        lines.append("Notes")
         lines.extend(f"  {note}" for note in notes)
         lines.append("")
     return "\n".join(lines)
@@ -1250,7 +1293,7 @@ def build(out_dir: Path | None = None, *, deadline_s: float | None = None,
 
 def _prune(folder: Path) -> None:
     try:
-        zips = sorted(folder.glob("probe-debug-*.zip"), key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+        zips = report.newest_first(folder.glob("probe-debug-*.zip"))
     except OSError:
         return
     for old in zips[KEEP_BUNDLES:]:

@@ -26,12 +26,18 @@ if TYPE_CHECKING:
 
 
 MAX_HEADER_PAYLOAD_SIZE = 16 * 1024
+# A credential echoes its challenge, whose request alone may reach
+# MAX_HEADER_PAYLOAD_SIZE, so Authorization values need room to expand during
+# JSON and base64url encoding. Matches mppx.
+MAX_AUTHORIZATION_SIZE = 64 * 1024
 
 # RFC 9110 auth-param: token BWS "=" BWS ( token / quoted-string )
 # Matches: key="value" or key=token, handles escaped quotes in quoted strings
 _AUTH_PARAM_RE = re.compile(r'([a-zA-Z_][\w-]*)\s*=\s*(?:"((?:[^"\\]|\\.)*)"|([^\s,]+))')
 # Syntax-level Payment Auth grammar. Supported-method dispatch is handled after parsing.
-_PAYMENT_METHOD_ID_RE = re.compile(r"^[a-z]+$")
+# Matches mppx and mpp-rs: a lowercase letter, then lowercase letters, digits,
+# colons, underscores, or hyphens (e.g. "tempo-v2", "vendor:method", "x402").
+_PAYMENT_METHOD_ID_RE = re.compile(r"^[a-z][a-z0-9:_-]*$")
 
 
 class ParseError(Exception):
@@ -48,13 +54,13 @@ def _b64_encode(data: dict[str, Any]) -> str:
     return encoded.rstrip("=")
 
 
-def _b64_decode(encoded: str) -> dict[str, Any]:
+def _b64_decode(encoded: str, max_size: int = MAX_HEADER_PAYLOAD_SIZE) -> dict[str, Any]:
     """Decode URL-safe base64 JSON to dict.
 
     Raises:
         ParseError: If input exceeds size limit, is invalid base64/JSON, or not a dict.
     """
-    if len(encoded) > MAX_HEADER_PAYLOAD_SIZE:
+    if len(encoded) > max_size:
         raise ParseError("Header payload exceeds maximum size")
 
     try:
@@ -138,7 +144,7 @@ def _unescape_quoted(s: str) -> str:
 
 
 def _validate_payment_method_id(method: str) -> None:
-    """Validate payment-method-id = 1*LOWERALPHA."""
+    """Validate a payment method id against the grammar mppx accepts."""
     if not _PAYMENT_METHOD_ID_RE.fullmatch(method):
         raise ParseError(f"Invalid payment method id: {method!r}")
 
@@ -147,7 +153,8 @@ def _parse_auth_params(params_str: str) -> dict[str, str]:
     """Parse RFC 9110 auth-params: key="value" or key=token pairs."""
     params: dict[str, str] = {}
     for match in _AUTH_PARAM_RE.finditer(params_str):
-        key = match.group(1)
+        # Auth-param names are case-insensitive (RFC 9110 §11.2).
+        key = match.group(1).lower()
         if key in params:
             raise ParseError(f"Duplicate parameter: {key}")
         # Group 2 is quoted value, group 3 is unquoted token
@@ -265,6 +272,8 @@ def parse_authorization(header: str) -> Credential:
     Expected format:
         Payment <base64-credential>
 
+    Values longer than 64 KiB are rejected before decoding.
+
     The credential payload is a base64-encoded JSON object with:
         - challenge: ChallengeEcho object containing id, realm, method, intent, request
         - payload: Method-specific credential data
@@ -272,13 +281,16 @@ def parse_authorization(header: str) -> Credential:
     """
     from mpp import ChallengeEcho, Credential, advertised_credential_header
 
+    if len(header) > MAX_AUTHORIZATION_SIZE:
+        raise ParseError("Authorization header exceeds maximum size")
+
     header = header.strip()
 
     if not header.lower().startswith("payment "):
         raise ParseError("Expected 'Payment' authentication scheme")
 
     credential_b64 = header[8:].strip()
-    data = _b64_decode(credential_b64)
+    data = _b64_decode(credential_b64, max_size=MAX_AUTHORIZATION_SIZE)
 
     if "challenge" not in data:
         raise ParseError("Credential missing required field: challenge")
@@ -301,6 +313,20 @@ def parse_authorization(header: str) -> Credential:
     except ValueError as error:
         raise ParseError(str(error)) from error
 
+    description = (
+        str(challenge_data["description"])
+        if challenge_data.get("description") is not None
+        else None
+    )
+    if description is not None:
+        # A retry can reflect this unsigned display field into WWW-Authenticate.
+        _escape_quoted(description)
+        if any(
+            (ord(character) < 0x20 and character != "\t") or ord(character) == 0x7F
+            for character in description
+        ):
+            raise ParseError("Header value contains invalid control characters")
+
     echo = ChallengeEcho(
         id=str(challenge_data["id"]),
         realm=str(challenge_data.get("realm", "")),
@@ -311,6 +337,7 @@ def parse_authorization(header: str) -> Credential:
         digest=str(challenge_data["digest"]) if challenge_data.get("digest") else None,
         opaque=str(challenge_data["opaque"]) if challenge_data.get("opaque") else None,
         header=credential_header,
+        description=description,
     )
 
     return Credential(
@@ -346,6 +373,8 @@ def format_authorization(credential: Credential) -> str:
         challenge_dict["header"] = credential.challenge.header
     if credential.challenge.opaque is not None:
         challenge_dict["opaque"] = credential.challenge.opaque
+    if credential.challenge.description is not None:
+        challenge_dict["description"] = credential.challenge.description
 
     payload: dict[str, Any] = {
         "challenge": challenge_dict,
@@ -373,6 +402,7 @@ _RECEIPT_BASE_FIELDS = {
     "method",
     "externalId",
     "subscriptionId",
+    "fundingCurrency",
     "extra",
 }
 
@@ -414,6 +444,7 @@ def parse_payment_receipt(header: str) -> Receipt:
         method=method,
         external_id=str(data["externalId"]) if data.get("externalId") else None,
         subscription_id=str(data["subscriptionId"]) if data.get("subscriptionId") else None,
+        funding_currency=str(data["fundingCurrency"]) if data.get("fundingCurrency") else None,
         extra=extra if isinstance(extra, dict) else None,
         extensions={key: value for key, value in data.items() if key not in _RECEIPT_BASE_FIELDS}
         or None,
@@ -438,6 +469,11 @@ def format_payment_receipt(receipt: Receipt) -> str:
         payload["externalId"] = receipt.external_id
     if receipt.subscription_id:
         payload["subscriptionId"] = receipt.subscription_id
+    if receipt.funding_currency:
+        payload["fundingCurrency"] = receipt.funding_currency
+    elif receipt.extensions and receipt.extensions.get("fundingCurrency"):
+        # Callers that set it through extensions before the field existed.
+        payload["fundingCurrency"] = receipt.extensions["fundingCurrency"]
     if receipt.extra:
         payload["extra"] = receipt.extra
     if receipt.extensions:

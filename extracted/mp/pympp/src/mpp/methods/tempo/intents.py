@@ -6,10 +6,13 @@ Implements the charge intent for Tempo payments.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import logging
+import math
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -18,12 +21,18 @@ from eth_abi.abi import decode
 from eth_abi.exceptions import DecodingError
 
 from mpp import Credential, Receipt
-from mpp._defaults import DEFAULT_TIMEOUT
+from mpp._defaults import DEFAULT_CONFIRMATION_TIMEOUT, DEFAULT_TIMEOUT
+from mpp._did import parse_pkh_source
 from mpp._validation import Validation
-from mpp.errors import VerificationError
+from mpp.errors import (
+    CredentialReplayedError,
+    InternalPaymentError,
+    PaymentExpiredError,
+    VerificationError,
+)
 from mpp.methods.tempo._defaults import PATH_USD, fee_tokens_for_chain, rpc_url_for_chain
-from mpp.methods.tempo._rpc import _tip20_balance
-from mpp.methods.tempo.fee_payer_policy import get_policy
+from mpp.methods.tempo._rpc import _rpc_call, _tip20_balance
+from mpp.methods.tempo.fee_payer_policy import MIN_REMAINING_VALIDITY_SECONDS, get_policy
 from mpp.methods.tempo.schemas import (
     ChargeRequest,
     CredentialPayload,
@@ -31,12 +40,41 @@ from mpp.methods.tempo.schemas import (
     Split,
     TransactionCredentialPayload,
 )
-from mpp.store import MemoryStore, Store
+from mpp.store import ExpiringStore, MemoryStore, Store
 
 if TYPE_CHECKING:
     import httpx
 
     from mpp.methods.tempo.account import TempoAccount
+
+logger = logging.getLogger(__name__)
+
+_warned_fallback_stores: set[str] = set()
+
+
+def _challenge_expired(expires: str) -> bool:
+    """Return whether a challenge ``expires`` timestamp has been reached."""
+    return datetime.fromisoformat(expires.replace("Z", "+00:00")) <= datetime.now(UTC)
+
+
+def _fallback_store(method: str) -> MemoryStore:
+    """Create the in-memory replay store used when *method* has no store configured.
+
+    Replay protection backed by this store only covers the current process, so this
+    logs a warning once per *method* per process.
+    """
+    if method not in _warned_fallback_stores:
+        _warned_fallback_stores.add(method)
+        logger.warning(
+            "%s has no store configured and is using an in-memory store. Replay "
+            "protection is scoped to this process, so a credential accepted by one "
+            "worker or replica can be accepted again by another, or after a restart. "
+            "Pass a shared store (e.g. mpp.stores.RedisStore) via Mpp.create(store=...) "
+            "or ChargeIntent(store=...) when running more than one instance.",
+            method,
+        )
+    return MemoryStore(max_entries=10_000)
+
 
 TRANSFER_SELECTOR = "a9059cbb"
 TRANSFER_WITH_MEMO_SELECTOR = "95777d59"
@@ -58,7 +96,51 @@ STABLECOIN_DEX = "0xdec0000000000000000000000000000000000000"
 
 MAX_SPLITS = 10
 MAX_TRANSFERS = MAX_SPLITS + 1
-ALREADY_KNOWN_TRANSACTION_RE = re.compile(r"\b(?:already known|known transaction)\b")
+ALREADY_KNOWN_TRANSACTION_RE = re.compile(r"\b(?:already ?known|known transaction)\b", re.I)
+# EIP-7966: the transaction was pooled but not confirmed within the sync timeout.
+SYNC_CONFIRMATION_TIMEOUT_CODE = 4
+# Seconds between receipt lookups; matches mppx's default Tempo polling interval.
+RECEIPT_POLL_INTERVAL = 0.5
+# Seconds past a transaction's ``valid_before`` after which it cannot be included.
+VALID_BEFORE_GRACE = 2.0
+
+
+def _assert_not_expired(valid_before: int) -> None:
+    """Reject a sponsored transaction whose ``valid_before`` has passed."""
+    if valid_before <= int(time.time()):
+        raise VerificationError(
+            f"Fee payer envelope expired: valid_before ({valid_before}) is not in the future"
+        )
+
+
+def _assert_remaining_validity(valid_before: int) -> None:
+    """Reject a sponsored transaction that could expire before it is included."""
+    _assert_not_expired(valid_before)
+    # Leave time to simulate, broadcast and include the sponsored transaction.
+    if valid_before < math.ceil(time.time()) + MIN_REMAINING_VALIDITY_SECONDS:
+        raise VerificationError(
+            "Invalid transaction: fee-sponsored transaction needs at least "
+            f"{MIN_REMAINING_VALIDITY_SECONDS} seconds of remaining validity"
+        )
+
+
+def _transaction_valid_before(raw_tx: str) -> int | None:
+    """Return a Tempo transaction's ``valid_before`` timestamp, if it has one."""
+    try:
+        import rlp
+
+        tx_bytes = bytes.fromhex(_strip_0x(raw_tx))
+        if tx_bytes[:1] not in (b"\x76", b"\x78"):
+            return None
+        decoded = rlp.decode(tx_bytes[1:])
+    except Exception:
+        return None
+    if not isinstance(decoded, list) or len(decoded) <= 8:
+        return None
+    valid_before = decoded[8]
+    if not isinstance(valid_before, bytes) or not valid_before:
+        return None
+    return int.from_bytes(valid_before, "big")
 
 
 def _raw_transaction_hash(raw_tx: str) -> str:
@@ -71,6 +153,130 @@ def _raw_transaction_hash(raw_tx: str) -> str:
         raise VerificationError("Invalid transaction signature") from err
 
     return "0x" + keccak(tx_bytes).hex()
+
+
+def _canonical_signature(signature: bytes) -> bytes:
+    """Encode secp256k1 recovery IDs as 27/28, including inside keychain signatures."""
+    if len(signature) == 65 and signature[64] in (0, 1):
+        return signature[:64] + bytes([signature[64] + 27])
+    if len(signature) > 21 and signature[0] in (0x03, 0x04):
+        return signature[:21] + _canonical_signature(signature[21:])
+    return signature
+
+
+def _canonical_raw_transaction(raw_tx: str) -> str:
+    """Return the canonical encoding of a signed 0x76 Tempo transaction.
+
+    Tempo nodes accept raw (0/1) secp256k1 recovery IDs and normalize them to
+    27/28 before deriving the transaction hash. Broadcasting and hashing the
+    canonical envelope keeps replay keys and receipt hashes equal to the node's.
+    Anything that does not decode as a 0x76 transaction is returned unchanged.
+    """
+    import rlp
+
+    try:
+        tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
+        if tx_bytes[:1] != b"\x76":
+            return raw_tx
+        fields = rlp.decode(tx_bytes[1:])
+    except Exception:
+        return raw_tx
+    if not isinstance(fields, list) or len(fields) not in (14, 15):
+        return raw_tx
+    signature = fields[-1]
+    if not isinstance(signature, bytes):
+        return raw_tx
+    canonical = _canonical_signature(signature)
+    if canonical == signature:
+        return raw_tx
+    return "0x" + (b"\x76" + rlp.encode([*fields[:-1], canonical])).hex()
+
+
+def _transaction_fee_token(raw_tx: str) -> str | None:
+    """Return the fee token of a signed 0x76 Tempo transaction, if it sets one."""
+    import rlp
+
+    try:
+        tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
+        fields = rlp.decode(tx_bytes[1:])
+    except Exception as err:
+        raise RuntimeError("fee-sponsored transaction feeToken is invalid") from err
+    if tx_bytes[:1] != b"v" or not isinstance(fields, list) or len(fields) < 11:
+        raise RuntimeError("fee-sponsored transaction feeToken is invalid")
+    fee_token = fields[10]
+    if fee_token == b"":
+        return None
+    if not isinstance(fee_token, bytes) or len(fee_token) != 20:
+        raise RuntimeError("fee-sponsored transaction feeToken is invalid")
+    return "0x" + fee_token.hex()
+
+
+def _transaction_sender(raw_tx: str) -> str | None:
+    """Return the lowercase address of the account a Tempo transaction debits.
+
+    The sender is derived from the sender signature: secp256k1 signatures are
+    recovered over the sender signing hash; keychain, multisig, P256 and
+    WebAuthn signatures name the account (keychain root, multisig account, or
+    public-key address), which the chain authenticates at settlement. A 0x78
+    fee payer envelope must also declare that sender in its sender slot.
+
+    Returns ``None`` if the transaction is malformed or the sender cannot be
+    derived.
+    """
+    import rlp
+    from eth_account import Account
+    from eth_hash.auto import keccak
+
+    try:
+        tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
+        fields = rlp.decode(tx_bytes[1:])
+    except Exception:
+        return None
+    if tx_bytes[0] not in (0x76, 0x78) or not isinstance(fields, list):
+        return None
+    if len(fields) not in (14, 15):
+        return None
+    is_envelope = tx_bytes[0] == 0x78
+    sender_slot, signature = fields[11], fields[-1]
+    if not isinstance(signature, bytes) or not signature:
+        return None
+
+    sender: str | None = None
+    if len(signature) == 65:
+        has_fee_payer = is_envelope or sender_slot != b""
+        preimage = [
+            *fields[:10],
+            b"" if has_fee_payer else fields[10],
+            b"\x00" if has_fee_payer else b"",
+            *fields[12:-1],
+        ]
+        try:
+            sender = Account._recover_hash(
+                keccak(b"\x76" + rlp.encode(preimage)), signature=signature
+            )
+        except Exception:
+            return None
+    else:
+        type_id, data = signature[0], signature[1:]
+        if type_id in (0x03, 0x04) and len(data) > 20:
+            sender = "0x" + data[:20].hex()
+        elif type_id == 0x01 and len(data) == 129:
+            sender = "0x" + keccak(data[64:128])[-20:].hex()
+        elif type_id == 0x02 and len(data) >= 128:
+            sender = "0x" + keccak(data[-64:])[-20:].hex()
+        elif type_id == 0x05:
+            try:
+                account = rlp.decode(data)[0]
+            except Exception:
+                return None
+            if isinstance(account, bytes) and len(account) == 20:
+                sender = "0x" + account.hex()
+    if sender is None:
+        return None
+    sender = sender.lower()
+    if is_envelope and sender_slot != bytes.fromhex(sender[2:]):
+        return None
+    return sender
 
 
 def _parse_memo_bytes(memo: str | None) -> bytes | None:
@@ -215,6 +421,8 @@ def _match_single_transfer_calldata(
 class MatchedTransferLog:
     kind: Literal["memo", "transfer"]
     memo: str | None = None
+    sender: str | None = None
+    """Lowercase ``from`` address of the transfer."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,28 +442,6 @@ class SenderValidation:
 ValidateSender = Callable[[SenderValidation], bool]
 
 
-_PKH_SOURCE_RE = re.compile(r"did:pkh:eip155:(0|[1-9][0-9]*):(.+)")
-_PKH_ADDRESS_RE = re.compile(r"0x[a-fA-F0-9]{40}")
-
-
-def _parse_pkh_source(source: str) -> tuple[str, int] | None:
-    """Parse a ``did:pkh:eip155:<chainId>:<address>`` DID.
-
-    Returns ``(address, chain_id)`` or ``None`` if malformed.
-    """
-    match = _PKH_SOURCE_RE.fullmatch(source)
-    if match is None:
-        return None
-    address = match.group(2)
-    if _PKH_ADDRESS_RE.fullmatch(address) is None:
-        return None
-    try:
-        chain_id = int(match.group(1))
-    except ValueError:
-        return None
-    return address, chain_id
-
-
 def _rpc_error_msg(result: dict) -> str:
     """Extract error message from a JSON-RPC error response."""
     error_obj = result["error"]
@@ -266,12 +452,47 @@ def _rpc_error_msg(result: dict) -> str:
     return str(error_obj)
 
 
-def _is_already_known_transaction_error(result: dict[str, Any]) -> bool:
-    """Return true when an RPC send error means the tx was already accepted."""
-    if "error" not in result:
-        return False
-    msg = _rpc_error_msg(result).lower()
-    return ALREADY_KNOWN_TRANSACTION_RE.search(msg) is not None
+def _is_ambiguous_broadcast_error(error: Exception | dict[str, Any]) -> bool:
+    """Return true when a failed broadcast may have reached the mempool.
+
+    ``error`` is the exception raised by the send, matched anywhere in its
+    ``__cause__``/``__context__`` chain, or the JSON-RPC error response.
+    Ambiguous outcomes, worth polling for a receipt:
+
+    - Timeouts (including the local confirmation deadline) and lost
+      connections after the request was sent. Connect and pool failures mean
+      it was never sent.
+    - HTTP 5xx responses. Other statuses are definitive.
+    - JSON-RPC code 4, the EIP-7966 timeout for a pooled, unconfirmed transaction.
+    - Messages matching "already known" or "known transaction".
+
+    Everything else (e.g. -32601, -32602, insufficient funds) is definitive.
+    """
+    import httpx
+
+    if isinstance(error, dict):
+        rpc_error = error.get("error")
+        if isinstance(rpc_error, dict) and rpc_error.get("code") == SYNC_CONFIRMATION_TIMEOUT_CODE:
+            return True
+        return ALREADY_KNOWN_TRANSACTION_RE.search(_rpc_error_msg(error)) is not None
+
+    seen: set[int] = set()
+    cause: BaseException | None = error
+    while cause is not None and id(cause) not in seen:
+        seen.add(id(cause))
+        if isinstance(cause, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+            return False
+        if isinstance(cause, httpx.HTTPStatusError):
+            return cause.response.status_code >= 500
+        if isinstance(
+            cause,
+            (TimeoutError, httpx.TimeoutException, httpx.NetworkError, httpx.RemoteProtocolError),
+        ):
+            return True
+        if ALREADY_KNOWN_TRANSACTION_RE.search(str(cause)):
+            return True
+        cause = cause.__cause__ or cause.__context__
+    return False
 
 
 def _match_transfer_calldata(call_data_hex: str, request: ChargeRequest) -> bool:
@@ -388,8 +609,109 @@ def _validate_call_scope(calls: list[tuple[str, int, str]]) -> int:
     return 2 if has_swap_prefix else 0
 
 
-def _validate_normalized_calls(calls: list[tuple[str, int, str]], request: ChargeRequest) -> None:
+def _funding_currency(raw_tx: str, request: ChargeRequest) -> str | None:
+    """Return the token a validated pull-mode transaction debits to fund the payment.
+
+    A DEX auto-swap route (approve, swap, transfers) is funded by the approved
+    swap input token; a direct transfer route by the charge currency. Call
+    validation has already bound the route to the expected transfers.
+    """
+    import rlp
+
+    try:
+        tx_bytes = bytes.fromhex(raw_tx.removeprefix("0x"))
+        first_call = rlp.decode(tx_bytes[1:])[4][0]
+        call_to, call_data = first_call[0], first_call[2]
+    except Exception:
+        return None
+    if not isinstance(call_to, bytes) or not isinstance(call_data, bytes):
+        return None
+    if call_data[:4].hex() == APPROVE_SELECTOR:
+        return "0x" + call_to.hex()
+    return request.currency
+
+
+def _rpc_transaction_calls(transaction: dict[str, Any]) -> list[tuple[str, int, str]] | None:
+    """Normalize an RPC transaction's calls, or ``None`` if they are malformed.
+
+    Tempo transactions list their batched ``calls``; any other transaction is
+    treated as its single ``to``/``input`` call.
+    """
+    raw_calls = transaction.get("calls")
+    if raw_calls is None:
+        to = transaction.get("to")
+        raw_calls = (
+            [{"to": to, "value": transaction.get("value"), "input": transaction.get("input")}]
+            if to
+            else []
+        )
+    if not isinstance(raw_calls, list):
+        return None
+    calls: list[tuple[str, int, str]] = []
+    for call in raw_calls:
+        if not isinstance(call, dict):
+            return None
+        to = call.get("to")
+        data = call.get("input", call.get("data"))
+        value = call.get("value") or "0x0"
+        if not isinstance(to, str) or not isinstance(data, str):
+            return None
+        try:
+            value_int = int(value, 16) if isinstance(value, str) else int(value)
+        except (TypeError, ValueError):
+            return None
+        calls.append((to.lower(), value_int, _strip_0x(data)))
+    return calls
+
+
+def _calls_funding_currency(
+    calls: list[tuple[str, int, str]], request: ChargeRequest
+) -> str | None:
+    """Return the token a recognized payment route debits, or ``None``.
+
+    Unrecognized calls leave the funding currency unknown; they do not
+    invalidate a payment already verified from its receipt logs.
+    """
+    try:
+        _validate_normalized_calls(calls, request)
+    except Exception:
+        return None
+    if calls[0][2][:8].lower() == APPROVE_SELECTOR:
+        return calls[0][0]
+    return request.currency
+
+
+def _validate_normalized_calls(
+    calls: list[tuple[str, int, str]], request: ChargeRequest
+) -> list[MatchedTransferLog]:
+    """Validate calls against the expected transfers and return the payment legs."""
     prefix_len = _validate_call_scope(calls)
+    if prefix_len == 2:
+        approve = _decode_static_call_args(
+            calls[0][2], ("address", "uint256"), APPROVE_CALL_DATA_HEX_LEN
+        )
+        swap = _decode_static_call_args(
+            calls[1][2],
+            ("address", "address", "uint256", "uint256"),
+            SWAP_EXACT_AMOUNT_OUT_CALL_DATA_HEX_LEN,
+        )
+        # Call scope validation has already checked the canonical encoding.
+        assert approve is not None and swap is not None
+        token_in, token_out, amount_out, max_amount_in = swap
+        if token_out.lower() != request.currency.lower():
+            raise VerificationError(
+                "Invalid transaction: swap output token does not match currency"
+            )
+        if token_in.lower() == token_out.lower():
+            raise VerificationError("Invalid transaction: swap input and output tokens must differ")
+        if not 0 < amount_out <= int(request.amount):
+            raise VerificationError(
+                "Invalid transaction: swap output must be positive and not exceed payment"
+            )
+        if max_amount_in <= 0 or approve[1] != max_amount_in:
+            raise VerificationError(
+                "Invalid transaction: approval must match positive swap maximum input"
+            )
     payment_calls = calls[prefix_len:]
 
     expected = get_transfers(
@@ -404,6 +726,7 @@ def _validate_normalized_calls(calls: list[tuple[str, int, str]], request: Charg
 
     sorted_expected = sorted(expected, key=lambda t: 0 if t.memo else 1)
     used_calls: set[int] = set()
+    legs: list[MatchedTransferLog] = []
 
     for transfer in sorted_expected:
         found = False
@@ -418,6 +741,7 @@ def _validate_normalized_calls(calls: list[tuple[str, int, str]], request: Charg
                 call_data, transfer.recipient, transfer.amount, transfer.memo
             ):
                 used_calls.add(call_idx)
+                legs.append(_payment_call_leg(call_data))
                 found = True
                 break
         if not found:
@@ -425,6 +749,21 @@ def _validate_normalized_calls(calls: list[tuple[str, int, str]], request: Charg
 
     if len(used_calls) != len(payment_calls):
         raise VerificationError("Invalid transaction: contains unauthorized extra calls")
+    return legs
+
+
+def _payment_call_leg(call_data_hex: str) -> MatchedTransferLog:
+    """Describe a validated payment call as a transfer leg for memo binding checks."""
+    call_data_hex = _strip_0x(call_data_hex)
+    if call_data_hex[:SELECTOR_HEX_LEN].lower() == TRANSFER_WITH_MEMO_SELECTOR:
+        decoded = _decode_static_call_args(
+            call_data_hex,
+            ("address", "uint256", "bytes32"),
+            TRANSFER_WITH_MEMO_CALL_DATA_HEX_LEN,
+        )
+        if decoded is not None:
+            return MatchedTransferLog(kind="memo", memo="0x" + decoded[2].hex())
+    return MatchedTransferLog(kind="transfer")
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -470,6 +809,7 @@ class ChargeIntent:
         timeout: float = DEFAULT_TIMEOUT,
         store: Store | None = None,
         validate_sender: ValidateSender | None = None,
+        confirmation_timeout: float = DEFAULT_CONFIRMATION_TIMEOUT,
     ) -> None:
         """Initialize the charge intent.
 
@@ -484,10 +824,17 @@ class ChargeIntent:
             store: Key-value store for tx hash replay protection. Defaults to
                 an in-memory store capped at 10,000 entries on first settlement.
                 New payments fail at capacity without evicting used hashes. Use a shared persistent
-                store across server replicas and restarts.
+                store across server replicas and restarts. A warning is logged once per
+                process when the in-memory default is used.
             validate_sender: Optional callback invoked when a hash-credential
                 transfer's sender differs from the expected sender; return
                 ``True`` to accept (e.g. smart-account / relayer flows).
+            confirmation_timeout: Seconds to wait for a broadcast transaction's
+                receipt (default: 30), shared by the synchronous send (at most
+                two thirds of it) and, when its outcome is unknown (e.g. a read
+                timeout or "already known"), polling for the receipt. Polling
+                also stops once the transaction's ``valid_before`` has passed.
+                Equivalent to mppx's ``confirmationTimeoutMs``.
         """
         if rpc_url is None and chain_id is not None:
             rpc_url = rpc_url_for_chain(chain_id)
@@ -498,6 +845,7 @@ class ChargeIntent:
         self._timeout = timeout
         self._store = store
         self._validate_sender = validate_sender
+        self._confirmation_timeout = confirmation_timeout
 
     @property
     def fee_payer(self) -> TempoAccount | None:
@@ -522,7 +870,7 @@ class ChargeIntent:
     def _get_rpc_url(self) -> str:
         """Return the RPC URL, raising if not configured."""
         if self.rpc_url is None:
-            raise VerificationError("No rpc_url configured on ChargeIntent")
+            raise InternalPaymentError() from RuntimeError("No rpc_url configured on ChargeIntent")
         return self.rpc_url
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -532,6 +880,21 @@ class ChargeIntent:
 
             self._http_client = httpx.AsyncClient(timeout=self._timeout)
         return self._http_client
+
+    async def _assert_rpc_chain_id(self, expected: int) -> None:
+        """Check the settlement RPC against the authenticated charge request."""
+        rpc_url = self._get_rpc_url()
+        try:
+            actual_hex = await _rpc_call(
+                rpc_url, "eth_chainId", [], client=await self._get_client()
+            )
+            actual = int(actual_hex, 16)
+        except Exception as error:
+            raise InternalPaymentError() from error
+        if actual != expected:
+            raise InternalPaymentError() from RuntimeError(
+                f"RPC chain ID {actual} does not match charge chain ID {expected}"
+            )
 
     def _prepare_credential(
         self,
@@ -546,8 +909,7 @@ class ChargeIntent:
         challenge_expires = credential.challenge.expires
         if not challenge_expires:
             raise VerificationError("Request has expired (no expires)")
-        expires = datetime.fromisoformat(challenge_expires.replace("Z", "+00:00"))
-        if expires < datetime.now(UTC):
+        if _challenge_expired(challenge_expires):
             raise VerificationError("Request has expired")
 
         payload_data = credential.payload
@@ -580,26 +942,41 @@ class ChargeIntent:
             request: The original payment request parameters.
 
         Returns:
-            A validation record whose ``details`` carry the settlement
-            ``mode`` and, in pull mode, the serialized transaction.
+            A validation record whose ``payer`` is the lowercase address of
+            the paying account (the transaction sender in pull mode; the
+            sender of the matched transfers in push mode, or ``None`` if they
+            differ) and whose ``details`` carry the settlement ``mode`` and,
+            in pull mode, the serialized transaction.
 
         Raises:
             VerificationError: If the credential is invalid.
+            InternalPaymentError: If the credential cannot be checked, e.g.
+                the RPC node is unreachable or misconfigured.
         """
         req, payload = self._prepare_credential(credential, request)
 
         if isinstance(payload, HashCredentialPayload):
             await self._ensure_hash_unused(payload.hash)
-            await self._validate_hash(
+            receipt = await self._validate_hash(
                 payload,
                 req,
                 challenge_id=credential.challenge.id,
                 realm=credential.challenge.realm,
                 source=credential.source,
             )
+            payer = receipt.payer
             details: dict[str, Any] = {"mode": "push"}
         else:
-            self._validate_transaction_payload(payload.signature, req, strict=True)
+            legs = self._validate_transaction_payload(payload.signature, req, strict=True)
+            if legs is not None:
+                self._assert_challenge_bound_memo(
+                    legs,
+                    challenge_id=credential.challenge.id,
+                    realm=credential.challenge.realm,
+                )
+            payer = self._transaction_payer(
+                payload.signature, credential.source, req.methodDetails.chainId
+            )
             details = {"mode": "pull", "serialized_transaction": payload.signature}
 
         return Validation(
@@ -607,6 +984,7 @@ class ChargeIntent:
             details=details,
             intent=self.name,
             request=dict(request),
+            payer=payer,
         )
 
     async def broadcast(
@@ -629,19 +1007,23 @@ class ChargeIntent:
             A receipt for the settled payment.
 
         Raises:
-            VerificationError: If verification fails or the transaction hash
-                was already used.
+            VerificationError: If the credential is invalid
+                (:class:`~mpp.errors.CredentialReplayedError` when the
+                transaction hash is already claimed or its transfer is bound
+                to another challenge).
+            InternalPaymentError: If settlement cannot be confirmed, including
+                any other failure after the transaction was broadcast.
         """
         # Defer the default so Mpp can inject its configured shared store.
         if self._store is None:
-            self._store = MemoryStore(max_entries=10_000)
+            self._store = _fallback_store("tempo.charge")
 
         req, payload = self._prepare_credential(credential, request)
 
         if isinstance(payload, HashCredentialPayload):
             store_key = await self._reserve_hash(payload.hash)
             try:
-                return await self._validate_hash(
+                receipt, sender = await self._validate_hash_and_sender(
                     payload,
                     req,
                     challenge_id=credential.challenge.id,
@@ -652,12 +1034,25 @@ class ChargeIntent:
                 if store_key is not None and self._store is not None:
                     await self._store.delete(store_key)
                 raise
-        return await self._broadcast_transaction(
+            # Only final hash receipts need this lookup; validation stays receipt-only.
+            if sender is None:
+                return receipt
+            funding_currency = await self._hash_funding_currency(payload.hash, sender, req)
+            if funding_currency is None:
+                return receipt
+            return replace(receipt, funding_currency=funding_currency)
+        receipt = await self._broadcast_transaction(
             payload,
             req,
             challenge_id=credential.challenge.id,
             realm=credential.challenge.realm,
+            source=credential.source,
+            expires=credential.challenge.expires,
         )
+        funding_currency = _funding_currency(payload.signature, req)
+        if funding_currency is None:
+            return receipt
+        return replace(receipt, funding_currency=funding_currency)
 
     async def verify(
         self,
@@ -671,12 +1066,39 @@ class ChargeIntent:
         """
         return await self.broadcast(credential, request)
 
+    async def _hash_funding_currency(
+        self, tx_hash: str, sender: str, request: ChargeRequest
+    ) -> str | None:
+        """Return the token ``sender`` spent on transaction ``tx_hash``'s payment route.
+
+        Lookup failures, another signer and unrecognized routes leave the
+        already verified payment without a funding currency.
+        """
+        try:
+            transaction = await _rpc_call(
+                self._get_rpc_url(),
+                "eth_getTransactionByHash",
+                [tx_hash],
+                client=await self._get_client(),
+            )
+        except Exception:
+            return None
+        if not isinstance(transaction, dict):
+            return None
+        from_addr = transaction.get("from")
+        if not isinstance(from_addr, str) or from_addr.lower() != sender.lower():
+            return None
+        calls = _rpc_transaction_calls(transaction)
+        if not calls:
+            return None
+        return _calls_funding_currency(calls, request)
+
     async def _reserve_hash(self, tx_hash: str) -> str | None:
         if self._store is None:
             return None
         store_key = self._hash_store_key(tx_hash)
         if not await self._store.put_if_absent(store_key, tx_hash):
-            raise VerificationError("Transaction hash already used")
+            raise CredentialReplayedError("Transaction hash already used")
         return store_key
 
     async def _ensure_hash_unused(self, tx_hash: str) -> None:
@@ -684,7 +1106,7 @@ class ChargeIntent:
             self._store is not None
             and await self._store.get(self._hash_store_key(tx_hash)) is not None
         ):
-            raise VerificationError("Transaction hash already used")
+            raise CredentialReplayedError("Transaction hash already used")
 
     @staticmethod
     def _hash_store_key(tx_hash: str) -> str:
@@ -700,10 +1122,29 @@ class ChargeIntent:
         """
         if source is None:
             return None
-        parsed = _parse_pkh_source(source)
-        if parsed is None or parsed[1] != expected_chain_id:
+        parsed = parse_pkh_source(source)
+        if parsed is None or parsed.chain_id != expected_chain_id:
             raise VerificationError("Hash credential source is invalid.")
-        return parsed[0]
+        return parsed.address
+
+    @staticmethod
+    def _transaction_payer(raw_tx: str, source: str | None, chain_id: int) -> str | None:
+        """Return a transaction credential's sender, binding its source if present.
+
+        With a ``source``, it must be a ``did:pkh:eip155`` DID on ``chain_id``
+        naming the account the transaction debits, else raises
+        ``VerificationError``. Returns the lowercase sender address, or
+        ``None`` if it cannot be derived and no source was given.
+        """
+        sender = _transaction_sender(raw_tx)
+        if source is None:
+            return sender
+        parsed = parse_pkh_source(source)
+        if parsed is None or parsed.chain_id != chain_id:
+            raise VerificationError("Transaction credential source is invalid.")
+        if sender is None or sender != parsed.address.lower():
+            raise VerificationError("Transaction credential source does not match the sender.")
+        return sender
 
     def _sender_authorized(
         self,
@@ -739,12 +1180,35 @@ class ChargeIntent:
         realm: str,
         source: str | None = None,
     ) -> Receipt:
-        """Validate a transaction hash without consuming its replay key."""
+        """Validate a transaction hash without consuming its replay key.
+
+        The receipt's ``payer`` is the account the matched transfers debited,
+        or ``None`` if they came from different senders.
+        """
+        receipt, _ = await self._validate_hash_and_sender(
+            payload, request, challenge_id=challenge_id, realm=realm, source=source
+        )
+        return receipt
+
+    async def _validate_hash_and_sender(
+        self,
+        payload: HashCredentialPayload,
+        request: ChargeRequest,
+        challenge_id: str,
+        realm: str,
+        source: str | None = None,
+    ) -> tuple[Receipt, str | None]:
+        """Validate a transaction hash and return its receipt and expected sender.
+
+        The expected sender is the credential source's address, or else the
+        transaction receipt's ``from``, as in mppx.
+        """
         source_address = self._parse_hash_credential_source(source, request.methodDetails.chainId)
 
+        await self._assert_rpc_chain_id(request.methodDetails.chainId)
         client = await self._get_client()
         receipt_data = await self._fetch_transaction_receipt(client, payload.hash)
-        self._verify_receipt_transfers(
+        matched_logs = self._verify_receipt_transfers(
             receipt_data,
             request,
             challenge_id=challenge_id,
@@ -754,7 +1218,11 @@ class ChargeIntent:
             validate_sender=self._validate_sender,
         )
 
-        return Receipt.success(payload.hash)
+        senders = {matched_log.sender for matched_log in matched_logs}
+        payer = senders.pop() if len(senders) == 1 else None
+        receipt_from = receipt_data.get("from")
+        sender = source_address or (receipt_from if isinstance(receipt_from, str) else None)
+        return replace(Receipt.success(payload.hash), payer=payer), sender
 
     def _assert_challenge_bound_memo(
         self,
@@ -762,44 +1230,166 @@ class ChargeIntent:
         challenge_id: str,
         realm: str,
     ) -> None:
-        from mpp.methods.tempo._attribution import verify_challenge_binding, verify_server
+        """Require a challenge-bound memo and reject conflicting attribution.
 
-        bound = any(
-            matched_log.kind == "memo"
-            and matched_log.memo is not None
-            and verify_server(matched_log.memo, realm)
-            and verify_challenge_binding(matched_log.memo, challenge_id)
-            for matched_log in matched_logs
+        Every matched transfer carrying an MPP attribution memo must be bound to
+        this challenge and realm; otherwise one split payment could authorize
+        another challenge after this challenge's replay marker expires. Plain
+        transfers and non-MPP memos remain allowed. A fixed split memo cannot
+        exempt a transfer that is attributed to another challenge.
+        """
+        from mpp.methods.tempo._attribution import (
+            is_mpp_memo,
+            verify_challenge_binding,
+            verify_server,
         )
+
+        bound = False
+        for matched_log in matched_logs:
+            memo = matched_log.memo if matched_log.kind == "memo" else None
+            if memo is None or not is_mpp_memo(memo):
+                continue
+            if not verify_server(memo, realm) or not verify_challenge_binding(memo, challenge_id):
+                raise CredentialReplayedError("memo is not bound to this challenge")
+            bound = True
         if not bound:
-            raise VerificationError(
-                "Payment verification failed: memo is not bound to this challenge."
-            )
+            # The transfer already settled to the recipient, so another payment
+            # would not help this credential.
+            raise CredentialReplayedError("memo is not bound to this challenge")
 
     async def _fetch_transaction_receipt(self, client: Any, tx_hash: str) -> dict[str, Any]:
+        receipt_data = await self._get_transaction_receipt(client, tx_hash)
+        if receipt_data is None:
+            raise InternalPaymentError() from RuntimeError("Transaction not found")
+        return receipt_data
+
+    async def _get_transaction_receipt(self, client: Any, tx_hash: str) -> dict[str, Any] | None:
+        """Return the receipt for ``tx_hash``, or ``None`` if it is not yet available."""
         rpc_url = self._get_rpc_url()
-        response = await client.post(
-            rpc_url,
-            json={
-                "jsonrpc": "2.0",
-                "method": "eth_getTransactionReceipt",
-                "params": [tx_hash],
-                "id": 1,
-            },
-        )
-        response.raise_for_status()
-        result = response.json()
+        try:
+            receipt_data = await _rpc_call(
+                rpc_url, "eth_getTransactionReceipt", [tx_hash], client=client
+            )
+        except Exception as err:
+            raise InternalPaymentError() from err
 
-        if "error" in result:
-            raise VerificationError("RPC request failed")
-
-        receipt_data = result.get("result")
+        # A missing receipt may be a pending transaction, so it does not prove
+        # the payment invalid.
         if not receipt_data:
-            raise VerificationError("Transaction not found")
+            return None
         if not isinstance(receipt_data, dict):
-            raise VerificationError("Invalid transaction receipt")
+            raise InternalPaymentError() from RuntimeError("Invalid transaction receipt")
 
         return receipt_data
+
+    async def _recover_broadcast_receipt(
+        self,
+        client: Any,
+        raw_tx: str,
+        tx_hash: str,
+        request: ChargeRequest,
+        challenge_id: str,
+        realm: str,
+        deadline: float,
+        error: Exception,
+    ) -> Receipt:
+        """Verify a broadcast transaction whose outcome is unknown.
+
+        Polls for the receipt of ``tx_hash`` every ``RECEIPT_POLL_INTERVAL``
+        until ``deadline`` (a ``time.monotonic()`` value), or until the
+        transaction's ``valid_before`` (plus ``VALID_BEFORE_GRACE``) passes and
+        it can no longer be included. Each lookup is bounded by the time left.
+        When the validity cap ends polling, or has already passed, one final
+        lookup still runs, since a transaction mined before expiry may have a
+        late receipt. Raises the original broadcast ``error`` if no receipt
+        arrives or a lookup fails.
+        """
+        poll_deadline = deadline
+        valid_before = _transaction_valid_before(raw_tx)
+        if valid_before is not None:
+            expiry = time.monotonic() + valid_before + VALID_BEFORE_GRACE - time.time()
+            poll_deadline = min(deadline, expiry)
+        receipt_data = None
+        lookup_failed = False
+        while (remaining := poll_deadline - time.monotonic()) > 0:
+            try:
+                receipt_data = await asyncio.wait_for(
+                    self._get_transaction_receipt(client, tx_hash), remaining
+                )
+            except Exception:
+                lookup_failed = True
+                break
+            if receipt_data is not None:
+                break
+            await asyncio.sleep(min(RECEIPT_POLL_INTERVAL, poll_deadline - time.monotonic()))
+        if receipt_data is None and not lookup_failed and poll_deadline < deadline:
+            remaining = deadline - time.monotonic()
+            try:
+                receipt_data = await asyncio.wait_for(
+                    self._get_transaction_receipt(client, tx_hash),
+                    remaining if remaining > 0 else RECEIPT_POLL_INTERVAL,
+                )
+            except Exception:
+                receipt_data = None
+        if receipt_data is None:
+            raise error
+
+        return self._verify_recovered_receipt(
+            receipt_data, tx_hash, request, challenge_id=challenge_id, realm=realm
+        )
+
+    async def _lookup_broadcast_receipt(
+        self,
+        client: Any,
+        tx_hash: str,
+        request: ChargeRequest,
+        challenge_id: str,
+        realm: str,
+        deadline: float,
+        error: Exception,
+    ) -> Receipt:
+        """Verify a transaction whose broadcast returned a definitive-looking error.
+
+        The node may have included the transaction before its reply failed, so
+        one receipt lookup, bounded by the time left before ``deadline``, runs
+        before giving up. Raises the original broadcast ``error`` if no receipt
+        is found or the lookup fails.
+        """
+        remaining = deadline - time.monotonic()
+        try:
+            receipt_data = await asyncio.wait_for(
+                self._get_transaction_receipt(client, tx_hash),
+                remaining if remaining > 0 else RECEIPT_POLL_INTERVAL,
+            )
+        except Exception:
+            receipt_data = None
+        if receipt_data is None:
+            raise error
+
+        return self._verify_recovered_receipt(
+            receipt_data, tx_hash, request, challenge_id=challenge_id, realm=realm
+        )
+
+    def _verify_recovered_receipt(
+        self,
+        receipt_data: dict[str, Any],
+        tx_hash: str,
+        request: ChargeRequest,
+        challenge_id: str,
+        realm: str,
+    ) -> Receipt:
+        """Verify a receipt found after a failed broadcast belongs to ``tx_hash``."""
+        receipt_tx_hash = receipt_data.get("transactionHash")
+        if not isinstance(receipt_tx_hash, str) or receipt_tx_hash.lower() != tx_hash.lower():
+            raise VerificationError("Receipt transaction hash does not match submitted transaction")
+
+        self._verify_receipt_transfers(
+            receipt_data,
+            request,
+            challenge_id=challenge_id,
+            realm=realm,
+        )
+        return Receipt.success(tx_hash)
 
     def _verify_receipt_transfers(
         self,
@@ -823,6 +1413,8 @@ class ChargeIntent:
             expected_sender=expected_sender,
             source=source,
             validate_sender=validate_sender,
+            challenge_id=challenge_id,
+            realm=realm,
         )
         if not matched_logs:
             raise VerificationError(
@@ -834,6 +1426,34 @@ class ChargeIntent:
             challenge_id=challenge_id,
             realm=realm,
         )
+
+        # A neutral leg cannot be assigned to one of several challenges in a
+        # batched receipt. Require every leg to be bound in that case, so two
+        # charges cannot share a single plain or fixed-memo transfer.
+        from mpp.methods.tempo._attribution import (
+            is_mpp_memo,
+            verify_challenge_binding,
+            verify_server,
+        )
+
+        def is_bound(memo: str | None) -> bool:
+            return (
+                memo is not None
+                and verify_server(memo, realm)
+                and verify_challenge_binding(memo, challenge_id)
+            )
+
+        if any(not is_bound(log.memo) for log in matched_logs):
+            for log in receipt_data.get("logs", []):
+                topics = log.get("topics", [])
+                if (
+                    log.get("address", "").lower() == request.currency.lower()
+                    and len(topics) == 4
+                    and topics[0] == TRANSFER_WITH_MEMO_TOPIC
+                    and is_mpp_memo(topics[3])
+                    and not is_bound(topics[3])
+                ):
+                    raise CredentialReplayedError("Unbound split leg in a multi-challenge receipt")
 
         return matched_logs
 
@@ -888,7 +1508,9 @@ class ChargeIntent:
                     from_address, expected_sender, source, validate_sender
                 ):
                     continue
-                memo_matches.append(MatchedTransferLog(kind="memo", memo=log_memo))
+                memo_matches.append(
+                    MatchedTransferLog(kind="memo", memo=log_memo, sender=from_address.lower())
+                )
             elif event_topic == TRANSFER_TOPIC:
                 if memo is not None:
                     continue
@@ -898,7 +1520,9 @@ class ChargeIntent:
                     if log_amount == amount and self._sender_authorized(
                         from_address, expected_sender, source, validate_sender
                     ):
-                        transfer_matches.append(MatchedTransferLog(kind="transfer"))
+                        transfer_matches.append(
+                            MatchedTransferLog(kind="transfer", sender=from_address.lower())
+                        )
 
         return memo_matches + transfer_matches
 
@@ -909,11 +1533,30 @@ class ChargeIntent:
         expected_sender: str | None = None,
         source: str | None = None,
         validate_sender: ValidateSender | None = None,
+        challenge_id: str | None = None,
+        realm: str | None = None,
     ) -> list[MatchedTransferLog]:
         """Check if receipt contains matching Transfer or TransferWithMemo logs.
 
-        Returns matched logs. Empty list means no match.
+        Returns the payment legs. Empty list means no match. With
+        ``challenge_id`` and ``realm``, legs bound to this challenge are chosen
+        over interchangeable logs, so unrelated transfers in the same
+        transaction (e.g. a batched payment for another challenge) are not
+        mistaken for this payment.
         """
+
+        def is_bound(memo: str) -> bool:
+            if challenge_id is None or realm is None:
+                return False
+            from mpp.methods.tempo._attribution import verify_challenge_binding, verify_server
+
+            return verify_server(memo, realm) and verify_challenge_binding(memo, challenge_id)
+
+        def is_foreign(memo: str) -> bool:
+            from mpp.methods.tempo._attribution import is_mpp_memo
+
+            return challenge_id is not None and is_mpp_memo(memo) and not is_bound(memo)
+
         expected = get_transfers(
             int(request.amount),
             request.recipient,
@@ -923,7 +1566,7 @@ class ChargeIntent:
 
         if len(expected) == 1:
             t = expected[0]
-            return self._verify_single_transfer_log(
+            matches = self._verify_single_transfer_log(
                 receipt,
                 request.currency,
                 t.recipient,
@@ -933,17 +1576,70 @@ class ChargeIntent:
                 source,
                 validate_sender,
             )
+            # Prefer legs bound to this challenge over interchangeable logs,
+            # e.g. an equal transfer for another challenge in the same batch.
+            bound_matches = [
+                match
+                for match in matches
+                if match.kind == "memo" and match.memo is not None and is_bound(match.memo)
+            ]
+            return bound_matches or matches
 
         # Multi-transfer: order-insensitive matching
         sorted_expected = sorted(expected, key=lambda t: 0 if t.memo else 1)
         indexed_logs = list(enumerate(receipt.get("logs", [])))
+        # TIP-20 emits Transfer and TransferWithMemo for one movement. Pair by
+        # token, sender, recipient and amount, retaining the memo for attribution.
+        # Count multiplicities rather than adjacency so routed payments work too.
+        companions: dict[tuple[str, ...], list[int]] = {}
+        for index, log in indexed_logs:
+            topics = log.get("topics", [])
+            if len(topics) == 3 and topics[0] == TRANSFER_TOPIC:
+                key = tuple(
+                    value.lower()
+                    for value in (
+                        log.get("address", ""),
+                        topics[1],
+                        topics[2],
+                        log.get("data", "0x"),
+                    )
+                )
+                companions.setdefault(key, []).append(index)
+        paired: set[int] = set()
+        for _, log in indexed_logs:
+            topics = log.get("topics", [])
+            if len(topics) == 4 and topics[0] == TRANSFER_WITH_MEMO_TOPIC:
+                key = tuple(
+                    value.lower()
+                    for value in (
+                        log.get("address", ""),
+                        topics[1],
+                        topics[2],
+                        log.get("data", "0x"),
+                    )
+                )
+                if candidates := companions.get(key):
+                    paired.add(candidates.pop())
+        indexed_logs = [(index, log) for index, log in indexed_logs if index not in paired]
+
         # Prefer memo logs so memo-less transfers still preserve attribution
         # memos for challenge binding verification when both log types exist.
-        indexed_logs.sort(
-            key=lambda item: (
-                0 if item[1].get("topics", [None])[0] == TRANSFER_WITH_MEMO_TOPIC else 1
-            )
-        )
+        # Among memo logs, prefer ones bound to this challenge and try memos
+        # bound elsewhere last, so interchangeable legs don't pick them.
+        def log_rank(item: tuple[int, dict[str, Any]]) -> int:
+            topics = item[1].get("topics") or [None]
+            if topics[0] != TRANSFER_WITH_MEMO_TOPIC or len(topics) < 4:
+                return 2
+            memo = topics[3]
+            if not isinstance(memo, str):
+                return 1
+            if is_bound(memo):
+                return 0
+            if is_foreign(memo):
+                return 3
+            return 1
+
+        indexed_logs.sort(key=log_rank)
         used_logs: set[int] = set()
         all_matches: list[MatchedTransferLog] = []
 
@@ -985,7 +1681,13 @@ class ChargeIntent:
                         )
                     ):
                         used_logs.add(log_idx)
-                        all_matches.append(MatchedTransferLog(kind="memo", memo=memo_topic))
+                        all_matches.append(
+                            MatchedTransferLog(
+                                kind="memo",
+                                memo=memo_topic,
+                                sender=from_addr.lower(),
+                            )
+                        )
                         found = True
                         break
                 else:
@@ -1000,7 +1702,11 @@ class ChargeIntent:
                             from_addr, expected_sender, source, validate_sender
                         ):
                             used_logs.add(log_idx)
-                            all_matches.append(MatchedTransferLog(kind="memo", memo=topics[3]))
+                            all_matches.append(
+                                MatchedTransferLog(
+                                    kind="memo", memo=topics[3], sender=from_addr.lower()
+                                )
+                            )
                             found = True
                             break
                     elif event_topic == TRANSFER_TOPIC:
@@ -1011,7 +1717,9 @@ class ChargeIntent:
                             from_addr, expected_sender, source, validate_sender
                         ):
                             used_logs.add(log_idx)
-                            all_matches.append(MatchedTransferLog(kind="transfer"))
+                            all_matches.append(
+                                MatchedTransferLog(kind="transfer", sender=from_addr.lower())
+                            )
                             found = True
                             break
 
@@ -1026,16 +1734,26 @@ class ChargeIntent:
         request: ChargeRequest,
         challenge_id: str,
         realm: str,
+        source: str | None = None,
+        expires: str | None = None,
     ) -> Receipt:
         """Verify and submit a signed transaction.
 
         Pre-validates the transaction contains the expected TIP-20 transfer call
         before broadcasting. For sponsored transactions (methodDetails.feePayer
         = True), co-signs locally if a fee payer account is configured, otherwise
-        forwards to an external fee payer service. For regular transactions,
-        submits directly.
+        forwards to an external fee payer service. The external service must
+        authorize the caller, validate and simulate the complete transaction,
+        and enforce gas and spending limits before releasing its signature.
+        A returned signature is broadcastable independently of this SDK, so
+        simulation here cannot enforce an external sponsor's spending policy.
+        For regular transactions, submits directly.
         """
-        self._validate_transaction_payload(payload.signature, request)
+        legs = self._validate_transaction_payload(payload.signature, request)
+        if legs is not None:
+            # Reject unbound or conflicting MPP memos before any funds move.
+            self._assert_challenge_bound_memo(legs, challenge_id=challenge_id, realm=realm)
+        sender = self._transaction_payer(payload.signature, source, request.methodDetails.chainId)
 
         client = await self._get_client()
 
@@ -1043,6 +1761,17 @@ class ChargeIntent:
 
         # Simulation payload for the locally co-signed tx, if we sponsor it.
         simulate_payload: dict[str, Any] | None = None
+        # Outcome marker for a locally sponsored submission, keyed on the
+        # client-signed envelope so it is stable across retries of a credential.
+        broadcast_key: str | None = None
+        reconciling = False
+        legacy_record = False
+        client_store_key: str | None = None
+        recovery_expires_at = (
+            datetime.fromisoformat(expires.replace("Z", "+00:00")).timestamp()
+            if expires is not None
+            else None
+        )
 
         if request.methodDetails.feePayer:
             if self.fee_payer is not None:
@@ -1056,83 +1785,305 @@ class ChargeIntent:
                 max_fee = int.from_bytes(fields[2], "big") * int.from_bytes(fields[3], "big")
                 # Gas prices are attodollars; TIP-20 balances are microdollars.
                 required_balance = max(1, (max_fee + 10**12 - 1) // 10**12)
-                fee_token = await self._resolve_fee_token(client, request, required_balance)
-                raw_tx, simulate_payload = self._cosign_as_fee_payer(
-                    raw_tx, fee_token, request=request
-                )
+                prior_transaction: Any = None
+                if self._store is not None:
+                    client_hash = _raw_transaction_hash(raw_tx).lower()
+                    broadcast_key = f"mpp:charge-broadcast:{client_hash}"
+                    client_store_key = f"mpp:charge-client:{client_hash}"
+                    if await self._store.get(client_store_key) is not None:
+                        raise CredentialReplayedError("Transaction hash already used")
+                    prior_transaction = await self._store.get(broadcast_key)
+                if isinstance(prior_transaction, bytes):
+                    try:
+                        prior_transaction = prior_transaction.decode("utf-8")
+                    except UnicodeDecodeError as error:
+                        raise InternalPaymentError() from error
+                if prior_transaction is not None:
+                    if isinstance(prior_transaction, str) and re.fullmatch(
+                        r"0x[0-9a-fA-F]{40}", prior_transaction
+                    ):
+                        # Legacy records omit the sponsor signature. Recreate a
+                        # candidate for receipt lookup only, never for resubmission
+                        # or a conclusion that the original payment did not land.
+                        raw_tx, _ = self._cosign_as_fee_payer(
+                            raw_tx,
+                            prior_transaction,
+                            request=request,
+                            require_remaining_validity=False,
+                            allow_expired=True,
+                        )
+                        legacy_record = True
+                    elif isinstance(prior_transaction, str) and prior_transaction.startswith(
+                        "0x76"
+                    ):
+                        raw_tx = prior_transaction
+                    else:
+                        raise InternalPaymentError() from RuntimeError(
+                            "Recovery record lacks the original signed transaction"
+                        )
+                    reconciling = True
+                else:
+                    fee_token = await self._resolve_fee_token(client, request, required_balance)
+                    # Apply the floor after reserving the hash so a settled
+                    # replay receives the terminal replay error even near expiry.
+                    try:
+                        raw_tx, simulate_payload = self._cosign_as_fee_payer(
+                            raw_tx,
+                            fee_token,
+                            request=request,
+                            require_remaining_validity=False,
+                        )
+                    except VerificationError as error:
+                        if (
+                            self._store is not None
+                            and broadcast_key is not None
+                            and (
+                                await self._store.get(broadcast_key) is not None
+                                or (
+                                    recovery_expires_at is not None
+                                    and recovery_expires_at <= time.time()
+                                )
+                            )
+                        ):
+                            raise InternalPaymentError() from error
+                        raise
+
             else:
                 fee_payer_url = request.methodDetails.feePayerUrl
                 if not fee_payer_url:
-                    raise VerificationError(
+                    raise InternalPaymentError() from RuntimeError(
                         "No fee payer configured: set feePayer on the tempo() method "
                         "or provide a feePayerUrl in methodDetails"
                     )
 
-                sign_response = await client.post(
-                    fee_payer_url,
-                    json={
-                        "jsonrpc": "2.0",
-                        "method": "eth_signRawTransaction",
-                        "params": [raw_tx],
-                        "id": 1,
-                    },
-                )
-                sign_response.raise_for_status()
-                sign_result = sign_response.json()
+                try:
+                    sign_response = await client.post(
+                        fee_payer_url,
+                        json={
+                            "jsonrpc": "2.0",
+                            "method": "eth_signRawTransaction",
+                            "params": [raw_tx],
+                            "id": 1,
+                        },
+                    )
+                    sign_response.raise_for_status()
+                    sign_result = sign_response.json()
+                except Exception as err:
+                    raise InternalPaymentError() from err
 
                 if "error" in sign_result:
-                    raise VerificationError(
+                    raise InternalPaymentError() from RuntimeError(
                         f"Fee payer signing failed: {_rpc_error_msg(sign_result)}"
                     )
 
                 raw_tx = sign_result.get("result")
                 if not raw_tx:
-                    raise VerificationError("Fee payer returned no signed transaction")
+                    raise InternalPaymentError() from RuntimeError(
+                        "Fee payer returned no signed transaction"
+                    )
+
+                # A configured allowlist also restricts the external sponsor's
+                # token choice; without one, the sponsor picks its own token.
+                allowed_fee_tokens = getattr(self._method, "allowed_fee_tokens", None)
+                if allowed_fee_tokens is not None:
+                    try:
+                        sponsored_fee_token = _transaction_fee_token(raw_tx)
+                        if sponsored_fee_token is None or sponsored_fee_token.lower() not in {
+                            token.lower() for token in allowed_fee_tokens
+                        }:
+                            raise RuntimeError("fee-sponsored transaction feeToken is not allowed")
+                    except RuntimeError as error:
+                        raise InternalPaymentError() from error
+
+            # Fee payer signing must not change who the transaction debits.
+            if sender is not None and _transaction_sender(raw_tx) != sender:
+                raise VerificationError("Fee payer transaction sender does not match the sender.")
+
+        # Nodes normalize accepted signature encodings before deriving transaction
+        # hashes. Broadcast the same canonical envelope so replay keys match the node.
+        raw_tx = _canonical_raw_transaction(raw_tx)
 
         rpc_url = self._get_rpc_url()
 
         reserved_tx_hash: str | None = None
-        store_key: str | None = None
+        store_keys: list[str] = []
         if self._store is not None:
             reserved_tx_hash = _raw_transaction_hash(raw_tx)
-            store_key = f"mpp:charge:{reserved_tx_hash.lower()}"
-            if not await self._store.put_if_absent(store_key, reserved_tx_hash):
-                raise VerificationError("Transaction hash already used")
+            keys = [f"mpp:charge:{reserved_tx_hash.lower()}"]
+            if client_store_key is not None:
+                keys.insert(0, client_store_key)
+            try:
+                for key in keys:
+                    if not await self._store.put_if_absent(key, reserved_tx_hash):
+                        raise CredentialReplayedError("Transaction hash already used")
+                    store_keys.append(key)
+            except (Exception, asyncio.CancelledError) as error:
+                for key in store_keys:
+                    await self._store.delete(key)
+                if isinstance(error, (CredentialReplayedError, asyncio.CancelledError)):
+                    raise
+                raise InternalPaymentError() from error
 
+        broadcast_attempted = False
+        # True while a submitted transaction may still be included. The broadcast
+        # marker is then kept: unlike the replay reservation it survives the
+        # failure, so a retry of a locally sponsored submission whose outcome is
+        # unknown is reconciled instead of refused as unpaid. Definitive
+        # rejections and unsponsored submissions retain nothing.
+        outcome_unknown = False
+        # True when this attempt created the broadcast marker, so a definitive
+        # outcome removes it again.
+        marker_created = False
+        verified = False
         try:
+            if reconciling:
+                prior = await self._check_sponsored_validity(
+                    client,
+                    raw_tx,
+                    broadcast_key,
+                    request,
+                    challenge_id,
+                    realm,
+                    reconcile=True,
+                    legacy_record=legacy_record,
+                )
+                if prior is not None:
+                    verified = True
+                    await self._clear_broadcast_marker(broadcast_key)
+                    return prior
             # Locally sponsored transactions must pass simulation before broadcast.
             if simulate_payload is not None:
+                prior = await self._check_sponsored_validity(
+                    client, raw_tx, broadcast_key, request, challenge_id, realm
+                )
+                if prior is not None:
+                    return prior
                 await self._simulate_before_broadcast(client, simulate_payload, rpc_url)
+                # The store reservation and simulation can take a while: recheck
+                # the sponsored window right before submission.
+                prior = await self._check_sponsored_validity(
+                    client, raw_tx, broadcast_key, request, challenge_id, realm
+                )
+                if prior is not None:
+                    return prior
 
-            response = await client.post(
-                rpc_url,
-                json={
-                    "jsonrpc": "2.0",
-                    "method": "eth_sendRawTransactionSync",
-                    "params": [raw_tx],
-                    "id": 1,
-                },
-            )
-            response.raise_for_status()
-            result = response.json()
+            # The send and any receipt recovery share one confirmation deadline.
+            # The send may use at most two thirds of it, leaving the rest for
+            # receipt recovery.
+            deadline = time.monotonic() + self._confirmation_timeout
+            send_timeout_ms = round(self._confirmation_timeout * 1000) * 2 // 3
+            send_timeout = send_timeout_ms / 1000
+            if self._store is not None and broadcast_key is not None and not reconciling:
+                # Persist the marker before sending, and fail closed: a submission
+                # whose outcome could be lost must not be broadcast at all.
+                try:
+                    if recovery_expires_at is not None and isinstance(self._store, ExpiringStore):
+                        valid_before = _transaction_valid_before(raw_tx)
+                        marker_expires_at = max(
+                            recovery_expires_at,
+                            valid_before + VALID_BEFORE_GRACE
+                            if valid_before is not None
+                            else recovery_expires_at,
+                        )
+                        marker_created = await self._store.put_if_absent_until(
+                            broadcast_key, raw_tx, marker_expires_at
+                        )
+                    else:
+                        marker_created = await self._store.put_if_absent(broadcast_key, raw_tx)
+                except Exception as err:
+                    raise InternalPaymentError() from err
+                if not marker_created:
+                    raise InternalPaymentError() from RuntimeError(
+                        "Another submission owns this credential's recovery record"
+                    )
+            # Authorize before the irreversible send: a challenge that expired
+            # during sponsorship or simulation must not be settled.
+            if expires is not None and _challenge_expired(expires):
+                if reconciling:
+                    raise InternalPaymentError() from RuntimeError(
+                        "Earlier submission of this transaction has an unknown outcome"
+                    )
+                raise PaymentExpiredError(expires)
+            broadcast_attempted = True
+            outcome_unknown = True
+            try:
+                response = await asyncio.wait_for(
+                    client.post(
+                        rpc_url,
+                        json={
+                            "jsonrpc": "2.0",
+                            "method": "eth_sendRawTransactionSync",
+                            "params": [raw_tx, send_timeout_ms],
+                            "id": 1,
+                        },
+                    ),
+                    send_timeout,
+                )
+                response.raise_for_status()
+                result = response.json()
+            except Exception as error:
+                send_error = error
+                if isinstance(error, TimeoutError):
+                    # The local deadline cut the send off before it settled.
+                    send_error = TimeoutError(
+                        f"Transaction submission timed out after {send_timeout:g}s"
+                    )
+                if not _is_ambiguous_broadcast_error(send_error):
+                    outcome_unknown = False
+                    raise
+                receipt = await self._recover_broadcast_receipt(
+                    client,
+                    raw_tx,
+                    reserved_tx_hash or _raw_transaction_hash(raw_tx),
+                    request,
+                    challenge_id=challenge_id,
+                    realm=realm,
+                    deadline=deadline,
+                    error=send_error,
+                )
+                verified = True
+                await self._clear_broadcast_marker(broadcast_key)
+                return receipt
 
             if "error" in result:
-                if _is_already_known_transaction_error(result):
-                    tx_hash = reserved_tx_hash or _raw_transaction_hash(raw_tx)
-                    receipt_data = await self._fetch_transaction_receipt(client, tx_hash)
-                    self._verify_receipt_transfers(
-                        receipt_data,
+                rpc_error = VerificationError(
+                    f"Transaction submission failed: {_rpc_error_msg(result)}"
+                )
+                if not _is_ambiguous_broadcast_error(result):
+                    outcome_unknown = False
+                    # The node answered, so it may have included the transaction
+                    # before its reply failed: look for a receipt once.
+                    receipt = await self._lookup_broadcast_receipt(
+                        client,
+                        reserved_tx_hash or _raw_transaction_hash(raw_tx),
                         request,
                         challenge_id=challenge_id,
                         realm=realm,
+                        deadline=deadline,
+                        error=rpc_error,
                     )
-                    return Receipt.success(tx_hash)
-
-                raise VerificationError(f"Transaction submission failed: {_rpc_error_msg(result)}")
+                    verified = True
+                    await self._clear_broadcast_marker(broadcast_key)
+                    return receipt
+                receipt = await self._recover_broadcast_receipt(
+                    client,
+                    raw_tx,
+                    reserved_tx_hash or _raw_transaction_hash(raw_tx),
+                    request,
+                    challenge_id=challenge_id,
+                    realm=realm,
+                    deadline=deadline,
+                    error=rpc_error,
+                )
+                verified = True
+                await self._clear_broadcast_marker(broadcast_key)
+                return receipt
 
             receipt_data = result.get("result")
             if not receipt_data:
                 raise VerificationError("No transaction receipt returned")
+            # The transaction was included: its outcome is known.
+            outcome_unknown = False
             if not isinstance(receipt_data, dict):
                 raise VerificationError("Invalid transaction receipt")
 
@@ -1154,13 +2105,131 @@ class ChargeIntent:
                     "Receipt transaction hash does not match submitted transaction"
                 )
 
+            verified = True
+            await self._clear_broadcast_marker(broadcast_key)
             return Receipt.success(receipt_tx_hash)
-        except (Exception, asyncio.CancelledError):
+        except (Exception, asyncio.CancelledError) as err:
             # Only successful verification consumes a payment. Failed or cancelled
             # attempts must let retries acquire the reservation and verify again.
-            if self._store is not None and store_key is not None:
-                await self._store.delete(store_key)
+            if not verified and self._store is not None:
+                if marker_created and not outcome_unknown:
+                    await self._clear_broadcast_marker(broadcast_key)
+                for key in store_keys:
+                    await self._store.delete(key)
+            # Expiry may have removed an earlier attempt's recovery record
+            # while this request was signing or simulating. Absence no longer
+            # proves that asking for a new payment is safe.
+            if (
+                broadcast_key is not None
+                and recovery_expires_at is not None
+                and recovery_expires_at <= time.time()
+                and isinstance(err, VerificationError)
+            ):
+                raise InternalPaymentError() from err
+            # Once broadcast, the transaction may have landed: never report a
+            # retryable verification failure that would invite a second payment.
+            if (
+                broadcast_attempted
+                and isinstance(err, Exception)
+                and not isinstance(err, (CredentialReplayedError, InternalPaymentError))
+            ):
+                raise InternalPaymentError() from err
             raise
+
+    async def _check_sponsored_validity(
+        self,
+        client: Any,
+        raw_tx: str,
+        broadcast_key: str | None,
+        request: ChargeRequest,
+        challenge_id: str,
+        realm: str,
+        *,
+        reconcile: bool = False,
+        legacy_record: bool = False,
+    ) -> Receipt | None:
+        """Apply the sponsored validity floor before a first submission.
+
+        If this server already submitted the transaction (an earlier attempt
+        whose outcome was unknown), the floor does not apply: the existing
+        transaction is reconciled instead. Returns its receipt if it settled,
+        and raises ``InternalPaymentError`` while its outcome is unknown, so the
+        caller is never asked to pay again for a payment that may still land.
+        """
+        valid_before = _transaction_valid_before(raw_tx)
+        if valid_before is None:
+            if reconcile:
+                raise InternalPaymentError() from RuntimeError("Recovery transaction has no expiry")
+            return None
+        if not reconcile:
+            try:
+                _assert_remaining_validity(valid_before)
+            except VerificationError as error:
+                if (
+                    self._store is not None
+                    and broadcast_key is not None
+                    and (await self._store.get(broadcast_key) is not None)
+                ):
+                    raise InternalPaymentError() from error
+                raise
+            return None
+        tx_hash = _raw_transaction_hash(raw_tx)
+        receipt_data = await self._get_transaction_receipt(client, tx_hash)
+        if receipt_data is None:
+            if (
+                not legacy_record
+                and valid_before >= math.ceil(time.time()) + MIN_REMAINING_VALIDITY_SECONDS
+            ):
+                # Re-send only the exact previously simulated, signed envelope.
+                # This cannot authorize a second transaction or a new gas budget.
+                return None
+            if (
+                not legacy_record
+                and valid_before + VALID_BEFORE_GRACE < time.time()
+                and (await self._confirm_not_included(client, tx_hash, valid_before))
+            ):
+                # Chain time is past its inclusion window with no receipt: it
+                # never landed.
+                await self._clear_broadcast_marker(broadcast_key)
+                raise VerificationError(
+                    "Fee payer envelope expired: valid_before "
+                    f"({valid_before}) is not in the future"
+                )
+            raise InternalPaymentError() from RuntimeError(
+                "Earlier submission of this transaction has an unknown outcome"
+            )
+        receipt_tx_hash = receipt_data.get("transactionHash")
+        if not isinstance(receipt_tx_hash, str) or receipt_tx_hash.lower() != tx_hash.lower():
+            raise VerificationError("Receipt transaction hash does not match submitted transaction")
+        self._verify_receipt_transfers(
+            receipt_data, request, challenge_id=challenge_id, realm=realm
+        )
+        return Receipt.success(tx_hash)
+
+    async def _confirm_not_included(self, client: Any, tx_hash: str, valid_before: int) -> bool:
+        """Return whether chain time shows ``tx_hash`` can no longer be included.
+
+        A missing receipt and the local clock alone do not prove that: the
+        latest block must be at or past ``valid_before``, and a receipt lookup
+        made after reading that block must still find nothing.
+        """
+        try:
+            block = await _rpc_call(
+                self._get_rpc_url(), "eth_getBlockByNumber", ["latest", False], client=client
+            )
+            block_timestamp = int(block["timestamp"], 16)
+        except Exception as err:
+            raise InternalPaymentError() from err
+        if block_timestamp < valid_before:
+            return False
+        return await self._get_transaction_receipt(client, tx_hash) is None
+
+    async def _clear_broadcast_marker(self, broadcast_key: str | None) -> None:
+        """Drop a broadcast outcome marker once its transaction has settled."""
+        if self._store is not None and broadcast_key is not None:
+            # Best effort: the payment is confirmed either way.
+            with contextlib.suppress(Exception):
+                await self._store.delete(broadcast_key)
 
     async def _resolve_fee_token(
         self, client: Any, request: ChargeRequest, required_balance: int = 1
@@ -1172,7 +2241,7 @@ class ChargeIntent:
         """
         fee_payer = self.fee_payer
         if fee_payer is None:
-            raise VerificationError("No fee payer account configured")
+            raise InternalPaymentError() from RuntimeError("No fee payer account configured")
         chain_id = request.methodDetails.chainId
         if chain_id is None:
             chain_id = getattr(self._method, "chain_id", None)
@@ -1182,7 +2251,9 @@ class ChargeIntent:
         configured = getattr(self._method, "fee_token", None)
         if configured is not None:
             if configured.lower() not in {token.lower() for token in allowed}:
-                raise VerificationError("fee-sponsored transaction feeToken is not allowed")
+                raise InternalPaymentError() from RuntimeError(
+                    "fee-sponsored transaction feeToken is not allowed"
+                )
             return configured
         rpc_url = self._get_rpc_url()
         for token in allowed:
@@ -1197,7 +2268,13 @@ class ChargeIntent:
         return allowed[0]
 
     def _cosign_as_fee_payer(
-        self, raw_tx: str, fee_token: str | None = None, request: ChargeRequest | None = None
+        self,
+        raw_tx: str,
+        fee_token: str | None = None,
+        request: ChargeRequest | None = None,
+        *,
+        require_remaining_validity: bool = True,
+        allow_expired: bool = False,
     ) -> tuple[str, dict[str, Any]]:
         """Co-sign a client-signed transaction as fee payer.
 
@@ -1208,6 +2285,12 @@ class ChargeIntent:
 
         Authorization-bearing envelopes are rejected before signing because
         their authorization fields cannot yet be faithfully simulated.
+
+        With ``require_remaining_validity=False`` only an already expired
+        ``valid_before`` is rejected here; the caller must enforce
+        ``MIN_REMAINING_VALIDITY_SECONDS`` before broadcasting. With
+        ``allow_expired=True`` as well, an expired one is not rejected either,
+        so the caller can reconcile an earlier submission of it.
         """
         from pytempo import Call, TempoTransaction
         from pytempo.models import Signature, as_address
@@ -1215,7 +2298,7 @@ class ChargeIntent:
         from mpp.methods.tempo.fee_payer_envelope import decode_fee_payer_envelope
 
         if self.fee_payer is None:
-            raise VerificationError("No fee payer account configured")
+            raise InternalPaymentError() from RuntimeError("No fee payer account configured")
 
         try:
             all_bytes = bytes.fromhex(raw_tx[2:] if raw_tx.startswith("0x") else raw_tx)
@@ -1260,10 +2343,10 @@ class ChargeIntent:
         if not valid_before_raw:
             raise VerificationError("Fee payer envelope must include valid_before")
         valid_before = _int(valid_before_raw)
-        if valid_before <= int(time.time()):
-            raise VerificationError(
-                f"Fee payer envelope expired: valid_before ({valid_before}) is not in the future"
-            )
+        if require_remaining_validity:
+            _assert_remaining_validity(valid_before)
+        elif not allow_expired:
+            _assert_not_expired(valid_before)
 
         chain_id = _int(decoded[0])
         policy = get_policy(chain_id)
@@ -1341,7 +2424,7 @@ class ChargeIntent:
         try:
             cosigned = tx_to_sign.sign(self.fee_payer.private_key, for_fee_payer=True)
         except Exception as err:
-            raise VerificationError("Fee payer signing failed") from err
+            raise InternalPaymentError() from err
 
         raw_cosigned = "0x" + cosigned.encode().hex()
 
@@ -1441,10 +2524,12 @@ class ChargeIntent:
             response.raise_for_status()
             result = response.json()
         except Exception as err:
-            raise VerificationError("Pre-broadcast simulation failed") from err
+            raise InternalPaymentError() from err
 
         if "error" in result:
-            raise VerificationError(f"Pre-broadcast simulation failed: {_rpc_error_msg(result)}")
+            raise InternalPaymentError() from RuntimeError(
+                f"Pre-broadcast simulation failed: {_rpc_error_msg(result)}"
+            )
 
         rpc_result = result.get("result")
         blocks = rpc_result.get("blocks") if isinstance(rpc_result, dict) else None
@@ -1454,7 +2539,9 @@ class ChargeIntent:
         if isinstance(calls, list) and calls and isinstance(calls[0], dict):
             call = calls[0]
         if call is None:
-            raise VerificationError("Pre-broadcast simulation returned no call results")
+            raise InternalPaymentError() from RuntimeError(
+                "Pre-broadcast simulation returned no call results"
+            )
 
         status = call.get("status")
         if status in ("0x1", 1, True):
@@ -1478,34 +2565,43 @@ class ChargeIntent:
         request: ChargeRequest,
         *,
         strict: bool = False,
-    ) -> None:
-        """Validate a transaction, failing closed for advisory validation."""
+    ) -> list[MatchedTransferLog] | None:
+        """Validate a transaction, failing closed for advisory validation.
+
+        Returns the payment legs, or ``None`` when non-strict validation could
+        not decode the transaction.
+        """
         try:
             import rlp
         except ImportError as error:
             if strict:
-                raise VerificationError("Transaction decoding is unavailable") from error
-            return
+                raise InternalPaymentError() from error
+            return None
         try:
             tx_bytes = bytes.fromhex(signature[2:] if signature.startswith("0x") else signature)
         except ValueError as error:
             if strict:
                 raise VerificationError("Invalid serialized transaction") from error
-            return
+            return None
         if not tx_bytes or tx_bytes[0] not in (0x76, 0x78):
             if strict:
                 raise VerificationError("Only Tempo (0x76/0x78) transactions are supported")
-            return
+            return None
         try:
             decoded = rlp.decode(tx_bytes[1:])
         except Exception as error:
             if strict:
                 raise VerificationError("Invalid serialized transaction") from error
-            return
+            return None
         if not isinstance(decoded, list) or len(decoded) < 5:
             if strict:
                 raise VerificationError("Invalid serialized transaction")
-            return
+            return None
+
+        if not isinstance(decoded[0], bytes):
+            raise VerificationError("Invalid transaction chain ID")
+        if int.from_bytes(decoded[0], "big") != request.methodDetails.chainId:
+            raise VerificationError("Transaction chain ID does not match charge chain ID")
 
         calls_data = decoded[4] if len(decoded) > 4 else []
         if not calls_data:
@@ -1529,4 +2625,4 @@ class ChargeIntent:
 
             normalized_calls.append(("0x" + call_to_raw.hex(), call_value, call_data_raw.hex()))
 
-        _validate_normalized_calls(normalized_calls, request)
+        return _validate_normalized_calls(normalized_calls, request)

@@ -2,12 +2,15 @@
 
 #include <array>
 #include <bitset>
+#include <memory>
+#include <vector>
 
 #include "common/constants.h"
 #include "common/system_config.h"
 #include "storage/enums/csr_node_group_scan_source.h"
 #include "storage/table/csr_chunked_node_group.h"
 #include "storage/table/node_group.h"
+#include "storage/table/page_reclaim_deferral.h"
 
 namespace lbug {
 namespace transaction {
@@ -111,6 +114,26 @@ struct PackedCSRInfo {
 
 class CSRNodeGroup;
 struct RelTableScanState;
+
+// What one rel scan started with. Checkpoint may replace the live CSR node group;
+// the scan keeps reading these objects until it moves to another node group, releases
+// the pin, or the scan state is destroyed.
+struct CSRNodeGroupScanPin {
+    std::shared_ptr<ChunkedNodeGroup> persistent;
+    std::shared_ptr<CSRIndex> index;
+    std::vector<std::shared_ptr<ChunkedNodeGroup>> inMemGroups;
+    std::shared_ptr<PageReclaimDeferral> pages;
+
+    // Set by every capture, including one of an empty node group.
+    bool isHeld() const { return pages != nullptr; }
+    void release() {
+        persistent.reset();
+        index.reset();
+        inMemGroups.clear();
+        pages.reset();
+    }
+};
+
 struct CSRNodeGroupScanState final : NodeGroupScanState {
     // Cached offsets and lengths for a sequence of CSR lists within the current vector of
     // boundNodes.
@@ -122,11 +145,16 @@ struct CSRNodeGroupScanState final : NodeGroupScanState {
     // The number of rows (i.e., rels) that have been scanned so far in current node group.
     common::row_idx_t numCachedRows;
     common::row_idx_t nextCachedRowToScan;
+    // Entries decoded and partial decodes (spans or cluster sets) so far for the current node
+    // group's header.
+    common::offset_t numHeaderEntriesDecoded = 0;
+    common::idx_t numHeaderSpansDecoded = 0;
 
     // States at the csr list level. Cached during scan over a single csr list.
     NodeCSRIndex inMemCSRList;
 
     CSRNodeGroupScanSource source;
+    CSRNodeGroupScanPin pin;
 
     // This is for local scan state where we don't need `header`.
     explicit CSRNodeGroupScanState()
@@ -151,6 +179,12 @@ struct CSRNodeGroupScanState final : NodeGroupScanState {
     // node vector's chunk state, which holds the served parents in its selection vector. See
     // docs/multi_parent_lifetime.md.
     bool tryScanCachedTuplesPacked(RelTableScanState& tableScanState);
+
+    // Copies rows into the cache starting in the current bound node's list and running through
+    // the next lists up to a gap (see refillEnd), or moves past that node when its list is empty
+    // or already scanned. False once the batch has no rows left.
+    bool refillCache(const transaction::Transaction* transaction,
+        RelTableScanState& tableScanState);
 };
 
 struct CSRNodeGroupCheckpointState final : NodeGroupCheckpointState {
@@ -169,6 +203,19 @@ struct CSRNodeGroupCheckpointState final : NodeGroupCheckpointState {
 
 static constexpr common::column_id_t NBR_ID_COLUMN_ID = 0;
 static constexpr common::column_id_t REL_ID_COLUMN_ID = 1;
+
+// A pre-checkpoint CSR snapshot retained for parked readers. Covers readers whose start
+// timestamp falls in [floorTS, snapshotTS]: the group objects carry full version history,
+// so snapshot resolution at any startTS in the interval is exact. Entries are pruned once
+// no open reader falls in their interval, and are never serialized (reopen starts empty).
+struct RetainedCSRSnapshot {
+    common::transaction_t snapshotTS = 0;
+    common::transaction_t floorTS = 0;
+    std::shared_ptr<ChunkedNodeGroup> persistent;
+    std::shared_ptr<CSRIndex> index;
+    std::vector<std::shared_ptr<ChunkedNodeGroup>> inMemGroups;
+    std::shared_ptr<PageReclaimDeferral> pages;
+};
 
 // Data in a CSRNodeGroup is organized as follows:
 // - persistent data: checkpointed data or flushed data from batch insert. `persistentChunkGroup`.
@@ -220,11 +267,22 @@ public:
     void reclaimStorage(PageAllocator& pageAllocator, const common::UniqLock& lock) const override;
 
     bool isEmpty() const override { return !persistentChunkGroup && NodeGroup::isEmpty(); }
+    bool hasRows() const override {
+        return NodeGroup::hasRows() ||
+               (persistentChunkGroup && persistentChunkGroup->getNumRows() != 0);
+    }
+    void rollbackInsert(common::row_idx_t startRow) override;
 
     ChunkedNodeGroup* getPersistentChunkedGroup() const { return persistentChunkGroup.get(); }
     const CSRIndex* getCSRIndex() const { return csrIndex.get(); }
+    // The groups a scan by the transaction reads, as initializeScanState pins them.
+    CSRNodeGroupScanPin captureScanPin(const transaction::Transaction* transaction) const;
+    // Number of retained pre-checkpoint snapshots (observability and test hook).
+    size_t getNumRetainedSnapshots() const;
     void setPersistentChunkedGroup(std::unique_ptr<ChunkedNodeGroup> chunkedNodeGroup) {
         DASSERT(chunkedNodeGroup->getFormat() == NodeGroupDataFormat::CSR);
+        // A scan copies this pointer under the group lock when it starts (captureLiveScanPin).
+        const auto lock = chunkedGroups.lock();
         persistentChunkGroup = std::move(chunkedNodeGroup);
     }
 
@@ -236,8 +294,8 @@ private:
     static void initScanForCommittedInMem(RelTableScanState& relScanState,
         CSRNodeGroupScanState& nodeGroupScanState);
 
-    void updateCSRIndex(common::offset_t boundNodeOffsetInGroup, common::row_idx_t startRow,
-        common::length_t length) const;
+    static void updateCSRIndex(CSRIndex& index, common::offset_t boundNodeOffsetInGroup,
+        common::row_idx_t startRow, common::length_t length);
 
     NodeGroupScanResult scanCommittedPersistent(const transaction::Transaction* transaction,
         RelTableScanState& tableState, CSRNodeGroupScanState& nodeGroupScanState) const;
@@ -254,6 +312,16 @@ private:
         const RelTableScanState& tableState, CSRNodeGroupScanState& nodeGroupScanState) const;
     NodeGroupScanResult scanCommittedInMemRandom(const transaction::Transaction* transaction,
         const RelTableScanState& tableState, CSRNodeGroupScanState& nodeGroupScanState) const;
+
+    void captureLiveScanPin(const common::UniqLock& lock, CSRNodeGroupScanPin& pin) const;
+    // Fill the scan pin from the oldest retained snapshot covering the transaction, or from
+    // the live group when none does (including a null transaction). Parked readers thus
+    // re-resolve their exact pre-checkpoint state after checkpoints they sat out.
+    void captureRoutedScanPin(const common::UniqLock& lock,
+        const transaction::Transaction* transaction, CSRNodeGroupScanPin& pin) const;
+    void pruneRetainedSnapshotsNoLock(const std::vector<common::transaction_t>& openStartTSs);
+    bool needsRetainedSnapshotNoLock(const std::vector<common::transaction_t>& openStartTSs) const;
+    CSRIndex& getCSRIndexForAppend(const common::UniqLock& lock);
 
     void checkpointInMemOnly(const common::UniqLock& lock, NodeGroupCheckpointState& state);
     void checkpointInMemAndOnDisk(const common::UniqLock& lock, NodeGroupCheckpointState& state);
@@ -283,17 +351,26 @@ private:
     static bool isWithinDensityBound(const InMemChunkedCSRHeader& header,
         const std::vector<CSRRegion>& leafRegions, const CSRRegion& region);
 
-    void checkpointColumn(const common::UniqLock& lock, common::column_id_t columnID,
+    void checkpointColumn(const common::UniqLock& lock, common::idx_t columnIdx,
         const CSRNodeGroupCheckpointState& csrState, const std::vector<CSRRegion>& regions) const;
     std::vector<ChunkCheckpointState> checkpointColumnInRegion(const common::UniqLock& lock,
-        common::column_id_t columnID, const CSRNodeGroupCheckpointState& csrState,
+        common::column_id_t columnID, Column* column, const CSRNodeGroupCheckpointState& csrState,
         const CSRRegion& region) const;
     void checkpointCSRHeaderColumns(const CSRNodeGroupCheckpointState& csrState) const;
     void finalizeCheckpoint(const common::UniqLock& lock);
 
 private:
-    std::unique_ptr<ChunkedNodeGroup> persistentChunkGroup;
-    std::unique_ptr<CSRIndex> csrIndex;
+    std::shared_ptr<ChunkedNodeGroup> persistentChunkGroup;
+    std::shared_ptr<CSRIndex> csrIndex;
+    // Retained pre-checkpoint snapshots for parked readers, in creation order, guarded by
+    // the chunkedGroups lock (checkpoint holds it; scan capture takes it; no new lock).
+    mutable std::vector<RetainedCSRSnapshot> retainedSnapshots;
+    // Snapshot timestamp of the last checkpoint that reset this group: the coverage floor
+    // for the next retained snapshot. Stale is safe (over-covers); never the horizon.
+    mutable common::transaction_t lastCollapseTS = 0;
+    // Copied into a scan pin when a scan starts on this node group. use_count > 1 means a
+    // scan still names the pages this checkpoint would reclaim or overwrite.
+    mutable std::shared_ptr<PageReclaimDeferral> scanPagePin;
 };
 
 } // namespace storage

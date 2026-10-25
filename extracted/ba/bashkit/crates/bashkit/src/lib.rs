@@ -323,7 +323,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.19.0", features = ["git"] }
+//! bashkit = { version = "0.20.0", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -354,7 +354,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.19.0", features = ["python"] }
+//! bashkit = { version = "0.20.0", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -436,9 +436,11 @@ compile_error!(
 /// Static, pre-execution introspection of a script.
 pub mod analysis;
 mod builtins;
+mod command;
 #[cfg(feature = "http_client")]
 mod credential;
 mod error;
+mod execution;
 mod execution_capability;
 mod fs;
 /// Interceptor hooks for the execution pipeline.
@@ -456,6 +458,8 @@ pub mod parser;
 mod profile;
 #[cfg(any(feature = "python", feature = "typescript"))]
 mod runtime_call;
+#[cfg(any(feature = "python", feature = "typescript"))]
+pub mod runtime_value;
 mod snapshot;
 mod stream;
 #[cfg(feature = "terminal")]
@@ -483,10 +487,12 @@ mod time_compat;
 pub mod tool;
 /// Structured execution trace events.
 pub mod trace;
+pub use command::{Command, CommandContext, CommandInput, CommandOutput, CommandStatus};
+pub use execution::Execution;
 pub use stream::StreamData;
 
 pub use analysis::{
-    AnalyzedCommand, AnalyzedRedirect, CommandContext, RedirectMode, ScriptAnalysis,
+    AnalyzedCommand, AnalyzedRedirect, CommandPlacement, RedirectMode, ScriptAnalysis,
 };
 pub use async_trait::async_trait;
 pub use builtins::git::GitConfig;
@@ -592,7 +598,12 @@ pub use builtins::{
     TypeScriptLimits,
 };
 // Re-export zapcode-core types needed by external handler consumers.
-#[cfg(feature = "typescript")]
+#[cfg(all(feature = "typescript", target_arch = "wasm32", target_os = "unknown"))]
+pub use zapcode_browser::Value as ZapcodeValue;
+#[cfg(all(
+    feature = "typescript",
+    not(all(target_arch = "wasm32", target_os = "unknown"))
+))]
 pub use zapcode_core::Value as ZapcodeValue;
 
 /// Logging utilities module
@@ -691,6 +702,7 @@ pub struct ExecOptions {
     arg0: Option<String>,
     positional: Option<Vec<String>>,
     stdin: Option<StreamData>,
+    stream_output: Option<std::sync::Arc<execution::ExecutionOutput>>,
 }
 
 impl ExecOptions {
@@ -792,6 +804,24 @@ impl Invocation {
     }
 }
 
+/// Load embedded runtimes now instead of on the first call.
+///
+/// Feature-gated warm-up: with `cpython` this loads the embedded CPython
+/// interpreter (delegates to [`CPython::warm_up`]); without it, a no-op
+/// returning `Ok`. Idempotent and process-wide.
+#[cfg(feature = "cpython")]
+pub fn warm_up() -> std::result::Result<(), String> {
+    CPython::warm_up()
+}
+
+/// Load embedded runtimes now instead of on the first call.
+///
+/// No-op: no enabled feature needs eager loading.
+#[cfg(not(feature = "cpython"))]
+pub fn warm_up() -> std::result::Result<(), String> {
+    Ok(())
+}
+
 /// Main entry point for Bashkit.
 ///
 /// Provides a virtual bash interpreter with an in-memory virtual filesystem.
@@ -866,6 +896,11 @@ fn inmem_fs_with_home(username: &str, limits: FsLimits) -> InMemoryFs {
 }
 
 impl Bash {
+    /// Execute with explicit capture and async byte sinks. Output is not
+    /// retained unless `.capture(max_bytes)` is selected on the builder.
+    pub fn execute<'a>(&'a mut self, script: &'a str) -> Execution<'a> {
+        Execution::new(self, script)
+    }
     /// Create a new Bash instance with default settings.
     pub fn new() -> Self {
         Self::builder().build()
@@ -935,6 +970,7 @@ impl Bash {
             arg0,
             positional,
             stdin,
+            stream_output,
         } = options;
         let invocation = Invocation {
             arg0,
@@ -944,7 +980,17 @@ impl Bash {
         self.interpreter.begin_execution_budget();
         // THREAT[TM-ISO-027]: close every request-owned boundary on all exits,
         // including timeout/cancellation and unwinding teardown paths.
-        let _budget_completion = self.interpreter.execution_budget().completion_guard();
+        let _budget_completion = if stream_output.is_none() {
+            Some(self.interpreter.execution_budget().completion_guard())
+        } else {
+            None
+        };
+        if let Some(output) = stream_output {
+            output.install(
+                self.interpreter.execution_budget(),
+                self.interpreter.limits(),
+            )?;
+        }
         self.interpreter.bind_command_hash_budget()?;
         // Expose active execution limits and deadline to builtins that need to
         // honor per-execution sandbox settings inside synchronous VM sections.
@@ -2559,7 +2605,7 @@ impl BashBuilder {
     /// both features are enabled and this method is called after
     /// [`BashBuilder::python`].
     ///
-    /// The interpreter loads on the first call; call [`CPython::warm_up`] at
+    /// The interpreter loads on the first call; call [`warm_up`] at
     /// process start to move that cost out of the first request.
     ///
     /// # Example
@@ -2797,6 +2843,19 @@ impl BashBuilder {
     /// ```
     pub fn builtin(mut self, name: impl Into<String>, builtin: Box<dyn Builtin>) -> Self {
         self.custom_builtins.insert(name.into(), builtin);
+        self
+    }
+
+    /// Register a streaming host command. Completion is separate from byte I/O.
+    pub fn command(mut self, name: impl Into<String>, command: impl Command + 'static) -> Self {
+        let name = name.into();
+        self.custom_builtins.insert(
+            name.clone(),
+            Box::new(command::CommandAdapter {
+                name,
+                command: std::sync::Arc::new(command),
+            }),
+        );
         self
     }
 
@@ -4086,6 +4145,10 @@ pub mod script_analysis_guide {}
 /// **Related:** [`BashBuilder::builtin`], [`compatibility_scorecard`]
 #[doc = include_str!("../docs/custom_builtins.md")]
 pub mod custom_builtins_guide {}
+
+/// Live byte commands, output sinks, capture and runtime support.
+#[doc = include_str!("../docs/streaming.md")]
+pub mod streaming_guide {}
 
 /// Public guide for clap-backed custom builtins.
 ///
@@ -8585,3 +8648,10 @@ echo missing fi"#,
         // server, but the hook is wired and the build succeeded.
     }
 }
+
+// Browser-only upstream source retains VM limits; native builds keep the
+// external crate and its public value types. See runtimes/zapcode-runtime.md.
+#[cfg(all(feature = "typescript", target_arch = "wasm32", target_os = "unknown"))]
+#[rustfmt::skip]
+#[allow(dead_code, unused_imports, clippy::all, clippy::unwrap_used)]
+mod zapcode_browser;

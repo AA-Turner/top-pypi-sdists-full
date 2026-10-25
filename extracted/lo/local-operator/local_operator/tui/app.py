@@ -4701,6 +4701,25 @@ def _offload_target_refusal(
     )
 
 
+def _quoted_echo_within_cells(text: str, budget: int = 20) -> str:
+    """The unknown value, quoted, bounded by DISPLAY CELLS as RENDERED.
+
+    A character cap is not a width cap, and the row renders ``repr``: twenty
+    backslashes are twenty raw cells but FORTY rendered ones (repr doubles
+    them), while twelve CJK characters are 72. Bound the escaped payload the
+    row actually shows, then re-quote it.
+    """
+    shown = repr(text)[1:-1]
+    if cell_len(shown) <= budget:
+        return f"'{shown}'"
+    out = ""
+    for char in shown:
+        if cell_len(out + char) > budget - 1:
+            break
+        out += char
+    return f"'{out}…'"
+
+
 class OperatorApp(App[None]):
     """Full-screen TUI over one ``SessionProtocol``."""
 
@@ -26201,9 +26220,9 @@ class OperatorApp(App[None]):
         """
         self.action_interrupt()
 
-    def on_stop_requested(self, message: StopRequested) -> None:
+    async def on_stop_requested(self, message: StopRequested) -> None:
         """Esc from the composer (the editor consumes the key so it never blurs)."""
-        self.action_stop()
+        await self.action_stop()
 
     def action_interrupt(self) -> None:
         """Ctrl+C: interrupt the turn. Twice in quick succession: leave.
@@ -26606,7 +26625,7 @@ class OperatorApp(App[None]):
         else:
             self._expand_asks()
 
-    def action_stop(self) -> None:
+    async def action_stop(self) -> None:
         """Esc: stop. One press, one meaning, wherever focus happens to be.
 
         A pending approval is NOT answered here and left at that. Esc used to
@@ -26880,7 +26899,12 @@ class OperatorApp(App[None]):
         # and the answer lands (UX round 4). ``"declined"`` and ``""`` still fall
         # through: nothing was said about a run, the composer is the obstacle, and
         # Esc keeps the meaning it has everywhere else in this method.
-        if self._withdraw_queued_prompt(self._interaction) in ("withdrawn", "missed"):
+        if await self._withdraw_queued_prompt(self._interaction) in (
+            "withdrawn",
+            "missed",
+            "pending",
+            "error",
+        ):
             return
         if not children:
             self._recall_queued_steers()
@@ -31598,6 +31622,28 @@ class OperatorApp(App[None]):
         self._terminal_title.stop()
         self._terminal_title = None
 
+    async def _join_queued_withdrawal(self) -> None:
+        task = getattr(self, "_queued_withdrawal_task", None)
+        if task is None or task is asyncio.current_task():
+            return
+        task.cancel()
+        cancellation = None
+        while not task.done():
+            try:
+                await asyncio.wait((task,))
+            except asyncio.CancelledError as exc:
+                cancellation = cancellation or exc
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            pass
+        except BaseException as failure:
+            if cancellation is not None:
+                raise BaseExceptionGroup("recall closing also failed", [cancellation, failure])
+            raise
+        if cancellation is not None:
+            raise cancellation
+
     async def _shutdown(self) -> None:
         """Cancel this app's workers BEFORE Textual dismantles the widget tree.
 
@@ -31645,6 +31691,7 @@ class OperatorApp(App[None]):
         # Unlike paint-only workers, bang-mode owns a subprocess and a durable
         # receipt. Abort and join it BEFORE the blanket cancellation: cancelling
         # execute_bash directly can bypass its normal result/persistence path.
+        await self._join_queued_withdrawal()
         if self._restart_plan is not None:
             await self._detach_relaunch_gates()
         await self._settle_shell_command()
@@ -33674,6 +33721,7 @@ class OperatorApp(App[None]):
         await asyncio.gather(*pending)
 
     async def on_unmount(self) -> None:
+        await self._join_queued_withdrawal()
         from textual.worker import WorkerCancelled, WorkerFailed
 
         # Keep direct hook callers safe too; normal shutdown already withdrew
@@ -45949,11 +45997,13 @@ class OperatorApp(App[None]):
         resolved = resolve_language()
         options = dict(language_options())
         if not wanted:
-            # Within the picker's receipt budget; the space is the browse
-            # (`_language_choices`), and the /settings row has the same list.
+            # Within the notice row's 70-cell budget at 80 columns (design D2).
+            # The value space is NOT enumerated: shipped locales grow, and the
+            # space key opens `_language_choices`, which lists every accepted
+            # value. The refusal names that same affordance.
             self._system_notice(
                 f"language: {resolved} ({language_name(resolved)}) — "
-                f"/language <{'|'.join(options)}>; space"
+                "/language <value>; space browses"
             )
             return
         key = (
@@ -45962,8 +46012,12 @@ class OperatorApp(App[None]):
             else normalise_locale(wanted) or wanted
         )
         if key not in options:
+            # Bound the echoed token so the refusal cannot outgrow the notice
+            # row, then name the affordance this client actually has.
             self._system_notice(
-                f"unknown language {wanted!r} — available: {', '.join(options)}", "warning"
+                f"unknown language {_quoted_echo_within_cells(wanted)} — "
+                "press space to list values",
+                "warning",
             )
             return
         if key == self._language_current():
@@ -46010,6 +46064,10 @@ class OperatorApp(App[None]):
         from local_operator.i18n import text as i18n_text
 
         i18n_text.set_active_locale(locale)
+        # Localized transcript furniture is baked into finalized blocks just as
+        # theme ink is. Reuse that same rebuild sweep so a locale move repaints
+        # mounted rows at their CURRENT width, with no resize or stale cache.
+        self._repaint_themed_widgets()
         if self._welcome is not None:
             self._welcome.refresh()
         if self._status is not None:
@@ -48645,7 +48703,7 @@ class OperatorApp(App[None]):
                 # a dash and had to guess whether it meant unknown, unsupported
                 # or absent.
                 row = view.get(definition.id)
-                state = _VIEW_STATE_COPY[row.state] if row is not None else ""
+                state = self._row_state_detail(row)
                 marker = "*" if definition.store_credentials_as else " "
                 items.append((f"{marker}{definition.id}", f"{definition.name} · {state}"))
             use = self._provider_usage_state()
@@ -51892,6 +51950,26 @@ class OperatorApp(App[None]):
             return None
         return {row.definition.id: row for row in rows}
 
+    @staticmethod
+    def _row_state_detail(row: Any) -> str:
+        """A view row's detail line, tolerating a row without ``state_detail``.
+
+        ``state_detail`` is a LATE field on ``ProviderViewRow``, but the row
+        contract is duck-typed: embedders and test doubles supply their own
+        row objects (the same reason ``login_providers`` is typed ``Any``),
+        and those legitimately predate the field. Reading it unguarded made
+        every picker render raise ``AttributeError`` for such a row -- the
+        listing lost the whole provider block, not just the detail.
+
+        ``getattr`` rather than a protocol/required-field change: the field is
+        presentation-only, so an absent one means "no detail", which is
+        the same answer a real row with ``state_detail=None`` gives. The
+        machine state copy is the fallback, exactly as on a real row.
+        """
+        if row is None:
+            return ""
+        return getattr(row, "state_detail", None) or _VIEW_STATE_COPY[row.state]
+
     def _login_choices(self) -> list[ArgumentChoice]:
         """Every loginable provider, with where the user stands on each.
 
@@ -51967,7 +52045,7 @@ class OperatorApp(App[None]):
                     # question is "what do I show beside this row", and a blank
                     # is honest; there it is "what will this switch do", and the
                     # note must SAY something (design review round 1, D4).
-                    detail=_VIEW_STATE_COPY[row.state] if row is not None else "",
+                    detail=self._row_state_detail(row),
                 )
             )
         # A controller offering a row the catalogue does not know (an embedder's
@@ -51990,7 +52068,7 @@ class OperatorApp(App[None]):
                     display=definition.name,
                     description=_provider_summary(definition.id, definition.name),
                     aliases=tuple(definition.search_aliases),
-                    detail=_VIEW_STATE_COPY[row.state] if row is not None else "",
+                    detail=self._row_state_detail(row),
                 )
             )
         return choices
@@ -54610,6 +54688,7 @@ class OperatorApp(App[None]):
         # module is what every interactive session imports.
         from local_operator.harness.types import AbortSignal
         from local_operator.providers.oauth.callback_server import LoginCancelledError
+        from local_operator.providers.oauth.radient import RadientLoginDisabled
 
         assert self._providers is not None
         if self._login_lock is None:
@@ -54758,6 +54837,19 @@ class OperatorApp(App[None]):
                     f"login cancelled. {stopped}retry with /login {provider}",
                     "info",
                 )
+        except RadientLoginDisabled:
+            # A preserved disablement is an OUTCOME: the sign-in WAS verified, so
+            # the catch-all's red "login failed" contradicted the sentence it
+            # printed and invited the user to retry a login that had just worked
+            # (design round 2, D1). ``warning`` is the transcript's
+            # "attention, not failure" rung; the copy is cause-agnostic because
+            # the typed outcome also covers automatic causes, and it closes the
+            # sentence with what did NOT change.
+            await notice(
+                "Sign-in verified. This Radient sign-in stays disabled; "
+                "its saved state was preserved. Nothing else changed.",
+                "warning",
+            )
         except Exception as error:
             local = getattr(self._providers.provider(provider), "local_setup", False)
             await notice(f"{'setup' if local else 'login'} failed: {error}", "error")
@@ -60479,7 +60571,7 @@ class OperatorApp(App[None]):
             return None
         return config_dir() / "sessions" / session_id
 
-    def _withdraw_queued_prompt(self, source: SessionInteraction) -> str:
+    async def _withdraw_queued_prompt(self, source: SessionInteraction) -> str:
         """Esc: take the newest spooled prompt back out of the successor's spool.
 
         THE NEIGHBOUR OF :meth:`_recall_queued_steers`, making the same promise
@@ -60507,6 +60599,9 @@ class OperatorApp(App[None]):
         marker stays up in that case, because the message is still queued — it is
         only out of reach.
         """
+        pending = getattr(self, "_queued_withdrawal_task", None)
+        if pending is not None and not pending.done():
+            return "pending"
         entries = list(source.turn.queued_prompts.items())
         if not entries:
             return ""
@@ -60524,12 +60619,30 @@ class OperatorApp(App[None]):
         if directory is None:
             return ""
         from local_operator.session.runtime.inbox import withdraw_inbox
+        from local_operator.wakes.spooled import await_spool_write
 
+        owner = asyncio.current_task()
+        self._queued_withdrawal_task = owner
+        original_text = editor.text
         try:
-            withdrawn = withdraw_inbox(directory, queued.command_id)
-        except Exception:  # a recall must never take the app down
+            withdrawn = await await_spool_write(withdraw_inbox, directory, queued.command_id)
+        except Exception:
             logger.debug("queued-prompt recall failed", exc_info=True)
-            return ""
+            return "error"  # consume Esc, never fall through to stopping the turn
+        finally:
+            if getattr(self, "_queued_withdrawal_task", None) is owner:
+                self._queued_withdrawal_task = None
+        if source.turn.queued_prompts.get(message_id) is not queued:
+            return "withdrawn" if withdrawn else "missed"
+        if withdrawn and (
+            not self._is_current(source)
+            or self._editor() is not editor
+            or editor.text != original_text
+            or self._aside_is_open()
+        ):
+            del source.turn.queued_prompts[message_id]
+            self._restore_unsent_for(source, queued.text, None)
+            return "withdrawn"
         if not withdrawn:
             self._replace_stop_notice(QUEUED_PROMPT_MISSED_NOTICE, "warning")
             return "missed"

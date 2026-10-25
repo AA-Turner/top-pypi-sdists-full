@@ -15,6 +15,7 @@
 #include "common/partition_routing_hook.h"
 #include "common/serializer/deserializer.h"
 #include "common/serializer/serializer.h"
+#include "common/string_utils.h"
 #include "extension/extension_manager.h"
 #include "function/function_collection.h"
 #include "main/client_context.h"
@@ -77,6 +78,10 @@ Catalog* Catalog::Get(const main::ClientContext& context) {
         return context.getAttachedDatabase()->getCatalog();
     }
     auto dbManager = main::DatabaseManager::Get(context);
+    if (auto* replayOwnerCatalog = dbManager->getReplayOwnerCatalog();
+        replayOwnerCatalog != nullptr) {
+        return replayOwnerCatalog;
+    }
     if (dbManager->hasDefaultGraph()) {
         auto graphCatalog = dbManager->getDefaultGraphCatalog();
         if (graphCatalog != nullptr) {
@@ -87,16 +92,16 @@ Catalog* Catalog::Get(const main::ClientContext& context) {
 }
 
 void Catalog::initCatalogSets() {
-    tables = std::make_unique<CatalogSet>();
-    sequences = std::make_unique<CatalogSet>();
-    functions = std::make_unique<CatalogSet>();
-    types = std::make_unique<CatalogSet>();
-    indexes = std::make_unique<CatalogSet>();
-    macros = std::make_unique<CatalogSet>();
-    internalTables = std::make_unique<CatalogSet>(true /* isInternal */);
-    internalSequences = std::make_unique<CatalogSet>(true /* isInternal */);
-    internalFunctions = std::make_unique<CatalogSet>(true /* isInternal */);
-    graphs = std::make_unique<CatalogSet>();
+    tables = std::make_unique<CatalogSet>(this);
+    sequences = std::make_unique<CatalogSet>(this);
+    functions = std::make_unique<CatalogSet>(this);
+    types = std::make_unique<CatalogSet>(this);
+    indexes = std::make_unique<CatalogSet>(this);
+    macros = std::make_unique<CatalogSet>(this);
+    internalTables = std::make_unique<CatalogSet>(this, true /* isInternal */);
+    internalSequences = std::make_unique<CatalogSet>(this, true /* isInternal */);
+    internalFunctions = std::make_unique<CatalogSet>(this, true /* isInternal */);
+    graphs = std::make_unique<CatalogSet>(this);
 }
 
 bool Catalog::containsTable(const Transaction* transaction, const std::string& tableName,
@@ -413,10 +418,10 @@ bool Catalog::containsType(const Transaction* transaction, const std::string& ty
     return types->containsEntry(transaction, typeName);
 }
 
-void Catalog::createIndex(Transaction* transaction, std::unique_ptr<CatalogEntry> indexCatalogEntry,
-    bool skipLoggingToWAL) {
+oid_t Catalog::createIndex(Transaction* transaction,
+    std::unique_ptr<CatalogEntry> indexCatalogEntry, bool skipLoggingToWAL) {
     DASSERT(indexCatalogEntry->getType() == CatalogEntryType::INDEX_ENTRY);
-    indexes->createEntry(transaction, std::move(indexCatalogEntry), skipLoggingToWAL);
+    return indexes->createEntry(transaction, std::move(indexCatalogEntry), skipLoggingToWAL);
 }
 
 IndexCatalogEntry* Catalog::getIndex(const Transaction* transaction, table_id_t tableID,
@@ -507,7 +512,10 @@ bool Catalog::containsFunction(const Transaction* transaction, const std::string
     bool useInternal) const {
     auto hasEntry = functions->containsEntry(transaction, name);
     if (!hasEntry && useInternal) {
-        return internalFunctions->containsEntry(transaction, name);
+        hasEntry = internalFunctions->containsEntry(transaction, name);
+    }
+    if (!hasEntry && functionFallback != nullptr) {
+        return functionFallback->containsFunction(transaction, name, useInternal);
     }
     return hasEntry;
 }
@@ -548,8 +556,12 @@ CatalogEntry* Catalog::getFunctionEntry(const Transaction* transaction, const st
         result = functions->getEntry(transaction, name);
     } else if (macros->containsEntry(transaction, name)) {
         result = macros->getEntry(transaction, name);
-    } else if (useInternal) {
+    } else if (useInternal && internalFunctions->containsEntry(transaction, name)) {
         result = internalFunctions->getEntry(transaction, name);
+    } else if (functionFallback != nullptr) {
+        // Extension functions live in the main catalog only; resolve them there
+        // when the session is on a non-main graph.
+        return functionFallback->getFunctionEntry(transaction, name, useInternal);
     } else {
         throw CatalogException(getFunctionDoesNotExistMessage(name));
     }
@@ -576,7 +588,7 @@ std::vector<FunctionCatalogEntry*> Catalog::getFunctionEntries(
 }
 
 bool Catalog::containsMacro(const Transaction* transaction, const std::string& macroName) const {
-    return macros->containsEntry(transaction, macroName);
+    return macros->containsEntry(transaction, StringUtils::getUpper(macroName));
 }
 
 function::ScalarMacroFunction* Catalog::getScalarMacroFunction(const Transaction* transaction,
@@ -595,7 +607,9 @@ void Catalog::addScalarMacroFunction(Transaction* transaction, std::string name,
 
 ScalarMacroCatalogEntry* Catalog::getScalarMacroCatalogEntry(const Transaction* transaction,
     lbug::common::oid_t macroID) const {
-    auto result = functions->getEntryOfOID(transaction, macroID);
+    // Macros live in the macros set (see addScalarMacroFunction), not functions.
+    // The wrong set made every WAL replay of a macro drop fail (see #1163).
+    auto result = macros->getEntryOfOID(transaction, macroID);
     if (result == nullptr) {
         throw RuntimeException(
             std::format("Cannot find macro catalog entry with id {}.", std::to_string(macroID)));
@@ -614,11 +628,12 @@ std::vector<std::string> Catalog::getMacroNames(const Transaction* transaction) 
 }
 
 void Catalog::dropMacro(Transaction* transaction, std::string& name) {
-    if (!containsMacro(transaction, name)) {
+    auto macroName = StringUtils::getUpper(name);
+    if (!macros->containsEntry(transaction, macroName)) {
         throw CatalogException{std::format("Macro {} doesn't exist.", name)};
     }
-    auto entry = getFunctionEntry(transaction, name);
-    macros->dropEntry(transaction, name, entry->getOID());
+    auto entry = macros->getEntry(transaction, macroName);
+    macros->dropEntry(transaction, macroName, entry->getOID());
 }
 
 void Catalog::registerBuiltInFunctions() {
@@ -678,6 +693,15 @@ CatalogEntry* Catalog::createNodeTableEntry(Transaction* transaction,
         // Dynamically created LIST partition child: register the parent link so reads expand
         // to it and writes can resolve it.
         entry->setParentInfo(extraInfo->partitionParentTableID, extraInfo->partitionChildIndex);
+        entry->setListPartitionKey(extraInfo->listPartitionKey);
+    }
+    if (extraInfo->partitionInfo.has_value()) {
+        // Register the partition method before the entry is logged: the WAL create record
+        // serializes the entry eagerly, so logging must see the method for replay to
+        // rebuild the parent as partitioned rather than as a plain table.
+        const auto& partitionInfo = *extraInfo->partitionInfo;
+        entry->setPartitionInfo(partitionInfo.method, partitionInfo.columnName,
+            entry->getPropertyID(partitionInfo.columnName), partitionInfo.numPartitions);
     }
     entry->setHasParent(info.hasParent);
     createSerialSequence(transaction, entry.get(), info.isInternal);
@@ -692,12 +716,9 @@ CatalogEntry* Catalog::createNodeTableEntry(Transaction* transaction,
     // catalog set as the parent so they get normal (small) table IDs: several execution-storage
     // structures index state by table ID, and internal entries carry OIDs near 2^63 which would
     // otherwise blow those up.
-    if (extraInfo->partitionInfo.has_value()) {
+    if (extraInfo->partitionInfo.has_value() && !extraInfo->skipInitialPartitionCreation) {
         auto* parent = parentEntry->ptrCast<NodeTableCatalogEntry>();
         const auto& partitionInfo = *extraInfo->partitionInfo;
-        auto partitionColumnID = parent->getPropertyID(partitionInfo.columnName);
-        parent->setPartitionInfo(partitionInfo.method, partitionInfo.columnName, partitionColumnID,
-            partitionInfo.numPartitions);
         // LIST starts with one partition and grows on demand; HASH creates its full set here.
         // LIST's initial partition keeps the >=1-partition invariant that reads and writes rely
         // on (partition expansion never yields an empty child set). It stays unkeyed and empty:
@@ -813,17 +834,17 @@ void Catalog::serializeSnapshot(Serializer& ser, common::transaction_t snapshotT
 }
 
 void Catalog::deserialize(Deserializer& deSer) {
-    tables = CatalogSet::deserialize(deSer);
-    sequences = CatalogSet::deserialize(deSer);
-    functions = CatalogSet::deserialize(deSer);
+    tables = CatalogSet::deserialize(this, deSer);
+    sequences = CatalogSet::deserialize(this, deSer);
+    functions = CatalogSet::deserialize(this, deSer);
     registerBuiltInFunctions();
-    types = CatalogSet::deserialize(deSer);
-    indexes = CatalogSet::deserialize(deSer);
-    macros = CatalogSet::deserialize(deSer);
-    internalTables = CatalogSet::deserialize(deSer);
-    internalSequences = CatalogSet::deserialize(deSer);
-    internalFunctions = CatalogSet::deserialize(deSer);
-    graphs = CatalogSet::deserialize(deSer);
+    types = CatalogSet::deserialize(this, deSer);
+    indexes = CatalogSet::deserialize(this, deSer);
+    macros = CatalogSet::deserialize(this, deSer);
+    internalTables = CatalogSet::deserialize(this, deSer);
+    internalSequences = CatalogSet::deserialize(this, deSer);
+    internalFunctions = CatalogSet::deserialize(this, deSer);
+    graphs = CatalogSet::deserialize(this, deSer);
 }
 
 } // namespace catalog

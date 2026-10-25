@@ -6,6 +6,7 @@ import importlib
 import inspect
 import os
 import secrets
+import shlex
 import string
 import sys
 from pathlib import Path
@@ -13,7 +14,7 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any, Callable, Mapping, Sequence
 
 import pluggy
-from asgiref.sync import sync_to_async
+from asgiref.sync import iscoroutinefunction, sync_to_async
 from django import setup
 from django import urls as django_urls
 from django.contrib import admin
@@ -145,6 +146,9 @@ class Django:
                 )
             }
 
+        # Remove internal config that's not a setting
+        force_async = _settings.pop("ASYNC", False)
+
         self._init_plugin_manager()
 
         self.has_admin = False
@@ -152,6 +156,9 @@ class Django:
         self._routes = {}
         self._config(_settings)
         self._prepared = False
+
+        if force_async:
+            self.mark_async()
 
     def _init_plugin_manager(self):
         self.pm = pluggy.PluginManager("nanodjango")
@@ -291,7 +298,9 @@ class Django:
         pattern = pattern.removeprefix("/")
 
         # Find if it's a path() or re_path()
-        unknown_kwargs = kwargs
+        # Copy, so plugins popping their kwargs here do not remove them from kwargs,
+        # which is needed by django_route_path_kwargs below
+        unknown_kwargs = dict(kwargs)
         path_fn = self.pm.hook.django_route_path_fn(
             app=self, pattern=pattern, include=include, re=re, kwargs=unknown_kwargs
         )
@@ -304,6 +313,25 @@ class Django:
 
         if include is not None:
             # Being called directly with an include
+            if isinstance(include, str):
+                include = django_urls.include(include)
+
+            # Walk the included urlpatterns already in memory to detect async views
+            stack = [include[0] if isinstance(include, tuple) else include]
+            while stack:
+                item = stack.pop()
+                if isinstance(item, list):
+                    stack.extend(item)
+                elif isinstance(item, django_urls.URLResolver):
+                    stack.append(item.urlconf_module)
+                elif isinstance(item, django_urls.URLPattern) and (
+                    iscoroutinefunction(item.callback)
+                ):
+                    self.mark_async()
+                    break
+                # String includes are not imported yet, ignore them - user will need to
+                # force with Django(ASYNC=True) or app.mark_async()
+
             urlpatterns.append(path_fn(pattern, include))
 
             # If we're converting, we're going to need the source AST node based on the
@@ -361,18 +389,13 @@ class Django:
                 {"re": re, "include": False, **path_kwargs},
             )
 
-            # Detect async view
-            if inspect.iscoroutinefunction(fn):
-                self._has_async_view = True
-
-                # Not ideal that this is changing the global, but it's the only way to
-                # work around whatever uvicorn is doing, and you'd have to work hard for
-                # it to be a problem.
-                type(self).__call__ = type(self).asgi
-
             # Prepare CBVs
             if inspect.isclass(fn) and issubclass(fn, View):
                 fn = fn.as_view()
+
+            # Detect async view
+            if iscoroutinefunction(fn):
+                self.mark_async()
 
             # Register URL
             urlpatterns.append(path_fn(pattern, string_view(fn), **path_kwargs))
@@ -639,6 +662,20 @@ class Django:
 
         return False
 
+    def mark_async(self) -> None:
+        """
+        Declare that this app serves async views
+
+        This will usually be applied automatically, but it can be called manually when
+        nanodjango cannot find the async views, ie when included in a string module path
+        """
+        self._has_async_view = True
+
+        # Not ideal that this is changing the global, but it's the only way to
+        # work around whatever uvicorn is doing, and you'd have to work hard for
+        # it to be a problem.
+        type(self).__call__ = type(self).asgi
+
     def manage(self, args: list[str] | tuple[str] | None = None):
         """
         Run Django management commands.
@@ -724,6 +761,36 @@ class Django:
             )
         else:
             exec_manage("runserver", f"{host}:{port}")
+
+    def invoke(self, default: str = ""):
+        """
+        Run a ``nanodjango`` command for this script, using the script's own arguments.
+
+        Lets the script run its own commands, so it can be run directly with
+        ``uv run``, which installs the dependencies in its PEP 723 header::
+
+            uv run website.py run 0:8000
+            uv run website.py manage makemigrations
+
+        Args:
+            default: Command line to use when no arguments are given, e.g.
+                ``"run 0:8000"``
+
+        Example::
+
+            if __name__ == "__main__":
+                app.invoke(default="run 0:8000")
+        """
+        from .commands import cli
+
+        args = sys.argv[1:] or shlex.split(default)
+        if not args:
+            cli.main(args=["--help"], obj={})
+
+        # The first argument is the command, the script path is the app
+        command, *rest = args
+        script = str(self.app_path)
+        cli.main(args=[command, script, *rest], obj={"app": self})
 
     def serve(
         self,
@@ -1085,8 +1152,7 @@ class Django:
             log_level: Uvicorn log level (default: "info")
             is_prod: Whether to run in production mode (default: True)
         """
-        self._has_async_view = True
-        type(self).__call__ = type(self).asgi  # Same hacky solution in wrapped()
+        self.mark_async()
 
         try:
             import uvicorn

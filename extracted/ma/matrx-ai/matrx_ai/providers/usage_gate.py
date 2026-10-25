@@ -421,12 +421,29 @@ async def admit_person_own_run(ctx: Any) -> None:
         await _tell_near(ctx, verdict)
 
 
-def precheck_usage() -> None:
+def costs_nothing_on_a_device(value: Any) -> bool:
+    """THE one answer to "is this turn served on the person's own computer (cost 0)?".
+
+    ``value`` is the turn's effective config (``served_via`` set) or a resolved call profile
+    (``route_kind == "device"``). A device turn spends no points (``TokenUsage.device_served``),
+    so the AI usage limit neither refuses nor warns it — at the request boundary
+    (:func:`precheck_usage`) and at the paid-call seam (``unified_client``) alike.
+    """
+    from matrx_ai.providers.device.route_guard import is_device_served
+
+    return is_device_served(value)
+
+
+def precheck_usage(config: Any = None) -> None:
     """The same memory read at the request boundary, before the turn is stored.
 
     Never records the request as admitted (the paid-call seam does that); a
-    request already admitted is never refused here either.
+    request already admitted is never refused here either. ``config`` is the
+    turn's effective config: a device-served turn (:func:`costs_nothing_on_a_device`)
+    is never refused.
     """
+    if costs_nothing_on_a_device(config):
+        return
     from matrx_ai.context.app_context import try_get_app_context
 
     ctx = try_get_app_context()
@@ -527,6 +544,7 @@ __all__ = [
     "admit_paid_call",
     "admit_person_own_run",
     "precheck_usage",
+    "costs_nothing_on_a_device",
     "reset_usage_gate_state",
     "set_machine_work_payer_predicate",
     "set_usage_verdict_resolver",

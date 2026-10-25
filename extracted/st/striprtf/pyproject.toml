@@ -18,7 +18,7 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
 ]
 dependencies = [
-    "idna>=3.15",
+    
 ]
 scripts = { striprtf = "striprtf.striprtf:main" }
 

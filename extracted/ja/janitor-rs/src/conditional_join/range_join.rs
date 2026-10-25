@@ -41,15 +41,16 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyTuple};
 
-#[cfg(test)]
 use super::compare_op::CompareOp;
 use super::join_aggregation_helpers::aggregate_range_windows;
 use super::join_candidate_materialization::materialize_range_candidates;
 #[cfg(test)]
 use super::join_search::range_window;
 use super::join_types::{result_dict, Keep, SingleJoinResult};
-use super::predicate::{check_predicate_lengths, parse_predicates_with_nulls_strings};
-use super::range_predicate::{parse_any_range_parts, AnyParsedRangePredicate};
+use super::predicate::{
+    check_predicate_lengths, parse_predicates_with_nulls_strings, predicates_match,
+};
+use super::range_predicate::{parse_any_range_parts, AnchorSearch, AnyParsedRangePredicate};
 use crate::aggregation::common::adaptive::should_use_segment_tree;
 use crate::aggregation::common::ensure_equal_lengths_core;
 use crate::aggregation::packed_spans::{
@@ -66,6 +67,9 @@ thread_local! {
     pub(crate) static EXTREME_TREE_HITS: Cell<usize> = const { Cell::new(0) };
     pub(crate) static EXTREME_HULL_TREE_HITS: Cell<usize> = const { Cell::new(0) };
     pub(crate) static PACKING_PRECHECK_DIRECT_HITS: Cell<usize> = const { Cell::new(0) };
+    pub(crate) static ENVELOPE_RANK_SWEEP_HITS: Cell<usize> = const { Cell::new(0) };
+    pub(crate) static REVERSE_ENVELOPE_RANK_SWEEP_HITS: Cell<usize> = const { Cell::new(0) };
+    pub(crate) static ENVELOPE_KEEP_SWEEP_HITS: Cell<usize> = const { Cell::new(0) };
 }
 
 /// Select the smallest or largest physical label in each half-open window by scanning.
@@ -382,6 +386,40 @@ fn parse_shared_index_range_predicate<'py>(
     )
 }
 
+/// Validate shared value/index layouts before any optimized path runs.
+fn validate_shared_anchor_lengths(
+    first: &AnyParsedRangePredicate<'_>,
+    second: &AnyParsedRangePredicate<'_>,
+) -> Result<(), String> {
+    let (first_left_index, first_right_index) = first.labels();
+    let (second_left_index, second_right_index) = second.labels();
+    ensure_equal_lengths_core(
+        "left",
+        first.left_len(),
+        "left_index",
+        first_left_index.len(),
+    )?;
+    ensure_equal_lengths_core(
+        "right",
+        first.right_len(),
+        "right_index",
+        first_right_index.len(),
+    )?;
+    ensure_equal_lengths_core(
+        "left",
+        second.left_len(),
+        "left_index",
+        second_left_index.len(),
+    )?;
+    ensure_equal_lengths_core(
+        "right",
+        second.right_len(),
+        "right_index",
+        second_right_index.len(),
+    )?;
+    Ok(())
+}
+
 /// A typed range predicate used by the basic two-range kernel.
 ///
 /// The value arrays describe the comparison layout, while the paired index
@@ -505,6 +543,7 @@ pub(crate) fn build_windows<T: PartialOrd + Copy>(
 /// Returns an error when the window arrays or physical maps have incompatible
 /// lengths, or when a window boundary is outside the corresponding right
 /// layout.
+#[cfg(test)]
 pub(crate) fn intersect_windows(
     first: SingleJoinResult,
     second: SingleJoinResult,
@@ -568,6 +607,115 @@ pub(crate) fn intersect_windows(
     Ok(result)
 }
 
+/// Left rows whose windows are computed per batch by [`for_each_window`].
+const WINDOW_CHUNK: usize = 4_096;
+
+/// Evenly spaced row blocks, of [`SWEEP_WIDTH_SAMPLE_ROWS`] rows each, that
+/// [`FirstAnchorSweep::new`] searches to estimate the candidate width.
+const SWEEP_WIDTH_SAMPLE_BLOCKS: usize = 32;
+const SWEEP_WIDTH_SAMPLE_ROWS: usize = 256;
+
+/// Call `visit(row, (start, end))` for every left row's window, in row
+/// order.
+///
+/// ELI5: work through the rows a few thousand at a time and measure each
+/// batch in one tight typed loop, so the CPU can overlap neighbouring
+/// rows' binary searches. Only one batch of windows is ever held; storing
+/// every row's window first cost four `usize` per left row per anchor.
+fn for_each_window(
+    search: &AnchorSearch<'_>,
+    left_len: usize,
+    mut visit: impl FnMut(usize, (usize, usize)),
+) {
+    let chunk = WINDOW_CHUNK.min(left_len);
+    let (mut starts, mut ends) = (vec![0_usize; chunk], vec![0_usize; chunk]);
+    for chunk_start in (0..left_len).step_by(WINDOW_CHUNK) {
+        let rows = WINDOW_CHUNK.min(left_len - chunk_start);
+        search.windows_into(chunk_start, &mut starts[..rows], &mut ends[..rows]);
+        for offset in 0..rows {
+            visit(chunk_start + offset, (starts[offset], ends[offset]));
+        }
+    }
+}
+
+/// [`for_each_window`] over two aligned anchors at once, for the left rows
+/// in `rows`: `visit(row, first_window, second_window)`.
+fn for_each_window_pair(
+    first: &AnchorSearch<'_>,
+    second: &AnchorSearch<'_>,
+    rows: std::ops::Range<usize>,
+    mut visit: impl FnMut(usize, (usize, usize), (usize, usize)),
+) {
+    let chunk = WINDOW_CHUNK.min(rows.len());
+    let (mut first_starts, mut first_ends) = (vec![0_usize; chunk], vec![0_usize; chunk]);
+    let (mut second_starts, mut second_ends) = (vec![0_usize; chunk], vec![0_usize; chunk]);
+    for chunk_start in rows.clone().step_by(WINDOW_CHUNK) {
+        let rows = WINDOW_CHUNK.min(rows.end - chunk_start);
+        first.windows_into(
+            chunk_start,
+            &mut first_starts[..rows],
+            &mut first_ends[..rows],
+        );
+        second.windows_into(
+            chunk_start,
+            &mut second_starts[..rows],
+            &mut second_ends[..rows],
+        );
+        for offset in 0..rows {
+            visit(
+                chunk_start + offset,
+                (first_starts[offset], first_ends[offset]),
+                (second_starts[offset], second_ends[offset]),
+            );
+        }
+    }
+}
+
+type WindowPair = ((usize, usize), (usize, usize));
+
+/// Find the first non-empty intersection in a row range using batched
+/// searches. The caller reuses the scratch buffers across ranges.
+fn first_intersection_in_rows(
+    first: &AnchorSearch<'_>,
+    second: &AnchorSearch<'_>,
+    rows: std::ops::Range<usize>,
+    first_starts: &mut [usize],
+    first_ends: &mut [usize],
+    second_starts: &mut [usize],
+    second_ends: &mut [usize],
+) -> Option<(usize, WindowPair)> {
+    let max_batch = WINDOW_CHUNK.min(rows.len());
+    debug_assert!(first_starts.len() >= max_batch);
+    debug_assert!(first_ends.len() >= max_batch);
+    debug_assert!(second_starts.len() >= max_batch);
+    debug_assert!(second_ends.len() >= max_batch);
+    let mut chunk_start = rows.start;
+    let mut batch = 16.min(WINDOW_CHUNK);
+    while chunk_start < rows.end {
+        let rows = batch.min(rows.end - chunk_start);
+        first.windows_into(
+            chunk_start,
+            &mut first_starts[..rows],
+            &mut first_ends[..rows],
+        );
+        second.windows_into(
+            chunk_start,
+            &mut second_starts[..rows],
+            &mut second_ends[..rows],
+        );
+        for offset in 0..rows {
+            let first_window = (first_starts[offset], first_ends[offset]);
+            let second_window = (second_starts[offset], second_ends[offset]);
+            if first_window.0.max(second_window.0) < first_window.1.min(second_window.1) {
+                return Some((chunk_start + offset, (first_window, second_window)));
+            }
+        }
+        chunk_start += rows;
+        batch = batch.saturating_mul(2).min(WINDOW_CHUNK);
+    }
+    None
+}
+
 /// Build dual-range windows while dispatching each anchor independently.
 ///
 /// The two anchors may use different NumPy dtypes. Each is binary-searched in
@@ -591,7 +739,90 @@ pub(crate) fn build_any_windows(
     first: &AnyParsedRangePredicate<'_>,
     second: &AnyParsedRangePredicate<'_>,
 ) -> Result<SingleJoinResult, String> {
-    intersect_windows(first.windows(true)?, second.windows(false)?)
+    // ELI5: measure both rulers for one row at a time and write down only
+    // the overlap. Building each anchor's windows for every left row first
+    // held eight left-length vectors at once (4 GiB for Arun's 40M rows)
+    // just to keep the rows where they overlap.
+    let left_len = first.left_len();
+    let right_len = first.right_len();
+    let (left_labels, right_labels) = first.labels();
+    let (second_left_labels, second_right_labels) = second.labels();
+    ensure_equal_lengths_core("left", left_len, "left_index", left_labels.len())?;
+    ensure_equal_lengths_core("right", right_len, "right_index", right_labels.len())?;
+    ensure_equal_lengths_core(
+        "left",
+        second.left_len(),
+        "left_index",
+        second_left_labels.len(),
+    )?;
+    ensure_equal_lengths_core(
+        "right",
+        second.right_len(),
+        "right_index",
+        second_right_labels.len(),
+    )?;
+    let (first_search, second_search) = (first.search(), second.search());
+    for op in [first_search.op(), second_search.op()] {
+        if !matches!(
+            op,
+            CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge
+        ) {
+            return Err("single join range core requires a range comparator".to_owned());
+        }
+    }
+    if second.left_len() != left_len {
+        return Err(
+            "dual range predicates must use aligned left rows and right positions".to_owned(),
+        );
+    }
+    let mut result = SingleJoinResult {
+        left_positions: Vec::new(),
+        left_index: Vec::new(),
+        right_index: right_labels.to_vec(),
+        starts: Vec::new(),
+        ends: Vec::new(),
+    };
+    if left_len == 0 || right_len == 0 || second.right_len() == 0 {
+        return Ok(result);
+    }
+    // ELI5: reserve room for every row once instead of letting the vectors
+    // double as they fill. Doubling copies the data and can leave up to
+    // twice the needed capacity; a reservation the rows never reach is
+    // address space the operating system does not back with memory until
+    // it is written.
+    result.left_positions.reserve_exact(left_len);
+    result.left_index.reserve_exact(left_len);
+    result.starts.reserve_exact(left_len);
+    result.ends.reserve_exact(left_len);
+    // ELI5: work through the rows a few thousand at a time. For each batch,
+    // measure all its rows against the first ruler, then all against the
+    // second, then keep the overlaps. Each ruler's measurements run in their
+    // own tight loop (as when every row was measured up front), but only one
+    // batch of measurements is ever held.
+    let mut misaligned = false;
+    for_each_window_pair(
+        &first_search,
+        &second_search,
+        0..left_len,
+        |row, first, second| {
+            // The second anchor's labels are deliberately not compared:
+            // PyJanitor aligns both right value arrays to one physical layout.
+            // Its windows must still stay inside the first anchor's layout.
+            misaligned |= second.1 > right_len;
+            let start = first.0.max(second.0);
+            let end = first.1.min(second.1);
+            if start < end {
+                result.left_positions.push(row);
+                result.left_index.push(left_labels[row]);
+                result.starts.push(start);
+                result.ends.push(end);
+            }
+        },
+    );
+    if misaligned {
+        return Err("dual range predicates must use aligned right positions".to_owned());
+    }
+    Ok(result)
 }
 
 /// Select one label from each arbitrary dual-range window.
@@ -874,7 +1105,21 @@ fn extended_join<'py>(
         second.right_len(),
     )
     .map_err(PyValueError::new_err)?;
+    validate_shared_anchor_lengths(&first, &second).map_err(PyValueError::new_err)?;
     check_predicate_lengths(&parsed, first.left_len(), first.right_len())?;
+    // ELI5: `first`/`last` only need the smallest or largest label among a
+    // row's matches. When the second anchor is just the residual's envelope,
+    // a running scoreboard answers that without walking every match.
+    if matches!(keep, Keep::First | Keep::Last) && metadata.is_none() && parsed.len() == 1 {
+        if let Some((out_left, out_right)) =
+            select_envelope_rank_sweep(&first, &second, &parsed[0], keep)
+        {
+            if out_left.is_empty() {
+                return Ok(None);
+            }
+            return Ok(Some(result_dict(py, out_left, out_right, None, None)?));
+        }
+    }
     let windows = build_any_windows(&first, &second).map_err(PyValueError::new_err)?;
     if windows.left_index.is_empty() {
         return Ok(None);
@@ -2047,6 +2292,39 @@ mod tests {
                 .to_string()
                 .contains("extended range anchors must contain 3 elements"));
 
+            // The envelope sweep is attempted before the fallback window
+            // builder for keep="first"/"last". Malformed shared labels must
+            // still decline the sweep and surface the normal ValueError.
+            for (left_index, right_index, expected) in [
+                (vec![0_i64], vec![10_i64, 20], "left and left_index"),
+                (vec![0_i64, 1], vec![10_i64], "right and right_index"),
+            ] {
+                let predicates = PyList::empty(py);
+                for (left_values, right_values, operator) in [
+                    (vec![5_i64, 6], vec![1_i64, 2], "<="),
+                    (vec![5_i64, 6], vec![1_i64, 2], ">"),
+                    (vec![5_i64, 6], vec![1_i64, 2], ">"),
+                ] {
+                    predicates.append(PyTuple::new(
+                        py,
+                        [
+                            PyArray1::from_vec(py, left_values).into_any(),
+                            PyArray1::from_vec(py, right_values).into_any(),
+                            operator.into_pyobject(py)?.into_any(),
+                        ],
+                    )?)?;
+                }
+                let error = call_range_join_extended_indices(
+                    py,
+                    &predicates,
+                    &left_index,
+                    &right_index,
+                    "first",
+                )
+                .unwrap_err();
+                assert!(error.to_string().contains(expected));
+            }
+
             let empty = PyList::empty(py);
             for operator in ["<", ">"] {
                 empty.append(PyTuple::new(
@@ -2120,11 +2398,8 @@ pub(crate) fn aggregate_range_extended<'py>(
     let second = parse_shared_index_range_predicate(second_tuple, left_index, right_index)?;
     let (parsed, metadata) =
         super::join_aggregation_helpers::residuals(py, predicates, false, true)?;
+    validate_shared_anchor_lengths(&first, &second).map_err(PyValueError::new_err)?;
     super::predicate::check_predicate_lengths(&parsed, first.left_len(), first.right_len())?;
-    let windows = build_any_windows(&first, &second).map_err(PyValueError::new_err)?;
-    if windows.left_index.is_empty() {
-        return Ok(None);
-    }
 
     let left_index = left_index.extract::<PyReadonlyArray1<'py, i64>>()?;
     let right_index = right_index.extract::<PyReadonlyArray1<'py, i64>>()?;
@@ -2143,6 +2418,40 @@ pub(crate) fn aggregate_range_extended<'py>(
     } else {
         first.right_len()
     };
+    if !reverse && metadata.is_none() && parsed.len() == 1 {
+        if let Some(result) = aggregate_envelope_rank_sweep(
+            py,
+            &first,
+            &second,
+            &parsed[0],
+            aggregations,
+            output_positions,
+            output_len,
+            source_len,
+            return_matched,
+        )? {
+            return Ok(result);
+        }
+    }
+    if reverse && metadata.is_none() && parsed.len() == 1 {
+        if let Some(result) = aggregate_reverse_envelope_rank_sweep(
+            py,
+            &first,
+            &second,
+            &parsed[0],
+            aggregations,
+            output_positions,
+            output_len,
+            source_len,
+            return_matched,
+        )? {
+            return Ok(result);
+        }
+    }
+    let windows = build_any_windows(&first, &second).map_err(PyValueError::new_err)?;
+    if windows.left_index.is_empty() {
+        return Ok(None);
+    }
     aggregate_range_windows(
         py,
         windows,
@@ -2156,6 +2465,1084 @@ pub(crate) fn aggregate_range_extended<'py>(
         reverse,
         false,
     )
+}
+
+/// What the envelope sweeps need from the first anchor, without storing
+/// its windows.
+///
+/// A `<`/`<=` first anchor gives every left row a suffix of the right
+/// layout and a `>`/`>=` anchor a prefix, so the sweep only needs each row's
+/// window boundary, which it searches when it builds its queries. Storing
+/// the first anchor's windows for every left row cost three vectors of
+/// left length (about 1 GB for Arun's 40M rows).
+struct FirstAnchorSweep<'a> {
+    search: AnchorSearch<'a>,
+    /// Every window is a suffix (`<`/`<=`); otherwise every one is a prefix.
+    suffix: bool,
+    left_len: usize,
+    right_len: usize,
+    /// Total size of the two anchors' intersected windows: the work the
+    /// residual traversal would do, which the sweep's cost gate compares.
+    candidate_width: usize,
+}
+
+impl<'a> FirstAnchorSweep<'a> {
+    /// Search both anchors row by row and total the intersected widths.
+    ///
+    /// Returns `None` when the second anchor's windows reach beyond the
+    /// first anchor's right layout; the caller's window builder reports
+    /// that misalignment.
+    fn new(
+        first: &'a AnyParsedRangePredicate<'_>,
+        second: &AnyParsedRangePredicate<'_>,
+    ) -> Option<Self> {
+        let search = first.search();
+        let second_search = second.search();
+        let (left_len, right_len) = (first.left_len(), first.right_len());
+        let (first_left_index, first_right_index) = first.labels();
+        let (second_left_index, second_right_index) = second.labels();
+        // ELI5: the sweep indexes labels only after it has decided to take
+        // the fast path. Decline early when the shared maps are malformed so
+        // the ordinary builder can return the public ValueError instead of
+        // the optimized path panicking on a short slice.
+        if first_left_index.len() != left_len
+            || first_right_index.len() != right_len
+            || second_left_index.len() != second.left_len()
+            || second_right_index.len() != second.right_len()
+        {
+            return None;
+        }
+        // Rows, positions and thresholds are stored as `u32` below.
+        if second.left_len() != left_len
+            || u32::try_from(left_len).is_err()
+            || u32::try_from(right_len).is_err()
+        {
+            return None;
+        }
+        // ELI5: the width only feeds a cost guess, so estimate it from a
+        // few evenly spaced batches of rows instead of searching every row.
+        // An exact pass searched both anchors for every left row, then the
+        // fallback searched them all again whenever the sweep declined;
+        // sparse joins ran up to 1.5x slower. Misaligned anchors cannot
+        // reach the sweep: the envelope proof requires equal right lengths,
+        // and the fallback window builder checks every row.
+        let sampled = SWEEP_WIDTH_SAMPLE_BLOCKS * SWEEP_WIDTH_SAMPLE_ROWS;
+        let mut candidate_width = 0_usize;
+        let mut count_width = |_: usize, first: (usize, usize), second: (usize, usize)| {
+            candidate_width = candidate_width
+                .saturating_add(first.1.min(second.1).saturating_sub(first.0.max(second.0)));
+        };
+        if left_len <= sampled {
+            for_each_window_pair(&search, &second_search, 0..left_len, &mut count_width);
+        } else {
+            let stride = left_len / SWEEP_WIDTH_SAMPLE_BLOCKS;
+            let mut first_start = vec![0_usize; WINDOW_CHUNK];
+            let mut first_end = vec![0_usize; WINDOW_CHUNK];
+            let mut second_start = vec![0_usize; WINDOW_CHUNK];
+            let mut second_end = vec![0_usize; WINDOW_CHUNK];
+            for block in 0..SWEEP_WIDTH_SAMPLE_BLOCKS {
+                let block_start = block * stride;
+                let block_end = if block + 1 == SWEEP_WIDTH_SAMPLE_BLOCKS {
+                    left_len
+                } else {
+                    (block + 1) * stride
+                };
+                // ELI5: first find a real overlap somewhere in this block;
+                // then probe the block at fixed positions. A block whose
+                // overlap is clustered away from its first row still informs
+                // the estimate, while a single matching row contributes only
+                // its sampled fraction.
+                let Some((first_match_row, _)) = first_intersection_in_rows(
+                    &search,
+                    &second_search,
+                    block_start..block_end,
+                    &mut first_start,
+                    &mut first_end,
+                    &mut second_start,
+                    &mut second_end,
+                ) else {
+                    continue;
+                };
+                // Start at the first real match we found. This keeps a narrow
+                // clustered run from disappearing between fixed probe points.
+                let probe_span = block_end - first_match_row;
+                let probes = probe_span.min(SWEEP_WIDTH_SAMPLE_ROWS);
+                let mut block_width = 0_usize;
+                for probe in 0..probes {
+                    let row = first_match_row + probe * probe_span / probes;
+                    search.windows_into(row, &mut first_start[..1], &mut first_end[..1]);
+                    second_search.windows_into(row, &mut second_start[..1], &mut second_end[..1]);
+                    block_width = block_width.saturating_add(
+                        first_end[0]
+                            .min(second_end[0])
+                            .saturating_sub(first_start[0].max(second_start[0])),
+                    );
+                }
+                candidate_width = candidate_width
+                    .saturating_add(block_width.saturating_mul(block_end - block_start) / probes);
+            }
+        }
+        let suffix = matches!(search.op(), CompareOp::Lt | CompareOp::Le);
+        Some(Self {
+            search,
+            suffix,
+            left_len,
+            right_len,
+            candidate_width,
+        })
+    }
+
+    /// Right positions visible to a row whose first-anchor window is
+    /// `(start, end)`, counted in insertion order: from the end for a suffix
+    /// window, from the start for a prefix.
+    #[inline]
+    fn visible(&self, (start, end): (usize, usize)) -> usize {
+        if self.suffix {
+            self.right_len.saturating_sub(start)
+        } else {
+            end
+        }
+    }
+
+    /// Left rows that can match, bucketed by visible count.
+    ///
+    /// Returns `(queries, bin_ends)`: every query packs `row` in its low 32
+    /// bits and the row's threshold in the high 32, and the queries for
+    /// visible count `v` are `queries[bin_ends[v - 1]..bin_ends[v]]`.
+    ///
+    /// ELI5: sort the left rows into numbered bins, one per visible count,
+    /// then read the bins in order. A visible count is at most the right
+    /// length, so this counting sort is O(left + right). Packing the
+    /// threshold next to the row keeps the sweep reading one array in order
+    /// (8 bytes per row) instead of hopping between per-row arrays; sorting
+    /// `(visible, threshold, row)` tuples held 24 bytes per row (1.5 GiB of
+    /// capacity for 40M rows).
+    fn bucket_queries(&self, thresholds: &[u32], rank_count: usize) -> (Vec<u64>, Vec<usize>) {
+        let mut visible = Vec::with_capacity(self.left_len);
+        let mut bin_ends = vec![0_usize; self.right_len + 1];
+        for_each_window(&self.search, self.left_len, |row, window| {
+            let count = if (thresholds[row] as usize) < rank_count {
+                self.visible(window)
+            } else {
+                0
+            };
+            visible.push(count as u32);
+            bin_ends[count] += 1;
+        });
+        // Bin 0 holds rows that cannot match; it stays out of the queries.
+        bin_ends[0] = 0;
+        for bin in 1..bin_ends.len() {
+            bin_ends[bin] += bin_ends[bin - 1];
+        }
+        // `cursor[v]` is where bin `v` starts: the previous bin's end.
+        let mut cursor: Vec<usize> = std::iter::once(0)
+            .chain(bin_ends.iter().copied())
+            .take(bin_ends.len())
+            .collect();
+        let mut queries = vec![0_u64; bin_ends[self.right_len]];
+        for (row, &count) in visible.iter().enumerate() {
+            if count > 0 {
+                let slot = &mut cursor[count as usize];
+                queries[*slot] = row as u64 | (u64::from(thresholds[row]) << 32);
+                *slot += 1;
+            }
+        }
+        (queries, bin_ends)
+    }
+}
+
+/// Rank thresholds for a residual range predicate over one right layout.
+///
+/// Returns the rank of every right position and, for every left row, the
+/// smallest rank that satisfies `left op right`. Ranks are ordered so that
+/// the matching right values are always the ranks at or above the
+/// threshold: ascending value order for `<`/`<=`, descending for `>`/`>=`.
+/// A threshold equal to the rank count means the row matches nothing.
+///
+/// ELI5: line the right values up so that "good enough" always means "this
+/// far along the line or further"; each left row then only needs to know
+/// where its "good enough" begins.
+fn residual_rank_thresholds<T: PartialOrd + Copy>(
+    left: ArrayView1<'_, T>,
+    right: ArrayView1<'_, T>,
+    op: super::compare_op::CompareOp,
+) -> (Vec<usize>, usize, Vec<u32>) {
+    use super::compare_op::CompareOp;
+    use std::cmp::Ordering;
+    let mut distinct: Vec<T> = right.iter().copied().collect();
+    // NaN is outside the range-join contract (AGENTS.md); treating it as
+    // equal keeps the sort total instead of panicking for direct callers.
+    distinct.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    distinct.dedup_by(|a, b| a.partial_cmp(&b) == Some(Ordering::Equal));
+    let count = distinct.len();
+    let descending = matches!(op, CompareOp::Gt | CompareOp::Ge);
+    let rank_of = |value: T| {
+        let ascending = distinct.partition_point(|candidate| *candidate < value);
+        if descending {
+            count - 1 - ascending
+        } else {
+            ascending
+        }
+    };
+    let ranks = right.iter().map(|&value| rank_of(value)).collect();
+    let thresholds = left
+        .iter()
+        .map(|&value| match op {
+            // left < right: right values above `value`.
+            CompareOp::Lt => distinct.partition_point(|candidate| *candidate <= value),
+            CompareOp::Le => distinct.partition_point(|candidate| *candidate < value),
+            // left > right: right values below `value`, which are the
+            // highest descending ranks.
+            CompareOp::Gt => count - distinct.partition_point(|candidate| *candidate < value),
+            CompareOp::Ge => count - distinct.partition_point(|candidate| *candidate <= value),
+            CompareOp::Eq | CompareOp::Ne => unreachable!("caller checks range operators"),
+        })
+        // The caller declines right layouts longer than `u32::MAX`, so a
+        // threshold (at most the distinct count) always fits.
+        .map(|threshold| threshold as u32)
+        .collect();
+    (ranks, count, thresholds)
+}
+
+/// Rank thresholds for the reverse direction of an envelope residual.
+///
+/// The forward sweep ranks right-side source positions and asks one query per
+/// left row. Reverse aggregation has the opposite shape: left positions are
+/// the source rows inserted into the tree, and each right position is a
+/// threshold query. Ranks are oriented so that every matching left value is
+/// still in the suffix `rank >= threshold` consumed by the shared tree.
+///
+/// ELI5: line up the left values so that every value passing the comparison
+/// sits at the right-hand end of the line; each right row then asks where that
+/// passing suffix begins.
+fn reverse_residual_rank_thresholds<T: PartialOrd + Copy>(
+    left: ArrayView1<'_, T>,
+    right: ArrayView1<'_, T>,
+    op: CompareOp,
+) -> (Vec<usize>, usize, Vec<u32>) {
+    use std::cmp::Ordering;
+
+    let mut distinct: Vec<T> = left.iter().copied().collect();
+    distinct.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    distinct.dedup_by(|a, b| (*a).partial_cmp(&*b) == Some(Ordering::Equal));
+    let count = distinct.len();
+    let descending = matches!(op, CompareOp::Lt | CompareOp::Le);
+    let rank_of = |value: T| {
+        let ascending = distinct.partition_point(|candidate| *candidate < value);
+        if descending {
+            count - 1 - ascending
+        } else {
+            ascending
+        }
+    };
+    let ranks = left.iter().map(|&value| rank_of(value)).collect();
+    let thresholds = right
+        .iter()
+        .map(|&value| match op {
+            // left < right / left <= right: matching left values are the
+            // lower values, so use descending ranks.
+            CompareOp::Lt => count - distinct.partition_point(|candidate| *candidate < value),
+            CompareOp::Le => count - distinct.partition_point(|candidate| *candidate <= value),
+            // left > right / left >= right: matching left values are the
+            // upper values, so use ascending ranks.
+            CompareOp::Gt => distinct.partition_point(|candidate| *candidate <= value),
+            CompareOp::Ge => distinct.partition_point(|candidate| *candidate < value),
+            CompareOp::Eq | CompareOp::Ne => unreachable!("caller checks range operators"),
+        })
+        .map(|threshold| threshold as u32)
+        .collect();
+    (ranks, count, thresholds)
+}
+
+/// Report whether `anchor` is exactly the cumulative envelope of `residual`.
+///
+/// PyJanitor replaces an opposing second range predicate whose right values
+/// are unordered in the first anchor's layout with a monotonic envelope
+/// (suffix minimum for `>`/`>=`, prefix maximum for `<`/`<=`) and keeps the
+/// original predicate as a residual. When that holds, the envelope window
+/// contains every position the residual accepts, so dropping the envelope
+/// and filtering the first anchor's window by the residual alone gives the
+/// same match set. This check proves it from the values instead of trusting
+/// the call shape: equal operators, equal left values, and an anchor right
+/// array equal to the envelope recomputed from the residual's right values.
+fn anchor_is_envelope_of<T: PartialOrd + Copy>(
+    anchor_left: ArrayView1<'_, T>,
+    anchor_right: ArrayView1<'_, T>,
+    anchor_op: super::compare_op::CompareOp,
+    residual_left: ArrayView1<'_, T>,
+    residual_right: ArrayView1<'_, T>,
+    residual_op: super::compare_op::CompareOp,
+) -> bool {
+    use super::compare_op::CompareOp;
+    if anchor_op != residual_op
+        || anchor_left.len() != residual_left.len()
+        || anchor_right.len() != residual_right.len()
+        || anchor_left.iter().zip(residual_left).any(|(a, b)| a != b)
+    {
+        return false;
+    }
+    let len = residual_right.len();
+    match residual_op {
+        CompareOp::Gt | CompareOp::Ge => {
+            // Suffix minimum, read right to left.
+            let mut current = None::<T>;
+            for position in (0..len).rev() {
+                let value = residual_right[position];
+                let envelope = match current {
+                    Some(previous) if previous < value => previous,
+                    _ => value,
+                };
+                current = Some(envelope);
+                if anchor_right[position] != envelope {
+                    return false;
+                }
+            }
+            true
+        }
+        CompareOp::Lt | CompareOp::Le => {
+            // Prefix maximum, read left to right.
+            let mut current = None::<T>;
+            for position in 0..len {
+                let value = residual_right[position];
+                let envelope = match current {
+                    Some(previous) if previous > value => previous,
+                    _ => value,
+                };
+                current = Some(envelope);
+                if anchor_right[position] != envelope {
+                    return false;
+                }
+            }
+            true
+        }
+        CompareOp::Eq | CompareOp::Ne => false,
+    }
+}
+
+/// Sample raw residual survivors without sorting or materializing windows.
+///
+/// ELI5: start at each evenly spaced row block, walk forward until finding a
+/// row with an actual intersection, then probe a few candidates in that row.
+/// This preserves the old gate's useful-row sampling while keeping the new
+/// path's bounded window memory.
+fn sampled_envelope_density(
+    first: &AnchorSearch<'_>,
+    second: &AnchorSearch<'_>,
+    left_len: usize,
+    residual: &super::predicate::Predicate<'_>,
+) -> Option<(usize, usize)> {
+    const SAMPLE_ROWS: usize = 32;
+    const SAMPLE_POSITIONS: usize = 32;
+    if left_len == 0 {
+        return None;
+    }
+    let row_step = left_len.div_ceil(SAMPLE_ROWS).max(1);
+    let mut first_start = vec![0_usize; WINDOW_CHUNK];
+    let mut first_end = vec![0_usize; WINDOW_CHUNK];
+    let mut second_start = vec![0_usize; WINDOW_CHUNK];
+    let mut second_end = vec![0_usize; WINDOW_CHUNK];
+    let residual = residual.view();
+    let mut sampled = 0_usize;
+    let mut surviving = 0_usize;
+    for block_start in (0..left_len).step_by(row_step).take(SAMPLE_ROWS) {
+        let block_end = (block_start + row_step).min(left_len);
+        let Some((row, (first_window, second_window))) = first_intersection_in_rows(
+            first,
+            second,
+            block_start..block_end,
+            &mut first_start,
+            &mut first_end,
+            &mut second_start,
+            &mut second_end,
+        ) else {
+            continue;
+        };
+        let start = first_window.0.max(second_window.0);
+        let end = first_window.1.min(second_window.1);
+        if start >= end {
+            continue;
+        }
+        let width = end - start;
+        let probes = width.min(SAMPLE_POSITIONS);
+        for probe in 0..probes {
+            let position = start + probe * width / probes;
+            sampled += 1;
+            surviving += usize::from(predicates_match(
+                std::slice::from_ref(&residual),
+                row,
+                position,
+            ));
+        }
+    }
+    (sampled > 0).then_some((sampled, surviving))
+}
+
+/// The sweep has a materially larger fixed build cost than a segment tree.
+const RANK_SWEEP_BUILD_FACTOR: usize = 64;
+const MIN_RANK_SWEEP_MEMORY_BUDGET: usize = 512 * 1024 * 1024;
+const RANK_SWEEP_MEMORY_MULTIPLIER: usize = 3;
+
+fn should_use_rank_sweep(
+    query_count: usize,
+    total_width: usize,
+    source_len: usize,
+    rank_count: usize,
+) -> bool {
+    if query_count <= 3 || source_len == 0 || rank_count == 0 {
+        return false;
+    }
+    let height = (usize::BITS - (rank_count - 1).leading_zeros()) as usize;
+    let build = source_len.saturating_mul(RANK_SWEEP_BUILD_FACTOR);
+    let queries = query_count.saturating_mul(height).saturating_mul(2);
+    total_width > build.saturating_add(queries)
+}
+
+fn rank_sweep_workspace_bytes(
+    query_count: usize,
+    source_len: usize,
+    rank_count: usize,
+    state_bytes: usize,
+) -> Option<usize> {
+    let tree_size = rank_count.checked_next_power_of_two()?;
+    let tree_nodes = tree_size.checked_mul(2)?;
+    let tree_bytes = tree_nodes.checked_mul(state_bytes)?;
+    // The streaming layout uses a packed u64 query, u32 visible/selected
+    // slots, a usize rank/insertion layout, and two usize bin arrays. Keep
+    // the estimate tied to those actual buffers rather than the old
+    // tuple-based seven-usize query workspace.
+    let right_workspace = source_len.checked_mul(4 * std::mem::size_of::<usize>())?;
+    let query_bytes = std::mem::size_of::<u64>() + 3 * std::mem::size_of::<u32>();
+    let left_workspace = query_count.checked_mul(query_bytes)?;
+    tree_bytes
+        .checked_add(right_workspace)?
+        .checked_add(left_workspace)
+}
+
+/// Estimate the buffers owned by the reverse envelope sweep.
+///
+/// ELI5: the reverse route keeps a row-sized activation layout and a
+/// position-sized query layout, which are not the same buffers as the forward
+/// route. Keep their costs explicit so the memory gate cannot accidentally
+/// become optimistic when one route evolves independently.
+fn reverse_rank_sweep_workspace_bytes(
+    query_count: usize,
+    source_len: usize,
+    rank_count: usize,
+    state_bytes: usize,
+    value_bytes: usize,
+) -> Option<usize> {
+    let tree_size = rank_count.checked_next_power_of_two()?;
+    let tree_nodes = tree_size.checked_mul(2)?;
+    let tree_bytes = tree_nodes.checked_mul(state_bytes)?;
+    // The reverse route retains source ranks, activation keys, insertion
+    // order, and the per-bin query endpoints: five usize-sized words plus
+    // the temporary typed source-value rank input per left row.
+    let left_workspace = source_len.checked_mul(
+        5usize
+            .checked_mul(std::mem::size_of::<usize>())?
+            .checked_add(value_bytes)?,
+    )?;
+    // Right positions retain thresholds as u32 values, two activation arrays,
+    // insertion cursors, and packed u64 queries: four usize words plus one
+    // u32 per right position. The extra slot in each boundary array is
+    // covered by the conservative query-count rounding below.
+    let right_workspace = query_count.checked_mul(
+        4usize
+            .checked_mul(std::mem::size_of::<usize>())?
+            .checked_add(std::mem::size_of::<u32>())?,
+    )?;
+    tree_bytes
+        .checked_add(left_workspace)?
+        .checked_add(right_workspace)
+}
+
+fn rank_sweep_memory_budget(
+    source_len: usize,
+    query_count: usize,
+    operation_count: usize,
+) -> usize {
+    let input_bytes = source_len
+        .saturating_mul(32 + operation_count.saturating_mul(8))
+        .saturating_add(query_count.saturating_mul(32));
+    input_bytes
+        .saturating_mul(RANK_SWEEP_MEMORY_MULTIPLIER)
+        .max(MIN_RANK_SWEEP_MEMORY_BUDGET)
+}
+
+fn rank_sweep_state_bytes(
+    inputs: &[crate::aggregation::input::AggregationInput<'_>],
+) -> Option<usize> {
+    use crate::aggregation::input::{AggregationInput, AggregationOp};
+
+    let mut bytes: usize = 1;
+    let mut has_count_all = false;
+    for input in inputs {
+        match input {
+            AggregationInput::CountAll => has_count_all = true,
+            AggregationInput::CountNonNull(_) => bytes = bytes.checked_add(8)?,
+            AggregationInput::I64(_, _, op)
+            | AggregationInput::I32(_, _, op)
+            | AggregationInput::I16(_, _, op)
+            | AggregationInput::I8(_, _, op)
+            | AggregationInput::U64(_, _, op)
+            | AggregationInput::U32(_, _, op)
+            | AggregationInput::U16(_, _, op)
+            | AggregationInput::U8(_, _, op) => {
+                if *op == AggregationOp::CountAll {
+                    has_count_all = true;
+                    continue;
+                }
+                if !matches!(
+                    op,
+                    AggregationOp::Sum | AggregationOp::Min | AggregationOp::Max
+                ) {
+                    return None;
+                }
+                bytes = bytes.checked_add(8)?;
+            }
+            AggregationInput::F64(_, _, op) | AggregationInput::F32(_, _, op) => {
+                if *op == AggregationOp::CountAll {
+                    has_count_all = true;
+                    continue;
+                }
+                if !matches!(op, AggregationOp::Min | AggregationOp::Max) {
+                    return None;
+                }
+                bytes = bytes.checked_add(8)?;
+            }
+        }
+    }
+    if has_count_all {
+        bytes = bytes.checked_add(8)?;
+    }
+    Some(bytes)
+}
+
+/// Residual ranks and per-left thresholds when `second` is provably the
+/// cumulative envelope of `residual` (see [`anchor_is_envelope_of`]).
+///
+/// Returns `None` when the residual is not a range predicate of the same
+/// dtype or the anchor is not its envelope; callers then keep the general
+/// traversal. On success the tuple is `(rank of every right position, rank
+/// count, threshold of every left position)` from
+/// [`residual_rank_thresholds`].
+fn envelope_residual_ranks(
+    second: &AnyParsedRangePredicate<'_>,
+    residual: &super::predicate::Predicate<'_>,
+) -> Option<(Vec<usize>, usize, Vec<u32>)> {
+    use super::compare_op::CompareOp;
+    use super::predicate::PredicateView;
+
+    macro_rules! ranked {
+        ($variant:ident, $anchor:expr) => {{
+            let anchor = $anchor;
+            let PredicateView::$variant(residual_left, residual_right, residual_op) =
+                residual.view()
+            else {
+                return None;
+            };
+            if matches!(residual_op, CompareOp::Eq | CompareOp::Ne)
+                || !anchor_is_envelope_of(
+                    anchor.left.as_array(),
+                    anchor.right.as_array(),
+                    anchor.op,
+                    residual_left,
+                    residual_right,
+                    residual_op,
+                )
+            {
+                return None;
+            }
+            Some(residual_rank_thresholds(
+                residual_left,
+                residual_right,
+                residual_op,
+            ))
+        }};
+    }
+    match second {
+        AnyParsedRangePredicate::I64(anchor) => ranked!(I64, anchor),
+        AnyParsedRangePredicate::I32(anchor) => ranked!(I32, anchor),
+        AnyParsedRangePredicate::I16(anchor) => ranked!(I16, anchor),
+        AnyParsedRangePredicate::I8(anchor) => ranked!(I8, anchor),
+        AnyParsedRangePredicate::U64(anchor) => ranked!(U64, anchor),
+        AnyParsedRangePredicate::U32(anchor) => ranked!(U32, anchor),
+        AnyParsedRangePredicate::U16(anchor) => ranked!(U16, anchor),
+        AnyParsedRangePredicate::U8(anchor) => ranked!(U8, anchor),
+        AnyParsedRangePredicate::F64(anchor) => ranked!(F64, anchor),
+        AnyParsedRangePredicate::F32(anchor) => ranked!(F32, anchor),
+    }
+}
+
+/// Return reverse-oriented ranks when `second` is exactly `residual`'s
+/// cumulative envelope.
+fn reverse_envelope_residual_ranks(
+    second: &AnyParsedRangePredicate<'_>,
+    residual: &super::predicate::Predicate<'_>,
+) -> Option<(Vec<usize>, usize, Vec<u32>)> {
+    use super::predicate::PredicateView;
+
+    macro_rules! ranked {
+        ($variant:ident, $anchor:expr) => {{
+            let anchor = $anchor;
+            let PredicateView::$variant(residual_left, residual_right, residual_op) =
+                residual.view()
+            else {
+                return None;
+            };
+            if matches!(residual_op, CompareOp::Eq | CompareOp::Ne)
+                || !anchor_is_envelope_of(
+                    anchor.left.as_array(),
+                    anchor.right.as_array(),
+                    anchor.op,
+                    residual_left,
+                    residual_right,
+                    residual_op,
+                )
+            {
+                return None;
+            }
+            Some(reverse_residual_rank_thresholds(
+                residual_left,
+                residual_right,
+                residual_op,
+            ))
+        }};
+    }
+    match second {
+        AnyParsedRangePredicate::I64(anchor) => ranked!(I64, anchor),
+        AnyParsedRangePredicate::I32(anchor) => ranked!(I32, anchor),
+        AnyParsedRangePredicate::I16(anchor) => ranked!(I16, anchor),
+        AnyParsedRangePredicate::I8(anchor) => ranked!(I8, anchor),
+        AnyParsedRangePredicate::U64(anchor) => ranked!(U64, anchor),
+        AnyParsedRangePredicate::U32(anchor) => ranked!(U32, anchor),
+        AnyParsedRangePredicate::U16(anchor) => ranked!(U16, anchor),
+        AnyParsedRangePredicate::U8(anchor) => ranked!(U8, anchor),
+        AnyParsedRangePredicate::F64(anchor) => ranked!(F64, anchor),
+        AnyParsedRangePredicate::F32(anchor) => ranked!(F32, anchor),
+    }
+}
+
+fn reverse_rank_value_bytes(range: &AnyParsedRangePredicate<'_>) -> usize {
+    match range {
+        AnyParsedRangePredicate::I64(_) => std::mem::size_of::<i64>(),
+        AnyParsedRangePredicate::I32(_) => std::mem::size_of::<i32>(),
+        AnyParsedRangePredicate::I16(_) => std::mem::size_of::<i16>(),
+        AnyParsedRangePredicate::I8(_) => std::mem::size_of::<i8>(),
+        AnyParsedRangePredicate::U64(_) => std::mem::size_of::<u64>(),
+        AnyParsedRangePredicate::U32(_) => std::mem::size_of::<u32>(),
+        AnyParsedRangePredicate::U16(_) => std::mem::size_of::<u16>(),
+        AnyParsedRangePredicate::U8(_) => std::mem::size_of::<u8>(),
+        AnyParsedRangePredicate::F64(_) => std::mem::size_of::<f64>(),
+        AnyParsedRangePredicate::F32(_) => std::mem::size_of::<f32>(),
+    }
+}
+
+/// Select `keep="first"` or `"last"` for an envelope-backed dual range
+/// without visiting every match.
+///
+/// Same shape as [`aggregate_envelope_rank_sweep`]: the second anchor is
+/// provably the cumulative envelope of the only residual, and every
+/// first-anchor window is a suffix (or every one a prefix) of the right
+/// layout. Each row then wants the smallest (or largest) right label among
+/// the positions in its first-anchor window whose residual rank clears the
+/// row's threshold. Right positions are inserted in window-growth order into
+/// a Fenwick tree indexed by reversed residual rank, each node keeping the
+/// best label below it; a row's answer is one prefix query once its window
+/// is fully inserted. That is O((left + right) log right), against the
+/// residual scan's one check per candidate: on Arun's 1M x 33K dominance
+/// join the scan visited 5.5 billion matches.
+///
+/// ELI5: right rows walk onto a stage one by one. Each spot on a ladder
+/// (ordered by how "good" the residual value is) remembers the smallest
+/// ticket number standing at or below it. When a left row's turn comes, it
+/// reads one ladder spot instead of checking every ticket.
+///
+/// Returns `None` when the shape does not apply or the candidate width is
+/// too small to repay the tree, so the caller keeps the residual scan.
+/// Otherwise the pairs are emitted in left-row order, as the scan does.
+fn select_envelope_rank_sweep(
+    first: &AnyParsedRangePredicate<'_>,
+    second: &AnyParsedRangePredicate<'_>,
+    residual: &super::predicate::Predicate<'_>,
+    keep: Keep,
+) -> Option<(Vec<i64>, Vec<i64>)> {
+    let sweep = FirstAnchorSweep::new(first, second)?;
+    let (left_len, right_len, suffix) = (sweep.left_len, sweep.right_len, sweep.suffix);
+    // The width probe searched every row when no block contained an
+    // intersection, so the ordinary window builder cannot find a match.
+    if sweep.candidate_width == 0 {
+        return Some((Vec::new(), Vec::new()));
+    }
+    if !should_use_rank_sweep(left_len, sweep.candidate_width, right_len, right_len) {
+        return None;
+    }
+    let second_search = second.search();
+    let (sampled, surviving) =
+        sampled_envelope_density(&sweep.search, &second_search, left_len, residual)?;
+    if (surviving as u128) * (sweep.candidate_width as u128) / (sampled as u128)
+        <= (right_len as u128) * (RANK_SWEEP_BUILD_FACTOR as u128)
+    {
+        return None;
+    }
+    let (ranks, rank_count, thresholds) = envelope_residual_ranks(second, residual)?;
+    if rank_sweep_workspace_bytes(left_len, right_len, rank_count, 8)
+        .is_none_or(|bytes| bytes > rank_sweep_memory_budget(right_len, left_len, 1))
+    {
+        return None;
+    }
+
+    #[cfg(test)]
+    ENVELOPE_KEEP_SWEEP_HITS.with(|hits| hits.set(hits.get() + 1));
+    let (left_labels, labels) = first.labels();
+    let better = |candidate: i64, current: i64| match keep {
+        Keep::First => candidate < current,
+        _ => candidate > current,
+    };
+    // A row's window holds the first `visible` inserted positions, and
+    // positions with rank at or above its threshold sit in reversed-rank
+    // slots `1..=rank_count - threshold`.
+    let (queries, bin_ends) = sweep.bucket_queries(&thresholds, rank_count);
+    drop(thresholds);
+
+    // Tree nodes and selections hold right positions (`NONE` when empty)
+    // rather than `Option<i64>` labels: 4 bytes per left row instead of 16.
+    const NONE: u32 = u32::MAX;
+    let wins = |candidate: u32, current: u32| {
+        current == NONE || better(labels[candidate as usize], labels[current as usize])
+    };
+    let mut tree = vec![NONE; rank_count + 1];
+    let mut selected = vec![NONE; left_len];
+    for visible in 1..bin_ends.len() {
+        // Insert the one position that becomes visible at this count.
+        let inserted = visible - 1;
+        let position = if suffix {
+            right_len - 1 - inserted
+        } else {
+            inserted
+        };
+        let mut slot = rank_count - ranks[position];
+        while slot <= rank_count {
+            if wins(position as u32, tree[slot]) {
+                tree[slot] = position as u32;
+            }
+            slot += slot.isolate_lowest_one();
+        }
+        for &query in &queries[bin_ends[visible - 1]..bin_ends[visible]] {
+            let (row, threshold) = ((query as u32) as usize, (query >> 32) as usize);
+            let mut best = NONE;
+            let mut slot = rank_count - threshold;
+            while slot > 0 {
+                if tree[slot] != NONE && wins(tree[slot], best) {
+                    best = tree[slot];
+                }
+                slot -= slot.isolate_lowest_one();
+            }
+            selected[row] = best;
+        }
+    }
+
+    // Pairs in left-row order, as the residual scan emits them.
+    let matched = selected
+        .iter()
+        .filter(|&&position| position != NONE)
+        .count();
+    let mut out_left = Vec::with_capacity(matched);
+    let mut out_right = Vec::with_capacity(matched);
+    for (row, position) in selected.into_iter().enumerate() {
+        if position != NONE {
+            out_left.push(left_labels[row]);
+            out_right.push(labels[position as usize]);
+        }
+    }
+    Some((out_left, out_right))
+}
+
+/// Aggregate an envelope-backed dual range without visiting every pair.
+///
+/// Applies when the second anchor is the cumulative envelope of the only
+/// residual (see [`anchor_is_envelope_of`]), every first-anchor window is a
+/// suffix (or every one a prefix) of the right layout, the aggregation is
+/// forward, and every requested operation is one the insert-only rank tree
+/// supports (counts, integer sums, min, max). Each left row's matches are
+/// then "positions in a growing prefix or suffix whose residual rank clears
+/// a threshold", which [`AggregationSet::aggregate_rank_threshold_sweep`]
+/// answers in O((left + right) log right) regardless of how many pairs
+/// match. The old traversal visits every pair in the envelope window, so it
+/// is kept whenever the candidate width is too small to repay the sweep.
+///
+/// ELI5: instead of shaking hands with every match, each left row asks a
+/// running scoreboard "how many have arrived that beat my mark?".
+///
+/// # Returns
+///
+/// `Ok(None)` when the shape does not apply, so the caller runs the general
+/// traversal; otherwise the finished aggregation result.
+#[allow(clippy::too_many_arguments)]
+fn aggregate_envelope_rank_sweep<'py>(
+    py: Python<'py>,
+    first: &AnyParsedRangePredicate<'_>,
+    second: &AnyParsedRangePredicate<'_>,
+    residual: &super::predicate::Predicate<'_>,
+    aggregations: &Bound<'py, PyList>,
+    output_positions: Option<ArrayView1<'_, i64>>,
+    output_len: usize,
+    source_len: usize,
+    return_matched: bool,
+) -> PyResult<Option<Option<Bound<'py, PyTuple>>>> {
+    use crate::aggregation::common::aggregation::{
+        make_results_with_positions, parse_inputs, AggregationSet,
+    };
+
+    let Some(sweep) = FirstAnchorSweep::new(first, second) else {
+        return Ok(None);
+    };
+    let inputs = parse_inputs(aggregations)?;
+    if inputs.is_empty() {
+        return Err(PyValueError::new_err(
+            "at least one aggregation is required",
+        ));
+    }
+    // The width probe searched every row when no block contained an
+    // intersection, so the ordinary window builder cannot find a match.
+    if sweep.candidate_width == 0 {
+        return Ok(Some(None));
+    }
+    let suffix = sweep.suffix;
+    let Some(state_bytes) = rank_sweep_state_bytes(&inputs) else {
+        return Ok(None);
+    };
+    let mut set = AggregationSet::new(output_len, source_len, &inputs, return_matched)?;
+    if !set.supports_dual_rank_tree() {
+        return Ok(None);
+    }
+
+    if !should_use_rank_sweep(
+        sweep.left_len,
+        sweep.candidate_width,
+        source_len,
+        source_len,
+    ) {
+        return Ok(None);
+    }
+    let second_search = second.search();
+    let Some((sampled, surviving)) =
+        sampled_envelope_density(&sweep.search, &second_search, sweep.left_len, residual)
+    else {
+        return Ok(None);
+    };
+    if (surviving as u128) * (sweep.candidate_width as u128) / (sampled as u128)
+        <= (source_len as u128) * (RANK_SWEEP_BUILD_FACTOR as u128)
+    {
+        return Ok(None);
+    }
+    let Some((ranks, rank_count, thresholds)) = envelope_residual_ranks(second, residual) else {
+        return Ok(None);
+    };
+    if rank_sweep_workspace_bytes(sweep.left_len, source_len, rank_count, state_bytes).is_none_or(
+        |bytes| bytes > rank_sweep_memory_budget(source_len, sweep.left_len, inputs.len()),
+    ) {
+        return Ok(None);
+    }
+
+    #[cfg(test)]
+    ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.set(hits.get() + 1));
+    // ELI5: a suffix window grows as its start moves left, so feed right
+    // positions from the end; a prefix window grows as its end moves right.
+    let insertion_order: Vec<usize> = if suffix {
+        (0..source_len).rev().collect()
+    } else {
+        (0..source_len).collect()
+    };
+    let (queries, bin_ends) = sweep.bucket_queries(&thresholds, rank_count);
+    drop(thresholds);
+    // Every left row is its own compact output slot here, so the packed
+    // `(row, threshold)` queries are already `(slot, threshold)`.
+    set.aggregate_rank_threshold_sweep(
+        &insertion_order,
+        &ranks,
+        rank_count,
+        &queries,
+        &bin_ends,
+        &inputs,
+    );
+    if set.is_empty() {
+        return Ok(Some(None));
+    }
+    Ok(Some(Some(make_results_with_positions(
+        py,
+        set,
+        output_positions,
+        output_len,
+        return_matched,
+    )?)))
+}
+
+/// Aggregate a reverse envelope-backed dual range without visiting every
+/// matching pair.
+///
+/// Reverse aggregation sweeps the right output positions. For each position,
+/// left rows whose first-anchor window contains it are active; a rank tree over
+/// the residual's left values then answers the residual threshold query. A
+/// suffix first-anchor window grows from left to right, while a prefix window
+/// grows from right to left, so both layouts reduce to the shared insert-only
+/// rank sweep.
+///
+/// ELI5: let left rows enter a scoreboard when their first window reaches the
+/// current right row, then combine the scoreboard's matching suffix instead
+/// of shaking hands with every pair.
+///
+/// Floating-point sums and products stay on the ordinary traversal because
+/// tree merges would change their encounter order.
+#[allow(clippy::too_many_arguments)]
+fn aggregate_reverse_envelope_rank_sweep<'py>(
+    py: Python<'py>,
+    first: &AnyParsedRangePredicate<'_>,
+    second: &AnyParsedRangePredicate<'_>,
+    residual: &super::predicate::Predicate<'_>,
+    aggregations: &Bound<'py, PyList>,
+    output_positions: Option<ArrayView1<'_, i64>>,
+    output_len: usize,
+    source_len: usize,
+    return_matched: bool,
+) -> PyResult<Option<Option<Bound<'py, PyTuple>>>> {
+    use crate::aggregation::common::aggregation::{
+        make_results_with_positions, parse_inputs, AggregationSet,
+    };
+
+    let Some(sweep) = FirstAnchorSweep::new(first, second) else {
+        return Ok(None);
+    };
+    let inputs = parse_inputs(aggregations)?;
+    if inputs.is_empty() {
+        return Err(PyValueError::new_err(
+            "at least one aggregation is required",
+        ));
+    }
+    if sweep.candidate_width == 0 {
+        return Ok(Some(None));
+    }
+    let Some(state_bytes) = rank_sweep_state_bytes(&inputs) else {
+        return Ok(None);
+    };
+    let mut set = AggregationSet::new(output_len, source_len, &inputs, return_matched)?;
+    if !set.supports_dual_rank_tree()
+        || !should_use_rank_sweep(
+            sweep.right_len,
+            sweep.candidate_width,
+            source_len,
+            source_len,
+        )
+    {
+        return Ok(None);
+    }
+    let second_search = second.search();
+    let Some((sampled, surviving)) =
+        sampled_envelope_density(&sweep.search, &second_search, sweep.left_len, residual)
+    else {
+        return Ok(None);
+    };
+    if (surviving as u128) * (sweep.candidate_width as u128) / (sampled as u128)
+        <= (sweep.left_len as u128) * (RANK_SWEEP_BUILD_FACTOR as u128)
+    {
+        return Ok(None);
+    }
+    let Some((ranks, rank_count, thresholds)) = reverse_envelope_residual_ranks(second, residual)
+    else {
+        return Ok(None);
+    };
+    if reverse_rank_sweep_workspace_bytes(
+        sweep.right_len,
+        sweep.left_len,
+        rank_count,
+        state_bytes,
+        reverse_rank_value_bytes(second),
+    )
+    .is_none_or(|bytes| {
+        bytes > rank_sweep_memory_budget(sweep.left_len, sweep.right_len, inputs.len())
+    }) {
+        return Ok(None);
+    }
+
+    // At sweep step `v`, insert the left rows whose first-anchor window has
+    // become active before querying right position `v - 1` (or the mirrored
+    // position for prefix windows).
+    let mut activation_keys = vec![0_usize; sweep.left_len];
+    let mut activation_counts = vec![0_usize; sweep.right_len + 1];
+    for_each_window(&sweep.search, sweep.left_len, |row, (start, end)| {
+        let key = if sweep.suffix {
+            start.saturating_add(1)
+        } else {
+            sweep.right_len.saturating_sub(end).saturating_add(1)
+        };
+        if key <= sweep.right_len && start < end {
+            activation_keys[row] = key;
+            activation_counts[key] += 1;
+        }
+    });
+    let mut activation_ends = vec![0_usize; sweep.right_len + 1];
+    for step in 1..=sweep.right_len {
+        activation_ends[step] = activation_ends[step - 1] + activation_counts[step];
+    }
+    let mut cursors = activation_ends[..sweep.right_len].to_vec();
+    let mut insertion_order = vec![0_usize; activation_ends[sweep.right_len]];
+    for (row, &key) in activation_keys.iter().enumerate() {
+        if key != 0 {
+            let slot = &mut cursors[key - 1];
+            insertion_order[*slot] = row;
+            *slot += 1;
+        }
+    }
+
+    // ELI5: activation_ends never decreases, so right positions already
+    // arrive grouped by the number of inserted source rows. Record the end
+    // of each group as queries are appended; there is no second counting sort
+    // to build or walk.
+    let mut query_bin_ends = vec![0_usize; insertion_order.len() + 1];
+    let mut queries = Vec::with_capacity(sweep.right_len);
+    for (step, &bin) in activation_ends
+        .iter()
+        .enumerate()
+        .skip(1)
+        .take(sweep.right_len)
+    {
+        let position = if sweep.suffix {
+            step - 1
+        } else {
+            sweep.right_len - step
+        };
+        if bin == 0 {
+            continue;
+        }
+        queries.push(position as u64 | (u64::from(thresholds[position]) << 32));
+        query_bin_ends[bin] = queries.len();
+    }
+    let mut previous_end = 0_usize;
+    for end in query_bin_ends.iter_mut().skip(1) {
+        *end = (*end).max(previous_end);
+        previous_end = *end;
+    }
+
+    #[cfg(test)]
+    REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.set(hits.get() + 1));
+    set.aggregate_rank_threshold_sweep(
+        &insertion_order,
+        &ranks,
+        rank_count,
+        &queries,
+        &query_bin_ends,
+        &inputs,
+    );
+    if set.is_empty() {
+        return Ok(Some(None));
+    }
+    Ok(Some(Some(make_results_with_positions(
+        py,
+        set,
+        output_positions,
+        output_len,
+        return_matched,
+    )?)))
 }
 
 /// Aggregate exactly two range predicates in the forward direction.
@@ -3304,5 +4691,2172 @@ mod aggregation_tests {
             Ok(())
         })
         .unwrap();
+    }
+}
+
+/// The default range path's envelope residual answered by a skip scan.
+///
+/// These fixtures mimic pyjanitor's default dual-range preparation for an
+/// interval overlap: the right rows are sorted by the first anchor, the
+/// second range is replaced by its cumulative envelope, and the original
+/// second range follows as a residual. A few very long intervals keep the
+/// envelope low, so the windows are wide and the skip scan engages.
+#[cfg(test)]
+mod default_skip_scan_tests {
+    use super::*;
+    use crate::conditional_join::range_skip_scan::{
+        ANY_PROBE_PENDING, ANY_PROBE_RESOLVED, SECOND_RANGE_SUPER_SKIPS, WINDOW_RESIDUAL_MASK_RUNS,
+        WINDOW_RESIDUAL_SKIP_DENSE, WINDOW_RESIDUAL_SKIP_PLANS,
+    };
+    use numpy::{PyArray1, PyArrayMethods};
+    use pyo3::IntoPyObject;
+    use std::collections::BTreeMap;
+
+    struct Overlap {
+        left_start: Vec<i64>,
+        left_end: Vec<i64>,
+        left_tag: Vec<i64>,
+        left_tag_mask: Vec<bool>,
+        right_start: Vec<i64>,
+        right_end: Vec<i64>,
+        right_tag: Vec<i64>,
+        right_tag_mask: Vec<bool>,
+        right_value: Vec<i64>,
+        /// Physical labels of the right rows after sorting by `right_end`.
+        right_index: Vec<i64>,
+        left_index: Vec<i64>,
+    }
+
+    fn next(seed: &mut u64) -> u64 {
+        *seed = seed
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        *seed >> 33
+    }
+
+    /// Short intervals plus a few long ones, right side sorted by end.
+    fn overlap_fixture(left_rows: usize, right_rows: usize, seed: u64) -> Overlap {
+        let mut seed = seed;
+        let intervals = |rows: usize, long_every: u64, seed: &mut u64| {
+            (0..rows)
+                .map(|_| {
+                    let start = (next(seed) % 100_000) as i64;
+                    let length = if next(seed).is_multiple_of(long_every) {
+                        (next(seed) % 100_000) as i64
+                    } else {
+                        (next(seed) % 40) as i64
+                    };
+                    (start, start + length)
+                })
+                .collect::<Vec<_>>()
+        };
+        let left = intervals(left_rows, 1_000, &mut seed);
+        let mut right = intervals(right_rows, 300, &mut seed);
+        let mut labels: Vec<i64> = (0..right_rows as i64)
+            .map(|label| label * 7 % 10_007)
+            .collect();
+        let mut order: Vec<usize> = (0..right_rows).collect();
+        order.sort_by_key(|&position| right[position].1);
+        right = order.iter().map(|&position| right[position]).collect();
+        labels = order.iter().map(|&position| labels[position]).collect();
+        let right_tag: Vec<i64> = (0..right_rows)
+            .map(|_| (next(&mut seed) % 5) as i64)
+            .collect();
+        Overlap {
+            left_start: left.iter().map(|interval| interval.0).collect(),
+            left_end: left.iter().map(|interval| interval.1).collect(),
+            left_tag: (0..left_rows)
+                .map(|_| (next(&mut seed) % 5) as i64)
+                .collect(),
+            left_tag_mask: (0..left_rows)
+                .map(|_| next(&mut seed).is_multiple_of(11))
+                .collect(),
+            right_tag_mask: (0..right_rows)
+                .map(|_| next(&mut seed).is_multiple_of(13))
+                .collect(),
+            right_value: (0..right_rows)
+                .map(|_| (next(&mut seed) % 1_000) as i64)
+                .collect(),
+            right_start: right.iter().map(|interval| interval.0).collect(),
+            right_end: right.iter().map(|interval| interval.1).collect(),
+            right_tag,
+            right_index: labels,
+            left_index: (0..left_rows as i64).map(|label| 1_000 + label).collect(),
+        }
+    }
+
+    impl Overlap {
+        /// `left.start <= right.end`, `left.end >= envelope`,
+        /// `left.end >= right.start`, and optionally a masked
+        /// `left.tag != right.tag`.
+        fn predicates<'py>(
+            &self,
+            py: Python<'py>,
+            as_float: bool,
+            with_tag: bool,
+        ) -> PyResult<Bound<'py, PyList>> {
+            let array = |values: &[i64]| -> Bound<'py, PyAny> {
+                if as_float {
+                    PyArray1::from_vec(py, values.iter().map(|&value| value as f64).collect())
+                        .into_any()
+                } else {
+                    PyArray1::from_vec(py, values.to_vec()).into_any()
+                }
+            };
+            let mut envelope = self.right_start.clone();
+            for position in (0..envelope.len().saturating_sub(1)).rev() {
+                envelope[position] = envelope[position].min(envelope[position + 1]);
+            }
+            let predicates = PyList::empty(py);
+            for (left, right, op) in [
+                (&self.left_start, &self.right_end, "<="),
+                (&self.left_end, &envelope, ">="),
+                (&self.left_end, &self.right_start, ">="),
+            ] {
+                predicates.append(PyTuple::new(
+                    py,
+                    [array(left), array(right), op.into_pyobject(py)?.into_any()],
+                )?)?;
+            }
+            if with_tag {
+                predicates.append(PyTuple::new(
+                    py,
+                    [
+                        array(&self.left_tag),
+                        PyArray1::from_vec(py, self.left_tag_mask.clone()).into_any(),
+                        array(&self.right_tag),
+                        PyArray1::from_vec(py, self.right_tag_mask.clone()).into_any(),
+                        false.into_pyobject(py)?.to_owned().into_any(),
+                        "!=".into_pyobject(py)?.into_any(),
+                    ],
+                )?)?;
+            }
+            Ok(predicates)
+        }
+
+        /// Matching right positions for every left row, ascending.
+        fn reference(&self, with_tag: bool) -> Vec<Vec<usize>> {
+            (0..self.left_start.len())
+                .map(|row| {
+                    (0..self.right_start.len())
+                        .filter(|&position| {
+                            self.left_start[row] <= self.right_end[position]
+                                && self.left_end[row] >= self.right_start[position]
+                                // NumPy-null semantics: a masked side
+                                // passes `!=`.
+                                && (!with_tag
+                                    || self.left_tag_mask[row]
+                                    || self.right_tag_mask[position]
+                                    || self.left_tag[row] != self.right_tag[position])
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+    }
+
+    fn plans() -> usize {
+        WINDOW_RESIDUAL_SKIP_PLANS.with(|plans| plans.get())
+    }
+
+    #[test]
+    fn envelope_residual_skip_scan_matches_bruteforce_for_every_keep() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let data = overlap_fixture(500, 5_000, 17);
+            let super_skips_before = SECOND_RANGE_SUPER_SKIPS.with(|skips| skips.get());
+            for as_float in [false, true] {
+                for with_tag in [false, true] {
+                    let reference = data.reference(with_tag);
+                    assert!(reference.iter().map(Vec::len).sum::<usize>() > 500);
+                    for keep in ["all", "any", "first", "last"] {
+                        let predicates = data.predicates(py, as_float, with_tag)?;
+                        let plans_before = plans();
+                        let result = range_join_extended_indices(
+                            py,
+                            &predicates,
+                            PyArray1::from_vec(py, data.left_index.clone()).into_any(),
+                            PyArray1::from_vec(py, data.right_index.clone()).into_any(),
+                            keep,
+                        )?
+                        .expect("the overlap has matches");
+                        // The envelope rank sweep intentionally supersedes the
+                        // skip scan for first/last on this fixture. Those modes
+                        // retain dedicated skip-scan coverage in the blocky
+                        // residual test below; keep this test focused on the
+                        // scan path for all/any.
+                        if matches!(keep, "all" | "any") {
+                            assert!(plans() > plans_before, "skip scan did not run for {keep}");
+                        }
+                        let read = |name: &str| -> PyResult<Vec<i64>> {
+                            Ok(result
+                                .get_item(name)?
+                                .expect("index output")
+                                .cast::<PyArray1<i64>>()?
+                                .readonly()
+                                .as_array()
+                                .to_vec())
+                        };
+                        let observed: Vec<(i64, i64)> = read("left_index")?
+                            .into_iter()
+                            .zip(read("right_index")?)
+                            .collect();
+                        let mut expected = Vec::new();
+                        for (row, positions) in reference.iter().enumerate() {
+                            let labels =
+                                positions.iter().map(|&position| data.right_index[position]);
+                            let selected: Vec<i64> = match keep {
+                                "all" => labels.collect(),
+                                "any" => labels.take(1).collect(),
+                                "first" => labels.min().into_iter().collect(),
+                                _ => labels.max().into_iter().collect(),
+                            };
+                            expected.extend(
+                                selected
+                                    .into_iter()
+                                    .map(|label| (data.left_index[row], label)),
+                            );
+                        }
+                        assert_eq!(
+                            observed, expected,
+                            "keep={keep} float={as_float} tag={with_tag}"
+                        );
+                    }
+                }
+            }
+            assert!(SECOND_RANGE_SUPER_SKIPS.with(|skips| skips.get()) > super_skips_before);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn envelope_residual_skip_scan_matches_bruteforce_aggregation() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let data = overlap_fixture(500, 5_000, 29);
+            for with_tag in [false, true] {
+                let reference = data.reference(with_tag);
+                for reverse in [false, true] {
+                    // Integer-valued floats keep the float sum exact, so the
+                    // brute-force total is directly comparable.
+                    let (values, output_index) = if reverse {
+                        (
+                            (0..data.left_start.len())
+                                .map(|row| (row % 17) as f64)
+                                .collect::<Vec<_>>(),
+                            &data.right_index,
+                        )
+                    } else {
+                        (
+                            data.right_value.iter().map(|&value| value as f64).collect(),
+                            &data.left_index,
+                        )
+                    };
+                    let mut expected_size: BTreeMap<i64, i64> = BTreeMap::new();
+                    let mut expected_sum: BTreeMap<i64, f64> = BTreeMap::new();
+                    for (row, positions) in reference.iter().enumerate() {
+                        for &position in positions {
+                            let (slot, source) = if reverse {
+                                (position, row)
+                            } else {
+                                (row, position)
+                            };
+                            *expected_size.entry(output_index[slot]).or_default() += 1;
+                            *expected_sum.entry(output_index[slot]).or_default() += values[source];
+                        }
+                    }
+                    let aggregations = PyList::empty(py);
+                    for name in ["size", "sum"] {
+                        aggregations.append(PyTuple::new(
+                            py,
+                            [
+                                PyArray1::from_vec(py, values.clone()).into_any(),
+                                PyArray1::from_vec(py, vec![false; values.len()]).into_any(),
+                                name.into_pyobject(py)?.into_any(),
+                            ],
+                        )?)?;
+                    }
+                    let predicates = data.predicates(py, false, with_tag)?;
+                    let left_index = PyArray1::from_vec(py, data.left_index.clone()).into_any();
+                    let right_index = PyArray1::from_vec(py, data.right_index.clone()).into_any();
+                    let plans_before = plans();
+                    let result = if reverse {
+                        range_join_extended_aggregate_reverse(
+                            py,
+                            &predicates,
+                            &left_index,
+                            &right_index,
+                            &aggregations,
+                            true,
+                        )?
+                    } else {
+                        range_join_extended_aggregate(
+                            py,
+                            &predicates,
+                            &left_index,
+                            &right_index,
+                            &aggregations,
+                            true,
+                        )?
+                    }
+                    .expect("the overlap has matches");
+                    assert!(
+                        plans() > plans_before,
+                        "skip scan did not run (reverse={reverse})"
+                    );
+                    let positions = result.get_item(0)?.extract::<Vec<i64>>()?;
+                    let matched = result.get_item(1)?.extract::<Vec<bool>>()?;
+                    let outputs_item = result.get_item(2)?;
+                    let outputs = outputs_item.cast::<PyList>()?;
+                    let sizes = outputs.get_item(0)?.extract::<Vec<i64>>()?;
+                    let sums = outputs.get_item(1)?.extract::<Vec<f64>>()?;
+                    let mut observed_size = BTreeMap::new();
+                    let mut observed_sum = BTreeMap::new();
+                    for (slot, &label) in positions.iter().enumerate() {
+                        if matched[slot] {
+                            observed_size.insert(label, sizes[slot]);
+                            observed_sum.insert(label, sums[slot]);
+                        }
+                    }
+                    assert_eq!(
+                        observed_size, expected_size,
+                        "reverse={reverse} tag={with_tag}"
+                    );
+                    assert_eq!(
+                        observed_sum, expected_sum,
+                        "reverse={reverse} tag={with_tag}"
+                    );
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn dense_wide_windows_keep_the_residual_checklist() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            // Every right interval starts near zero: the windows are wide and
+            // almost every candidate matches, so the summaries cannot skip
+            // anything and the plan must decline after sampling.
+            let mut data = overlap_fixture(300, 5_000, 53);
+            for position in 0..data.right_start.len() {
+                data.right_start[position] = (position % 3) as i64;
+            }
+            let reference = data.reference(true);
+            for keep in ["all", "first"] {
+                let predicates = data.predicates(py, false, true)?;
+                let (plans_before, dense_before) = (
+                    plans(),
+                    WINDOW_RESIDUAL_SKIP_DENSE.with(|dense| dense.get()),
+                );
+                let result = range_join_extended_indices(
+                    py,
+                    &predicates,
+                    PyArray1::from_vec(py, data.left_index.clone()).into_any(),
+                    PyArray1::from_vec(py, data.right_index.clone()).into_any(),
+                    keep,
+                )?
+                .expect("dense join has matches");
+                assert_eq!(
+                    plans(),
+                    plans_before,
+                    "dense windows must not use the skip scan"
+                );
+                assert!(WINDOW_RESIDUAL_SKIP_DENSE.with(|dense| dense.get()) > dense_before);
+                let observed = result
+                    .get_item("right_index")?
+                    .expect("index output")
+                    .len()?;
+                let expected: usize = if keep == "all" {
+                    reference.iter().map(Vec::len).sum()
+                } else {
+                    reference
+                        .iter()
+                        .filter(|positions| !positions.is_empty())
+                        .count()
+                };
+                assert_eq!(observed, expected, "keep={keep}");
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn sparse_passing_rows_keep_skip_scan_when_blocks_are_open() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            // Every block has one low value, so its summary opens, but only
+            // about one row in 32 passes the residual. The old gate counted
+            // the opened rows and incorrectly rejected this useful plan.
+            let mut data = overlap_fixture(300, 5_000, 67);
+            for block in 0..data.right_start.len().div_ceil(32) {
+                for position in block * 32..((block + 1) * 32).min(data.right_start.len()) {
+                    data.right_start[position] = if position == block * 32 { 0 } else { 1_000_000 };
+                }
+            }
+            let reference = data.reference(false);
+            let predicates = data.predicates(py, false, false)?;
+            let plans_before = plans();
+            let dense_before = WINDOW_RESIDUAL_SKIP_DENSE.with(|dense| dense.get());
+            let result = range_join_extended_indices(
+                py,
+                &predicates,
+                PyArray1::from_vec(py, data.left_index.clone()).into_any(),
+                PyArray1::from_vec(py, data.right_index.clone()).into_any(),
+                "all",
+            )?
+            .expect("the sparse join has matches");
+            assert!(
+                plans() > plans_before,
+                "sparse passing rows need the skip scan"
+            );
+            assert_eq!(
+                WINDOW_RESIDUAL_SKIP_DENSE.with(|dense| dense.get()),
+                dense_before,
+                "sparse passing rows must not be classified as dense"
+            );
+            let observed = result
+                .get_item("right_index")?
+                .expect("index output")
+                .extract::<Vec<i64>>()?;
+            let expected: Vec<i64> = reference
+                .iter()
+                .flat_map(|positions| positions.iter().map(|&position| data.right_index[position]))
+                .collect();
+            assert_eq!(observed, expected);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn uniform_thirty_percent_passing_drops_the_skip_scan() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            // Every block opens and roughly ten of its 32 rows pass. This is
+            // dense enough for the whole-window mask to beat scalar checks.
+            let mut data = overlap_fixture(300, 5_000, 71);
+            for block in 0..data.right_start.len().div_ceil(32) {
+                for position in block * 32..((block + 1) * 32).min(data.right_start.len()) {
+                    data.right_start[position] = if position % 32 < 10 { 0 } else { 1_000_000 };
+                }
+            }
+            let reference = data.reference(false);
+            let predicates = data.predicates(py, false, false)?;
+            let plans_before = plans();
+            let dense_before = WINDOW_RESIDUAL_SKIP_DENSE.with(|dense| dense.get());
+            let result = range_join_extended_indices(
+                py,
+                &predicates,
+                PyArray1::from_vec(py, data.left_index.clone()).into_any(),
+                PyArray1::from_vec(py, data.right_index.clone()).into_any(),
+                "all",
+            )?
+            .expect("the dense join has matches");
+            assert_eq!(
+                plans(),
+                plans_before,
+                "uniform dense rows must use the mask"
+            );
+            assert!(
+                WINDOW_RESIDUAL_SKIP_DENSE.with(|dense| dense.get()) > dense_before,
+                "uniform dense rows must be classified as dense"
+            );
+            let observed = result
+                .get_item("right_index")?
+                .expect("index output")
+                .extract::<Vec<i64>>()?;
+            let expected: Vec<i64> = reference
+                .iter()
+                .flat_map(|positions| positions.iter().map(|&position| data.right_index[position]))
+                .collect();
+            assert_eq!(observed, expected);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn dense_opened_blocks_mask_the_other_residuals() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            // About one third of the 32-row right blocks match the residual on
+            // every row and the rest on none: the plan runs, and since the
+            // sampled opened blocks all pass, the masked `!=` is checked with
+            // the window mask over opened runs.
+            let mut data = overlap_fixture(300, 5_000, 61);
+            let mut seed = 7_u64;
+            for block in 0..data.right_start.len().div_ceil(32) {
+                let start = if next(&mut seed).is_multiple_of(3) {
+                    0
+                } else {
+                    1_000_000
+                };
+                for position in block * 32..((block + 1) * 32).min(data.right_start.len()) {
+                    data.right_start[position] = start;
+                }
+            }
+            let reference = data.reference(true);
+            for keep in ["all", "any", "first", "last"] {
+                let predicates = data.predicates(py, false, true)?;
+                let (plans_before, runs_before) =
+                    (plans(), WINDOW_RESIDUAL_MASK_RUNS.with(|runs| runs.get()));
+                let result = range_join_extended_indices(
+                    py,
+                    &predicates,
+                    PyArray1::from_vec(py, data.left_index.clone()).into_any(),
+                    PyArray1::from_vec(py, data.right_index.clone()).into_any(),
+                    keep,
+                )?
+                .expect("blocky join has matches");
+                assert!(
+                    plans() > plans_before,
+                    "keep={keep}: the skip plan must run"
+                );
+                assert!(
+                    WINDOW_RESIDUAL_MASK_RUNS.with(|runs| runs.get()) > runs_before,
+                    "keep={keep}: opened runs must be masked"
+                );
+                let column = |name: &str| -> PyResult<Vec<i64>> {
+                    result
+                        .get_item(name)?
+                        .expect("index output")
+                        .extract::<Vec<i64>>()
+                };
+                let mut observed: Vec<(i64, i64)> = column("left_index")?
+                    .into_iter()
+                    .zip(column("right_index")?)
+                    .collect();
+                observed.sort_unstable();
+                let mut expected: Vec<(i64, i64)> = Vec::new();
+                for (row, positions) in reference.iter().enumerate() {
+                    let labels = positions.iter().map(|&position| data.right_index[position]);
+                    let left = data.left_index[row];
+                    match keep {
+                        "all" => expected.extend(labels.map(|label| (left, label))),
+                        "any" => expected.extend(labels.take(1).map(|label| (left, label))),
+                        "first" => expected.extend(labels.min().map(|label| (left, label))),
+                        _ => expected.extend(labels.max().map(|label| (left, label))),
+                    }
+                }
+                expected.sort_unstable();
+                assert_eq!(observed, expected, "keep={keep}");
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn narrow_windows_keep_the_residual_checklist() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            // Without long right intervals the envelope is tight and the
+            // windows hold fewer candidates than twice the right rows.
+            let mut data = overlap_fixture(50, 5_000, 41);
+            for position in 0..data.right_start.len() {
+                data.right_start[position] =
+                    data.right_start[position].max(data.right_end[position] - 39);
+            }
+            let reference = data.reference(false);
+            let predicates = data.predicates(py, false, false)?;
+            let plans_before = plans();
+            let result = range_join_extended_indices(
+                py,
+                &predicates,
+                PyArray1::from_vec(py, data.left_index.clone()).into_any(),
+                PyArray1::from_vec(py, data.right_index.clone()).into_any(),
+                "all",
+            )?;
+            assert_eq!(
+                plans(),
+                plans_before,
+                "narrow windows must not build summaries"
+            );
+            let expected: usize = reference.iter().map(Vec::len).sum();
+            let observed = result.map_or(0, |result| {
+                result
+                    .get_item("left_index")
+                    .unwrap()
+                    .unwrap()
+                    .len()
+                    .unwrap()
+            });
+            assert_eq!(observed, expected);
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[cfg(test)]
+    mod envelope_rank_sweep_tests {
+        use super::*;
+        use crate::conditional_join::compare_op::CompareOp;
+        use numpy::PyArray1;
+        use pyo3::IntoPyObject;
+
+        struct XorShift(u64);
+
+        impl XorShift {
+            fn below(&mut self, bound: u64) -> i64 {
+                self.0 ^= self.0 << 13;
+                self.0 ^= self.0 >> 7;
+                self.0 ^= self.0 << 17;
+                (self.0 % bound) as i64
+            }
+        }
+
+        fn sweep_hits() -> usize {
+            ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get())
+        }
+
+        fn op_str(op: CompareOp) -> &'static str {
+            match op {
+                CompareOp::Lt => "<",
+                CompareOp::Le => "<=",
+                CompareOp::Gt => ">",
+                CompareOp::Ge => ">=",
+                CompareOp::Eq => "==",
+                CompareOp::Ne => "!=",
+            }
+        }
+
+        /// Envelope of `values` for the second operator, as pyjanitor builds it.
+        fn envelope(values: &[i64], op: CompareOp) -> Vec<i64> {
+            let mut out = values.to_vec();
+            if matches!(op, CompareOp::Gt | CompareOp::Ge) {
+                for position in (0..out.len().saturating_sub(1)).rev() {
+                    out[position] = out[position].min(out[position + 1]);
+                }
+            } else {
+                for position in 1..out.len() {
+                    out[position] = out[position].max(out[position - 1]);
+                }
+            }
+            out
+        }
+
+        struct Fixture {
+            left_first: Vec<i64>,
+            right_first: Vec<i64>,
+            left_second: Vec<i64>,
+            right_second: Vec<i64>,
+            values: Vec<i64>,
+            nulls: Vec<bool>,
+        }
+
+        fn fixture(rng: &mut XorShift, left_len: usize, right_len: usize) -> Fixture {
+            let mut right_first: Vec<i64> = (0..right_len).map(|_| rng.below(500)).collect();
+            right_first.sort_unstable();
+            Fixture {
+                left_first: (0..left_len).map(|_| rng.below(500)).collect(),
+                right_first,
+                left_second: (0..left_len).map(|_| rng.below(500)).collect(),
+                right_second: (0..right_len).map(|_| rng.below(500)).collect(),
+                values: (0..right_len).map(|_| rng.below(1_000) - 500).collect(),
+                nulls: (0..right_len).map(|_| rng.below(10) == 0).collect(),
+            }
+        }
+
+        fn tuple<'py>(
+            py: Python<'py>,
+            left: Vec<i64>,
+            right: Vec<i64>,
+            op: CompareOp,
+            as_float: bool,
+        ) -> PyResult<Bound<'py, PyTuple>> {
+            let (left, right) = if as_float {
+                (
+                    PyArray1::from_vec(py, left.iter().map(|&v| v as f64 / 2.0).collect())
+                        .into_any(),
+                    PyArray1::from_vec(py, right.iter().map(|&v| v as f64 / 2.0).collect())
+                        .into_any(),
+                )
+            } else {
+                (
+                    PyArray1::from_vec(py, left).into_any(),
+                    PyArray1::from_vec(py, right).into_any(),
+                )
+            };
+            PyTuple::new(py, [left, right, op_str(op).into_pyobject(py)?.into_any()])
+        }
+
+        fn aggregations<'py>(
+            py: Python<'py>,
+            fixture: &Fixture,
+            float_sum: bool,
+        ) -> PyResult<Bound<'py, PyList>> {
+            let values = PyArray1::from_vec(py, fixture.values.clone()).into_any();
+            let nulls = PyArray1::from_vec(py, fixture.nulls.clone()).into_any();
+            let mut items = vec![
+                PyTuple::new(
+                    py,
+                    [
+                        values.clone(),
+                        nulls.clone(),
+                        "sum".into_pyobject(py)?.into_any(),
+                    ],
+                )?,
+                PyTuple::new(
+                    py,
+                    [
+                        values.clone(),
+                        nulls.clone(),
+                        "min".into_pyobject(py)?.into_any(),
+                    ],
+                )?,
+                PyTuple::new(
+                    py,
+                    [
+                        values.clone(),
+                        nulls.clone(),
+                        "max".into_pyobject(py)?.into_any(),
+                    ],
+                )?,
+                PyTuple::new(
+                    py,
+                    [
+                        "*".into_pyobject(py)?.into_any(),
+                        nulls.clone(),
+                        "count".into_pyobject(py)?.into_any(),
+                    ],
+                )?,
+                PyTuple::new(
+                    py,
+                    [
+                        values.clone(),
+                        nulls.clone(),
+                        "size".into_pyobject(py)?.into_any(),
+                    ],
+                )?,
+            ];
+            if float_sum {
+                let floats =
+                    PyArray1::from_vec(py, fixture.values.iter().map(|&v| v as f64).collect());
+                items.push(PyTuple::new(
+                    py,
+                    [
+                        floats.into_any(),
+                        nulls,
+                        "sum".into_pyobject(py)?.into_any(),
+                    ],
+                )?);
+            }
+            PyList::new(py, items)
+        }
+
+        /// Kernel output: (positions, matched, integer results, float sum).
+        type Observed = (Vec<i64>, Vec<bool>, Vec<Vec<i64>>, Option<Vec<f64>>);
+
+        /// Per left row: (matched, sum, min value, max value, non-null count, size).
+        type Expected = Vec<(bool, i64, Option<i64>, Option<i64>, i64, i64)>;
+
+        /// Brute force over every pair with the anchor and residual applied as
+        /// given, so it also describes fixtures whose anchor is not an envelope.
+        #[allow(clippy::needless_range_loop)]
+        fn bruteforce_with_anchor(
+            fixture: &Fixture,
+            first_op: CompareOp,
+            anchor_right: &[i64],
+            anchor_op: CompareOp,
+            residual_op: CompareOp,
+        ) -> Expected {
+            (0..fixture.left_first.len())
+                .map(|row| {
+                    let mut want = (false, 0_i64, None::<i64>, None::<i64>, 0, 0);
+                    for position in 0..fixture.right_first.len() {
+                        let left_second = fixture.left_second[row];
+                        if !first_op.apply(&fixture.left_first[row], &fixture.right_first[position])
+                            || !anchor_op.apply(&left_second, &anchor_right[position])
+                            || !residual_op.apply(&left_second, &fixture.right_second[position])
+                        {
+                            continue;
+                        }
+                        want.0 = true;
+                        want.5 += 1;
+                        if fixture.nulls[position] {
+                            continue;
+                        }
+                        let value = fixture.values[position];
+                        want.4 += 1;
+                        want.1 = want.1.wrapping_add(value);
+                        want.2 = Some(want.2.map_or(value, |current: i64| current.min(value)));
+                        want.3 = Some(want.3.map_or(value, |current: i64| current.max(value)));
+                    }
+                    want
+                })
+                .collect()
+        }
+
+        fn bruteforce(fixture: &Fixture, first_op: CompareOp, second_op: CompareOp) -> Expected {
+            // The residual alone is the second predicate; the envelope anchor
+            // can only admit a superset, so it is omitted from the reference.
+            let always = vec![i64::MIN; fixture.right_first.len()];
+            bruteforce_with_anchor(fixture, first_op, &always, CompareOp::Gt, second_op)
+        }
+
+        #[allow(clippy::too_many_arguments)]
+        fn run(
+            py: Python<'_>,
+            fixture: &Fixture,
+            first_op: CompareOp,
+            second_op: CompareOp,
+            anchor_right: Vec<i64>,
+            residual_op: CompareOp,
+            as_float: bool,
+            float_sum: bool,
+        ) -> PyResult<Observed> {
+            let left_len = fixture.left_first.len();
+            let right_len = fixture.right_first.len();
+            let predicates = PyList::new(
+                py,
+                [
+                    tuple(
+                        py,
+                        fixture.left_first.clone(),
+                        fixture.right_first.clone(),
+                        first_op,
+                        as_float,
+                    )?,
+                    tuple(
+                        py,
+                        fixture.left_second.clone(),
+                        anchor_right,
+                        second_op,
+                        as_float,
+                    )?,
+                    tuple(
+                        py,
+                        fixture.left_second.clone(),
+                        fixture.right_second.clone(),
+                        residual_op,
+                        as_float,
+                    )?,
+                ],
+            )?;
+            let left_index = PyArray1::from_vec(py, (0..left_len as i64).collect()).into_any();
+            let right_index = PyArray1::from_vec(py, (0..right_len as i64).collect()).into_any();
+            let result = range_join_extended_aggregate(
+                py,
+                &predicates,
+                &left_index,
+                &right_index,
+                &aggregations(py, fixture, float_sum)?,
+                true,
+            )?
+            .expect("fixture has matches");
+            let positions = result.get_item(0)?.extract::<Vec<i64>>()?;
+            let matched = result.get_item(1)?.extract::<Vec<bool>>()?;
+            let outputs = result.get_item(2)?.cast::<PyList>()?.clone();
+            let integer = (0..5)
+                .map(|item| outputs.get_item(item)?.extract::<Vec<i64>>())
+                .collect::<PyResult<Vec<_>>>()?;
+            let floats = if float_sum {
+                Some(outputs.get_item(5)?.extract::<Vec<f64>>()?)
+            } else {
+                None
+            };
+            Ok((positions, matched, integer, floats))
+        }
+
+        fn check(
+            fixture: &Fixture,
+            expected: &Expected,
+            (positions, matched, outputs, floats): &Observed,
+            context: &str,
+        ) {
+            assert_eq!(
+                positions,
+                &(0..expected.len() as i64).collect::<Vec<_>>(),
+                "{context}"
+            );
+            for (row, want) in expected.iter().enumerate() {
+                assert_eq!(matched[row], want.0, "{context} matched row {row}");
+                if !want.0 {
+                    continue;
+                }
+                assert_eq!(outputs[0][row], want.1, "{context} sum row {row}");
+                // Min/max return source positions; only the value is a contract.
+                let value_at =
+                    |position: i64| (position >= 0).then(|| fixture.values[position as usize]);
+                assert_eq!(value_at(outputs[1][row]), want.2, "{context} min row {row}");
+                assert_eq!(value_at(outputs[2][row]), want.3, "{context} max row {row}");
+                assert_eq!(outputs[3][row], want.4, "{context} count row {row}");
+                assert_eq!(outputs[4][row], want.5, "{context} size row {row}");
+                if let Some(floats) = floats {
+                    assert_eq!(floats[row], want.1 as f64, "{context} float sum row {row}");
+                }
+            }
+        }
+
+        const SHAPES: [(CompareOp, CompareOp); 8] = [
+            (CompareOp::Lt, CompareOp::Gt),
+            (CompareOp::Lt, CompareOp::Ge),
+            (CompareOp::Le, CompareOp::Gt),
+            (CompareOp::Le, CompareOp::Ge),
+            (CompareOp::Gt, CompareOp::Lt),
+            (CompareOp::Gt, CompareOp::Le),
+            (CompareOp::Ge, CompareOp::Lt),
+            (CompareOp::Ge, CompareOp::Le),
+        ];
+
+        #[test]
+        fn envelope_rank_sweep_matches_bruteforce() {
+            Python::initialize();
+            Python::attach(|py| -> PyResult<()> {
+                let mut rng = XorShift(0x9E37_79B9_7F4A_7C15);
+                for (first_op, second_op) in SHAPES {
+                    for as_float in [false, true] {
+                        let fixture = fixture(&mut rng, 400, 300);
+                        let expected = bruteforce(&fixture, first_op, second_op);
+                        let hits = sweep_hits();
+                        let result = run(
+                            py,
+                            &fixture,
+                            first_op,
+                            second_op,
+                            envelope(&fixture.right_second, second_op),
+                            second_op,
+                            as_float,
+                            false,
+                        )?;
+                        assert_eq!(
+                            sweep_hits(),
+                            hits + 1,
+                            "{first_op:?}/{second_op:?} float={as_float} skipped the sweep"
+                        );
+                        check(
+                            &fixture,
+                            &expected,
+                            &result,
+                            &format!("{first_op:?}/{second_op:?} float={as_float}"),
+                        );
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        #[test]
+        fn keep_any_probes_windows_before_planning_a_skip_scan() {
+            Python::initialize();
+            Python::attach(|py| -> PyResult<()> {
+                let counters = || {
+                    (
+                        ANY_PROBE_RESOLVED.with(|rows| rows.get()),
+                        ANY_PROBE_PENDING.with(|rows| rows.get()),
+                        plans(),
+                    )
+                };
+                // The sparse overlap leaves some rows unmatched after the direct
+                // probe, and their remaining windows still repay the skip scan.
+                // The dense fixture matches every row within the probe, so no
+                // summaries are built at all.
+                let sparse = overlap_fixture(500, 5_000, 17);
+                let mut dense = overlap_fixture(300, 5_000, 53);
+                for position in 0..dense.right_start.len() {
+                    dense.right_start[position] = (position % 3) as i64;
+                }
+                for (data, expect_plan) in [(&sparse, true), (&dense, false)] {
+                    for with_tag in [false, true] {
+                        let reference = data.reference(with_tag);
+                        let predicates = data.predicates(py, false, with_tag)?;
+                        let (resolved, pending, plans_before) = counters();
+                        let result = range_join_extended_indices(
+                            py,
+                            &predicates,
+                            PyArray1::from_vec(py, data.left_index.clone()).into_any(),
+                            PyArray1::from_vec(py, data.right_index.clone()).into_any(),
+                            "any",
+                        )?
+                        .expect("the overlap has matches");
+                        let (resolved_after, pending_after, plans_after) = counters();
+                        assert!(resolved_after > resolved, "no row resolved by the probe");
+                        if expect_plan {
+                            assert!(pending_after > pending, "no row left for the skip scan");
+                            assert!(plans_after > plans_before, "skip scan did not run");
+                        } else {
+                            assert_eq!(pending_after, pending, "dense rows left the probe");
+                            assert_eq!(plans_after, plans_before, "dense join built summaries");
+                        }
+                        let read = |name: &str| -> PyResult<Vec<i64>> {
+                            Ok(result
+                                .get_item(name)?
+                                .expect("index output")
+                                .cast::<PyArray1<i64>>()?
+                                .readonly()
+                                .as_array()
+                                .to_vec())
+                        };
+                        let observed: Vec<(i64, i64)> = read("left_index")?
+                            .into_iter()
+                            .zip(read("right_index")?)
+                            .collect();
+                        // `any` reports each row's first match in position order.
+                        let expected: Vec<(i64, i64)> = reference
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(row, positions)| {
+                                positions.first().map(|&position| {
+                                    (data.left_index[row], data.right_index[position])
+                                })
+                            })
+                            .collect();
+                        assert_eq!(observed, expected, "plan={expect_plan} tag={with_tag}");
+                    }
+                }
+                Ok(())
+            })
+            .unwrap();
+        }
+        #[test]
+        fn envelope_rank_sweep_falls_back_when_not_provable_or_unsupported() {
+            Python::initialize();
+            Python::attach(|py| -> PyResult<()> {
+                let mut rng = XorShift(0xD1B5_4A32_D192_ED03);
+                let (first_op, second_op) = (CompareOp::Le, CompareOp::Gt);
+                let fixture = fixture(&mut rng, 400, 300);
+                let expected = bruteforce(&fixture, first_op, second_op);
+                let exact_envelope = envelope(&fixture.right_second, second_op);
+
+                // A genuinely tighter second anchor: its window is not a
+                // superset of the residual's matches, so it cannot be dropped.
+                let mut tighter = exact_envelope.clone();
+                tighter[150] += 1;
+                let tighter_expected =
+                    bruteforce_with_anchor(&fixture, first_op, &tighter, second_op, second_op);
+                let hits = sweep_hits();
+                let result = run(
+                    py, &fixture, first_op, second_op, tighter, second_op, false, false,
+                )?;
+                assert_eq!(sweep_hits(), hits, "a non-envelope anchor took the sweep");
+                check(&fixture, &tighter_expected, &result, "tighter anchor");
+
+                // A different residual operator is not the anchor's predicate.
+                let ge_expected = bruteforce_with_anchor(
+                    &fixture,
+                    first_op,
+                    &exact_envelope,
+                    second_op,
+                    CompareOp::Ge,
+                );
+                let hits = sweep_hits();
+                let result = run(
+                    py,
+                    &fixture,
+                    first_op,
+                    second_op,
+                    exact_envelope.clone(),
+                    CompareOp::Ge,
+                    false,
+                    false,
+                )?;
+                assert_eq!(sweep_hits(), hits, "a mismatched residual took the sweep");
+                check(
+                    &fixture,
+                    &ge_expected,
+                    &result,
+                    "mismatched residual operator",
+                );
+
+                // Floating-point sums keep encounter-order traversal.
+                let hits = sweep_hits();
+                let result = run(
+                    py,
+                    &fixture,
+                    first_op,
+                    second_op,
+                    exact_envelope,
+                    second_op,
+                    false,
+                    true,
+                )?;
+                assert_eq!(sweep_hits(), hits, "a float sum took the sweep");
+                check(&fixture, &expected, &result, "float sum");
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        #[test]
+        fn envelope_rank_sweep_skips_sparse_windows() {
+            Python::initialize();
+            Python::attach(|py| -> PyResult<()> {
+                // Few candidates per row: the traversal is cheaper than a tree.
+                let mut rng = XorShift(0x2545_F491_4F6C_DD1D);
+                let mut fixture = fixture(&mut rng, 50, 3_000);
+                fixture.left_first = (0..50).map(|_| 490 + rng.below(10)).collect();
+                let (first_op, second_op) = (CompareOp::Le, CompareOp::Ge);
+                let expected = bruteforce(&fixture, first_op, second_op);
+                let hits = sweep_hits();
+                let result = run(
+                    py,
+                    &fixture,
+                    first_op,
+                    second_op,
+                    envelope(&fixture.right_second, second_op),
+                    second_op,
+                    false,
+                    false,
+                )?;
+                assert_eq!(sweep_hits(), hits, "a sparse join took the sweep");
+                check(&fixture, &expected, &result, "sparse");
+                Ok(())
+            })
+            .unwrap();
+        }
+
+        #[test]
+        fn rank_sweep_gate_charges_build_and_workspace() {
+            let query_count: usize = 10_000;
+            let source_len: usize = 10_000;
+            let rank_count: usize = 10_000;
+            let height = (usize::BITS - (rank_count - 1).leading_zeros()) as usize;
+            let query_cost = query_count * height * 2;
+            let crossover = source_len * RANK_SWEEP_BUILD_FACTOR + query_cost;
+
+            assert!(!should_use_rank_sweep(
+                query_count,
+                crossover,
+                source_len,
+                rank_count,
+            ));
+            assert!(should_use_rank_sweep(
+                query_count,
+                crossover + 1,
+                source_len,
+                rank_count,
+            ));
+            assert!(!should_use_rank_sweep(
+                3,
+                crossover + 1,
+                source_len,
+                rank_count
+            ));
+
+            let bytes = rank_sweep_workspace_bytes(10_000_000, 40_000_000, 10_000_000, 8).unwrap();
+            assert!(bytes > 40_000_000 * 3 * std::mem::size_of::<usize>());
+            assert!(bytes > 10_000_000 * 7 * std::mem::size_of::<usize>());
+            let estimated_input = 10_000_000 * (32 + 4 * 8) + 1_000_000 * 32;
+            assert_eq!(
+                rank_sweep_memory_budget(10_000_000, 1_000_000, 4),
+                estimated_input * RANK_SWEEP_MEMORY_MULTIPLIER
+            );
+        }
+    }
+}
+
+/// `keep="first"`/`"last"` on envelope-backed dual ranges via the rank sweep.
+#[cfg(test)]
+mod envelope_keep_sweep_tests {
+    use super::*;
+    use crate::conditional_join::compare_op::CompareOp;
+    use numpy::{PyArray1, PyArrayMethods};
+    use pyo3::IntoPyObject;
+
+    struct XorShift(u64);
+
+    impl XorShift {
+        fn below(&mut self, bound: u64) -> i64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            (self.0 % bound) as i64
+        }
+    }
+
+    fn keep_hits() -> usize {
+        ENVELOPE_KEEP_SWEEP_HITS.with(|hits| hits.get())
+    }
+
+    fn op_str(op: CompareOp) -> &'static str {
+        match op {
+            CompareOp::Lt => "<",
+            CompareOp::Le => "<=",
+            CompareOp::Gt => ">",
+            CompareOp::Ge => ">=",
+            CompareOp::Eq => "==",
+            CompareOp::Ne => "!=",
+        }
+    }
+
+    /// Envelope of `values` for the second operator, as pyjanitor builds it.
+    fn envelope(values: &[i64], op: CompareOp) -> Vec<i64> {
+        let mut out = values.to_vec();
+        if matches!(op, CompareOp::Gt | CompareOp::Ge) {
+            for position in (0..out.len().saturating_sub(1)).rev() {
+                out[position] = out[position].min(out[position + 1]);
+            }
+        } else {
+            for position in 1..out.len() {
+                out[position] = out[position].max(out[position - 1]);
+            }
+        }
+        out
+    }
+
+    struct Fixture {
+        left_first: Vec<i64>,
+        right_first: Vec<i64>,
+        left_second: Vec<i64>,
+        right_second: Vec<i64>,
+        left_extra: Vec<i64>,
+        right_extra: Vec<i64>,
+        left_index: Vec<i64>,
+        right_index: Vec<i64>,
+    }
+
+    fn fixture(rng: &mut XorShift, left_len: usize, right_len: usize) -> Fixture {
+        let mut right_first: Vec<i64> = (0..right_len).map(|_| rng.below(500)).collect();
+        right_first.sort_unstable();
+        // Shuffled, unique right labels so first/last are not just the
+        // window ends.
+        let mut right_index: Vec<i64> = (0..right_len as i64).map(|label| label * 3 + 7).collect();
+        for position in (1..right_len).rev() {
+            right_index.swap(position, rng.below(position as u64 + 1) as usize);
+        }
+        Fixture {
+            left_first: (0..left_len).map(|_| rng.below(500)).collect(),
+            right_first,
+            left_second: (0..left_len).map(|_| rng.below(500)).collect(),
+            right_second: (0..right_len).map(|_| rng.below(500)).collect(),
+            left_extra: (0..left_len).map(|_| rng.below(4)).collect(),
+            right_extra: (0..right_len).map(|_| rng.below(4)).collect(),
+            left_index: (0..left_len as i64).map(|label| 10_000 + label).collect(),
+            right_index,
+        }
+    }
+
+    fn tuple<'py>(
+        py: Python<'py>,
+        left: &[i64],
+        right: &[i64],
+        op: CompareOp,
+        as_float: bool,
+    ) -> PyResult<Bound<'py, PyTuple>> {
+        let (left, right) = if as_float {
+            (
+                PyArray1::from_vec(py, left.iter().map(|&v| v as f64 / 2.0).collect()).into_any(),
+                PyArray1::from_vec(py, right.iter().map(|&v| v as f64 / 2.0).collect()).into_any(),
+            )
+        } else {
+            (
+                PyArray1::from_vec(py, left.to_vec()).into_any(),
+                PyArray1::from_vec(py, right.to_vec()).into_any(),
+            )
+        };
+        PyTuple::new(py, [left, right, op_str(op).into_pyobject(py)?.into_any()])
+    }
+
+    /// Every pair checked directly, with the anchor applied as given.
+    #[allow(clippy::too_many_arguments)]
+    fn bruteforce(
+        fixture: &Fixture,
+        first_op: CompareOp,
+        anchor_right: &[i64],
+        second_op: CompareOp,
+        with_extra: bool,
+        keep: &str,
+    ) -> (Vec<i64>, Vec<i64>) {
+        let mut out = (Vec::new(), Vec::new());
+        for row in 0..fixture.left_first.len() {
+            let labels = (0..fixture.right_first.len())
+                .filter(|&position| {
+                    first_op.apply(&fixture.left_first[row], &fixture.right_first[position])
+                        && second_op.apply(&fixture.left_second[row], &anchor_right[position])
+                        && second_op
+                            .apply(&fixture.left_second[row], &fixture.right_second[position])
+                        && (!with_extra || fixture.left_extra[row] != fixture.right_extra[position])
+                })
+                .map(|position| fixture.right_index[position]);
+            let best = if keep == "first" {
+                labels.min()
+            } else {
+                labels.max()
+            };
+            if let Some(label) = best {
+                out.0.push(fixture.left_index[row]);
+                out.1.push(label);
+            }
+        }
+        out
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn run(
+        py: Python<'_>,
+        fixture: &Fixture,
+        first_op: CompareOp,
+        anchor_right: &[i64],
+        second_op: CompareOp,
+        with_extra: bool,
+        as_float: bool,
+        keep: &str,
+    ) -> PyResult<(Vec<i64>, Vec<i64>)> {
+        let mut items = vec![
+            tuple(
+                py,
+                &fixture.left_first,
+                &fixture.right_first,
+                first_op,
+                as_float,
+            )?,
+            tuple(py, &fixture.left_second, anchor_right, second_op, as_float)?,
+            tuple(
+                py,
+                &fixture.left_second,
+                &fixture.right_second,
+                second_op,
+                as_float,
+            )?,
+        ];
+        if with_extra {
+            items.push(tuple(
+                py,
+                &fixture.left_extra,
+                &fixture.right_extra,
+                CompareOp::Ne,
+                as_float,
+            )?);
+        }
+        let predicates = PyList::new(py, items)?;
+        let result = range_join_extended_indices(
+            py,
+            &predicates,
+            PyArray1::from_vec(py, fixture.left_index.clone()).into_any(),
+            PyArray1::from_vec(py, fixture.right_index.clone()).into_any(),
+            keep,
+        )?;
+        let Some(result) = result else {
+            return Ok((Vec::new(), Vec::new()));
+        };
+        let read = |name: &str| -> PyResult<Vec<i64>> {
+            Ok(result
+                .get_item(name)?
+                .expect("index output")
+                .cast::<PyArray1<i64>>()?
+                .readonly()
+                .as_array()
+                .to_vec())
+        };
+        Ok((read("left_index")?, read("right_index")?))
+    }
+
+    const RANGE_OPS: [CompareOp; 4] = [CompareOp::Lt, CompareOp::Le, CompareOp::Gt, CompareOp::Ge];
+
+    #[test]
+    fn envelope_keep_sweep_matches_bruteforce() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let mut rng = XorShift(0x5EED_F00D);
+            for first_op in RANGE_OPS {
+                for second_op in RANGE_OPS {
+                    let fixture = fixture(&mut rng, 400, 300);
+                    let anchor = envelope(&fixture.right_second, second_op);
+                    // The opposing shapes are the ones pyjanitor builds. The
+                    // same-direction shapes are exact too: an envelope always
+                    // admits a superset of the residual's matches, whatever
+                    // the first window's direction.
+                    for as_float in [false, true] {
+                        for keep in ["first", "last"] {
+                            let before = keep_hits();
+                            let observed = run(
+                                py, &fixture, first_op, &anchor, second_op, false, as_float, keep,
+                            )?;
+                            let expected =
+                                bruteforce(&fixture, first_op, &anchor, second_op, false, keep);
+                            assert!(!expected.0.is_empty());
+                            assert_eq!(
+                                observed, expected,
+                                "{first_op:?} {second_op:?} float={as_float} keep={keep}"
+                            );
+                            assert!(
+                                keep_hits() > before,
+                                "sweep did not run for {first_op:?} {second_op:?} keep={keep}"
+                            );
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn envelope_keep_sweep_estimates_width_on_large_left() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            // More left rows than the width sample covers, so the gate runs
+            // on the sampled estimate rather than an exact pass.
+            let mut rng = XorShift(0x1A26_E5A3);
+            let fixture = fixture(&mut rng, 12_000, 300);
+            let (first_op, second_op) = (CompareOp::Le, CompareOp::Gt);
+            let anchor = envelope(&fixture.right_second, second_op);
+            for keep in ["first", "last"] {
+                let before = keep_hits();
+                let observed = run(
+                    py, &fixture, first_op, &anchor, second_op, false, false, keep,
+                )?;
+                assert!(keep_hits() > before, "sweep did not run for keep={keep}");
+                assert_eq!(
+                    observed,
+                    bruteforce(&fixture, first_op, &anchor, second_op, false, keep),
+                    "keep={keep}"
+                );
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn envelope_keep_sweep_detects_clustered_left_matches() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let mut rng = XorShift(0xC157_7E12);
+            let mut fixture = fixture(&mut rng, 20_000, 300);
+            fixture.right_first = (0..300).map(i64::from).collect();
+            fixture.right_second = (0..300).map(i64::from).collect();
+            fixture.left_first = (0..20_000)
+                .map(|row| if (300..6_000).contains(&row) { 0 } else { 300 })
+                .collect();
+            fixture.left_second.fill(301);
+            let (first_op, second_op) = (CompareOp::Le, CompareOp::Gt);
+            let anchor = envelope(&fixture.right_second, second_op);
+            let before = keep_hits();
+            let observed = run(
+                py, &fixture, first_op, &anchor, second_op, false, false, "first",
+            )?;
+            assert!(
+                keep_hits() > before,
+                "sweep did not run for clustered matches"
+            );
+            assert_eq!(
+                observed,
+                bruteforce(&fixture, first_op, &anchor, second_op, false, "first")
+            );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn envelope_keep_sweep_returns_empty_for_large_no_match_input() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let mut rng = XorShift(0x0BAD_CAFE);
+            let mut fixture = fixture(&mut rng, 12_000, 300);
+            fixture.right_first = (0..300).map(i64::from).collect();
+            fixture.right_second = (0..300).map(i64::from).collect();
+            fixture.left_first.fill(300);
+            fixture.left_second.fill(301);
+            let (first_op, second_op) = (CompareOp::Le, CompareOp::Gt);
+            let anchor = envelope(&fixture.right_second, second_op);
+            let before = keep_hits();
+            let observed = run(
+                py, &fixture, first_op, &anchor, second_op, false, false, "first",
+            )?;
+            assert_eq!(keep_hits(), before, "empty join entered the sweep");
+            assert!(observed.0.is_empty() && observed.1.is_empty());
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn envelope_keep_sweep_falls_back_when_not_provable() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let mut rng = XorShift(0xFA11_BAC4);
+            let fixture = fixture(&mut rng, 400, 300);
+            let (first_op, second_op) = (CompareOp::Le, CompareOp::Gt);
+            let envelope = envelope(&fixture.right_second, second_op);
+            let mut tighter = envelope.clone();
+            tighter[150] += 1;
+            for (anchor, with_extra, why) in [
+                (&tighter, false, "anchor is not the envelope"),
+                (&envelope, true, "a second residual"),
+            ] {
+                for keep in ["first", "last"] {
+                    let before = keep_hits();
+                    let observed = run(
+                        py, &fixture, first_op, anchor, second_op, with_extra, false, keep,
+                    )?;
+                    assert_eq!(keep_hits(), before, "sweep ran with {why}");
+                    assert_eq!(
+                        observed,
+                        bruteforce(&fixture, first_op, anchor, second_op, with_extra, keep),
+                        "{why} keep={keep}"
+                    );
+                }
+            }
+            // `any` and `all` keep the residual scan.
+            for keep in ["any", "all"] {
+                let before = keep_hits();
+                run(
+                    py, &fixture, first_op, &envelope, second_op, false, false, keep,
+                )?;
+                assert_eq!(keep_hits(), before, "sweep ran for keep={keep}");
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn envelope_keep_sweep_skips_sparse_windows() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let mut rng = XorShift(0x005B_A45E);
+            let mut fixture = fixture(&mut rng, 400, 300);
+            // Left values near the top of the first anchor leave each row a
+            // few candidates, too few to repay the tree.
+            for value in &mut fixture.left_first {
+                *value = 490 + *value % 10;
+            }
+            let (first_op, second_op) = (CompareOp::Le, CompareOp::Gt);
+            let anchor = envelope(&fixture.right_second, second_op);
+            let before = keep_hits();
+            let observed = run(
+                py, &fixture, first_op, &anchor, second_op, false, false, "first",
+            )?;
+            assert_eq!(keep_hits(), before, "sparse windows must keep the scan");
+            assert_eq!(
+                observed,
+                bruteforce(&fixture, first_op, &anchor, second_op, false, "first")
+            );
+            Ok(())
+        })
+        .unwrap();
+    }
+}
+
+/// Streaming window intersection against the stored-window reference.
+#[cfg(test)]
+mod streaming_window_tests {
+    use super::*;
+    use numpy::PyArray1;
+    use pyo3::IntoPyObject;
+
+    struct XorShift(u64);
+
+    impl XorShift {
+        fn below(&mut self, bound: u64) -> i64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            (self.0 % bound) as i64
+        }
+    }
+
+    fn anchor<'py>(
+        py: Python<'py>,
+        left: &[i64],
+        right: &[i64],
+        left_index: &Bound<'py, PyAny>,
+        right_index: &Bound<'py, PyAny>,
+        op: &str,
+        as_float: bool,
+    ) -> PyResult<AnyParsedRangePredicate<'py>> {
+        let (left, right) = if as_float {
+            (
+                PyArray1::from_vec(py, left.iter().map(|&v| v as f64 / 4.0).collect()).into_any(),
+                PyArray1::from_vec(py, right.iter().map(|&v| v as f64 / 4.0).collect()).into_any(),
+            )
+        } else {
+            (
+                PyArray1::from_vec(py, left.to_vec()).into_any(),
+                PyArray1::from_vec(py, right.to_vec()).into_any(),
+            )
+        };
+        parse_any_range_parts(
+            &left,
+            left_index,
+            &right,
+            right_index,
+            &op.into_pyobject(py)?.into_any(),
+        )
+    }
+
+    #[test]
+    fn streaming_windows_match_stored_intersection() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let mut rng = XorShift(0xC0FF_EE11);
+            for (left_len, right_len) in [(0, 5), (5, 0), (1, 1), (300, 200), (1_000, 37)] {
+                let mut first_right: Vec<i64> = (0..right_len).map(|_| rng.below(100)).collect();
+                first_right.sort_unstable();
+                // A sorted second layout, as an envelope anchor would be.
+                let mut second_right: Vec<i64> = (0..right_len).map(|_| rng.below(100)).collect();
+                second_right.sort_unstable();
+                let first_left: Vec<i64> = (0..left_len).map(|_| rng.below(110) - 5).collect();
+                let second_left: Vec<i64> = (0..left_len).map(|_| rng.below(110) - 5).collect();
+                let left_index =
+                    PyArray1::from_vec(py, (0..left_len as i64).map(|v| v * 2 + 1).collect())
+                        .into_any();
+                let right_index =
+                    PyArray1::from_vec(py, (0..right_len as i64).map(|v| 500 - v).collect())
+                        .into_any();
+                for first_op in ["<", "<=", ">", ">="] {
+                    for second_op in ["<", "<=", ">", ">="] {
+                        for as_float in [false, true] {
+                            let first = anchor(
+                                py,
+                                &first_left,
+                                &first_right,
+                                &left_index,
+                                &right_index,
+                                first_op,
+                                as_float,
+                            )?;
+                            let second = anchor(
+                                py,
+                                &second_left,
+                                &second_right,
+                                &left_index,
+                                &right_index,
+                                second_op,
+                                as_float,
+                            )?;
+                            let streamed = build_any_windows(&first, &second)
+                                .map_err(PyValueError::new_err)?;
+                            let stored = intersect_windows(
+                                first.windows(true).map_err(PyValueError::new_err)?,
+                                second.windows(false).map_err(PyValueError::new_err)?,
+                            )
+                            .map_err(PyValueError::new_err)?;
+                            let context = format!(
+                                "{left_len}x{right_len} {first_op} {second_op} float={as_float}"
+                            );
+                            assert_eq!(streamed.left_positions, stored.left_positions, "{context}");
+                            assert_eq!(streamed.left_index, stored.left_index, "{context}");
+                            assert_eq!(streamed.starts, stored.starts, "{context}");
+                            assert_eq!(streamed.ends, stored.ends, "{context}");
+                            if left_len > 0 {
+                                assert_eq!(streamed.right_index, stored.right_index, "{context}");
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn reverse_envelope_rank_sweep_matches_bruteforce() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let left_len = 400_usize;
+            let right_len = 300_usize;
+            let left_index = PyArray1::from_vec(py, (0..left_len as i64).collect()).into_any();
+            let right_index =
+                PyArray1::from_vec(py, (0..right_len as i64).map(|p| 1_000 + p).collect())
+                    .into_any();
+            let first_left = PyArray1::from_vec(py, vec![50_i64; left_len]).into_any();
+            let first_right = PyArray1::from_vec(py, (0..right_len as i64).collect()).into_any();
+            let second_left_values: Vec<i64> =
+                (0..left_len).map(|row| 100 + (row % 200) as i64).collect();
+            let residual_right_values: Vec<i64> = (0..right_len)
+                .map(|position| ((position * 37 + 11) % right_len) as i64)
+                .collect();
+            let mut second_right_values = residual_right_values.clone();
+            for position in (0..right_len.saturating_sub(1)).rev() {
+                second_right_values[position] =
+                    second_right_values[position].min(second_right_values[position + 1]);
+            }
+            let second_left = PyArray1::from_vec(py, second_left_values.clone()).into_any();
+            let second_right = PyArray1::from_vec(py, second_right_values).into_any();
+            let residual_left = PyArray1::from_vec(py, second_left_values.clone()).into_any();
+            let residual_right = PyArray1::from_vec(py, residual_right_values.clone()).into_any();
+            let predicates = PyList::new(
+                py,
+                [
+                    PyTuple::new(
+                        py,
+                        [first_left, first_right, "<".into_pyobject(py)?.into_any()],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [
+                            second_left.clone(),
+                            second_right.clone(),
+                            ">".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [
+                            residual_left,
+                            residual_right,
+                            ">".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                ],
+            )?;
+            let values = PyArray1::from_vec(py, (1..=left_len as i64).collect()).into_any();
+            let nulls = PyArray1::from_vec(py, vec![false; left_len]).into_any();
+            let aggregations = PyList::new(
+                py,
+                [
+                    PyTuple::new(
+                        py,
+                        [
+                            values.clone(),
+                            nulls.clone(),
+                            "sum".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [
+                            "*".into_pyobject(py)?.into_any(),
+                            nulls,
+                            "count".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [
+                            "*".into_pyobject(py)?.into_any(),
+                            "size".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                ],
+            )?;
+            let hits = REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get());
+            let result = range_join_extended_aggregate_reverse(
+                py,
+                &predicates,
+                &left_index,
+                &right_index,
+                &aggregations,
+                true,
+            )?
+            .expect("the reverse envelope fixture has matches");
+            assert_eq!(
+                REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|value| value.get()),
+                hits + 1,
+                "the reverse envelope sweep did not run"
+            );
+            assert_eq!(
+                result.get_item(0)?.extract::<Vec<i64>>()?,
+                (0..right_len as i64).map(|p| 1_000 + p).collect::<Vec<_>>()
+            );
+            let matched = result.get_item(1)?.extract::<Vec<bool>>()?;
+            let outputs_item = result.get_item(2)?;
+            let outputs = outputs_item.cast::<PyList>()?;
+            let sum = outputs.get_item(0)?.extract::<Vec<i64>>()?;
+            let count = outputs.get_item(1)?.extract::<Vec<i64>>()?;
+            let size = outputs.get_item(2)?.extract::<Vec<i64>>()?;
+            for position in 0..right_len {
+                let mut expected_sum = 0_i64;
+                let mut expected_count = 0_i64;
+                for (row, &left_value) in second_left_values.iter().enumerate() {
+                    if 50 < position as i64 && left_value > residual_right_values[position] {
+                        expected_sum += row as i64 + 1;
+                        expected_count += 1;
+                    }
+                }
+                let expected = expected_count > 0;
+                assert_eq!(
+                    matched[position], expected,
+                    "matched at right position {position}"
+                );
+                assert_eq!(sum[position], expected_sum);
+                assert_eq!(count[position], expected_count);
+                assert_eq!(size[position], expected_count);
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn reverse_envelope_rank_sweep_handles_prefix_windows() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let left_len = 400_usize;
+            let right_len = 300_usize;
+            let left_index = PyArray1::from_vec(py, (0..left_len as i64).collect()).into_any();
+            let right_index = PyArray1::from_vec(py, (0..right_len as i64).collect()).into_any();
+            let first_left = PyArray1::from_vec(py, vec![250_i64; left_len]).into_any();
+            let first_right = PyArray1::from_vec(py, (0..right_len as i64).collect()).into_any();
+            let second_left = PyArray1::from_vec(py, vec![50_i64; left_len]).into_any();
+            let second_right = PyArray1::from_vec(py, (0..right_len as i64).collect()).into_any();
+            let predicates = PyList::new(
+                py,
+                [
+                    PyTuple::new(
+                        py,
+                        [first_left, first_right, ">".into_pyobject(py)?.into_any()],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [
+                            second_left.clone(),
+                            second_right.clone(),
+                            "<".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [second_left, second_right, "<".into_pyobject(py)?.into_any()],
+                    )?,
+                ],
+            )?;
+            let nulls = PyArray1::from_vec(py, vec![false; left_len]).into_any();
+            let aggregations = PyList::new(
+                py,
+                [PyTuple::new(
+                    py,
+                    [
+                        "*".into_pyobject(py)?.into_any(),
+                        nulls,
+                        "count".into_pyobject(py)?.into_any(),
+                    ],
+                )?],
+            )?;
+            let hits = REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get());
+            let result = range_join_extended_aggregate_reverse(
+                py,
+                &predicates,
+                &left_index,
+                &right_index,
+                &aggregations,
+                true,
+            )?
+            .expect("the reverse prefix fixture has matches");
+            assert_eq!(
+                REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|value| value.get()),
+                hits + 1
+            );
+            let matched = result.get_item(1)?.extract::<Vec<bool>>()?;
+            let outputs_item = result.get_item(2)?;
+            let outputs = outputs_item.cast::<PyList>()?;
+            let count = outputs.get_item(0)?.extract::<Vec<i64>>()?;
+            for position in 0..right_len {
+                let expected = (51..250).contains(&(position as i64));
+                assert_eq!(
+                    matched[position], expected,
+                    "matched at right position {position}"
+                );
+                assert_eq!(count[position], if expected { left_len as i64 } else { 0 });
+            }
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn reverse_envelope_rank_sweep_falls_back_for_unsupported_shapes() {
+        Python::initialize();
+        Python::attach(|py| -> PyResult<()> {
+            let left_len = 400_usize;
+            let right_len = 300_usize;
+            let first_left_value = 50_i64;
+            let second_left_values: Vec<i64> =
+                (0..left_len).map(|row| 100 + (row % 200) as i64).collect();
+            let residual_right_values: Vec<i64> = (0..right_len)
+                .map(|position| ((position * 37 + 11) % right_len) as i64)
+                .collect();
+            let mut envelope_right_values = residual_right_values.clone();
+            for position in (0..right_len.saturating_sub(1)).rev() {
+                envelope_right_values[position] =
+                    envelope_right_values[position].min(envelope_right_values[position + 1]);
+            }
+            let source_values: Vec<i64> = (1..=left_len as i64).collect();
+            let run = |second_right_values: &[i64], op: &str, float_values: bool| {
+                let left_index = PyArray1::from_vec(py, (0..left_len as i64).collect()).into_any();
+                let right_index =
+                    PyArray1::from_vec(py, (0..right_len as i64).collect()).into_any();
+                let first_left =
+                    PyArray1::from_vec(py, vec![first_left_value; left_len]).into_any();
+                let first_right =
+                    PyArray1::from_vec(py, (0..right_len as i64).collect()).into_any();
+                let second_left = PyArray1::from_vec(py, second_left_values.clone()).into_any();
+                let second_right = PyArray1::from_vec(py, second_right_values.to_vec()).into_any();
+                let residual_left = PyArray1::from_vec(py, second_left_values.clone()).into_any();
+                let residual_right =
+                    PyArray1::from_vec(py, residual_right_values.clone()).into_any();
+                let predicates = PyList::new(
+                    py,
+                    [
+                        PyTuple::new(
+                            py,
+                            [first_left, first_right, "<".into_pyobject(py)?.into_any()],
+                        )?,
+                        PyTuple::new(
+                            py,
+                            [second_left, second_right, ">".into_pyobject(py)?.into_any()],
+                        )?,
+                        PyTuple::new(
+                            py,
+                            [
+                                residual_left,
+                                residual_right,
+                                ">".into_pyobject(py)?.into_any(),
+                            ],
+                        )?,
+                    ],
+                )?;
+                let aggregations = if op == "size" {
+                    PyList::new(
+                        py,
+                        [PyTuple::new(
+                            py,
+                            [
+                                "*".into_pyobject(py)?.into_any(),
+                                "size".into_pyobject(py)?.into_any(),
+                            ],
+                        )?],
+                    )?
+                } else if float_values {
+                    let values = PyArray1::from_vec(
+                        py,
+                        source_values.iter().map(|&value| value as f64).collect(),
+                    )
+                    .into_any();
+                    let nulls = PyArray1::from_vec(py, vec![false; left_len]).into_any();
+                    PyList::new(
+                        py,
+                        [PyTuple::new(
+                            py,
+                            [values, nulls, op.into_pyobject(py)?.into_any()],
+                        )?],
+                    )?
+                } else {
+                    let values = PyArray1::from_vec(py, source_values.clone()).into_any();
+                    let nulls = PyArray1::from_vec(py, vec![false; left_len]).into_any();
+                    PyList::new(
+                        py,
+                        [PyTuple::new(
+                            py,
+                            [values, nulls, op.into_pyobject(py)?.into_any()],
+                        )?],
+                    )?
+                };
+                range_join_extended_aggregate_reverse(
+                    py,
+                    &predicates,
+                    &left_index,
+                    &right_index,
+                    &aggregations,
+                    false,
+                )
+            };
+
+            let expected_counts = |second_right_values: &[i64]| -> Vec<i64> {
+                (0..right_len)
+                    .map(|position| {
+                        (0..left_len)
+                            .filter(|&row| {
+                                first_left_value < position as i64
+                                    && second_left_values[row] > second_right_values[position]
+                                    && second_left_values[row] > residual_right_values[position]
+                            })
+                            .count() as i64
+                    })
+                    .collect()
+            };
+            let check_size = |result: &Bound<'_, PyTuple>, expected: &[i64]| -> PyResult<()> {
+                assert_eq!(
+                    result.get_item(0)?.extract::<Vec<i64>>()?,
+                    (0..right_len as i64).collect::<Vec<_>>()
+                );
+                let outputs_item = result.get_item(1)?;
+                let outputs = outputs_item.cast::<PyList>()?;
+                assert_eq!(outputs.get_item(0)?.extract::<Vec<i64>>()?, expected);
+                Ok(())
+            };
+
+            let baseline_hits = REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get());
+            let control = run(&envelope_right_values, "size", false)?
+                .expect("the dense control case has matches");
+            check_size(&control, &expected_counts(&envelope_right_values))?;
+            assert_eq!(
+                REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get()),
+                baseline_hits + 1,
+                "the dense control case must run the reverse sweep"
+            );
+            let fallback_hits = baseline_hits + 1;
+            let float_sum = run(&envelope_right_values, "sum", true)?
+                .expect("the dense float fallback has matches");
+            let float_outputs_item = float_sum.get_item(1)?;
+            let float_outputs = float_outputs_item.cast::<PyList>()?;
+            let expected_float_sums: Vec<f64> = (0..right_len)
+                .map(|position| {
+                    (0..left_len)
+                        .filter(|&row| {
+                            first_left_value < position as i64
+                                && second_left_values[row] > envelope_right_values[position]
+                                && second_left_values[row] > residual_right_values[position]
+                        })
+                        .map(|row| source_values[row] as f64)
+                        .sum()
+                })
+                .collect();
+            assert_eq!(
+                float_outputs.get_item(0)?.extract::<Vec<f64>>()?,
+                expected_float_sums
+            );
+            assert_eq!(
+                REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get()),
+                fallback_hits,
+                "float sum must remain on the fallback"
+            );
+
+            let integer_prod = run(&envelope_right_values, "prod", false)?
+                .expect("the dense integer product fallback has matches");
+            let product_outputs_item = integer_prod.get_item(1)?;
+            let product_outputs = product_outputs_item.cast::<PyList>()?;
+            let expected_products: Vec<i64> = (0..right_len)
+                .map(|position| {
+                    (0..left_len)
+                        .filter(|&row| {
+                            first_left_value < position as i64
+                                && second_left_values[row] > envelope_right_values[position]
+                                && second_left_values[row] > residual_right_values[position]
+                        })
+                        .fold(1_i64, |product, row| {
+                            product.wrapping_mul(source_values[row])
+                        })
+                })
+                .collect();
+            assert_eq!(
+                product_outputs.get_item(0)?.extract::<Vec<i64>>()?,
+                expected_products
+            );
+            assert_eq!(
+                REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get()),
+                fallback_hits,
+                "integer product must remain on the fallback"
+            );
+
+            // Lowering every envelope value keeps the anchor sorted while
+            // making it a strict superset of the residual's candidates.
+            let non_envelope: Vec<i64> = envelope_right_values
+                .iter()
+                .map(|&value| value - 1)
+                .collect();
+            let non_envelope_result =
+                run(&non_envelope, "size", false)?.expect("the non-envelope fallback has matches");
+            check_size(&non_envelope_result, &expected_counts(&non_envelope))?;
+            assert_eq!(
+                REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get()),
+                fallback_hits,
+                "non-envelope anchors must use the fallback"
+            );
+
+            let sparse_left_len = 50_usize;
+            let sparse_right_len = 100_usize;
+            let sparse_left_index =
+                PyArray1::from_vec(py, (0..sparse_left_len as i64).collect()).into_any();
+            let sparse_right_index =
+                PyArray1::from_vec(py, (0..sparse_right_len as i64).collect()).into_any();
+            let sparse_predicates = PyList::new(
+                py,
+                [
+                    PyTuple::new(
+                        py,
+                        [
+                            PyArray1::from_vec(py, vec![10_i64; sparse_left_len]).into_any(),
+                            PyArray1::from_vec(py, (0..sparse_right_len as i64).collect())
+                                .into_any(),
+                            "<".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [
+                            PyArray1::from_vec(py, vec![50_i64; sparse_left_len]).into_any(),
+                            PyArray1::from_vec(py, (0..sparse_right_len as i64).collect())
+                                .into_any(),
+                            ">".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                    PyTuple::new(
+                        py,
+                        [
+                            PyArray1::from_vec(py, vec![50_i64; sparse_left_len]).into_any(),
+                            PyArray1::from_vec(py, (0..sparse_right_len as i64).collect())
+                                .into_any(),
+                            ">".into_pyobject(py)?.into_any(),
+                        ],
+                    )?,
+                ],
+            )?;
+            let sparse_aggregations = PyList::new(
+                py,
+                [PyTuple::new(
+                    py,
+                    [
+                        "*".into_pyobject(py)?.into_any(),
+                        "size".into_pyobject(py)?.into_any(),
+                    ],
+                )?],
+            )?;
+            let sparse_result = range_join_extended_aggregate_reverse(
+                py,
+                &sparse_predicates,
+                &sparse_left_index,
+                &sparse_right_index,
+                &sparse_aggregations,
+                false,
+            )?
+            .expect("the sparse fallback has matches");
+            let sparse_outputs_item = sparse_result.get_item(1)?;
+            let sparse_outputs = sparse_outputs_item.cast::<PyList>()?;
+            assert_eq!(
+                sparse_outputs.get_item(0)?.extract::<Vec<i64>>()?,
+                (0..sparse_right_len)
+                    .map(|position| {
+                        if (11..50).contains(&position) {
+                            sparse_left_len as i64
+                        } else {
+                            0
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            );
+            assert_eq!(
+                REVERSE_ENVELOPE_RANK_SWEEP_HITS.with(|hits| hits.get()),
+                fallback_hits,
+                "sparse windows must use the fallback"
+            );
+            Ok(())
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn reverse_residual_ranks_match_all_range_operators() {
+        let left = ArrayView1::from(&[1_i64, 1, 3, 5]);
+        let right = ArrayView1::from(&[0_i64, 1, 2, 3, 5, 6]);
+        for op in [CompareOp::Lt, CompareOp::Le, CompareOp::Gt, CompareOp::Ge] {
+            let (ranks, rank_count, thresholds) = reverse_residual_rank_thresholds(left, right, op);
+            for (position, &value) in right.iter().enumerate() {
+                let observed = left
+                    .iter()
+                    .enumerate()
+                    .filter(|&(row, _)| ranks[row] >= thresholds[position] as usize)
+                    .map(|(_, &candidate)| candidate)
+                    .collect::<Vec<_>>();
+                let expected = left
+                    .iter()
+                    .copied()
+                    .filter(|candidate| op.apply(candidate, &value))
+                    .collect::<Vec<_>>();
+                assert_eq!(observed, expected, "{op:?} at right position {position}");
+            }
+            assert!(ranks.iter().all(|&rank| rank < rank_count));
+        }
     }
 }

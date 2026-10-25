@@ -42,6 +42,19 @@ resolved or expired requests are deleted with their answers after
 `KEEP_RESOLVED_S`; the daemon's own logbook keeps the record. A bypass-mode
 auto-approval writes no file at all: nothing reads one.
 
+THE ANSWER KEY (#3355). Each request has a random key of its own,
+`<state>/probe/approvals/keys/<id>` (0600, `mint_key`), written before the
+request and never shown anywhere. The Probe service records an answer
+(`mailbox.answer`) only from a caller that sends that key (`key_matches`):
+the answer hook reads it beside the request, and the agent's shell, which
+the guard keeps out of this folder, cannot. So the service's answer path
+asks for exactly what writing the answer file asks for -- access to this
+folder -- and a caller that merely reaches the service's socket answers
+nothing. It is a sidecar, not a field of the request, so a reader from
+before it (`Request.from_json` takes no unknown field) reads the request as
+it always did. Like everything here it is a file of the same user: it raises
+the service to the folder's bar, it does not make the folder a boundary.
+
 WHAT A YES RUNS. The question shows the action; the request binds it. `action`
 is a digest of the held action itself (the raw command or argv, and its
 folder), so `verify_held` refuses a request whose held action was edited on
@@ -63,6 +76,7 @@ import json
 import os
 import secrets as _random
 import shlex
+import stat
 import tempfile
 import time
 from dataclasses import asdict, dataclass
@@ -93,6 +107,16 @@ ID_HEX_CHARS = 8
 ID_ATTEMPTS = 32
 YES = "yes"
 NO = "no"
+#: The folder of each request's answer key (`Board.mint_key`), and its length
+#: in hex characters (256 bits).
+KEYS_DIRNAME = "keys"
+KEY_HEX_CHARS = 64
+_KEY_CHARS = frozenset("0123456789abcdef")
+
+
+def is_answer_key(value: object) -> bool:
+    """Is `value` shaped like an answer key (`KEY_HEX_CHARS` lowercase hex)?"""
+    return isinstance(value, str) and len(value) == KEY_HEX_CHARS and set(value) <= _KEY_CHARS
 
 
 def approvals_dir() -> Path:
@@ -153,6 +177,13 @@ class Policy:
     render: Callable[[dict, str], Question]
     fingerprint: Callable[[dict], str]
     expires_after: float = DEFAULT_EXPIRY_S
+
+
+def _plain_id(rid: object) -> bool:
+    """A request id that is safe as a file name: what `short_id` makes and the
+    service's `MAILBOX_ID` takes (letters, digits, `_`; at most 64)."""
+    return (isinstance(rid, str) and 0 < len(rid) <= 64
+            and all(c.isascii() and (c.isalnum() or c == "_") for c in rid))
 
 
 def _digest(*parts: object) -> str:
@@ -495,17 +526,77 @@ class Board:
     def file(self, req: Request) -> None:
         """Put a new held question on the board: through the Probe service when
         one answers (`mailbox.post`: it writes this same file and tells the
-        session's watchers at once), else here."""
+        session's watchers at once), else here. Its answer key is written here
+        first, by the daemon itself: the key never travels through the service,
+        and an older service that writes the request leaves it in place."""
         from probe.daemon import mailbox
 
+        self.mint_key(req.id)
         if self.root.name != "approvals":  # the service writes `<state>/approvals`: a board elsewhere is filed here
-            self._write(self._path("requests", req.id), req.to_json())
+            self.create(req)
             return
         answer = mailbox.service_call("mailbox.post", {"sid": req.session_id,
                                                         "state_dir": str(self.root.parent.absolute()),
                                                         "question": req.to_json()}, wait=mailbox.POST_WAIT_S)
         if not (answer and answer.get("posted")):
-            self._write(self._path("requests", req.id), req.to_json())
+            self.create(req)
+
+    def create(self, req: Request) -> None:
+        """Write a new request: its answer key first (`mint_key`, kept when one is
+        there), then the request, so a request on disk always has its key."""
+        self.mint_key(req.id)
+        self._write(self._path("requests", req.id), req.to_json())
+
+    def _key_path(self, rid: str) -> Path:
+        return self.root / KEYS_DIRNAME / rid
+
+    def mint_key(self, rid: str) -> None:
+        """The request's answer key (#3355): random, written once, 0600 in a 0700
+        folder, never printed, logged or sent anywhere but back to the service by
+        the answer hook. One already there is kept (the daemon and the service
+        may both file the same request). When it cannot be written the request
+        has none: the service then refuses every answer to it, and the answer
+        hook writes the answer file itself, as with no service at all."""
+        if not _plain_id(rid):
+            return
+        path = self._key_path(rid)
+        try:
+            path.parent.mkdir(mode=0o700, exist_ok=True)
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0), 0o600)
+        except OSError:  # there already (kept), or not writable (no key: refused by the service)
+            return
+        try:
+            os.write(fd, _random.token_hex(KEY_HEX_CHARS // 2).encode("ascii"))
+        except OSError:
+            os.close(fd)
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            return
+        os.close(fd)
+
+    def key_matches(self, rid: str, given: object) -> bool:
+        """Is `given` this request's answer key? Compared in constant time. False
+        when the request has no key (filed before keys, or its key could not be
+        written), when the key file is not a plain file, or when `given` is not
+        shaped like a key."""
+        if not is_answer_key(given) or not _plain_id(rid):
+            return False
+        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+        try:
+            fd = os.open(self._key_path(rid), flags)
+        except OSError:
+            return False
+        try:
+            if not stat.S_ISREG(os.fstat(fd).st_mode):
+                return False
+            stored = os.read(fd, KEY_HEX_CHARS + 2).decode("ascii", "replace").strip()
+        except OSError:
+            return False
+        finally:
+            os.close(fd)
+        return is_answer_key(stored) and hmac.compare_digest(stored, given)
 
     def prune(self) -> int:
         """Delete resolved and expired requests, with their answers, `KEEP_RESOLVED_S`
@@ -524,7 +615,8 @@ class Board:
                 continue
             settled = req.answered_at if req.state != WAITING else req.expires_at
             if settled and settled < cutoff:
-                for stale in (path, self._path("answers", req.id)):
+                # By the file's own name, never the id its contents spell (a `../` there).
+                for stale in (path, self._path("answers", path.stem), self._key_path(path.stem)):
                     try:
                         stale.unlink()
                         removed += 1
@@ -533,6 +625,17 @@ class Board:
         for path in list((self.root / "answers").glob("*.json")):
             try:
                 if not self._path("requests", path.stem).exists() and path.stat().st_mtime < cutoff:
+                    path.unlink()
+                    removed += 1
+            except OSError:
+                pass
+        try:
+            keys = list((self.root / KEYS_DIRNAME).iterdir())
+        except OSError:
+            keys = []
+        for path in keys:  # a key whose request is gone (a crash between the two deletes)
+            try:
+                if not self._path("requests", path.name).exists() and path.lstat().st_mtime < cutoff:
                     path.unlink()
                     removed += 1
             except OSError:

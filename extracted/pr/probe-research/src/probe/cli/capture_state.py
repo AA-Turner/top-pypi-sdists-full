@@ -14,7 +14,6 @@ StrEnum. Nothing in this module is re-exported at the package top level.)
 
 from __future__ import annotations
 
-import contextlib
 import os
 import subprocess
 import sys
@@ -34,7 +33,18 @@ REASONS = (
     "no session file",
     "interpreter too old",
     "halted",
+    # The Probe service has a live recorder for the session that does not hold
+    # it now: its server does not answer, it waits to try again, or another
+    # recorder (the session's own `tap watch`) still holds it. Not a fault of
+    # the session's start, so never `not started`.
+    "not recording",
+    # The session's switch reads `off`: Probe off means the session is NOT
+    # captured (`probe.service.capture_gate`). Nothing to fix: the switch.
+    "Probe is off",
 )
+#: The reason for a session whose switch reads `off` (rendered verbatim:
+#: `not capturing session transcript: Probe is off`).
+OFF_REASON = "Probe is off"
 
 
 @dataclass(frozen=True)
@@ -56,10 +66,35 @@ def watcher_prefix(source: str) -> str:
     return capture.watcher_prefix
 
 
-def _watcher_dir() -> Path:
-    """Mirrors `tap.config._watcher_dir`: `/tmp`, or Windows's temp folder (the
-    hooks' Git Bash `/tmp`)."""
+#: Mirrors `tap.config.WATCHER_DIR_ENV`: on Windows, the folder Git Bash maps
+#: the hooks' `/tmp` to (`cygpath -w /tmp`), which session-start.sh exports for
+#: everything it starts. The temp folder Python finds there need not be it.
+WATCHER_DIR_ENV = "PROBE_TAP_WATCHER_DIR"
+#: ... and keeps in the tap's state folder (session-start.sh), for what it does
+#: not start: this CLI, and the status line's refresh, run without that variable.
+WATCHER_DIR_FILE = ".watcher_dir"
+
+
+def _watcher_dir(source: str | None = None) -> Path:
+    """Where the tap's hooks keep a session's watcher files: `/tmp`, or the
+    folder WATCHER_DIR_ENV names (every OS, as the tap from 0.10.19). On
+    Windows the folder Git Bash's `/tmp` is: the one session-start.sh recorded
+    in `source`'s tap state folder (WATCHER_DIR_FILE), else WATCHER_DIR_ENV (a
+    process the hook started), else the user's temp folder."""
+    if os.name != "nt":
+        given = os.environ.get(WATCHER_DIR_ENV, "")
+        return Path(given) if given and os.path.isabs(given) else Path("/tmp")
     if os.name == "nt":
+        if source:
+            try:
+                saved = (tap_plugin_dir(source) / WATCHER_DIR_FILE).read_text(encoding="utf-8").strip()
+            except (OSError, ValueError):
+                saved = ""
+            if saved and os.path.isabs(saved):
+                return Path(saved)
+        given = os.environ.get(WATCHER_DIR_ENV, "")
+        if given and os.path.isabs(given):
+            return Path(given)
         import tempfile
 
         return Path(tempfile.gettempdir())
@@ -67,13 +102,13 @@ def _watcher_dir() -> Path:
 
 
 def pid_file(session_id: str, source: str) -> Path:
-    return _watcher_dir() / f"{watcher_prefix(source)}-watcher-{session_id}.pid"
+    return _watcher_dir(source) / f"{watcher_prefix(source)}-watcher-{session_id}.pid"
 
 
 def hosted_file(session_id: str, source: str) -> Path:
     """Mirrors `tap.config.hosted_file`: the Probe service records the session
     itself (plan A2), and this names its pid."""
-    return _watcher_dir() / f"{watcher_prefix(source)}-watcher-{session_id}.hosted"
+    return _watcher_dir(source) / f"{watcher_prefix(source)}-watcher-{session_id}.hosted"
 
 
 def _hosted_pid(session_id: str, source: str) -> int | None:
@@ -159,6 +194,41 @@ def _looks_like_the_uploader(pid: int) -> bool:
     return "tap" in completed.stdout
 
 
+#: How long a status read waits on the tap's state db: a daemon mid-write
+#: holds it for milliseconds, and a status read never waits longer than this.
+_STATE_DB_TIMEOUT_S = 0.05
+
+
+def _state_meta(db: Path, *keys: str) -> dict[str, str] | None:
+    """`keys` out of the tap's state db `meta` table, read-only, or None when
+    it cannot be read (missing, locked past a moment, corrupt, an older
+    schema). Stdlib sqlite3 on a `mode=ro` URI: a status read never creates
+    the file, its folder or its schema, as the tap's own `Storage` would."""
+    import sqlite3  # noqa: PLC0415 - only a machine with a tap state db pays for it
+
+    try:
+        conn = sqlite3.connect(db.resolve().as_uri() + "?mode=ro", uri=True, timeout=_STATE_DB_TIMEOUT_S)
+    except (sqlite3.Error, OSError, ValueError):
+        return None
+    try:
+        marks = ",".join("?" for _ in keys)
+        rows = conn.execute(f"SELECT k, v FROM meta WHERE k IN ({marks})", keys).fetchall()  # noqa: S608
+    except sqlite3.Error:
+        return None
+    finally:
+        conn.close()
+    return {str(k): str(v) for k, v in rows if v is not None}
+
+
+def _token_fingerprint(token: str) -> str:
+    """`tap.outbox.token_fingerprint`, which the tap stamps beside its 401
+    latch: sha256 of the token, hex. A copy, because the tap is not importable
+    here (see `_halted`)."""
+    import hashlib  # noqa: PLC0415
+
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
 def _halted(source: str) -> bool:
     """Whether the daemon is sitting in the 401 halt latch.
 
@@ -169,55 +239,109 @@ def _halted(source: str) -> bool:
     start will not hit. An old daemon that stamped no fingerprint at all still
     reads as halted -- same as `tap status`.
 
-    THE TAP IS OPTIONAL HERE. It is a separately pip-installable package
-    living in the coding agent's plugin cache, and on most machines it is not
-    importable from the probe CLI's environment at all. Every failure in this
-    function degrades to "not halted": `probe session status` must keep
-    working, and an unaskable question is not evidence of a halt.
+    THE TAP IS NOT IMPORTED. It is a separately pip-installable package living
+    in the coding agent's plugin cache, and on most machines it is not
+    importable from the probe CLI's environment at all: importing it made
+    `probe session status` and `probe doctor` never say halted there. Its
+    state db is read directly instead (`_state_meta`), and its fingerprint
+    computed here (`_token_fingerprint`). Every failure degrades to "not
+    halted": `probe session status` must keep working, and an unaskable
+    question is not evidence of a halt.
 
     The state db is addressed through `tap_plugin_dir(source)` rather than
     `tap.config.state_db_path()` on purpose: `tap.config` resolves its
     directory from `PROBE_TAP_SOURCE`, which the CLI's own process does not
     set, so it would answer for claude_code while the rest of
-    `session_capture_state` answered for `source`. It is also read-only --
-    `Storage.__init__` creates directories and a schema, so a missing db is
-    checked first rather than conjured by a status read.
+    `session_capture_state` answered for `source`.
     """
-    try:
-        from tap.outbox import token_fingerprint  # noqa: PLC0415 - optional dependency
-        from tap.storage import Storage  # noqa: PLC0415
-    except Exception:  # noqa: BLE001 - absent OR broken tap both mean "cannot tell"
-        return False
-
     db = tap_plugin_dir(source) / "state.db"
-    if not db.exists():
+    if not db.is_file():
+        return False
+    meta = _state_meta(db, "last_401_at", "last_401_token_sha256")
+    if not meta or not meta.get("last_401_at"):
         return False
     credential = resolved_capture_credential(source)
     if credential is None:
         return False
-    token = credential[0]
+    rejected = meta.get("last_401_token_sha256")
+    return not rejected or rejected == _token_fingerprint(credential[0])
 
+
+def _watcher_pid(session_id: str, source: str) -> int | None:
+    """The pid in the session's pid file when it is a live uploader, else None
+    (no file, not a number, a dead pid, a live pid that is not the tap)."""
     try:
-        storage = Storage(db)
-    except Exception:  # noqa: BLE001 - a locked or corrupt db is not a halt
-        return False
+        pid = int(pid_file(session_id, source).read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    if pid <= 0:
+        return None
     try:
-        if not storage.get_meta("last_401_at"):
-            return False
-        rejected = storage.get_meta("last_401_token_sha256")
-        return not rejected or rejected == token_fingerprint(token)
-    except Exception:  # noqa: BLE001
-        return False
-    finally:
-        with contextlib.suppress(Exception):
-            storage.close()
+        from probe._shared import oscompat  # os.kill(pid, 0) answers nothing on Windows
+
+        oscompat.probe_pid(pid)
+    except (OSError, OverflowError):
+        return None
+    return pid if _looks_like_the_uploader(pid) else None
 
 
-def session_capture_state(session_id: str, source: str | None = None) -> CaptureState:
-    """The one answer every surface renders."""
+def _recorder_reading(session_id: str) -> str | None:
+    """What the Probe service's recorder of `session_id` does now, in REASONS
+    words: `running` (it holds the session), `not recording` (a live recorder
+    that does not: its server does not answer, it waits to try again, or the
+    session's own `tap watch` still holds it), `not started` (the service
+    answered and records no such session, or its recorder ended).
+
+    A `.hosted` marker naming a live service says the service took the
+    session, not that its recorder records: the tap's loop returns at once for
+    a `.disabled_paths` folder or no token, or fails every pass, and the thread
+    lives on. `service.status` says which (`recorders[].recording`, the
+    session's journal claim). None when it cannot say -- no service answer in
+    time, one from before its recorders, a tap before 0.10.5 that publishes no
+    claim -- and the caller reads the marker as before: a status read is
+    bounded and fails open, and an unaskable question is not evidence."""
+    from probe.cli import service_calls  # noqa: PLC0415 - only a hosted session asks
+
+    rows = service_calls.recorders()
+    if rows is None:
+        return None
+    for row in rows:
+        if row.get("sid") != session_id:
+            continue
+        if row.get("alive") is False:
+            return "not started"
+        if row.get("off") is True:
+            return OFF_REASON  # held: Probe is off for it, nothing of it is captured
+        claim = row.get("recording")
+        if claim is None:
+            return None
+        return "running" if claim else "not recording"
+    return "not started"
+
+
+def session_capture_state(session_id: str, source: str | None = None, *, ask_service: bool = True) -> CaptureState:
+    """The one answer every surface renders.
+
+    A live uploader in the session's pid file answers first. A pid file that
+    names no live uploader (a wrapper that gave up, was killed, or whose pid
+    was reused) is stale, not an answer: the session may have moved to the
+    Probe service since, which leaves a `.hosted` marker beside it. That
+    marker counts when it names a live service, and then the service is asked
+    what its recorder does (`_recorder_reading`), unless `ask_service` is
+    False: the self-heal (`ensure_capture`, before every `probe` command in pi)
+    asks only whether a recorder exists, never makes a service round trip, and
+    never starts a second one beside a recorder waiting for its server."""
     source = source or agent_source()
     plugin_dir = tap_plugin_dir(source)
 
+    if switched_off(session_id):
+        # Probe off: the session is not captured. A `tap watch` an older tap
+        # started for it records it until it hands it to the Probe service, so
+        # a live one still reads `running`: that much is true.
+        pid = _watcher_pid(session_id, source) if plugin_dir.exists() else None
+        if pid is not None:
+            return CaptureState(True, pid, "running")
+        return CaptureState(False, None, OFF_REASON)
     if not plugin_dir.exists():
         return CaptureState(False, None, "not installed")
     if (plugin_dir / ".disabled").exists():
@@ -225,26 +349,30 @@ def session_capture_state(session_id: str, source: str | None = None) -> Capture
     if _halted(source):
         return CaptureState(False, None, "halted")
 
-    try:
-        raw = pid_file(session_id, source).read_text(encoding="utf-8").strip()
-        pid = int(raw)
-    except (OSError, ValueError):
-        hosted = _hosted_pid(session_id, source)
-        if hosted is not None:
-            return CaptureState(True, hosted, "running")
+    pid = _watcher_pid(session_id, source)
+    if pid is not None:
+        return CaptureState(True, pid, "running")
+    hosted = _hosted_pid(session_id, source)
+    if hosted is None:
         return CaptureState(False, None, "not started")
+    reading = _recorder_reading(session_id) if ask_service else None
+    if reading in (None, "running"):
+        return CaptureState(True, hosted, "running")
+    return CaptureState(False, None, reading)
 
-    if pid <= 0:
-        return CaptureState(False, None, "not started")
-    try:
-        from probe._shared import oscompat  # os.kill(pid, 0) answers nothing on Windows
 
-        oscompat.probe_pid(pid)
-    except (OSError, OverflowError):
-        return CaptureState(False, None, "not started")
-    if not _looks_like_the_uploader(pid):
-        return CaptureState(False, None, "not started")
-    return CaptureState(True, pid, "running")
+def switched_off(session_id: str) -> bool:
+    """Does the session's switch read `off` (its own state, else this machine's
+    default), as the Probe service reads it before it records a line?"""
+    from probe.sdk import session_marker  # noqa: PLC0415
+
+    try:
+        state = session_marker.session_state(session_id)
+        if state is None:
+            state, _source = session_marker.resolve_state_default(None)
+    except Exception:  # noqa: BLE001 -- unreadable: never `off` on a guess
+        return False
+    return state == session_marker.STATE_OFF
 
 
 # --- the self-heal ---------------------------------------------------------
@@ -357,7 +485,9 @@ def ensure_capture(session_id: str, cwd: Path | str, source: str | None = None) 
     if runtime is None:
         return HealResult(False, "not installed")
 
-    state = session_capture_state(session_id, source)
+    # The marker alone (`ask_service=False`): a recorder the service runs is
+    # left to it, whether or not it holds the session at this moment.
+    state = session_capture_state(session_id, source, ask_service=False)
     # `not installed` joins the stop list for the same reason `killswitch`
     # does: it is a fact about this machine, not a daemon that failed to
     # start. The tap's state directory is absent, so nothing was ever paired

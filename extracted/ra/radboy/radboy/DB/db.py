@@ -10407,3 +10407,75 @@ try:
 except Exception as e:
     AuthenticatorTools.__table__.drop(ENGINE)
     AuthenticatorTools.metadata.create_all(ENGINE)
+
+class FederalSingleTaxBrackets(BASE,Template):
+    __tablename__="FederalSingleTaxBrackets"    
+    
+    upper_limit=Column(Float,default=None)
+    rate=Column(Float,default=None)
+    
+    group_id=Column(String)
+    geolocation=Column(String,default=None)
+    photograph_links=Column(String,default='')
+    dtoe=Column(DateTime,default=datetime.now())
+    comment=Column(String,default=None)
+    emoid=Column(Integer,primary_key=True)
+    
+    def as_json(self,excludes=[]):
+        dd={str(d.name):self.__dict__[d.name] for d in self.__table__.columns if d.name not in excludes}
+        return json.dumps(dd)
+
+    def asID(self):
+        return f"{self.__class__.__name__}(emoid={self.emoid})"
+
+    def __init__(self,**kwargs):
+        if 'dtoe' not in kwargs:
+            self.dtoe=datetime.now()
+
+        for k in kwargs.keys():
+            if k in [s.name for s in self.__table__.columns]:
+                setattr(self,k,kwargs.get(k))
+
+        self.photograph_links=detectGetOrSet('FederalSingleTaxBrackets photograph_links','',setValue=False,literal=True)
+        self.PersonnelResponsible=detectGetOrSet('FederalSingleTaxBrackets PersonnelResponsible','Carl J Hirner III',setValue=False,literal=True)
+try:
+    FederalSingleTaxBrackets.metadata.create_all(ENGINE)
+except Exception as e:
+    FederalSingleTaxBrackets.__table__.drop(ENGINE)
+    FederalSingleTaxBrackets.metadata.create_all(ENGINE)
+
+class VirginiaTaxBrackets(BASE,Template):
+    __tablename__="VirginiaTaxBrackets"    
+    
+    upper_limit=Column(Float,default=None)
+    rate=Column(Float,default=None)
+    
+    group_id=Column(String)
+    geolocation=Column(String,default=None)
+    photograph_links=Column(String,default='')
+    dtoe=Column(DateTime,default=datetime.now())
+    comment=Column(String,default=None)
+    emoid=Column(Integer,primary_key=True)
+    
+    def as_json(self,excludes=[]):
+        dd={str(d.name):self.__dict__[d.name] for d in self.__table__.columns if d.name not in excludes}
+        return json.dumps(dd)
+
+    def asID(self):
+        return f"{self.__class__.__name__}(emoid={self.emoid})"
+
+    def __init__(self,**kwargs):
+        if 'dtoe' not in kwargs:
+            self.dtoe=datetime.now()
+
+        for k in kwargs.keys():
+            if k in [s.name for s in self.__table__.columns]:
+                setattr(self,k,kwargs.get(k))
+
+        self.photograph_links=detectGetOrSet('VirginiaTaxBrackets photograph_links','',setValue=False,literal=True)
+        self.PersonnelResponsible=detectGetOrSet('VirginiaTaxBrackets PersonnelResponsible','Carl J Hirner III',setValue=False,literal=True)
+try:
+    VirginiaTaxBrackets.metadata.create_all(ENGINE)
+except Exception as e:
+    VirginiaTaxBrackets.__table__.drop(ENGINE)
+    VirginiaTaxBrackets.metadata.create_all(ENGINE)

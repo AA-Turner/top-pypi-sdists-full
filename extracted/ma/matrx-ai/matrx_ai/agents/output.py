@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from matrx_graph.content_ir.markers import normalize_nonidentity_markers
 from matrx_utils import vcprint
 
 from matrx_ai.agents.response_parser import JsonExtraction, degenerate_output_error, extract_json
@@ -111,6 +112,17 @@ def parse_agent_output(
     # fill required strings with literal "placeholder". This funnel is where EVERY path
     # (orchestrator, agent route, agent service) parses an agent answer, so the one
     # verdict lives here — the same one AgentExecutor reports.
+    if extraction.success and isinstance(schema, dict):
+        # A plain sub-structure's ``__kind`` is ``const ""``; a provider that
+        # ignored the const (or an unconstrained model) wrote junk there.
+        # Normalize, never refuse — the marker key stays, its value is "".
+        matches = [normalize_nonidentity_markers(m, schema) for m in extraction.all_matches]
+        extraction = JsonExtraction(
+            data=matches if return_all else normalize_nonidentity_markers(extraction.data, schema),
+            success=True,
+            reason=extraction.reason,
+            all_matches=matches,
+        )
     if extraction.success:
         degenerate = degenerate_output_error(extraction.data)
         if degenerate:

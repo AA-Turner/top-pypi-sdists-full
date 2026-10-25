@@ -12,8 +12,11 @@ state folder):
                    (and `mailbox.changed` / `approvals.changed` at once)
     mailbox.claim  {sid, state_dir, deadline, names, by, token}
                    -> mailbox.claim, each name in order      -> {claimed, gone, late}
-    mailbox.answer {state_dir, deadline, id, choice, channel}
-                   -> Board.answer                           -> {answered, sid, late}
+    mailbox.answer {state_dir, deadline, id, choice, channel, key}
+                   -> Board.key_matches, Board.answer         -> {answered, sid, late}
+                   (refused without the request's answer key; `channel` is
+                   still required, as `protocol.need_mailbox_answer` checks it
+                   for every service version, and never recorded)
 
 THE DEADLINE. A caller that heard nothing (a service that stalled, or died
 mid-request) does the step itself, but only once the request's deadline and a
@@ -28,6 +31,20 @@ wait: a request behind it is refused at once (`busy`), and its caller works on
 the files itself. The step itself is atomic on disk
 (`os.replace`, `os.rename`), so an older worker or hook, pi's reader, or a
 machine with no service, working on the files beside the service, stays right.
+
+WHO MAY ANSWER (#3355). `mailbox.answer` writes a yes the daemon acts on, so
+it takes one only with the held question's answer key (`approvals.Board.
+mint_key`: `<state>/approvals/keys/<id>`, which the answer hook reads beside
+the request). Any process of this user can reach the socket; a caller that
+cannot read the approvals folder -- the agent's own shell, which the guard
+keeps out of it -- cannot send the key, and is refused (`REFUSED`, nothing
+written). A request filed before keys has none, so every answer to it is
+refused here and the answer hook writes the answer file itself, exactly as
+an older hook does on any refusal. Where the answer came from (`channel`)
+is the service's to say, never the caller's: the one answer path that sends
+the key is the answer hook's, after the question tool (`ANSWER_CHANNEL`).
+A new question posted here gets its key written beside it (`Board.create`)
+when its daemon did not write one, and the key is never sent back.
 
 `probe.daemon.mailbox` and `approvals` are imported on the thread (stdlib
 only, off the start path).
@@ -45,6 +62,11 @@ from .protocol import MAILBOX_ID
 
 #: What a handler waits past the deadline before it takes the step back.
 GRACE_S = 0.25
+#: The `channel` every answer recorded here carries: the one path that holds
+#: the request's key and answers through this method is the answer hook, with
+#: the person's pick from the harness's question tool. What the caller says is
+#: never taken (#3355).
+ANSWER_CHANNEL = "question-tool"
 #: A step that has run this long is stuck (a hung network home, a FIFO): every
 #: new request is refused at once (`busy`, nothing queued), and its caller does
 #: the step on the files itself.
@@ -134,7 +156,7 @@ class MailHost:
             return {"posted": question.id, "kind": "question", "late": False}
         try:
             with mailbox.rooted(state, deadline=request["deadline_mono"]):
-                board.save(question)
+                board.create(question)  # its answer key first, unless its daemon wrote one
         except mailbox.Late:
             return {"posted": None, "late": True}
         return {"posted": question.id, "kind": "question", "late": False}
@@ -167,7 +189,10 @@ class MailHost:
     @staticmethod
     def answer(request: dict) -> dict:
         """The researcher's pick for a held question (`Board.answer`): False when
-        it is no longer waiting, or has expired."""
+        it is no longer there, no longer waiting, or has expired; `{"refused":
+        ...}`, with nothing written, when the caller did not send the
+        question's answer key (`Board.key_matches`). The channel recorded is
+        ANSWER_CHANNEL, whatever the caller said."""
         from probe.daemon import approvals
 
         if time.monotonic() > request["deadline_mono"]:
@@ -176,12 +201,16 @@ class MailHost:
 
         board = approvals.Board(Path(request["state"]) / "approvals")
         held = board.get(request["id"])
+        if held is None:
+            return {"answered": False, "sid": None, "late": False}
+        if not board.key_matches(request["id"], request.get("key")):
+            return {"refused": "the answer did not carry the held question's answer key"}
         try:
             with mailbox.rooted(request["state"], deadline=request["deadline_mono"]):
-                answered = board.answer(request["id"], request["choice"], channel=request["channel"])
+                answered = board.answer(request["id"], request["choice"], channel=ANSWER_CHANNEL)
         except mailbox.Late:
             return {"answered": None, "late": True}
-        return {"answered": answered, "sid": held.session_id if held else None, "late": False}
+        return {"answered": answered, "sid": held.session_id, "late": False}
 
 
-__all__ = ["GRACE_S", "MailHost"]
+__all__ = ["ANSWER_CHANNEL", "GRACE_S", "MailHost"]

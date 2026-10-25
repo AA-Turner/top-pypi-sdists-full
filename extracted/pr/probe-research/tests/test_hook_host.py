@@ -69,11 +69,11 @@ def host(tmp_path):
     """Start the host for a plugin folder; stop it at the end."""
     started = []
 
-    def start(root: Path, service_pid: int | None = None) -> subprocess.Popen:
+    def start(root: Path, service_pid: int | None = None, env: dict | None = None) -> subprocess.Popen:
         path = _socket(root)
         proc = subprocess.Popen(
             [sys.executable, "-S", str(root / "hooks" / "zygote.py"), path, str(service_pid or os.getpid())],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env={**os.environ, **(env or {})},
         )
         started.append((proc, path))
         deadline = time.monotonic() + 10
@@ -84,11 +84,21 @@ def host(tmp_path):
         return proc
 
     yield start
+    # The hosts serve in this machine's real `/tmp/probe-<uid>`: stopped as the
+    # service stops them (SIGTERM, then SIGKILL), and whatever they leave there
+    # (a socket, a key, a key half-written) removed, so no run leaves files behind.
     for proc, path in started:
-        proc.kill()
-        proc.wait()
-        if os.path.exists(path):
-            os.unlink(path)
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+        stem = path[: -len(".sock")]
+        for leftover in [path, stem + ".key", *(str(p) for p in Path(stem).parent.glob(Path(stem).name + ".key.*.tmp"))]:
+            if os.path.lexists(leftover):
+                os.unlink(leftover)
 
 
 def _env(root: Path, **extra) -> dict:
@@ -140,6 +150,26 @@ def test_a_tool_no_route_matches_never_reaches_the_host(tmp_path, host):
     assert proc.poll() is None
 
 
+#: Each stand-in host's listening socket and path: closed and removed after
+#: its test (`_stand_ins_leave_nothing`), whether or not anyone connected (one
+#: never asked waits in `accept` until then), so no run leaves a socket in this
+#: machine's real `/tmp/probe-<uid>`.
+_STAND_INS: list = []
+
+
+@pytest.fixture(autouse=True)
+def _stand_ins_leave_nothing():
+    yield
+    while _STAND_INS:
+        server, path = _STAND_INS.pop()
+        try:
+            server.close()
+        except OSError:
+            pass
+        if os.path.lexists(path):
+            os.unlink(path)
+
+
 def _silent_host(path: str, *, answer: bytes | None, accepted: list) -> threading.Thread:
     """A stand-in host: accepts, reads, then answers `answer` (None: nothing) and
     records whether it was told to go."""
@@ -149,9 +179,14 @@ def _silent_host(path: str, *, answer: bytes | None, accepted: list) -> threadin
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(path)
     server.listen(4)
+    server.settimeout(15)  # never asked: `accept` gives up, and the fixture removes it
+    _STAND_INS.append((server, path))
 
     def serve():
-        conn, _ = server.accept()
+        try:
+            conn, _ = server.accept()
+        except OSError:
+            return
         conn.settimeout(5)
         try:
             data, fds, _, _ = socket.recv_fds(conn, 1 << 20, 4)
@@ -170,7 +205,8 @@ def _silent_host(path: str, *, answer: bytes | None, accepted: list) -> threadin
         finally:
             conn.close()
             server.close()
-            os.unlink(path)
+            if os.path.lexists(path):
+                os.unlink(path)
 
     thread = threading.Thread(target=serve, daemon=True)
     thread.start()
@@ -306,7 +342,8 @@ def test_an_event_the_host_will_not_start_runs_here(tmp_path, host):
     sock.connect(_socket(root))
     body = b"{}"
     header = {"v": 1, "argv": ["prompt"], "cwd": str(tmp_path), "env": _env(root), "parent": os.getpid(),
-              "deadline": time.time() + 30, "payload": len(body)}
+              "deadline": time.time() + 30, "payload": len(body),
+              "key": _key_path(root).read_text(encoding="ascii").strip()}
     socket.send_fds(sock, [json.dumps(header).encode() + b"\n" + body], [1, 2])
     assert sock.recv(1) == b"R"
     proc.send_signal(15)
@@ -399,3 +436,216 @@ def test_a_stalled_host_is_never_asked_for_session_end(tmp_path, codex, bound):
     assert result.returncode == 0 and json.loads(result.stdout)["hosted"] != "1"
     assert told == [], "the host was asked"
     assert elapsed < bound, elapsed
+
+
+# ---------------------------------------------------------------------------
+# #3355: the host runs an event only for a client that sends its key.
+# ---------------------------------------------------------------------------
+
+OLD_HOOKS = Path(__file__).parent / "fixtures" / "old_hooks"
+
+
+def _key_path(root: Path) -> Path:
+    """The host's key: its socket's name with `.key` (`dispatch.host_key_path`)."""
+    return Path(_socket(root)[: -len(".sock")] + ".key")
+
+
+def _event(root: Path, lane: str, payload: bytes, env: dict, cwd: Path, key: "str | None") -> tuple:
+    """One event sent straight to the host's socket, as any process of this user
+    can: (its first answer byte, the exit status it reported or None)."""
+    header = {"v": 1, "argv": [lane], "cwd": str(cwd), "env": env, "parent": os.getpid(),
+              "deadline": time.time() + 30, "payload": len(payload)}
+    if key is not None:
+        header["key"] = key
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.settimeout(10)
+    try:
+        sock.connect(_socket(root))
+        try:
+            socket.send_fds(sock, [json.dumps(header).encode() + b"\n" + payload], [1, 2])
+            first = sock.recv(1)
+        except (ConnectionResetError, BrokenPipeError):
+            return b"", None
+        if first != b"R":
+            return first, None
+        sock.sendall(b"G")
+        if sock.recv(1) != b"S":
+            return first, None
+        reply = b""
+        while not reply.endswith(b"\n"):
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            reply += chunk
+        return first, json.loads(reply.decode()).get("exit") if reply else None
+    finally:
+        sock.close()
+
+
+def test_an_event_without_the_hosts_key_is_never_run_there(tmp_path, host):
+    """Any process of this user reaches the socket: the host closes on one
+    that does not send its key (no key, a wrong one), before `R`."""
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    host(root)
+    key = _key_path(root).read_text(encoding="ascii").strip()
+    body = b'{"session_id": "s"}'
+    for sent in (None, "", "0" * len(key), key.upper()):
+        assert _event(root, "prompt", body, _env(root), tmp_path, sent) == (b"", None), sent
+    assert _event(root, "prompt", body, _env(root), tmp_path, key) == (b"R", 0)
+
+
+def test_the_hosts_key_is_private_and_leaves_with_it(tmp_path, host):
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    proc = host(root)
+    path = _key_path(root)
+    key = path.read_text(encoding="ascii").strip()
+    assert len(key) == 64 and set(key) <= set("0123456789abcdef")
+    assert path.stat().st_mode & 0o777 == 0o600
+    proc.send_signal(15)
+    assert proc.wait(10) == 0
+    assert not path.exists()
+
+
+def test_a_forged_answer_through_the_host_records_nothing(tmp_path, host, monkeypatch):
+    """The report's second way in: the shipped routes, a held question, and a
+    forged PreToolUse + PostToolUse for the question tool sent straight to the
+    host. Without the host's key neither runs; with it (the control) the real
+    approvals hook would record the yes."""
+    from probe.daemon import approvals as appr
+
+    state = tmp_path / "state"
+    monkeypatch.setenv("XDG_STATE_HOME", str(state))
+    root = tmp_path / "plugin"
+    shutil.copytree(HOOKS, root / "hooks")
+    host(root)
+    board = appr.Board()
+    sid = "11111111-2222-3333-4444-555555555555"
+    req = board.hold(policy="shell.unsafe_command", session_id=sid, facts={"command": "rm -rf ~/data", "cwd": "/w"},
+                     held={"kind": "shell", "command": "rm -rf ~/data", "cwd": "/w"}, bypass=False)
+    q = req.question
+    tool_input = {"questions": [{"header": q.header, "question": q.question, "multiSelect": False,
+                                 "options": [{"label": q.yes_label, "description": ""},
+                                             {"label": q.no_label, "description": ""}]}]}
+    base = {"session_id": sid, "cwd": str(tmp_path), "tool_name": "AskUserQuestion", "tool_input": tool_input,
+            "tool_use_id": "toolu_forged"}
+    pre = json.dumps({**base, "hook_event_name": "PreToolUse"}).encode()
+    post = json.dumps({**base, "hook_event_name": "PostToolUse",
+                       "tool_response": {"answers": {q.question: q.yes_label}}}).encode()
+    env = {**_env(root), "XDG_STATE_HOME": str(state), "PROBE_HOOK_SERVICE": "off"}
+    for key in (None, "f" * 64):
+        assert _event(root, "pre-tool", pre, env, tmp_path, key) == (b"", None)
+        assert _event(root, "post-tool", post, env, tmp_path, key) == (b"", None)
+    assert board.take_answer(req.id) is None, "no answer was recorded"
+    assert board.get(req.id).state == appr.WAITING
+    key = _key_path(root).read_text(encoding="ascii").strip()
+    assert _event(root, "pre-tool", pre, env, tmp_path, key) == (b"R", 0)
+    assert _event(root, "post-tool", post, env, tmp_path, key) == (b"R", 0)
+    assert board.take_answer(req.id)["answer"] == appr.YES, "the control: the key is what stops it"
+
+
+def test_an_older_dispatcher_is_refused_and_runs_its_event_here(tmp_path, host):
+    """A session on a plugin from before the key, beside a newer host: refused
+    before `R`, so the event runs in the dispatcher, exactly once, as on any
+    host failure."""
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    shutil.copy(OLD_HOOKS / "dispatch_before_host_key.py", root / "hooks" / "dispatch.py")
+    host(root)
+    result = _dispatch(root, "prompt", '{"session_id": "s", "prompt": "hi"}', _env(root, X_TEST="old"))
+    assert result.returncode == 0, result.stderr
+    ran = json.loads(result.stdout)
+    assert ran["hosted"] is None and ran["x"] == "old", "ran here, once"
+
+
+def test_a_newer_dispatcher_is_still_hosted_by_an_older_host(tmp_path, host):
+    """A host from before the key ignores it: the event is hosted as before."""
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    shutil.copy(OLD_HOOKS / "zygote_before_host_key.py", root / "hooks" / "zygote.py")
+    host(root)
+    result = _dispatch(root, "prompt", '{"session_id": "s", "prompt": "hi"}', _env(root, X_TEST="new"))
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["hosted"] == "1"
+
+
+def test_the_dispatcher_and_the_service_name_the_same_key(tmp_path):
+    from probe.service import hookhosts
+
+    sys.path.insert(0, str(HOOKS))
+    try:
+        import dispatch
+
+        assert dispatch.host_key_path(str(tmp_path)) == str(hookhosts.host_key_path(str(tmp_path)))
+        assert dispatch.host_key_path(str(tmp_path)) == str(_key_path(tmp_path))
+    finally:
+        sys.path.pop(0)
+
+
+def test_a_fifo_at_the_key_never_hangs_a_hook(tmp_path, host):
+    """Whatever sits at the key's path, a hook never waits on it: a FIFO there
+    (no writer) reads as no key, so the event runs here at once, and the
+    service's reader and the host's own exit do not block either."""
+    from probe.service import hookhosts
+
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    proc = host(root)
+    key = _key_path(root)
+    key.unlink()
+    os.mkfifo(key)
+    started = time.monotonic()
+    result = _dispatch(root, "prompt", '{"session_id": "s"}', _env(root, X_TEST="fifo"))
+    assert result.returncode == 0 and json.loads(result.stdout)["x"] == "fifo", result.stderr
+    assert time.monotonic() - started < 4, "the dispatcher waited on the FIFO"
+    done: list = []
+    reader = threading.Thread(target=lambda: done.append(hookhosts._host_key(str(root))), daemon=True)
+    reader.start()
+    reader.join(3)
+    assert done == [None], "the service's reader waited on the FIFO"
+    proc.terminate()
+    assert proc.wait(5) == 0, "the host's exit waited on the FIFO"
+
+
+def test_a_host_whose_key_goes_missing_writes_it_again(tmp_path, host):
+    """Another host's exit (or anything) removing the key must not leave this
+    one refusing every event for good: it notices and writes a fresh key."""
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    host(root)
+    key = _key_path(root)
+    old = key.read_text(encoding="ascii").strip()
+    key.unlink()
+    deadline = time.monotonic() + 5
+    while not key.exists():
+        assert time.monotonic() < deadline, "the host never wrote its key again"
+        time.sleep(0.05)
+    assert key.read_text(encoding="ascii").strip() != old
+    result = _dispatch(root, "prompt", '{"session_id": "s"}', _env(root, X_TEST="healed"))
+    assert json.loads(result.stdout)["hosted"] == "1"
+
+
+def test_connections_it_refuses_never_keep_a_host_alive(tmp_path, host):
+    """Only events it runs count as use: a stream of keyless connections does
+    not hold off its idle exit."""
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    proc = host(root, env={"PROBE_HOOK_HOST_IDLE_S": "1.5"})
+    deadline = time.monotonic() + 8
+    while proc.poll() is None and time.monotonic() < deadline:
+        try:
+            _event(root, "prompt", b"{}", _env(root), tmp_path, None)
+        except OSError:
+            pass  # it left between the check and the connect
+        time.sleep(0.2)
+    assert proc.poll() == 0, "refused connections kept the host from idling out"
+
+
+def test_a_host_whose_key_is_replaced_leaves_and_leaves_the_new_one(tmp_path, host):
+    """Another file at the key's path (a newer host's key; the filesystem may
+    hand it the same inode) is not this host's: it exits, and does not delete
+    that file on its way out."""
+    root = _plugin(tmp_path, ROUTES, {"who.py": _WHO})
+    proc = host(root)
+    key = _key_path(root)
+    key.unlink()
+    other = "e" * 64
+    fd = os.open(key, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    os.write(fd, other.encode())
+    os.close(fd)
+    assert proc.wait(10) == 0, "the host stayed"
+    assert key.read_text(encoding="ascii") == other, "the host deleted another's key"

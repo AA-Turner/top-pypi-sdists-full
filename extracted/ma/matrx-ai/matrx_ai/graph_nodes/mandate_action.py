@@ -168,6 +168,20 @@ def _state_as_extras(inputs: MandateStartInput) -> MandateStartInput:
     )
 
 
+def refuse_variables_shadowing_typed_fields(variables: dict[str, Any], where: str) -> None:
+    """Refuse, at bind time, doer variables named like a typed field of the step (``store``, ``context``, ``tools``…).
+
+    Bound variables ride as top-level extras; one named like a typed field is not a variable at all — it is parsed
+    as that run setting (a type error that kills the run, or worse a value that validates and silently changes how
+    the run behaves) and the doer never receives it (live 2026-10-24: ``store`` on the self-description binding)."""
+    shadowing = sorted(set(variables) & set(MandateStartInput.model_fields))
+    if shadowing:
+        raise ValueError(
+            f"{where}: the binding names doer variable(s) {shadowing} that shadow this step's typed input "
+            "field(s) of the same name, so the doer would never receive them. Rename the variable on the doer and "
+            "in the mandate's binding (e.g. 'store' -> 'store_collections').")
+
+
 async def _bind_provision_values(inputs: MandateStartInput, resolved: Any) -> MandateStartInput:
     """Run the step's provision values (THE STATE at the point) through the mandate's BINDING (the host's
     one consumption pipeline): the variables the doer runs on replace the raw state. Edge-fed variables
@@ -192,6 +206,7 @@ async def _bind_provision_values(inputs: MandateStartInput, resolved: Any) -> Ma
         raise ValueError(f"{where} has no binding map: the whole state would reach the doer by name. Bind the "
                          "doer's inputs on the mandate's Binding tab (its default consumption map).")
     variables = await materialize(dict(supplied))
+    refuse_variables_shadowing_typed_fields(variables, where)
     extras = dict(inputs.model_extra or {})
     return MandateStartInput.model_validate(
         {**inputs.model_dump(exclude={"provision_values"}, exclude_none=True), **extras, **variables}

@@ -437,6 +437,58 @@ class ShownTo(StrEnum):
     EVERYONE = "everyone"
     EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
 
+class SearchReview(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    name = TextField(null=False)
+    question = TextField(null=False)
+    scale = TextField(null=False, default='yes_no_maybe')
+    choices = JSONBField(null=False, default=[])
+    queries = TextArrayField(null=False, default=[])
+    engines = TextArrayField(null=False, default=['brave'])
+    keep_terms = TextArrayField(null=False, default=[])
+    drop_terms = TextArrayField(null=False, default=[])
+    results = JSONBField(null=False, default=[])
+    answers = JSONBField(null=False, default={})
+    judges = JSONBField(null=False, default={})
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='iam', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False)
+    test_run_id = UUIDField()
+    test_expires_at = DateTimeField()
+    shown_to = EnumField(enum_class=ShownTo, )
+    published_to_web = BooleanField(null=False)
+    published_to_web_at = DateTimeField()
+    published_to_web_by = UUIDField()
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "search_review"
+    _db_schema = "web"
+    _entity_token = "web_search_review"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
+
+
+
+class Visibility(StrEnum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class ShownTo(StrEnum):
+    ONLY_ME = "only_me"
+    MY_TEAM = "my_team"
+    EVERYONE = "everyone"
+    EVERYONE_ON_AI_MATRX = "everyone_on_ai_matrx"
+
 class YoutubeVideo(MatrxEntity):
     id = UUIDField(primary_key=True, null=False)
     channel_resource_id = ForeignKey(to_model='IntegrationConnectionResources', to_column='id', to_schema='users', null=False)
@@ -560,7 +612,7 @@ class BrandAsset(MatrxEntity):
     _table_name = "brand_asset"
     _db_schema = "web"
     _entity_token = "web_brand_asset"
-    _is_versioned = False
+    _is_versioned = True
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
@@ -732,7 +784,7 @@ class BrandPersona(MatrxEntity):
     _table_name = "brand_persona"
     _db_schema = "web"
     _entity_token = "web_brand_persona"
-    _is_versioned = False
+    _is_versioned = True
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "entity"
@@ -827,7 +879,7 @@ class BusinessFact(MatrxEntity):
     _table_name = "business_fact"
     _db_schema = "web"
     _entity_token = "web_business_fact"
-    _is_versioned = False
+    _is_versioned = True
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
@@ -976,7 +1028,7 @@ class VoiceFingerprint(MatrxEntity):
     _table_name = "voice_fingerprint"
     _db_schema = "web"
     _entity_token = "web_voice_fingerprint"
-    _is_versioned = False
+    _is_versioned = True
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "entity"
@@ -1526,7 +1578,7 @@ class Property(MatrxEntity):
     _table_name = "property"
     _db_schema = "web"
     _entity_token = "web_property"
-    _is_versioned = False
+    _is_versioned = True
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "component"
@@ -1908,7 +1960,7 @@ class TempBrandRecognition(MatrxEntity):
     _table_name = "temp_brand_recognition"
     _db_schema = "web"
     _entity_token = "web_temp_brand_recognition"
-    _is_versioned = False
+    _is_versioned = True
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "entity"
@@ -2054,6 +2106,7 @@ __all__ = [
     "NewsItem",
     "OfferingTemplate",
     "Provider",
+    "SearchReview",
     "YoutubeVideo",
     "AnalysisItem",
     "BrandAsset",
@@ -2116,6 +2169,7 @@ model_registry.register_all(
         NewsItem,
         OfferingTemplate,
         Provider,
+        SearchReview,
         YoutubeVideo,
         AnalysisItem,
         BrandAsset,

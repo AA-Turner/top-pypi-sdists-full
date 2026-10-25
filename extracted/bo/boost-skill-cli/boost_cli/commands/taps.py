@@ -41,16 +41,22 @@ def _tap_catalog(args, tapped: list[tuple[str, int]] | None = None) -> int:
         out.warn("no catalog registries match that filter")
         return 1
     if args.dry_run:
-        rows = [(e["name"], e["type"], e.get("category", ""),
-                 "~%d" % (e.get("est_items") or 0),
-                 out.role(e.get("focus", ""), "muted")) for e in selection]
-        # NAME is the owner/repo `boost tap` takes.
-        out.table(rows, headers=("NAME", "TYPE", "CATEGORY", "EST", "FOCUS"),
-                  whole=("NAME",))
-        print()
-        out.dim("%d registries · ~%d items (dry run — nothing tapped)"
-                % (len(selection), sum(e.get("est_items") or 0 for e in selection)))
-        return 0
+        plan = registry.plan_specs([str(e["url"]) for e in selection])
+        todo = [e for e, row in zip(selection, plan, strict=True)
+                if row.get("todo")]
+        if todo:
+            rows = [(e["name"], e["type"], e.get("category", ""),
+                     "~%d" % (e.get("est_items") or 0),
+                     out.role(e.get("focus", ""), "muted")) for e in todo]
+            # NAME is the owner/repo `boost tap` takes.
+            out.table(rows, headers=("NAME", "TYPE", "CATEGORY", "EST",
+                                     "FOCUS"), whole=("NAME",))
+            print()
+        rc = _print_held(plan)
+        out.dim("%s · ~%d items (dry run — nothing tapped)"
+                % (_dry_run_counts(plan),
+                   sum(e.get("est_items") or 0 for e in todo)))
+        return rc
     focus = {str(e["name"]): e.get("focus", "") for e in selection}
     # The ★ follows the catalogue's own `curated` column, not the whole batch:
     # stamping every row is what made it mark 463 registries. `--curated` still
@@ -61,16 +67,60 @@ def _tap_catalog(args, tapped: list[tuple[str, int]] | None = None) -> int:
                                             if e.get("curated")))
 
 
-def _print_dry_run(pairs: list[tuple[str, str]]) -> int:
-    """Print what `--defaults`/SPEC would tap and return 0, tapping nothing.
+def _print_dry_run(specs: list[str], at: str | None = None) -> int:
+    """Print what `--defaults`/SPEC would tap; 1 if the run would refuse one.
 
-    Shares the format of the `--catalog --dry-run` table above so the flag
-    reads the same regardless of which branch of `cmd_tap` it modifies.
+    Built from :func:`registry.plan_specs`, the split the real run makes, so
+    a registry already tapped is named as skipped rather than listed among
+    the ones to clone. Shares the format of the `--catalog --dry-run` table
+    above so the flag reads the same regardless of which branch of `cmd_tap`
+    it modifies.
     """
-    out.table(pairs, headers=("NAME", "URL"), whole=("NAME",))
-    print()
-    out.dim("%d registries (dry run — nothing tapped)" % len(pairs))
-    return 0
+    plan = registry.plan_specs(specs)
+    if at:
+        # `--at` never skips: a tap already configured is an error there
+        # (see cmd_tap), so the preview says so instead of "already tapped".
+        for row in plan:
+            if row.get("skipped"):
+                row.pop("skipped")
+                row["error"] = "already tapped, and --at does not move it"
+    todo = [(row["name"], row["url"]) for row in plan if row.get("todo")]
+    if todo:
+        out.table(todo, headers=("NAME", "URL"), whole=("NAME",))
+        print()
+    rc = _print_held(plan)
+    out.dim("%s (dry run — nothing tapped)" % _dry_run_counts(plan))
+    return rc
+
+
+def _print_held(plan: list[dict]) -> int:
+    """Name each planned spec the run would not clone; 1 if one would fail.
+
+    Worded as `_tap_all` words the same row, so a preview and its run read
+    alike line for line.
+    """
+    rc = 0
+    for row in plan:
+        if row.get("skipped"):
+            out.info(out.role("%s already tapped" % row["name"], "muted"))
+        elif not row.get("todo"):
+            out.warn("would not tap %s: %s" % (row["name"], row["error"]),
+                     wrap=True)
+            rc = 1
+    return rc
+
+
+def _dry_run_counts(plan: list[dict]) -> str:
+    """"2 registries to tap, 1 already tapped" — the split the run will make."""
+    todo = sum(1 for row in plan if row.get("todo"))
+    held = sum(1 for row in plan if row.get("skipped"))
+    bad = len(plan) - todo - held
+    parts = ["%d %s to tap" % (todo, "registry" if todo == 1 else "registries")]
+    if held:
+        parts.append("%d already tapped" % held)
+    if bad:
+        parts.append("%d refused" % bad)
+    return ", ".join(parts)
 
 
 def _skip_if_already_tapped(spec: str) -> bool:
@@ -216,8 +266,7 @@ def cmd_tap(argv) -> int:
         rc |= _tap_catalog(args, tapped)
     if args.defaults:
         if args.dry_run:
-            rc |= _print_dry_run([(str(d["name"]), str(d["url"]))
-                                  for d in config.DEFAULT_TAPS])
+            rc |= _print_dry_run([str(d["url"]) for d in config.DEFAULT_TAPS])
         else:
             # "items", not "skills": the defaults now carry rules and
             # workflows, so a pure rules registry reported "257 skills"
@@ -229,7 +278,7 @@ def cmd_tap(argv) -> int:
                                   for d in config.DEFAULT_TAPS},
                            tapped=tapped)
     if args.spec and args.dry_run:
-        rc |= _print_dry_run(registry.parse_specs(list(args.spec)))
+        rc |= _print_dry_run(list(args.spec), at=args.at)
     elif args.spec and args.at:
         # --at pins one commit, which cannot describe "skip, already tapped"
         # — a tap already sitting on a different commit must fail loudly, not
@@ -484,6 +533,37 @@ def _outdated_qualifier(r: dict) -> str:
     return " (%s)" % ", ".join(tags) if tags else ""
 
 
+def _outdated_holds(r: dict) -> str:
+    """INSTALLED-column suffix naming what holds the row where it is.
+
+    `boost update` skips a pinned or quarantined item and an item with local
+    edits ("has local edits — update skipped"), so a row showing none of the
+    three read as a plain upgrade that the next run would take.
+    """
+    tags = [tag for tag, on in (("pinned", r["pinned"]),
+                                ("quarantined", r["quarantined"]),
+                                ("local edits", r["local_edits"])) if on]
+    return " (%s)" % ", ".join(tags) if tags else ""
+
+
+def _held_by_edits(reason: str | None, kind: str, name: str, lk: dict,
+                   base=None) -> bool:
+    """Whether `boost update` would hold this row back for its local edits.
+
+    Asked only of a row with an upgrade to take, so `outdated` hashes no copy
+    it has nothing to say about -- and the question is `boost update`'s own
+    (:func:`integrity.locally_edited`), so the two cannot disagree. Update
+    checks quarantine, then the pin, then the edits: a quarantined or pinned
+    row is held by that first (an `evolve --apply` revision is pinned *and*
+    reads as edited), so it is not reported as held by its edits.
+    """
+    if (reason not in (staleness.VERSION, staleness.CONTENT,
+                       staleness.DOWNGRADE)
+            or lk.get("quarantined") or lk.get("pinned")):
+        return False
+    return integrity.locally_edited(kind, name, lk, base=base)
+
+
 def _held_tap_reason(tap_name: str, lk: dict,
                      memo: dict[str, registry.Tap | None]) -> str | None:
     """Why a row of a *configured* tap cannot be compared at all, else None.
@@ -542,7 +622,8 @@ def cmd_outdated(argv) -> int:
                             "latest": None, "reason": held,
                             "latest_commit": None,
                             "tap": tap_name, "pinned": bool(lk.get("pinned")),
-                            "scope": scope})
+                            "quarantined": bool(lk.get("quarantined")),
+                            "local_edits": False, "scope": scope})
             continue
         # Skills only: a same-named workflow upstream is not this skill's
         # update, and listing it as one sent `boost update` to "upgrade" it.
@@ -558,7 +639,8 @@ def cmd_outdated(argv) -> int:
                             "reason": staleness.SOURCE_MISSING,
                             "latest_commit": None,
                             "tap": tap_name, "pinned": bool(lk.get("pinned")),
-                            "scope": scope})
+                            "quarantined": bool(lk.get("quarantined")),
+                            "local_edits": False, "scope": scope})
             continue
         entry, _warning = catalog.select_lock_source(matches, lk)
         entry = cast(dict, entry)             # matches is non-empty above
@@ -585,7 +667,8 @@ def cmd_outdated(argv) -> int:
                         else store.skill_store_dir(name))
         base = {"name": name, "kind": "skill", "installed": installed_v,
                 "tap": tap_name, "pinned": bool(lk.get("pinned")),
-                "scope": scope}
+                "quarantined": bool(lk.get("quarantined")),
+                "local_edits": False, "scope": scope}
         if src_missing:
             results.append(base | {"latest": None,
                                    "reason": staleness.SOURCE_MISSING,
@@ -595,6 +678,9 @@ def cmd_outdated(argv) -> int:
                 installed_v, latest, lk.get("commit", ""), head,
                 lk.get("sha256", ""), src_sha, exec_changed),
                 installed_v, latest, pinned=bool(lk.get("pinned")))
+            base["local_edits"] = _held_by_edits(
+                reason, "skill", name, lk,
+                _base if scope == scopes.SCOPE_PROJECT else None)
             if reason == staleness.VERSION:
                 results.append(base | {"latest": latest,
                                        "reason": staleness.VERSION,
@@ -615,6 +701,8 @@ def cmd_outdated(argv) -> int:
             installed_v = str(lk.get("version") or "0.0.0")
             base = {"name": name, "kind": kind, "installed": installed_v,
                     "tap": tap_name, "pinned": bool(lk.get("pinned")),
+                    "quarantined": bool(lk.get("quarantined")),
+                    "local_edits": False,
                     "scope": lk.get("scope") or scopes.SCOPE_USER}
             held = _held_tap_reason(tap_name, lk, tap_memo)
             if held:
@@ -635,6 +723,7 @@ def cmd_outdated(argv) -> int:
                 continue
             reason = staleness.rewound(reason, installed_v, r_latest,
                                        pinned=bool(lk.get("pinned")))
+            base["local_edits"] = _held_by_edits(reason, kind, name, lk)
             # Rules/workflows carry no tap-HEAD commit here (only a source-file
             # sha comparison), so `latest_commit` stays unset — `_outdated_display`
             # falls back to the same "(content changed)" wording skills used to
@@ -654,7 +743,7 @@ def cmd_outdated(argv) -> int:
     # Both version columns are a tap's frontmatter: display copies only.
     results = out.plain_fields(results)
     rows = [(r["name"] + _outdated_qualifier(r),
-             r["installed"] + (" (pinned)" if r["pinned"] else ""),
+             r["installed"] + _outdated_holds(r),
              _outdated_display(r, configured), r["tap"]) for r in results]
     # NAME is what `boost update`/`upgrade` take.
     out.table(rows, headers=("NAME", "INSTALLED", "LATEST", "TAP"),
@@ -663,11 +752,17 @@ def cmd_outdated(argv) -> int:
     missing = [r for r in results if r["reason"] == staleness.SOURCE_MISSING]
     removed = sum(1 for r in missing if r["tap"] in configured)
     reasons = [r["reason"] for r in results]
+    # Only a row `boost update` would otherwise take is held by these two: a
+    # rewound or missing row is already counted under its own reason.
+    upgrades = [r for r in results
+                if r["reason"] in (staleness.VERSION, staleness.CONTENT)]
     out.dim(staleness.outdated_footer(
         len(results), len(missing), removed,
         source_changed=reasons.count(staleness.SOURCE_CHANGED),
         not_cloned=reasons.count(staleness.NOT_CLONED),
-        downgrade=reasons.count(staleness.DOWNGRADE)))
+        downgrade=reasons.count(staleness.DOWNGRADE),
+        quarantined=sum(1 for r in upgrades if r["quarantined"]),
+        local_edits=sum(1 for r in upgrades if r["local_edits"])))
     return 0
 
 

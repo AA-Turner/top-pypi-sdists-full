@@ -663,22 +663,71 @@ def is_live(state: dict | None) -> bool:
     return bool(set(run_ids) & live_run_ids())
 
 
+#: A session's gap file (`probe.service.capture_gate`): the stretches of its
+#: transcript written while Probe was off, which are never to be uploaded.
+GAPS_SUFFIX = ".gaps"
+#: What a kept session keeps: its gap file and its switch (what says it was off).
+KEPT_SUFFIXES = (GAPS_SUFFIX, ".state")
+#: A gap file that names no transcript (or does not read) goes after this long.
+UNKNOWN_TRANSCRIPT_KEEP_SECONDS = 90 * 86400
+
+
+def _keeps_gaps(path: str, mtime: float, now: float) -> bool:
+    """Does this gap file still hold a gap of a transcript that still exists?
+    One whose transcript is gone is done with. One that names no transcript,
+    or does not read, is kept for UNKNOWN_TRANSCRIPT_KEEP_SECONDS from its
+    last write."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        data = None
+    if isinstance(data, dict) and isinstance(data.get("gaps"), list) and not data["gaps"]:
+        return False
+    transcript = data.get("transcript") if isinstance(data, dict) else None
+    if isinstance(transcript, str) and transcript:
+        return os.path.exists(transcript)
+    return now - mtime < UNKNOWN_TRANSCRIPT_KEEP_SECONDS
+
+
 def prune(max_age_seconds: float = MAX_AGE_SECONDS) -> None:
     """Drop markers for sessions long finished. Never raises.
 
     os.scandir rather than a `find` shell-out, for the reason the telemetry
     hook's prune already documents: `find /tmp` on macOS matches the symlink
     and silently descends into nothing.
+
+    A session whose gap file still holds a gap (`_keeps_gaps`) keeps that file
+    and its `.state` (what says it was off) whatever their age; its other
+    files go as any session's do. A gap file that is done with goes now.
     """
     try:
-        cutoff = time.time() - max_age_seconds
-        with os.scandir(sessions_dir()) as entries:
-            for entry in entries:
-                try:
-                    if entry.is_file() and entry.stat().st_mtime < cutoff:
-                        os.unlink(entry.path)
-                except OSError:
+        now = time.time()
+        cutoff = now - max_age_seconds
+        with os.scandir(sessions_dir()) as listing:
+            entries = list(listing)
+        kept: set[str] = set()
+        for entry in entries:
+            if not entry.name.endswith(GAPS_SUFFIX):
+                continue
+            try:
+                if not entry.is_file():
                     continue
+                if _keeps_gaps(entry.path, entry.stat().st_mtime, now):
+                    kept.add(entry.name[: -len(GAPS_SUFFIX)])
+                else:
+                    os.unlink(entry.path)
+            except OSError:
+                continue
+        for entry in entries:
+            try:
+                suffix = next((s for s in KEPT_SUFFIXES if entry.name.endswith(s)), None)
+                if suffix is not None and entry.name[: -len(suffix)] in kept:
+                    continue
+                if entry.is_file() and entry.stat().st_mtime < cutoff:
+                    os.unlink(entry.path)
+            except OSError:
+                continue
     except OSError:
         pass
 
@@ -846,7 +895,11 @@ def is_tracking(signal: str | None, *, default: bool | None = None) -> bool:
 #   full        reads and writes. What "tracking on" has always meant.
 #   read-only   reads allowed, records nothing new. What "tracking off" has
 #               always meant -- the switch never gated reads.
-#   off         no Probe calls at all, and no session-start injections.
+#   off         no Probe calls at all, and no session-start injections; and
+#               nothing captures the transcript (`probe.service.capture_gate`,
+#               and from tap 0.10.19 every `tap watch`: `tap/capture_gate.py`;
+#               a `tap watch` still running an older tap uploads it until it
+#               ends).
 #
 #                 /probe
 #          full <----------> read-only        off ----------> read-only
@@ -1690,7 +1743,7 @@ _FILE_WRITE_TOOLS = {"Write": ("file_path", "path"), "Edit": ("file_path", "path
                      "MultiEdit": ("file_path",), "NotebookEdit": ("notebook_path",)}
 #: The folder as a command's text names it (`~/.local/state/probe/approvals/answers/x.json`,
 #: `$XDG_STATE_HOME/probe/approvals`, `cd probe && ... approvals/...`).
-_APPROVALS_TEXT = re.compile(r"probe/+approvals\b|\bapprovals/+(answers|requests)\b")
+_APPROVALS_TEXT = re.compile(r"probe/+approvals\b|\bapprovals/+(answers|requests|keys|asked)\b")
 
 
 def approvals_dir() -> Path:
@@ -1784,6 +1837,111 @@ def touches_sessions_dir(tool_name: object, tool_input: object, cwd: "str | None
     return None
 
 
+#: The guard hook's refusal of a coding-agent shell command that calls the
+#: Probe service's mailbox (or has it run a hook event) itself (#3355;
+#: `tracking_guard.calls_mailbox`). Placeholder: `{matched}`, the method.
+DENY_REASON_MAILBOX = (
+    "`Bash` would call the Probe service's `{matched}` itself, so it was refused before it ran. The service's "
+    "mailbox is where the Probe daemon's questions for the researcher are answered and its messages to you are "
+    "delivered, and only Probe's own hooks and daemon call it. Only the researcher answers the daemon's "
+    "questions: through your question tool, word for word, or `probe approvals` in their own terminal. Do not "
+    "call it, and do not route around this."
+)
+
+#: The guard hook's refusal of a coding-agent shell command that runs one of
+#: Probe's own hook programs by hand (#3355; `tracking_guard.runs_probe_hook`).
+#: Placeholder: `{matched}`, the program.
+DENY_REASON_HOOK_BY_HAND = (
+    "`Bash` would run Probe's hook program `{matched}` itself, so it was refused before it ran. Probe's hooks act "
+    "on the events your harness sends them (the researcher's prompt, their answer to a question); run by hand they "
+    "would act on an event you wrote. Only the harness runs them. Do not run them, and do not route around this."
+)
+
+#: The guard hook's refusal of a coding-agent tool call aimed at the folder of
+#: Probe's warm hook hosts, `/tmp/probe-<uid>`: each host's socket and the key a
+#: client must send it before it runs an event (#3355), and the service's own
+#: fallback socket. Placeholders: `{tool}`, `{path}`.
+DENY_REASON_HOOK_HOST = (
+    "`{tool}` would touch {path}, where Probe's hook hosts keep their sockets and the keys that let a hook "
+    "event in, so it was refused before it ran. Only your harness sends Probe's hooks their events. Do not "
+    "touch it, and do not route around this."
+)
+
+def hook_host_dir() -> "str | None":
+    """`/tmp/probe-<uid>` (`hooks/dispatch.py` `host_socket`), or None off POSIX."""
+    getuid = getattr(os, "getuid", None)
+    return os.path.join("/tmp", "probe-%d" % getuid()) if getuid is not None else None
+
+
+def _hook_host_text() -> "re.Pattern | None":
+    """That folder as a command's text names it: THIS user's number (another
+    number, `/tmp/probe-42`, is a researcher's own folder), or the number as
+    the shell spells it (`$(id -u)` and every `id` form with `-u`, the same in
+    backticks, `$UID`, `$EUID`, `${UID}`, `${EUID}`); or one host's socket or
+    key by its own name or a glob of it (`hooks-*.key`, never `hooks-tls.key`
+    or `git-hooks-server.key`). A glob over `/tmp/probe-*` is
+    `_globs_hook_hosts`'."""
+    getuid = getattr(os, "getuid", None)
+    if getuid is None:
+        return None
+    return re.compile(
+        r"/tmp/+probe-(?:%d(?![0-9A-Za-z_.-])"
+        r"|\$\(\s*id\b[^)]*-[A-Za-z]*u[^)]*\)"
+        r"|`\s*id\b[^`]*-[A-Za-z]*u[^`]*`"
+        r"|\$(?:E?UID\b|\{E?UID\}))" % getuid()
+        + r"|(?<![\w.-])hooks-[0-9a-f*?\[\]]{1,16}\.(?:sock|key)\b"
+    )
+
+
+_HOOK_HOST_TEXT = _hook_host_text()
+#: A glob in the folder's place: `/tmp/probe-*`, `/tmp/probe-[0-9]*/`.
+_TMP_PROBE_GLOB = re.compile(r"/tmp/+(probe-[^/\s'\"`;|&()<>]*[*?\[][^/\s'\"`;|&()<>]*)")
+
+
+def _globs_hook_hosts(command: str) -> bool:
+    """Does a glob after `/tmp/` match this user's `probe-<uid>` (`du -sh
+    /tmp/probe-*`)? A glob that cannot (`/tmp/probe-*.pt`) is a researcher's."""
+    getuid = getattr(os, "getuid", None)
+    if getuid is None:
+        return False
+    import fnmatch
+
+    mine = "probe-%d" % getuid()
+    return any(fnmatch.fnmatchcase(mine, found.group(1)) for found in _TMP_PROBE_GLOB.finditer(command))
+
+
+def touches_hook_host(tool_name: object, tool_input: object, cwd: "str | None" = None) -> "str | None":
+    """The hook hosts' folder a coding agent's tool call aims at, or None: a
+    Write/Edit whose file is in it, a Bash command that names it (or one host's
+    socket or key). The same TRIPWIRE as `touches_approvals`, NOT A BOUNDARY: a
+    path built at run time still reaches it. A host runs an event only for a
+    client that sends its key (`hooks/zygote.py`), and the key is in there."""
+    folder = hook_host_dir()
+    if folder is None or not isinstance(tool_input, dict):
+        return None
+    fields = _FILE_WRITE_TOOLS.get(tool_name) if isinstance(tool_name, str) else None
+    if fields is not None:
+        root = os.path.realpath(folder)
+        for field in fields:
+            target = tool_input.get(field)
+            if not isinstance(target, str) or not target:
+                continue
+            path = os.path.expanduser(target)
+            if not os.path.isabs(path) and isinstance(cwd, str) and cwd:
+                path = os.path.join(cwd, path)
+            real = os.path.realpath(path)
+            if real == root or real.startswith(root.rstrip(os.sep) + os.sep):
+                return target
+        return None
+    if tool_name == "Bash":
+        command = tool_input.get("command")
+        if isinstance(command, str) and (
+            (_HOOK_HOST_TEXT is not None and _HOOK_HOST_TEXT.search(command)) or _globs_hook_hosts(command)
+        ):
+            return folder
+    return None
+
+
 # ---------------------------------------------------------------------------
 # THE DAEMON'S WRITE LEASE.
 #
@@ -1830,10 +1988,81 @@ DAEMON_REASON_WORDS = {
     "budget": "out of budget",
     "unauthorized": "not authorized",
     "error": "hitting an error",
+    "disk_full": "out of disk space",
 }
 
 
+#: The worker let go of its lease to hand over (`probe.daemon.lease.REASON_HANDOVER`)
+#: to a new daemon process: an update, the Probe service restarting or
+#: stopping, a resumed session's worker, a session moved to the service. A
+#: successor takes the lease within seconds, so nothing is back with the agent
+#: and it says so: the degraded notice ("the daemon is not running, so
+#: recording is back with you") was false here, and an agent that took it
+#: recorded beside the daemon. One released over DAEMON_HANDOVER_STALE_S ago
+#: (its `renewed_at` is the release time) had no successor: it reads as a
+#: lease that lapsed (`expired`, "not responding"), and the agent records again.
+#: An update holds new workers back while it runs (minutes, for a new CLI):
+#: while that hold or its barrier is up the hand-over is live, and the count
+#: runs from the later of the release and the hold's end (`_update_hold`).
+DAEMON_HANDOVER = "handover"
+DAEMON_HANDOVER_STALE_S = 120.0
+DAEMON_HANDOVER_NOTICE = (
+    "Probe's daemon is handing over to a new daemon process and keeps recording this session. "
+    "Nothing for you to do."
+)
+#: In each of the Probe service's machine folders (`service_root()/<key>`):
+#: the update's hold on new daemon workers (`probe.service.barrier.HOLD_NAME`),
+#: stamped when it ends (`barrier.HOLD_RELEASED_NAME`), and its barrier
+#: (`probe.service.paths.BARRIER_NAME`, also in the root from a service before
+#: the machine key). Older than these they are stale (`barrier.HOLD_MAX_AGE_S`,
+#: `barrier.MAX_AGE_S`). tests/test_daemon_hooks.py holds them equal.
+UPDATE_HOLD_NAME = "workers.hold"
+UPDATE_HOLD_RELEASED_NAME = "workers.released"
+UPDATE_BARRIER_NAME = "update.barrier"
+UPDATE_HOLD_MAX_AGE_S = 45 * 60
+UPDATE_BARRIER_MAX_AGE_S = 15 * 60
+
+
+def service_root() -> Path:
+    """The Probe service's folders (`probe.service.paths.root_dir`):
+    `~/.local/state/probe/service`, never moved by XDG_STATE_HOME; on Windows
+    `%LOCALAPPDATA%\\probe\\service`."""
+    if os.name == "nt":
+        local = os.environ.get("LOCALAPPDATA")
+        base = Path(local) if local else _home() / "AppData" / "Local"
+        return base / "probe" / "service"
+    return _home() / ".local" / "state" / "probe" / "service"
+
+
+def _mtime(path: Path) -> "float | None":
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return None
+
+
+def _update_hold(now: float) -> "tuple[bool, float]":
+    """`(up, ended_at)`: is an update holding new daemon workers back (its hold
+    or its barrier, fresh, in any machine folder of this user's service), and
+    when did the last hold end (0 when never)? Never raises."""
+    try:
+        root = service_root()
+        folders = [root, *(p for p in root.iterdir() if p.is_dir())]
+    except (OSError, RuntimeError):
+        return False, 0.0
+    up, ended = False, 0.0
+    for folder in folders:
+        for name, max_age in ((UPDATE_HOLD_NAME, UPDATE_HOLD_MAX_AGE_S), (UPDATE_BARRIER_NAME, UPDATE_BARRIER_MAX_AGE_S)):
+            at = _mtime(folder / name)
+            if at is not None and now - at < max_age:
+                up = True
+        ended = max(ended, _mtime(folder / UPDATE_HOLD_RELEASED_NAME) or 0.0)
+    return up, ended
+
+
 def daemon_degraded_notice(reason: "str | None") -> str:
+    if reason == DAEMON_HANDOVER:
+        return DAEMON_HANDOVER_NOTICE
     return DAEMON_DEGRADED_NOTICE.format(reason=DAEMON_REASON_WORDS.get(reason or "", "not running"))
 
 
@@ -1897,8 +2126,10 @@ def daemon_status(
     """`(live|degraded, reason)` for a session in the `daemon` state, else None.
 
     `reason` is what the worker recorded when it released the lease
-    (`unauthorized`, `budget`, `gateway`, `stopped`), `expired` when the lease
-    simply lapsed, or `not-started` when there is no lease at all.
+    (`unauthorized`, `budget`, `gateway`, `stopped`, `handover`), `expired`
+    when the lease simply lapsed (or a hand-over no successor took up within
+    DAEMON_HANDOVER_STALE_S of its release or of the end of the update hold it
+    waited for), or `not-started` when there is no lease at all.
     """
     if state is None:
         state = session_state(session_id)
@@ -1907,6 +2138,16 @@ def daemon_status(
     lease = read_lease(session_id)
     if lease is None:
         return (DAEMON_DEGRADED, DAEMON_NOT_STARTED)
+    if lease.get("reason") == DAEMON_HANDOVER:
+        try:
+            released = float(lease.get("renewed_at") or lease["expires_at"])
+        except (TypeError, ValueError):
+            released = 0.0
+        at = time.time() if now is None else now
+        if at - released > DAEMON_HANDOVER_STALE_S:
+            up, ended = _update_hold(at)
+            if not up and at - max(released, ended) > DAEMON_HANDOVER_STALE_S:
+                return (DAEMON_DEGRADED, "expired")  # no successor took it up
     if lease.get("reason"):
         return (DAEMON_DEGRADED, str(lease["reason"]))
     if float(lease["expires_at"]) <= (time.time() if now is None else now):

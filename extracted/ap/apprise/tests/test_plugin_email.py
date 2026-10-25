@@ -30,6 +30,7 @@ from email.header import decode_header
 from inspect import cleandoc
 import logging
 import os
+import pickle
 import re
 import shutil
 import smtplib
@@ -1358,6 +1359,61 @@ def test_plugin_email_dict_variations():
         suppress_exceptions=False,
     )
     assert isinstance(obj, email.NotifyEmail)
+
+
+def test_plugin_email_from_roundtrip():
+    """A custom from= address survives a url() round trip."""
+
+    for url, from_addr, targets in (
+        # custom from=, no recipient
+        (
+            "mailtos://user:pass@gmail.com?from=user@other.com",
+            (False, "user@other.com"),
+            [(False, "user@other.com")],
+        ),
+        # custom from= with a display name, no recipient
+        (
+            "mailtos://user:pass@gmail.com"
+            "?from=Rene Descartes <r@example.com>",
+            ("Rene Descartes", "r@example.com"),
+            [(False, "r@example.com")],
+        ),
+        # custom from= with more than one recipient
+        (
+            "mailtos://user:pass@gmail.com/a@example.com/b@example.com"
+            "?from=user@other.com",
+            (False, "user@other.com"),
+            [(False, "a@example.com"), (False, "b@example.com")],
+        ),
+        # custom from= with a display name and no user
+        (
+            "mailto://example.com?smtp=smtp.example.com"
+            "&from=Rene%20%3Cr%40example.com%3E",
+            ("Rene", "r@example.com"),
+            [(False, "r@example.com")],
+        ),
+    ):
+        obj = Apprise.instantiate(url, suppress_exceptions=False)
+        assert isinstance(obj, email.NotifyEmail)
+        assert tuple(obj.from_addr) == from_addr
+        assert obj.targets == targets
+
+        obj2 = Apprise.instantiate(obj.url(), suppress_exceptions=False)
+        assert isinstance(obj2, email.NotifyEmail)
+        assert tuple(obj2.from_addr) == from_addr
+        assert obj2.targets == targets
+
+    # Pickling goes through url() as well
+    a = Apprise()
+    assert a.add("mailtos://user:pass@gmail.com?from=user@other.com")
+    b = pickle.loads(pickle.dumps(a))
+    assert tuple(b[0].from_addr) == (False, "user@other.com")
+    assert b[0].targets == [(False, "user@other.com")]
+
+    # No custom from=; nothing extra is added to the URL
+    obj = Apprise.instantiate("mailtos://user:pass@gmail.com/a@example.com")
+    assert isinstance(obj, email.NotifyEmail)
+    assert "from=" not in obj.url()
 
 
 @mock.patch("smtplib.SMTP_SSL")
@@ -4713,3 +4769,90 @@ def test_plugin_email_retry_skips_delivered_recipients():
     # The healthy recipient is contacted once, the failing one twice
     assert sent.count("a@example.com") == 1
     assert sent.count("b@example.com") == 2
+
+
+def test_plugin_email_reply_to_multiple_recipients():
+    """NotifyEmail() sets Reply-To on the email of every recipient."""
+
+    sent = {}
+
+    def sendmail(from_addr, to_addrs, body):
+        # Keep the message sent to each recipient
+        sent[to_addrs[0]] = body
+        return True
+
+    controller = mock.MagicMock()
+    controller.return_value.__enter__.return_value.sendmail.side_effect = (
+        sendmail
+    )
+
+    with mock.patch.object(email.base, "AppriseSMTPController", controller):
+        aobj = Apprise()
+        assert aobj.add(
+            "mailto://user:pass@example.com"
+            "?to=a@example.com,b@example.com,c@example.com"
+            "&reply=Chris<noreply@example.com>"
+        )
+        assert aobj.notify(body="body", title="title")
+
+    # Each recipient got its own email with the Reply-To header
+    assert sorted(sent) == ["a@example.com", "b@example.com", "c@example.com"]
+    for body in sent.values():
+        headers = body.split("\n\n", 1)[0].splitlines()
+        assert "Reply-To: Chris <noreply@example.com>" in headers
+
+
+def test_plugin_email_cc_without_recipient():
+    """NotifyEmail() leaves out the Cc header when it would be empty."""
+
+    messages = list(
+        email.NotifyEmail.prepare_emails(
+            subject="title",
+            body="body",
+            from_addr=("Apprise", "user@example.com"),
+            to=[(None, "a@example.com"), (None, "b@example.com")],
+            cc={"a@example.com"},
+        )
+    )
+
+    assert len(messages) == 2
+    headers = {
+        m.recipient: m.body.split("\n\n", 1)[0].splitlines() for m in messages
+    }
+
+    # The only Cc address is the recipient itself, so no Cc header is set
+    assert not [h for h in headers["a@example.com"] if h.startswith("Cc:")]
+
+    # Every other recipient still sees the Cc address
+    assert "Cc: a@example.com" in headers["b@example.com"]
+
+
+@pytest.mark.parametrize("key", ("cc", "bcc", "reply"))
+@pytest.mark.parametrize(
+    "recipient, name",
+    (
+        # A comma in the name
+        ('"Doe, John" <j@example.com>', "Doe, John"),
+        # A non-ASCII name
+        ("Ünal Müller <u@example.com>", "Ünal Müller"),
+        # Both
+        ('"Müller, Ünal" <m@example.com>', "Müller, Ünal"),
+        # A backslash in the name
+        ('"Back\\slash" <b@example.com>', "Back\\slash"),
+        # Two entries that both hold a comma
+        ('"A, B" <a@example.com>,"C, D" <c@example.com>', "C, D"),
+    ),
+)
+def test_plugin_email_recipient_names(key, recipient, name):
+    """NotifyEmail.url() emits cc/bcc/reply names that parse back as is."""
+
+    url = "mailtos://user:pass@gmail.com?{}={}".format(
+        key, email.NotifyEmail.quote(recipient, safe="")
+    )
+    obj = Apprise.instantiate(url, suppress_exceptions=False)
+    addr = recipient.rsplit("<", 1)[1].rstrip(">")
+    assert obj.names[addr] == name
+
+    # Parse the URL it gives back
+    obj2 = Apprise.instantiate(obj.url(), suppress_exceptions=False)
+    assert obj2.names[addr] == name

@@ -56,9 +56,9 @@ from doppler.ddc import DDC, Ddcr, MatchedDDC
 from doppler.delay import DelayCf64
 from doppler.detection import LockDet
 from doppler.dsss import (
+    AsyncDsssPool,
     AsyncDsssReceiver,
     BurstDespreader,
-    CellAsyncDsssReceiver,
     Despreader,
 )
 from doppler.filter import FIR, MovingAverage
@@ -208,6 +208,20 @@ def _track_feed(o: Any, seg: NDArray[np.complex64]) -> NDArray[Any]:
     post-block state blob is the cleanest whole-state resume observable."""
     o.steps(seg)
     return np.frombuffer(o.get_state(), dtype=np.uint8)
+
+
+def _dll_feed(o: Any, seg: NDArray[np.complex64]) -> NDArray[Any]:
+    """Run a Dll block; return its output's bytes, then its blob's.
+
+    The blob alone cannot see a running field the output depends on but
+    get_state() leaves out: written the same way on both sides, the blobs
+    agree while the resumed instance emits something else. The output's
+    level is one (#2495), so the output is compared too; its length follows
+    the state, and a resumed instance that matches emits the same count."""
+    out = np.asarray(o.steps(seg), dtype=np.complex64)
+    return np.concatenate(
+        [out.view(np.uint8), np.frombuffer(o.get_state(), dtype=np.uint8)]
+    )
 
 
 def _make_aided_dll() -> Any:
@@ -414,11 +428,11 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
             spacing=0.5,
             segments=1,
         ),
-        _track_feed,
+        _dll_feed,
     ),
     "Dll (4 segments, symbol aid)": (
         lambda: _make_aided_dll(),
-        _track_feed,
+        _dll_feed,
     ),
     "SymbolSync": (
         lambda: SymbolSync(sps=8, bn=0.01, zeta=0.707, order="cubic"),
@@ -438,16 +452,33 @@ CASES: dict[str, tuple[Callable[[], Any], _Feed]] = {
     ),
     # On the shared noise stream the searching flavor stays searching, so
     # this row round-trips the embedded search's state (the tracking state's
-    # round trip is the C suite's, test_async_dsss_receiver_core.c); the cell
-    # flavor waits idle. Both rows put the receivers' setters under #2022's
-    # mutator gate (#2078).
+    # round trip is the C suite's, test_async_dsss_receiver_core.c). The row
+    # puts the receiver's setters under #2022's mutator gate (#2078). Wider
+    # than one native span (+/- 16 kHz for 31 chips at 1 Mchip/s), so the
+    # search has three Doppler tiles and set_threads() a pool to size.
     "AsyncDsssReceiver": (
-        lambda: AsyncDsssReceiver(_CODE, cn0_dbhz=50.0),
+        lambda: AsyncDsssReceiver(
+            _CODE, cn0_dbhz=50.0, doppler_uncertainty=40000.0
+        ),
         _track_feed,
     ),
-    "CellAsyncDsssReceiver": (
-        lambda: CellAsyncDsssReceiver(_CODE, cn0_dbhz=50.0),
-        _track_feed,
+    # The pool composes its receivers' blobs; on the shared noise stream they
+    # stay searching, so this row round-trips each embedded search and the
+    # pool's own clock (the controller's rules and a mid-capture resume with
+    # holders are the C suite's, test_async_dsss_pool_core.c). The row puts
+    # set_threads() under #2022's mutator gate.
+    "AsyncDsssPool": (
+        lambda: AsyncDsssPool(
+            _CODE,
+            n_receivers=2,
+            cn0_dbhz=50.0,
+            doppler_uncertainty=40000.0,
+            threads=1,
+        ),
+        lambda o, seg: (
+            o.push(seg),
+            np.frombuffer(o.get_state(), dtype=np.uint8),
+        )[1],
     ),
     "MpskReceiver": (lambda: MpskReceiver(m=4, sps=8, m_out=4), _track_feed),
     # sps > 2*m_out for the real twin: the cascade behind its R2C halfband

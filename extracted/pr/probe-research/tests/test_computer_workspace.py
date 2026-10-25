@@ -248,3 +248,58 @@ def test_signed_out_does_nothing(monkeypatch):
     monkeypatch.setattr("probe.sdk.client.Client", lambda **_k: pytest.fail("no credential"))
 
     assert cw.choose(asking=True) == []
+
+
+# -- a computer limited to one workspace (`probe workspace limit`) ---------------
+def test_a_limited_computer_is_not_asked_and_keeps_its_workspace(app, monkeypatch):
+    """The pin may not move off a limited workspace: the step checks the workspace
+    still exists (one list, without the limit) and says where work goes."""
+    monkeypatch.setattr(cw, "run_picker", lambda *a, **k: pytest.fail("a limited computer is not asked"))
+    save_context({"workspace": {"id": _WS_OTHER, "project": None, "limit": True, "name": "Teammate"}})
+    before = len(app.requests)
+
+    lines = cw.choose(asking=True)
+
+    assert lines == ["✔ this computer is limited to Teammate, and its work goes there (`probe workspace limit` changes it)"]
+    assert _pinned() == _WS_OTHER and load_context()["workspace"]["limit"] is True
+    assert [r.url.path for r in app.requests[before:]] == ["/v1/workspaces"]
+
+
+def test_the_picker_lists_every_workspace_whatever_the_environment_limits(app, monkeypatch):
+    """PROBE_WORKSPACE_LIMIT narrows one process's reads, never the picker's list."""
+    from probe.sdk import workspace_limit as wl
+
+    monkeypatch.setenv(wl.LIMIT_ENV, _WS_MINE)
+
+    def limited(**kw):  # the client a real process builds: its settings' limit sent
+        client = make_client(app, workspace=kw["settings"].workspace)
+        client.settings.workspace_limit = kw["settings"].workspace_limit
+        return client
+
+    monkeypatch.setattr("probe.sdk.client.Client", limited)
+    seen = {}
+
+    def pick(rows, selected):
+        seen["rows"] = [r["id"] for r in rows]
+        return _WS_OTHER
+
+    monkeypatch.setattr(cw, "run_picker", pick)
+    cw.choose(asking=True)
+    lists = [r for r in app.requests if r.url.path == "/v1/workspaces"]
+    assert set(seen["rows"]) == {_WS_MINE, _WS_OTHER}
+    assert lists and all(r.headers.get(wl.LIMIT_HEADER.lower()) is None for r in lists)
+    # ...while the step's other reads carry it.
+    assert any(r.headers.get(wl.LIMIT_HEADER.lower()) == _WS_MINE for r in app.requests if r.url.path == "/v1/me")
+
+
+def test_a_limit_naming_a_workspace_this_team_lacks_is_lifted(app, monkeypatch):
+    """A re-login to another team (or a deleted workspace) would leave every request
+    refused under the old limit: it goes with its pin, and the step goes on."""
+    monkeypatch.setattr(cw, "run_picker", lambda rows, selected: _WS_OTHER)
+    gone = "99999999-9999-9999-9999-999999999999"
+    save_context({"workspace": {"id": gone, "project": None, "limit": True, "name": "Old team's"}})
+
+    lines = cw.choose(asking=True)
+
+    assert lines[0] == "! this computer's workspace limit named Old team's, which this team does not have: it was lifted"
+    assert _pinned() == _WS_OTHER and "limit" not in load_context()["workspace"]

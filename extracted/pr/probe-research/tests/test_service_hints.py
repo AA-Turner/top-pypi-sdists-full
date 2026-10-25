@@ -522,6 +522,67 @@ def test_a_hold_is_for_its_key_or_its_server_never_the_machine(tmp_path, state, 
     assert {body["session_id"] for body in api.bodies[1:]} == {SID, OTHER, PEER}
 
 
+def _live(session: hints.Followed) -> Path:
+    with mailbox.rooted(session.state):
+        return mailbox.hints_live_path(session.sid)
+
+
+def test_a_served_sessions_hint_marker_is_touched_at_most_every_beat(tmp_path, state):
+    """The session's daemon skips its reader's turn at a prompt only while this
+    marker is fresh (`model.hints_live`): touched while the lane can hint the
+    session, at most every HINTS_LIVE_BEAT_S; a session that left is not."""
+    session = _session(tmp_path, state)
+    clock = Clock()
+    sessions = [session]
+    lane, _ = _lane(tmp_path, sessions, Api(), clock)
+    _seen(lane, session)
+    path = _live(session)
+    assert path.is_file()
+    os.utime(path, (1, 1))
+    clock.now += hints.HINTS_LIVE_BEAT_S - 1
+    lane.read_once()
+    assert path.stat().st_mtime == 1, "not again inside the beat"
+    clock.now += 1
+    lane.read_once()
+    assert path.stat().st_mtime > 1
+    os.utime(path, (1, 1))
+    sessions.clear()  # its recorder let go of it
+    clock.now += hints.HINTS_LIVE_BEAT_S
+    lane.read_once()
+    assert path.stat().st_mtime == 1, "left to go stale"
+
+
+@pytest.mark.parametrize("why, answer", [
+    ("its own key or address", None),
+    ("a refused key", (401, {"detail": "no"})),
+    ("a server without the route", (404, {"detail": "no"})),
+    ("hints off for the team", (200, {"mode": "off", "fire": False, "reason": "off"})),
+])
+def test_no_marker_where_the_lane_cannot_hint(tmp_path, state, why, answer):
+    """No hint can come, so the reader keeps its turn at each prompt there."""
+    session = _session(tmp_path, state)
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], Api(default=answer or (200, SHADOW)), clock)
+    if answer is None:
+        lane.endpoint_of = lambda env: None
+    else:
+        lane.trigger(session, "prompt", "one")
+        lane.run_due()
+    lane.read_once()
+    assert not _live(session).exists(), why
+
+
+def test_a_busy_server_still_counts_as_hinting(tmp_path, state):
+    """A 429 holds that key on that server a while: hints come back, so the
+    marker stays fresh and the reader does not take prompt turns meanwhile."""
+    session = _session(tmp_path, state)
+    lane, _ = _lane(tmp_path, [session], Api(default=(429, {"detail": "slow down"})), Clock())
+    lane.trigger(session, "prompt", "one")
+    lane.run_due()
+    lane.read_once()
+    assert _live(session).is_file()
+
+
 def test_mode_off_quiets_its_key_on_its_server_for_off_recheck_s(tmp_path, state):
     """A team that never turned hints on: at most one request per key per
     server per OFF_RECHECK_S from this machine, whatever its sessions."""

@@ -703,7 +703,7 @@ def _queue_or_drop(
         ctx = _resolve_app_context()
         vcprint(
             f"[Coordinator] Replaced {sanitization.replacements} PostgreSQL-invalid "
-            f"NUL byte(s) before queueing {op_type} on {table}; paths="
+            f"character(s) (NUL or lone surrogate) before queueing {op_type} on {table}; paths="
             f"{list(sanitization.paths)}.",
             color="red",
         )
@@ -712,7 +712,7 @@ def _queue_or_drop(
             from matrx_connect.streaming.error_capture import capture_error
 
             await capture_error(
-                ValueError("PostgreSQL-invalid NUL bytes were replaced before persistence"),
+                ValueError("PostgreSQL-invalid characters (NUL or lone surrogate) were replaced before persistence"),
                 kind="persistence_payload_sanitized",
                 request_id=getattr(ctx, "request_id", None) if ctx else None,
                 user_id=getattr(ctx, "user_id", None) if ctx else None,

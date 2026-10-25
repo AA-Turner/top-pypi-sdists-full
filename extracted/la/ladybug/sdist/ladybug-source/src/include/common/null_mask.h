@@ -170,6 +170,11 @@ public:
 
     void operator|=(const NullMask& other);
 
+    // Sets null every position in [offset, offset + numBits) that is null in other. Both masks
+    // must cover the range: callers pass a struct and one of its fields, which are allocated and
+    // resized together.
+    void orFromRange(const NullMask& other, uint64_t offset, uint64_t numBits);
+
     // Fast calculation of the minimum and maximum null values
     // (essentially just three states, all null, all non-null and some null)
     static std::pair<bool, bool> getMinMax(const uint64_t* nullEntries, uint64_t offset,

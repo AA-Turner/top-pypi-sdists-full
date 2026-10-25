@@ -1,9 +1,9 @@
 include = ["objects/*.toml"]
 
 [project]
-jm_version = "0.108.0"
+jm_version = "0.109.0"
 name = "doppler"
-version = "0.73.0"
+version = "0.74.0"
 build = "cmake"
 # c_prefix (jm#1591, #1545): every C symbol jm derives carries dp_, so two
 # installed jm libraries that share a component name (fir, fft, agc) link
@@ -48,6 +48,27 @@ perf = "true"
 pytest = "true"
 pytest_benchmark = "true"
 schema = "9"
+# jm gh-1752 (0.109.0): keys doppler's OWN generator reads off the composer's
+# source.fields / segment.fields rows -- scripts/gen_wfm_defaults.py builds
+# wfmgen's CLI table and JSON schema from them. jm reads none of them; naming
+# them here stops jm warning on each, while any other unknown key (a misspelt
+# jm key) still warns. A new key the generator starts reading goes here too.
+composer_field_keys = [
+  "cli",
+  "exclusive",
+  "field_reps",
+  "help_section",
+  "json",
+  "json_omit",
+  "json_range",
+  "json_required",
+  "json_schema",
+  "json_type",
+  "json_when",
+  "metavar",
+  "surface",
+  "unit_interval",
+]
 c_deps = [
     "hbdecim", "resamp", "wfmcompose", "ccsds_tm", "conv", "rs",
 ]
@@ -1122,6 +1143,9 @@ type = "uint8_t[]"
 name = "sf"
 type = "int"
 [module.wfm_compose]
+# The Composer publishes its state as a capsule (jm gh-2346), so a Writer
+# method can take the scene: Writer.annotate(scene) (doppler#2564).
+capsule = "doppler.wfm.composer"
 kind         = "composer"
 backing      = "dp_wfm_compose"
 capsule_name = "doppler.wfm.compose_state"
@@ -1678,6 +1702,37 @@ coerce_str_fn = "dp_wfm_source_bits_refuse_text"
 c_ptr = "fill.bits"
 c_len = "fill.len"
 doc = "The bits that pad a data source's last frame when it does not divide into data_len-bit frames, tiled from their first bit; stdin on a framed source always needs them. Without them such a source is refused before the first sample. A Field on the command line and in a scene, a bit array in Python. Continuous dsss has no frame to pad, and refuses it."
+
+# The per-frame code-only window (doppler#1294): the C synth's
+# dp_wfm_synth_set_dsss_window, as two source fields so that every face
+# reaches it -- two scalars, as the setter takes two, and as the CLI and a
+# scene spell it. Appended after `fill`, not beside `dsss_code_only`, so that
+# every source field keeps its position; the segment's own fields, which
+# follow the source's (Synth's fs, Segment's fs and num_samples), move two
+# places, as they did when `fill` was appended.
+[[module.wfm_compose.source.fields]]
+name = "code_only_symbols"
+json = "code_only_symbols"
+json_when = { type = "dsss" }
+json_omit = "default"
+cli = "--code-only-symbols"
+metavar = "N"
+help_section = "DSSS_CONT"
+type = "size_t"
+default = "0"
+doc = "Continuous dsss: pure-code symbols opening each frame of frame_symbols symbols. The data pauses through them and runs on across frames, so a searcher can integrate coherently over the window; once a payload ends, no window is sent. At most frame_symbols, and fewer when a data source is set; 0 with frame_symbols 0 = no window."
+
+[[module.wfm_compose.source.fields]]
+name = "frame_symbols"
+json = "frame_symbols"
+json_when = { type = "dsss" }
+json_omit = "default"
+cli = "--frame-symbols"
+metavar = "N"
+help_section = "DSSS_CONT"
+type = "size_t"
+default = "0"
+doc = "Continuous dsss: the frame, in symbols, that code_only_symbols opens; give it with code_only_symbols, or both 0 for no window. The frame runs on the stream's own symbol clock, so its edges land at any chip phase."
 
 [module.wfm_compose.source.generates]
 generator = "wfm_synth"
@@ -3776,8 +3831,8 @@ values = ["floor", "nearest", "linear"]
 # through the receiver's `lifecycle` property as a string.
 [[enum]]
 name = "async_dsss_rx_state"
-values = ["searching", "refining", "tracking", "idle", "lost"]
+values = ["searching", "refining", "tracking", "reserved", "lost"]
 enumerators = [
   "ASYNC_DSSS_RX_SEARCHING", "ASYNC_DSSS_RX_REFINING",
-  "ASYNC_DSSS_RX_TRACKING", "ASYNC_DSSS_RX_IDLE", "ASYNC_DSSS_RX_LOST",
+  "ASYNC_DSSS_RX_TRACKING", "ASYNC_DSSS_RX_RESERVED", "ASYNC_DSSS_RX_LOST",
 ]

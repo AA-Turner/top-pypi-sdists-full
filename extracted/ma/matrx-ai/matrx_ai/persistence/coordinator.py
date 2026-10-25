@@ -622,7 +622,7 @@ class Coordinator:
             payload = sanitization.value
             vcprint(
                 f"[Coordinator] Backstop replaced {sanitization.replacements} "
-                f"PostgreSQL-invalid NUL byte(s) on {op_type} {table}; paths="
+                f"PostgreSQL-invalid character(s) (NUL or lone surrogate) on {op_type} {table}; paths="
                 f"{list(sanitization.paths)}.",
                 color="red",
             )

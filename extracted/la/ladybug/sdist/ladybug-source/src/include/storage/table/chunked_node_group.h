@@ -142,6 +142,7 @@ public:
     common::idx_t getNumColumns() const { return chunks.size(); }
     common::row_idx_t getStartRowIdx() const { return startRowIdx; }
     common::row_idx_t getNumRows() const { return numRows; }
+    bool hasRows() const { return numRows != 0; }
     const ColumnChunk& getColumnChunk(const common::column_id_t columnID) const {
         DASSERT(columnID < chunks.size());
         return *chunks[columnID];
@@ -162,15 +163,27 @@ public:
 
     void resetNumRowsFromChunks();
     void truncate(common::offset_t numRows);
-    void setVersionInfo(std::unique_ptr<VersionInfo> versionInfo) {
-        this->versionInfo = std::move(versionInfo);
+    void setVersionInfo(std::shared_ptr<VersionInfo> versionInfo_) {
+        versionInfo = std::move(versionInfo_);
     }
+    // Shared with a scan that started before a checkpoint. reset() on this group drops only
+    // this reference.
+    std::shared_ptr<VersionInfo> getVersionInfo() const { return versionInfo; }
     // Moves out the group's version info, leaving it null. Used to preserve uncheckpointed
     // deletes when restoring persistent chunks after a failed checkpoint (see #1051); the
     // checkpoint reads version info but only resets it on success, so the live object still
-    // holds pre-checkpoint state when the checkpoint throws.
-    std::unique_ptr<VersionInfo> moveVersionInfo() { return std::move(versionInfo); }
+    // holds pre-checkpoint state when the checkpoint throws. Other owners (an in-flight scan)
+    // keep the object.
+    std::shared_ptr<VersionInfo> moveVersionInfo() { return std::move(versionInfo); }
     void resetVersionAndUpdateInfo();
+    // Coarse page-level retention marker: the horizon whose readers the retained version
+    // metadata still covers (INVALID_TRANSACTION when nothing is retained). Transient
+    // observability state only; never serialized, never consulted on read paths.
+    void setRetentionHorizon(common::transaction_t horizon) { retentionHorizon = horizon; }
+    common::transaction_t getRetentionHorizon() const { return retentionHorizon; }
+    // Insert/delete commit timestamps of one row (INVALID_TRANSACTION when baked).
+    common::transaction_t getInsertCommitTS(common::row_idx_t rowInChunk) const;
+    common::transaction_t getDeleteCommitTS(common::row_idx_t rowInChunk) const;
 
     uint64_t append(const transaction::Transaction* transaction,
         const std::vector<common::ValueVector*>& columnVectors, common::row_idx_t startRowInVectors,
@@ -189,7 +202,7 @@ public:
         common::offset_t offsetInOtherNodeGroup, common::offset_t numRowsToAppend);
 
     void scan(const transaction::Transaction* transaction, const TableScanState& scanState,
-        const NodeGroupScanState& nodeGroupScanState, common::offset_t rowIdxInGroup,
+        NodeGroupScanState& nodeGroupScanState, common::offset_t rowIdxInGroup,
         common::length_t numRowsToScan) const;
 
     template<ResidencyState SCAN_RESIDENCY_STATE>
@@ -220,6 +233,7 @@ public:
         common::row_idx_t startRow, common::length_t numRowsToCheck) const;
     common::row_idx_t getNumDeletions(const transaction::Transaction* transaction,
         common::row_idx_t startRow, common::length_t numRowsToCheck) const;
+    common::row_idx_t getNumVisibleRows(const transaction::Transaction* transaction) const;
     bool hasVersionInfo() const { return versionInfo != nullptr; }
 
     static std::unique_ptr<ChunkedNodeGroup> flushEmpty(MemoryManager& mm,
@@ -252,13 +266,14 @@ public:
     }
 
 protected:
+    common::transaction_t retentionHorizon = common::INVALID_TRANSACTION;
     NodeGroupDataFormat format;
     ResidencyState residencyState;
     common::row_idx_t startRowIdx;
     uint64_t capacity;
     std::atomic<common::row_idx_t> numRows;
     std::vector<std::unique_ptr<ColumnChunk>> chunks;
-    std::unique_ptr<VersionInfo> versionInfo;
+    std::shared_ptr<VersionInfo> versionInfo;
 };
 
 } // namespace storage

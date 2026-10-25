@@ -174,6 +174,11 @@ EVENT_OUTBOX_STUCK = "outbox.stuck"
 #: to the login and sent (`journal.rescue_stranded`): what an `outbox.stuck`
 #: with `auth_blocked` turns into on its own, without the user doing anything.
 EVENT_OUTBOX_RESCUED = "outbox.rescued"
+#: Queued or dead-lettered writes were set aside into `discarded/` -- by `probe
+#: outbox discard`, or moved there out of a credential queue so no cleanup
+#: deletes them (`journal.relocate_discards`). Without it a backlog that
+#: vanished reads exactly like one that was delivered (Bucket, 2026-10-23).
+EVENT_OUTBOX_DISCARDED = "outbox.discarded"
 #: A TRAINING process's delivery counts (plan 1.12): every 15 min while it
 #: writes and at each run's close. Deltas since its last report, counts only --
 #: never a key, body, name or path -- so we see loss before a customer does.
@@ -206,6 +211,18 @@ class Via(StrEnum):
     #: The Probe service's automatic diagnostic reports (`probe.core.report`).
     SERVICE = "service"
     NONE = "none"  # null_context — never reaches the wire
+
+
+class DiscardReason(StrEnum):
+    """`outbox.discarded`'s `reason`: what set the writes aside."""
+
+    HELD = "held"  # `probe outbox discard --held`
+    CREDENTIAL = "credential"  # `--held --credential <fp>`: a named credential's writes too
+    DEAD_LETTERS = "dead_letters"  # `probe outbox discard [op]`
+    #: Earlier discards moved out of a credential queue to the root, where no
+    #: cleanup deletes them. Nothing was lost; reported once, with their dates,
+    #: so a machine shows what it still keeps.
+    RELOCATED = "relocated"
 
 
 class InvokedBy(StrEnum):
@@ -862,6 +879,27 @@ def emit_report_undeliverable(*, family: str, reason: str, base_url: str | None)
         return False  # observability must never become observable
 
 
+def emit_service_event(event: str, props: dict, *, base_url: str | None) -> bool:
+    """One of the Probe service's own events (`probe.service.statepost`:
+    `service.started`, `service.state`, `service.stopped`), with the
+    properties `statepost.snapshot` built: its allow-list is the contract, and
+    nothing is added here but the envelope. Gated like every client event: the
+    opt-out, and ``base_url`` a hosted backend; the caller has asked the
+    machine's consent. True when it was handed to the sender. Never raises."""
+    try:
+        from probe.service.statepost import SERVICE_EVENTS
+
+        if event not in SERVICE_EVENTS:
+            return False
+        ctx = detached_context(base_url, via=Via.SERVICE)
+        if not ctx.enabled:
+            return False
+        ctx.emit(event, **props)
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
 def emit_outbox_drained(
     *,
     base_url: str | None,
@@ -912,6 +950,40 @@ def emit_outbox_rescued(
         pass  # observability must never become observable
 
 
+def emit_outbox_discarded(counts, *, reason: str, interactive: bool = False) -> bool:
+    """Report writes set aside (`DiscardReason`), from a `journal.DiscardCounts`:
+    counts and enqueue dates only, never a fingerprint, key, body, name or path.
+    Gated on the server the writes were pinned to (one, hosted), like every
+    outbox event; ``interactive``: a person at a terminal ran it. The coding
+    agent that ran it, if any, rides the envelope (`agent`). True when it was
+    handed to the sender. Never raises."""
+    try:
+        from probe.sdk.journal import DISCARD_DAYS
+
+        if not counts.writes:
+            return False
+        ctx = detached_context(counts.base_url, via=Via.OUTBOX)
+        if not ctx.enabled:
+            return False
+        if interactive:
+            ctx.invoked_by = InvokedBy.HUMAN
+        days = sorted(counts.by_enqueue_day.items(), reverse=True)
+        ctx.emit(
+            EVENT_OUTBOX_DISCARDED,
+            reason=str(reason),
+            writes=int(counts.writes),
+            uploads=int(counts.uploads),
+            bytes=int(counts.bytes),
+            run_closes=int(counts.run_closes),
+            credentials=len(counts.credentials),
+            by_enqueue_day=dict(days[:DISCARD_DAYS]) or None,
+            oldest_enqueue_day=days[-1][0] if days else None,
+        )
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
 #: What `emit_delivery_summary` may carry. Anything else is dropped at the door:
 #: the event is counts only (plan 1.12).
 DELIVERY_SUMMARY_FIELDS = frozenset(
@@ -921,6 +993,7 @@ DELIVERY_SUMMARY_FIELDS = frozenset(
         "direct_sends",
         "dead_lettered",
         "dead_lettered_by_status",
+        "discarded",
         "pending",
         "oldest_pending_s",
         "auth_blocked_s",

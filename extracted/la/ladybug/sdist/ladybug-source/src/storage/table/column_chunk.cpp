@@ -85,12 +85,12 @@ void ColumnChunk::scan(const Transaction* transaction, const ChunkState& state, 
         UNREACHABLE_CODE;
     }
     }
-    updateInfo.scan(transaction, output, offsetInChunk, length);
+    updateInfo->scan(transaction, output, offsetInChunk, length);
 }
 
 static void scanPersistentSegments(ChunkState& chunkState, ColumnChunkScanner& output,
     common::offset_t startRow, common::offset_t numRows) {
-    DASSERT(output.getNumValues() == 0);
+    [[maybe_unused]] const auto numValuesBefore = output.getNumValues();
     [[maybe_unused]] uint64_t numValuesScanned = chunkState.rangeSegments(startRow, numRows,
         [&](auto& segmentState, auto offsetInSegment, auto lengthInSegment, auto) {
             output.scanSegment(offsetInSegment, lengthInSegment,
@@ -100,7 +100,7 @@ static void scanPersistentSegments(ChunkState& chunkState, ColumnChunkScanner& o
                         lengthInSegment);
                 });
         });
-    DASSERT(output.getNumValues() == numValuesScanned);
+    DASSERT(output.getNumValues() == numValuesBefore + numValuesScanned);
 }
 
 void ColumnChunk::scanInMemSegments(ColumnChunkScanner& output, common::offset_t startRow,
@@ -133,7 +133,7 @@ void ColumnChunk::scanCommitted(const Transaction* transaction, ChunkState& chun
             static_assert(SCAN_RESIDENCY_STATE == ResidencyState::IN_MEMORY);
             scanInMemSegments(output, startRow, numRows);
         }
-        output.applyCommittedUpdates(updateInfo, transaction, startRow, numRows);
+        output.applyCommittedUpdates(*updateInfo, transaction, startRow, numRows);
     }
 }
 
@@ -158,7 +158,7 @@ template void ColumnChunk::scanCommitted<ResidencyState::IN_MEMORY>(const Transa
 
 bool ColumnChunk::hasUpdates(const Transaction* transaction, row_idx_t startRow,
     length_t numRows) const {
-    return updateInfo.hasUpdates(transaction, startRow, numRows);
+    return updateInfo->hasUpdates(transaction, startRow, numRows);
 }
 
 void ColumnChunk::lookup(const Transaction* transaction, const ChunkState& state,
@@ -173,7 +173,7 @@ void ColumnChunk::lookup(const Transaction* transaction, const ChunkState& state
         state.column->lookupValue(state, rowInChunk, &output, posInOutputVector);
     } break;
     }
-    updateInfo.lookup(transaction, rowInChunk, output, posInOutputVector);
+    updateInfo->lookup(transaction, rowInChunk, output, posInOutputVector);
 }
 
 void ColumnChunk::update(const Transaction* transaction, offset_t offsetInChunk,
@@ -188,14 +188,14 @@ void ColumnChunk::update(const Transaction* transaction, offset_t offsetInChunk,
 
     const auto vectorIdx = offsetInChunk / DEFAULT_VECTOR_CAPACITY;
     const auto rowIdxInVector = offsetInChunk % DEFAULT_VECTOR_CAPACITY;
-    auto& vectorUpdateInfo = updateInfo.update(data.front()->getMemoryManager(), transaction,
+    auto& vectorUpdateInfo = updateInfo->update(data.front()->getMemoryManager(), transaction,
         vectorIdx, rowIdxInVector, values);
-    transaction->pushVectorUpdateInfo(updateInfo, vectorIdx, vectorUpdateInfo,
+    transaction->pushVectorUpdateInfo(*updateInfo, vectorIdx, vectorUpdateInfo,
         transaction->getID());
 }
 
 MergedColumnChunkStats ColumnChunk::getMergedColumnChunkStats() const {
-    DASSERT(!updateInfo.isSet());
+    DASSERT(!updateInfo->isSet());
     auto baseStats = MergedColumnChunkStats{ColumnChunkStats{}, true, true};
     for (auto& segment : data) {
         // TODO: Replace with a function that modifies the existing stats in-place?
@@ -229,7 +229,7 @@ std::unique_ptr<ColumnChunk> ColumnChunk::deserialize(MemoryManager& mm, Deseria
 }
 
 row_idx_t ColumnChunk::getNumUpdatedRows(const Transaction* transaction) const {
-    return updateInfo.getNumUpdatedRows(transaction);
+    return updateInfo->getNumUpdatedRows(transaction);
 }
 
 void ColumnChunk::reclaimStorage(PageAllocator& pageAllocator) const {
@@ -330,5 +330,123 @@ void ColumnChunk::checkpoint(Column& column,
     }
 }
 
+void ColumnChunk::readBaseValue(row_idx_t rowInChunk, ColumnChunkData& out,
+    row_idx_t outPos) const {
+    DASSERT(getResidencyState() == ResidencyState::IN_MEMORY);
+    std::span<const std::unique_ptr<ColumnChunkData>> segments{data};
+    auto [segment, offsetInSegment] = genericFindSegment(segments, rowInChunk);
+    DASSERT(segment != segments.end());
+    out.write(segment->get(), offsetInSegment, outPos, 1);
+}
+
+std::vector<VectorRetentionPlan> ColumnChunk::planUpdateRetention(transaction_t horizon) const {
+    return updateInfo->planRetention(horizon);
+}
+
+bool ColumnChunk::hasRetainedUpdates(transaction_t horizon) const {
+    return UpdateInfo::plansHaveKeptNodes(updateInfo->planRetention(horizon));
+}
+
+void ColumnChunk::applyUpdateRetention(UpdateRetentionCapture&& capture) {
+    const bool exclusive = updateInfo.use_count() == 1;
+    updateInfo->dropUnretainedNodes(capture.plans, exclusive);
+    auto& mm = data.front()->getMemoryManager();
+    for (auto i = 0u; i < capture.plans.size(); i++) {
+        const auto& plan = capture.plans[i];
+        if (!plan.hasKept() || capture.baseStaging[i] == nullptr) {
+            continue;
+        }
+        const auto synthetic = plan.keptRows & ~plan.belowRows;
+        if (synthetic.none()) {
+            continue;
+        }
+        // Spliced below the kept nodes (never prepended): a prepended base node
+        // would shadow newer updates for readers past their commit timestamps. The
+        // row copy itself runs under the chain lock inside stageRetainedRow.
+        updateInfo->insertRetainedBaseNode(mm, getDataType().copy(), plan.vectorIdx,
+            capture.horizon);
+        for (auto r = 0u; r < DEFAULT_VECTOR_CAPACITY; r++) {
+            if (!synthetic.test(r)) {
+                continue;
+            }
+            updateInfo->stageRetainedRow(mm, getDataType().copy(), plan.vectorIdx, capture.horizon,
+                r, *capture.baseStaging[i], r);
+        }
+    }
+}
+
+void ColumnChunk::transplantRetainedUpdates(const ColumnChunk& src, row_idx_t rowDelta,
+    transaction_t horizon) {
+    if (!src.updateInfo->isSet()) {
+        return;
+    }
+    const auto plans = src.updateInfo->planRetention(horizon);
+    if (!UpdateInfo::plansHaveKeptNodes(plans)) {
+        return;
+    }
+    auto& mm = data.front()->getMemoryManager();
+    // Staging is created lazily inside the synthetic branch below: instantiating it
+    // unconditionally would also instantiate column types that never stage anything.
+    std::unique_ptr<ColumnChunkData> staging;
+    auto copyNodeRows = [&](const VectorUpdateInfo* node, idx_t srcVectorIdx) {
+        for (auto i = 0u; i < node->numRowsUpdated; i++) {
+            const auto srcRow = srcVectorIdx * DEFAULT_VECTOR_CAPACITY + node->rowsInVector[i];
+            const auto tgtRow = srcRow + rowDelta;
+            updateInfo->stageRetainedRow(mm, getDataType().copy(), tgtRow / DEFAULT_VECTOR_CAPACITY,
+                node->version, tgtRow % DEFAULT_VECTOR_CAPACITY, *node->data, i);
+        }
+    };
+    for (const auto& plan : plans) {
+        if (!plan.hasKept()) {
+            continue;
+        }
+        // Oldest-first so each staged node lands above the previous one: the retained
+        // below-horizon node first, then the synthetic horizon base (via the splicing
+        // insert, never a prepend), then the kept nodes oldest-first.
+        if (plan.newestBelow != nullptr) {
+            copyNodeRows(plan.newestBelow, plan.vectorIdx);
+        }
+        auto synthetic = plan.keptRows & ~plan.belowRows;
+        // Rows whose kept update sits exactly at the horizon need no synthetic base: the
+        // kept copy itself is visible to every reader the horizon retains (startTS >=
+        // horizon). Staging a horizon-versioned base for them would collide with the kept
+        // copy below (same version slot) and suppress the real update.
+        for (const auto* kept : plan.kept) {
+            if (kept->version == horizon) {
+                for (auto i = 0u; i < kept->numRowsUpdated; i++) {
+                    synthetic.reset(kept->rowsInVector[i]);
+                }
+            }
+        }
+        if (!synthetic.none()) {
+            // Synthetic rows may fan out across target vectors when rowDelta misaligns
+            // them; resolve the target vector per row.
+            for (auto r = 0u; r < DEFAULT_VECTOR_CAPACITY; r++) {
+                if (!synthetic.test(r)) {
+                    continue;
+                }
+                const auto srcRow = plan.vectorIdx * DEFAULT_VECTOR_CAPACITY + r;
+                const auto tgtRow = srcRow + rowDelta;
+                const auto tgtVec = tgtRow / DEFAULT_VECTOR_CAPACITY;
+                const auto tgtRowInVec = tgtRow % DEFAULT_VECTOR_CAPACITY;
+                // Pre-staged below the kept copies that follow (never prepended over them).
+                updateInfo->insertRetainedBaseNode(mm, getDataType().copy(), tgtVec, horizon);
+                if (!staging) {
+                    // Word-sized null mask: single-row capacities leave the mask
+                    // narrower than the word the null copy asserts on.
+                    staging = ColumnChunkFactory::createColumnChunkData(mm, getDataType().copy(),
+                        false /*enableCompression*/, DEFAULT_VECTOR_CAPACITY,
+                        ResidencyState::IN_MEMORY);
+                }
+                src.readBaseValue(srcRow, *staging, 0);
+                updateInfo->stageRetainedRow(mm, getDataType().copy(), tgtVec, horizon, tgtRowInVec,
+                    *staging, 0);
+            }
+        }
+        for (auto k = plan.kept.size(); k > 0; k--) {
+            copyNodeRows(plan.kept[k - 1], plan.vectorIdx);
+        }
+    }
+}
 } // namespace storage
 } // namespace lbug

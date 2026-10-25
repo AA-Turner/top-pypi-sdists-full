@@ -47,6 +47,7 @@ from ..client_headers import (
     client_version_headers,
 )
 from ..sdk import errors
+from ..sdk import workspace_limit
 from ..sdk.client import Client
 from ..sdk.config import Settings, load_context, resolve
 from ..sdk.surface import Surface, tool_scope
@@ -207,7 +208,16 @@ def _acquire_service(
                 # all. Hosted, the ASGI wrapper overrides it per request with
                 # the CALLER's forwarded pair, so this value never escapes as
                 # somebody else's.
-                mcp_settings = Settings(base_url=resolve().base_url, token=token)
+                #
+                # The workspace limit: under stdio, this computer's own (the
+                # config's). Hosted, every request binds the CALLER's forwarded
+                # one (`workspace_limit.forwarded_scope`, `{}` when they sent
+                # none), which the transport reads first, so a pod's own never
+                # reaches anyone's request.
+                ambient = resolve()
+                mcp_settings = Settings(
+                    base_url=ambient.base_url, token=token, workspace_limit=ambient.workspace_limit
+                )
                 client = Client(
                     settings=mcp_settings,
                     transport=Transport(
@@ -1370,10 +1380,7 @@ class _RetiringMCP(FastMCP):
         except Exception as exc:
             # Covers validation/unknown names and errors raised before a worker
             # result exists. Never echo an unbounded request or exception.
-            message = (
-                str(exc)[:600].encode("utf-8", errors="replace").decode("utf-8")
-                or "Probe MCP read failed."
-            )
+            message = _bounded_error_text(exc)
             try:
                 minimum = Budget(512)
                 while not minimum.fits_text(message) and message:
@@ -1388,6 +1395,33 @@ class _RetiringMCP(FastMCP):
             except TokenizerUnavailable:
                 message = "Probe MCP tokenizer unavailable; repair the installation."
             raise ToolError(message or "Probe MCP read failed.") from None
+
+
+def _limit_hint(exc: BaseException) -> str:
+    """`(hidden by this computer's workspace limit: ...)` when a 404 somewhere in
+    `exc`'s chain was answered under the caller's workspace limit (the API's
+    `X-Probe-Workspace-Limit-Applied` echo, `RosError.workspace_limit_applied`)."""
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        applied = getattr(current, "workspace_limit_applied", None)
+        if isinstance(applied, str) and applied:
+            return workspace_limit.hidden_hint(applied)
+        current = current.__cause__ or current.__context__
+    return ""
+
+
+def _bounded_error_text(exc: BaseException, limit: int = 600) -> str:
+    """A tool error's text, at most `limit` characters -- and, when the caller's
+    workspace limit hid what was asked for, saying so (kept whole, never the part
+    the bound cuts): an agent reads a silent miss as data loss."""
+    message = str(exc)
+    hint = _limit_hint(exc)
+    if hint:
+        body = message.replace(hint, "").strip()
+        message = f"{body[: max(0, limit - len(hint) - 1)].rstrip()} {hint}".strip()
+    return message[:limit].encode("utf-8", errors="replace").decode("utf-8") or "Probe MCP read failed."
 
 
 def create_server(
@@ -2077,9 +2111,11 @@ def _identity_from_me(body: dict) -> dict | None:
     return {
         "distinct_id": str(user_id),
         "customer_id": body.get("customer_id"),
-        # The hosted MCP has no workspace scope to report -- workspaces are a CLI
-        # config concept (see _telemetry_core.resolve_identity, which reads one).
-        # build_batch omits the key when falsy, so None means "not applicable here".
+        # Per TOKEN, so no workspace here: the hosted MCP's only workspace scope is
+        # the caller's per-REQUEST workspace limit (`X-Probe-Workspace-Limit`,
+        # forwarded on its API calls), which `with_auth_and_health` stamps on the
+        # request's own copy of this identity. build_batch omits the key when
+        # falsy, so None means "not limited / not applicable".
         "workspace_id": None,
         "authenticated": True,
     }
@@ -2217,6 +2253,12 @@ def with_auth_and_health(inner: Any, *, mcp_path: str = "/mcp", token_rejected: 
             client_headers = {}
         else:
             client_headers = client_version_headers(client_kind, client_version)
+        # The CALLER's workspace limit (their computer's `probe workspace limit`),
+        # forwarded as it came on every API call made for this request: the API
+        # narrows those reads. `{}` -- they sent none -- is bound too, so this pod
+        # never lends a request a limit of its own. The token check below (`/v1/me`)
+        # does not carry it: a limit is never a reason to refuse a key.
+        forwarded_limit = workspace_limit.forward_from(headers)
         client_headers_reset = _client_headers_var.set(client_headers)
         # Per-request accounting holder. Bound for EVERY hosted request, but only
         # emitted for ones that actually ran a tool (see accounting.emit) -- so
@@ -2235,7 +2277,7 @@ def with_auth_and_health(inner: Any, *, mcp_path: str = "/mcp", token_rejected: 
         # version). Binding `{}` is deliberate and not the same as leaving it
         # unset: a caller that reported nothing must reach the backend with no
         # version, never with ours.
-        with client_headers_scope(client_headers):
+        with client_headers_scope(client_headers), workspace_limit.forwarded_scope(forwarded_limit):
             try:
                 if path.startswith(mcp_path):
                     if discovery and token is None:
@@ -2249,6 +2291,10 @@ def with_auth_and_health(inner: Any, *, mcp_path: str = "/mcp", token_rejected: 
                 # the TTL would otherwise emit as an unidentified caller despite
                 # having authenticated perfectly well.
                 acct["identity"] = identity_for_token(token)
+                limited_to = workspace_limit.as_uuid(forwarded_limit.get(workspace_limit.LIMIT_HEADER))
+                if limited_to and isinstance(acct["identity"], dict):
+                    # This request's copy: the cached identity is per token.
+                    acct["identity"] = {**acct["identity"], "workspace_id": limited_to}
                 token_reset = _token_var.set(token)
                 try:
                     await inner(scope, receive, accounting.counting_send(acct, send))

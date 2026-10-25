@@ -9,10 +9,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import errno
 import json
 import os
 import re
 import socket
+import sqlite3
 import threading
 import time
 from pathlib import Path
@@ -438,6 +440,53 @@ def test_a_crash_pings_and_sends_its_stack(tmp_path, sent, monkeypatch):
     assert crash["surface"] == "daemon" and crash["$exception_list"][0]["type"] == "ValueError"
 
 
+def test_a_full_disk_is_said_to_the_researcher_and_pings_nobody(tmp_path, sent, monkeypatch):
+    """new-workspace 2026-10-24: SQLITE_FULL at the store's COMMIT pinged
+    #eng-alerts as "Daemon crashed" and told the researcher only that it crashed."""
+    import sqlite3
+
+    monkeypatch.setenv("PROBE_DAEMON_KEY", "pk_test_daemon")
+    monkeypatch.setenv("PROBE_BASE_URL", HOSTED)
+    monkeypatch.setenv("PROBE_DIAGNOSTICS", "on")
+    monkeypatch.setattr(alerts, "_base_url", None)
+    monkeypatch.setattr(tm, "_flush_at_exit", lambda: None)
+    monkeypatch.setattr(tm, "_current", None)
+
+    class Full:
+        def __init__(self, *a, **kw):
+            raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(worker_mod, "Worker", Full)
+    transcript = tmp_path / f"{SID}.jsonl"
+    transcript.write_text("")
+    code = worker_mod.main(["--session-id", SID, "--transcript", str(transcript), "--cwd", str(tmp_path)])
+    assert code == worker_mod.EXIT_DISK_FULL
+    assert _pings(sent) == [] and [r for r in sent if r["event"] == "$exception"] == []
+    said = (worker_mod._state_base() / "daemon-errors.log").read_text()
+    assert "the disk is full" in said and "crashed" not in said
+    assert json.loads(lease.lease_path(SID).read_text())["reason"] == lease.REASON_DISK_FULL
+
+
+@pytest.mark.parametrize("make", [
+    lambda: sqlite3.OperationalError("database or disk is full"),
+    lambda: OSError(errno.ENOSPC, "No space left on device"),
+    lambda: _raised_from(RuntimeError("could not save"), OSError(errno.ENOSPC, "No space left on device")),
+], ids=["sqlite", "enospc", "cause"])
+def test_a_full_disk_is_quiet(make):
+    exc = make()
+    assert alerts.disk_full(exc) and alerts.quiet(exc)
+
+
+def test_other_sqlite_and_os_errors_are_not_a_full_disk():
+    for exc in (sqlite3.OperationalError("database is locked"), OSError(errno.EACCES, "Permission denied")):
+        assert not alerts.disk_full(exc)
+
+
+def _raised_from(exc: BaseException, cause: BaseException) -> BaseException:
+    exc.__cause__ = cause
+    return exc
+
+
 # -- gates and the error text ----------------------------------------------------
 
 
@@ -572,6 +621,18 @@ def test_the_destination_reads_only_properties_the_event_carries(monkeypatch, se
     assert first_choice - _sent_properties(monkeypatch, sent) == set()
 
 
+def test_the_destination_never_posts_the_mcp_handshake_timeout():
+    """Clients before 0.234.1 (#2626) ping `bite_failed` for an MCP handshake
+    that timed out and was retried (anthrogen 0.225.0, 10-16 and 10-21):
+    nothing broke. The destination drops exactly that text, never another one
+    holding the phrase ("...: unexpected tool schema" is a bug and posts)."""
+    (entry,) = _destination()["filters"]["events"]
+    assert entry.get("properties") == [
+        {"key": "error_text", "type": "event", "operator": "is_not",
+         "value": [f"RuntimeError: Client failed to connect: {alerts.MCP_INIT_TIMEOUT}"]},
+    ]
+
+
 def test_the_destination_listens_to_the_event_and_labels_every_kind():
     dest = _destination()
     assert [e["id"] for e in dest["filters"]["events"]] == [tm.EVENT_DAEMON_ERROR]
@@ -580,4 +641,7 @@ def test_the_destination_listens_to_the_event_and_labels_every_kind():
     assert missing == [], f"these kinds render as 'Unknown daemon error': {missing}"
     assert template.count("\n") == 2, "three lines, nothing else"
     assert "'unfurl_links': false" in dest["hog"]
+    # Probe's own Slack app, not PostHog's under a borrowed name.
+    assert "inputs.slack_bot_token" in dest["hog"]
+    assert not {"slack_workspace", "username", "icon_emoji"} & set(dest["inputs"])
 

@@ -78,7 +78,7 @@ def test_the_cli_self_heal_builds_the_contract_argv(contract, tmp_path, monkeypa
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(False, None, "not started"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(False, None, "not started"),
     )
 
     spawned: list[list[str]] = []

@@ -415,7 +415,11 @@ def remove() -> None:
 
 
 def needed() -> bool:
-    """Does a session the service recorded still have its agent running?"""
+    """Does a session the service recorded still have its agent running? Not
+    one held because Probe is off for it (an open gap, its switch still
+    `off`): Probe off keeps no service running. Once its switch reads on, it
+    is needed again, so the service comes back and records it from there."""
+    from . import capture_gate
     from .recorders import RECORDERS_NAME
 
     try:
@@ -424,6 +428,9 @@ def needed() -> bool:
         return False
     for session in (data.get("sessions") or []) if isinstance(data, dict) else []:
         owner = session.get("owner") if isinstance(session, dict) else None
+        if isinstance(owner, dict) and capture_gate.is_open(capture_gate.gaps_of(session)) \
+                and capture_gate.is_off(session):
+            continue
         if isinstance(owner, dict):
             with contextlib.suppress(KeyError, TypeError, ValueError):
                 if procid.alive(int(owner["pid"]), str(owner["start_time"])) is not False:

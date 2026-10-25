@@ -242,6 +242,11 @@ def _native_mcp(capabilities: list, what: str, headers: dict | None = None) -> N
         key = env.get("PROBE_TOKEN", "")
         url = mcp_url(env.get("PROBE_BASE_URL", ""))
         if key and url and os.environ.get("PROBE_DAEMON_MCP", "1") != "0":
+            # This computer's workspace limit rides every MCP request (the hosted
+            # MCP forwards it), beside whatever the caller's own headers say.
+            from probe.sdk.workspace_limit import ambient_headers
+
+            headers = {**(headers or {}), **ambient_headers(env.get("PROBE_BASE_URL") or None, bearer=key)}
             # Loaded from the start: no round to load it before the first read.
             extra = {"headers": headers} if headers else {}
             capabilities.append(MCP(url=url, authorization_token=f"Bearer {key}", id="probe", defer_loading=False,

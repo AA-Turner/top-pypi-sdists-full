@@ -822,7 +822,8 @@ def maybe_rescue(journal, status: dict) -> bool:
     """The CLI's every-command check (`cli.main._outbox_notice`): at most once
     per `RESCUE_EVERY_SECONDS` per outbox root (or `RESCUE_IDLE_SECONDS`
     after a rescue that had nothing to send), and only when writes are held
-    back, start `rescue` in a process of its own. One stat when not due; the
+    back or a credential queue holds discards, start `rescue` in a process of
+    its own. One stat when not due; the
     interval is claimed under a lock, so concurrent commands start one.
     Never raises; True when one started."""
     if not rescue_enabled() or os.environ.get("PROBE_OUTBOX_WORKER"):
@@ -837,11 +838,21 @@ def maybe_rescue(journal, status: dict) -> bool:
             if not claimed or not _rescue_due(stamp):
                 return False
             durable.write_text_atomic(stamp, now_iso() + "\n", mode=0o600)
-        if not _writes_held_back(journal, status):
+        if not _writes_held_back(journal, status) and not _discards_held_in_queues(journal):
             return False
     except Exception:  # noqa: BLE001 -- the every-command path never raises
         return False
     return spawn_rescuer(journal)
+
+
+def _discards_held_in_queues(journal) -> bool:
+    """Whether a credential queue under some outbox root holds discards: they
+    are deleted with the queue once it idles, by this release's cleanup and
+    every older one's (an older SDK in a job's environment included), so the
+    rescuer moves them to the root (`journal.relocate_discards`). Listings."""
+    from .journal import discards_to_relocate
+
+    return any(discards_to_relocate(root.dir) for root in _rescue_roots(journal))
 
 
 def _rescuer_env() -> dict:
@@ -919,22 +930,24 @@ def rescue(directory: str) -> int:
     """Adopt what is stranded under a dead credential of the logged-in account
     (`journal.rescue_stranded`) in this outbox and every other one of this
     user's (`_rescue_roots`), deliver the adopted writes in one foreground
-    pass (`drain_adopted`), then let workers take over. One rescuer at a
+    pass (`drain_adopted`), then let workers take over. First it moves
+    every credential queue's discards to its root (`journal.relocate_discards`;
+    reports `outbox.discarded` with reason `relocated`). One rescuer at a
     time per user (`journal.rescue_lock_path`); one that finds nothing to
     send, and nothing it put off, puts the next look off by
     `RESCUE_IDLE_SECONDS`. Prints to drainer.log; reports `outbox.rescued`."""
     from .journal import (
+        DiscardCounts,
         Journal,
         _stored_login_fingerprint,
         _try_lock,
         now_iso,
+        relocate_discards,
         rescue_lock_path,
         rescue_stranded,
     )
 
     root = Journal(directory)
-    if root.paused:
-        return 0
     lock = rescue_lock_path()
     lock.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     with _try_lock(lock) as mine:
@@ -946,6 +959,24 @@ def rescue(directory: str) -> int:
         queues: set = set()
         endpoints: set = set()
         deferred = 0
+        relocated = DiscardCounts()
+        for one in _rescue_roots(root):
+            # Discards out of the credential queues first, paused or not: a
+            # queue's cleanup deletes them, an older release's included.
+            try:
+                relocated.merge(relocate_discards(one.dir))
+            except Exception as exc:  # noqa: BLE001 -- one root never stops the rest
+                print(f"moving discards skipped {one.dir}: {type(exc).__name__}", flush=True)
+        if relocated.writes:
+            from .._shared import telemetry
+
+            print(f"moved {relocated.writes} discarded write(s) to the outbox root ({now_iso()})", flush=True)
+            telemetry.emit_outbox_discarded(relocated, reason=telemetry.DiscardReason.RELOCATED)
+        if root.paused:
+            # Nothing is rescued from a paused outbox; look again much later
+            # (its discards are moved: nothing left to start a rescuer for).
+            _look_again_later(root)
+            return 0
         for one in _rescue_roots(root):
             try:
                 if one.paused:
@@ -994,17 +1025,25 @@ def rescue(directory: str) -> int:
             # Nothing to send and nothing put off: what is held is not this
             # login's (another account's, no account recorded). Look again
             # much later.
-            later = time.time() + RESCUE_IDLE_SECONDS
-            try:
-                os.utime(_rescue_stamp(root), (later, later))
-            except OSError:
-                pass
+            _look_again_later(root)
     for queue in queues:
         try:
             maybe_spawn(str(queue))  # adopted writes queued from now on
         except Exception:  # noqa: BLE001
             pass
     return 0
+
+
+def _look_again_later(root) -> None:
+    """The next rescue look waits `RESCUE_IDLE_SECONDS` (the stamp's mtime is
+    when it is due again; one written now if a rescue ran without a claim)."""
+    stamp = _rescue_stamp(root)
+    later = time.time() + RESCUE_IDLE_SECONDS
+    try:
+        stamp.touch(mode=0o600, exist_ok=True)
+        os.utime(stamp, (later, later))
+    except OSError:
+        pass
 
 
 def _hand_to_service(journal) -> str | None:
@@ -1204,7 +1243,11 @@ def _run_leased(journal) -> int:
     _gate_base_url = _pinned_base_url(journal)
     if not journal.receipt_enabled and journal.dir.parent.name != journal_module.CREDENTIAL_NAMESPACE:
         try:  # the root's worker tidies away idle credential queues (#2041 round 3)
-            journal_module.prune_credential_queues(journal.dir)
+            relocated = journal_module.DiscardCounts()
+            journal_module.prune_credential_queues(journal.dir, counts=relocated)
+            from .._shared import telemetry as _telemetry
+
+            _telemetry.emit_outbox_discarded(relocated, reason=_telemetry.DiscardReason.RELOCATED)
         except Exception:  # noqa: BLE001 -- housekeeping never stops delivery
             pass
     # Every wait comes from the ONE backoff helper (plan 0.6), restarted after

@@ -102,6 +102,7 @@ def _seed_tenant(cur: Any, tag: str) -> dict[str, str]:
     _claims(cur, user)  # created_by is stamped from the claims: the user OWNS what follows
     org = _one(
         cur,
+        # matrx-fixture:rollback-only rolled back in finally (conn.rollback())
         "insert into iam.organizations (name, slug, abbreviation) values (%s, %s, %s) returning id",
         (f"TM door contract {tag} {user}", f"tm-door-{tag.lower()}-{user}", f"TM{tag}"),
     )

@@ -12,7 +12,7 @@ from typing import Final
 
 from exp.common.core.artifacts import JsonObject
 from exp.common.models.gateway_catalog import ExactModelDeployment
-from exp.runtime.gateway.attempt_tokens import worst_case_input_tokens, worst_case_output_tokens
+from exp.runtime.gateway.attempt_tokens import worst_case_output_tokens
 from exp.runtime.gateway.budget_continuation import denied_destination_pool
 from exp.runtime.gateway.budgets import BudgetReservationRejected, BudgetScopeKind
 from exp.runtime.gateway.class_throttles import (
@@ -98,6 +98,14 @@ from exp.runtime.openai_protocol.errors import public_failure_error
 _SWEEP_GRACE_SECONDS = 5.0
 _SWEEP_INTERVAL_SECONDS = 5.0
 _SWEEP_BATCH = 16
+
+# The request deadline ran out between attempts, before any provider answered.
+# The streaming relay names the other case (output already flowing) itself.
+DEADLINE_BEFORE_ANSWER_MESSAGE: Final = (
+    "the request reached the gateway's time limit before any provider finished "
+    "answering; retry the request"
+)
+
 _logger = logging.getLogger(__name__)
 
 
@@ -371,7 +379,7 @@ class NativeAttemptAccounting:
         if time.monotonic() >= entry.deadline_monotonic:
             failure = GatewayFailure(
                 failure_class=GatewayFailureClass.TIMEOUT,
-                safe_message="gateway execution deadline exceeded",
+                safe_message=DEADLINE_BEFORE_ANSWER_MESSAGE,
             )
             self.finish_request_quietly(entry.authorization, failure)
             with self._lock:
@@ -431,8 +439,8 @@ class NativeAttemptAccounting:
         forced_overflow = False
         capacity_refused = False
         shed_records: dict[int, RungShed] = {}
-        # Tokenize the input reservation once per ladder walk for all candidates.
-        reserved_input_tokens = worst_case_input_tokens(entry.request)
+        # Tokenize the input reservation once per request for every attempt.
+        reserved_input_tokens = entry.reserved_input_tokens()
         while True:
             with self._lock:
                 active = self._inflight.get(request_id) is entry and entry.pending_abandon is None
@@ -443,7 +451,7 @@ class NativeAttemptAccounting:
                     failure_class=GatewayFailureClass.TIMEOUT
                     if active
                     else GatewayFailureClass.CANCELLED,
-                    safe_message="gateway execution deadline exceeded"
+                    safe_message=DEADLINE_BEFORE_ANSWER_MESSAGE
                     if active
                     else "gateway request was cancelled",
                 )

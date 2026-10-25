@@ -28,6 +28,7 @@ async def extract_spans(
     threshold: float = 0.3,
     client: httpx.AsyncClient | None = None,
     offering_id: str | None = None,
+    served_via: object | None = None,
 ) -> SpanExtractionResult:
     """Resolve an extraction model from the registry and run span extraction.
 
@@ -39,6 +40,14 @@ async def extract_spans(
     # (resolution touches the host-injected ORM at call time).
     from matrx_ai.catalog.resolve import resolve_call_profile
 
+    if served_via is not None:
+        # A device runs chat turns only; extraction never silently runs in the cloud instead.
+        from matrx_ai.providers.device.errors import DevicePinUnsupportedError
+
+        raise DevicePinUnsupportedError(
+            f"span extraction with {model_id_or_name!r} cannot run on a device",
+            user_message="Extraction models can't run on your computer from here.",
+        )
     profile = await resolve_call_profile(model_id_or_name, offering_id=offering_id)
 
     interaction = profile.capabilities.interaction

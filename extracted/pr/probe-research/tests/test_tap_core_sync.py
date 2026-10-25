@@ -41,6 +41,8 @@ _SYNCED = (
     # here like the rest: protocol 3's fragment builder and its renderer.
     "atif_fragment.py",
     "transcript_render.py",
+    # Probe off: the tap's own gate, read by `session_journal.stage` (tap 0.10.19).
+    "capture_gate.py",
 )
 
 

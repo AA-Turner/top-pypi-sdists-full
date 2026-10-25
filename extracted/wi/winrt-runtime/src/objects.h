@@ -30,6 +30,47 @@ namespace py::interp
     }
 
     /**
+     * What abi_of() holds while compose_into() is composing the object, which
+     * is a call into WinRT that another thread can run during: not a pointer,
+     * so that the thread that holds it is the only one composing, and the
+     * object holds nothing yet to every other.
+     */
+    inline void* const composing_abi = reinterpret_cast<void*>(1);
+
+    /**
+     * The ABI pointer @p self holds, or @c nullptr when it holds none, which
+     * an instance of a Python class derived from a composable one does until
+     * its __init__() has called the WinRT class's, and while that call is
+     * under way.
+     */
+    inline void* held_abi(PyObject* self) noexcept
+    {
+        auto const abi = abi_of(self);
+        return abi == composing_abi ? nullptr : abi;
+    }
+
+    void set_not_composed_error(PyObject* self) noexcept;
+
+    void set_already_composed_error(PyObject* self) noexcept;
+
+    /**
+     * The ABI pointer @p self holds, to call an instance member on, or
+     * @c nullptr with a Python error set when it holds none.
+     */
+    inline void* instance_abi(PyObject* self) noexcept
+    {
+        auto const abi = held_abi(self);
+        if (!abi)
+        {
+            set_not_composed_error(self);
+        }
+
+        return abi;
+    }
+
+    bool compose_after_init(PyObject* self, PyObject* args, PyObject* kwds) noexcept;
+
+    /**
      * The name every interface pointer capsule carries. A capsule of this
      * name holds one reference to a COM interface, which its destructor
      * releases, and is how compiled code outside the runtime hands one over.

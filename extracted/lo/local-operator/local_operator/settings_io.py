@@ -1336,7 +1336,21 @@ def _language_choices() -> tuple[Choice, ...]:
     """
     from local_operator.i18n.resolve import language_options
 
-    return tuple(Choice(value, label) for value, label in language_options())
+    return tuple(
+        Choice(
+            value,
+            label,
+            # Terminal capability guidance is deliberately not catalogue copy:
+            # it describes the TUI renderer, not the audited language package.
+            (
+                # i18n: ignore renderer capability note (English, not catalogue copy)
+                "Terminal: best effort; requires bidi and Arabic shaping."
+                if value == "ur"
+                else ""
+            ),
+        )
+        for value, label in language_options()
+    )
 
 
 #: One-line meaning for each rung of :data:`EFFORT_ORDER`, for the
@@ -5682,7 +5696,10 @@ SETTINGS: tuple[Setting, ...] = (
         # explicit true is this machine's opt-in. The literal is pinned to
         # ``DEFAULT_TEAM_BRIDGE_ENABLED`` by ``_consumer_defaults()`` in
         # tests/unit/test_settings_io.py; the server half (eligibility, consent,
-        # launch) still decides whether anything can run.
+        # launch) still decides whether anything can run. Under a served
+        # ``bridge_consent_v2`` an ABSENT key reads ON for the status discipline
+        # and status route only (``TeamBridgeSettings.enabled_given``); this
+        # registry default and every offline fence stay OFF.
         default=False,
         help=_t(_ws.team_bridge_enabled_help()),
     ),

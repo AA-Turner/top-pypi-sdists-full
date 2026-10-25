@@ -1,6 +1,6 @@
 [project]
 name = "tmuxp"
-version = "1.74.0"
+version = "1.76.0"
 description = "Session manager for tmux, which allows users to save and load tmux sessions through simple configuration files."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -39,7 +39,7 @@ include = [
   { path = "conftest.py", format = "sdist" },
 ]
 dependencies = [
-  "libtmux~=0.61.0",
+  "libtmux~=0.62.0",
   "PyYAML>=6.0"
 ]
 
@@ -59,15 +59,15 @@ classic = "tmuxp.workspace.builder.classic:ClassicWorkspaceBuilder"
 dev = [
   # Docs
   "aafigure",  # https://launchpad.net/aafigure
-  "pillow",  # https://pillow.readthedocs.io/
-  "gp-sphinx==0.0.1a32",  # https://gp-sphinx.git-pull.com/
-  "sphinx-autodoc-argparse==0.0.1a32",  # https://gp-sphinx.git-pull.com/
-  "sphinx-autodoc-api-style==0.0.1a32",
-  "sphinx-gp-mermaid==0.0.1a32",  # https://gp-sphinx.git-pull.com/
-  "gp-libs>=0.0.18",  # https://gp-libs.git-pull.com/
+  "gp-sphinx==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-argparse==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-api-style==0.1.0a39",
+  "sphinx-gp-highlighting==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "sphinx-gp-mermaid==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "gp-libs>=0.0.19",  # https://gp-libs.git-pull.com/
   "sphinx-autobuild",  # https://sphinx-extensions.readthedocs.io/en/latest/sphinx-autobuild.html
   # Testing
-  "gp-libs>=0.0.18",
+  "gp-libs>=0.0.19",
   "pytest",
   "pytest-rerunfailures",
   "pytest-mock",
@@ -77,7 +77,7 @@ dev = [
   "coverage",
   "pytest-cov",
   # Lint
-  "ruff",
+  "ruff>=0.16.1",
   "mypy",
   "types-docutils",
   "types-Pygments",
@@ -86,16 +86,16 @@ dev = [
 
 docs = [
   "aafigure",  # https://launchpad.net/aafigure
-  "pillow",  # https://pillow.readthedocs.io/
-  "gp-sphinx==0.0.1a32",  # https://gp-sphinx.git-pull.com/
-  "sphinx-autodoc-argparse==0.0.1a32",  # https://gp-sphinx.git-pull.com/
-  "sphinx-autodoc-api-style==0.0.1a32",
-  "sphinx-gp-mermaid==0.0.1a32",  # https://gp-sphinx.git-pull.com/
-  "gp-libs>=0.0.18",  # https://gp-libs.git-pull.com/
+  "gp-sphinx==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-argparse==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "sphinx-autodoc-api-style==0.1.0a39",
+  "sphinx-gp-highlighting==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "sphinx-gp-mermaid==0.1.0a39",  # https://gp-sphinx.git-pull.com/
+  "gp-libs>=0.0.19",  # https://gp-libs.git-pull.com/
   "sphinx-autobuild",  # https://sphinx-extensions.readthedocs.io/en/latest/sphinx-autobuild.html
 ]
 testing = [
-  "gp-libs>=0.0.18",
+  "gp-libs>=0.0.19",
   "pytest",
   "pytest-rerunfailures",
   "pytest-mock",
@@ -107,7 +107,7 @@ coverage =[
   "pytest-cov",
 ]
 lint = [
-  "ruff",
+  "ruff>=0.16.1",
   "mypy",
   "types-docutils",
   "types-Pygments",
@@ -117,6 +117,15 @@ lint = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# AGENTS.md (+ its CLAUDE.md symlink) is contributor guidance, not a package
+# resource; hatchling's default src-layout packaging would otherwise ship it
+# inside every install.
+exclude = [
+  "src/tmuxp/AGENTS.md",
+  "src/tmuxp/CLAUDE.md",
+]
 
 [tool.uv.exclude-newer-package]
 # git-pull packages release in lockstep with their workspaces, so a
@@ -137,6 +146,7 @@ sphinx-autodoc-pytest-fixtures = false
 sphinx-autodoc-sphinx = false
 sphinx-autodoc-typehints-gp = false
 sphinx-fonts = false
+sphinx-gp-highlighting = false
 sphinx-gp-mermaid = false
 sphinx-gp-opengraph = false
 sphinx-gp-llms = false
@@ -195,7 +205,10 @@ ignore_missing_imports = true
 target-version = "py310"
 
 [tool.ruff.lint]
-select = [
+# `select` is deliberately unset: ruff 0.16 enables a curated default rule
+# set, and an explicit `select` would replace it rather than extend it.
+# `extend-select` layers this project's additional linters on top.
+extend-select = [
   "E", # pycodestyle
   "F", # pyflakes
   "I", # isort
@@ -212,7 +225,7 @@ select = [
   "PERF", # Perflint
   "RUF", # Ruff-specific rules
   "D", # pydocstyle
-  "FA100",  # future annotations
+  "FA100", # future annotations
 ]
 ignore = [
   "COM812", # missing trailing comma, ruff format conflict
@@ -245,6 +258,26 @@ convention = "numpy"
 "src/tmuxp/workspace/finders.py" = ["PTH"]
 "src/tmuxp/cli/*.py" = ["PTH"]
 "docs/_ext/aafig.py" = ["PTH"]
+# `breakpoint = breakpoint` is not a no-op at module scope: the right-hand
+# side resolves to the builtin, and the assignment binds it as a module
+# attribute so `from tmuxp._compat import breakpoint` resolves. Module
+# attribute lookup does not fall back to builtins, so dropping the line
+# breaks the import in `tmuxp.cli.shell`.
+"src/tmuxp/_compat.py" = ["PLW0127"]
+# Sphinx reads the package's version metadata by `exec`-ing `__about__.py`
+# into a dict, so `conf.py` never imports the package it documents.
+"docs/conf.py" = ["S102"]
+# `tmuxp shell -c` documents itself as "execute python code in libtmux and
+# exit"; running the operator's own code in a tmux-aware namespace is the
+# command's purpose, not an injection sink.
+"src/tmuxp/cli/shell.py" = ["S102"]
+# The interactive console honors `$PYTHONSTARTUP` and `~/.pythonrc.py` by
+# `exec`-ing them, mirroring how CPython's own REPL sources them.
+"src/tmuxp/shell.py" = ["S102"]
+# A log formatter must never raise: `record.getMessage()` interpolates
+# caller-supplied args, so anything their `__str__` throws has to be
+# rendered into the line instead of propagating into the caller.
+"src/tmuxp/log.py" = ["BLE001"]
 
 [tool.pytest.ini_options]
 addopts = "--reruns=0 --tb=short --no-header --showlocals --doctest-modules"

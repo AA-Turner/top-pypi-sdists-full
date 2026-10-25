@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-redlines
-Version: 1.0.0
+Version: 2.0.0
 Summary: Open-source DOCX comparison tool to generate native Word tracked changes (redlines) in Python without MS Word dependencies.
 Project-URL: Homepage, https://github.com/JSv4/Python-Redlines
 Project-URL: Documentation, https://jsv4.github.io/Python-Redlines/
@@ -21,12 +21,12 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.9
 Requires-Dist: platformdirs>=3.0
 Provides-Extra: all
-Requires-Dist: python-redlines-docxodus; extra == 'all'
-Requires-Dist: python-redlines-ooxmlpowertools; extra == 'all'
+Requires-Dist: python-redlines-docxodus==2.0.0; extra == 'all'
+Requires-Dist: python-redlines-ooxmlpowertools==2.0.0; extra == 'all'
 Provides-Extra: docxodus
-Requires-Dist: python-redlines-docxodus; extra == 'docxodus'
+Requires-Dist: python-redlines-docxodus==2.0.0; extra == 'docxodus'
 Provides-Extra: ooxmlpowertools
-Requires-Dist: python-redlines-ooxmlpowertools; extra == 'ooxmlpowertools'
+Requires-Dist: python-redlines-ooxmlpowertools==2.0.0; extra == 'ooxmlpowertools'
 Description-Content-Type: text/markdown
 
 # python-redlines
@@ -59,8 +59,23 @@ redline_bytes, stdout, stderr = engine.run_redline(
 )
 ```
 
-`DocxodusEngine` accepts `engine="wmlcomparer"` (default) or `engine="docxdiff"` to select the
-comparison algorithm. See the [project README](https://github.com/JSv4/Python-Redlines#choosing-an-engine).
+`DocxodusEngine` runs DocxDiff. The `engine` selector was removed in 1.0.0 along
+with WmlComparer. See the [project README](https://github.com/JSv4/Python-Redlines#comparison-settings-docxodusengine-only)
+for supported settings.
+
+From 2.0.0 onward, each extra pins its companion package to the same release
+version as the wrapper. For older releases, pin both packages explicitly (for
+example, `python-redlines[docxodus]==0.3.0` and
+`python-redlines-docxodus==0.3.0`). Existing published metadata is unchanged.
+
+2.0.0 bundles Docxodus v14.1.0. Python call signatures and supported settings
+are unchanged from 1.0.0, but comparison markup and revision granularity can differ.
+Review representative redlines when upgrading; see the
+[2.0.0 migration guide](https://github.com/JSv4/Python-Redlines#upgrading-to-200).
+
+An unsuccessful engine exit raises `EngineExecutionError`, a subclass of
+`subprocess.CalledProcessError`. Its message includes the captured stderr and
+stdout; `returncode`, `cmd`, `stdout`/`output`, and `stderr` remain available.
 
 If an engine's companion package is not installed, instantiating the engine
 raises `EngineNotInstalledError` with the `pip install` command to fix it.

@@ -623,83 +623,89 @@ _coerce_dp_wfm_source_crc_refuse_text (uint8_t **dst, size_t *n_dst,
 static int
 Synth_init (SynthObject *self, PyObject *args, PyObject *kwds)
 {
-  static char       *kwlist[]         = { "type",
-                                          "freq",
-                                          "snr",
-                                          "snr_mode",
-                                          "seed",
-                                          "sps",
-                                          "pn_length",
-                                          "pn_poly",
-                                          "lfsr",
-                                          "level",
-                                          "background",
-                                          "f_end",
-                                          "span",
-                                          "doppler",
-                                          "doppler_rate",
-                                          "carrier_hz",
-                                          "doppler_lifetime",
-                                          "modulation",
-                                          "pulse",
-                                          "rrc_beta",
-                                          "rrc_span",
-                                          "symbols",
-                                          "acq_code",
-                                          "acq_reps",
-                                          "data_code",
-                                          "sync",
-                                          "crc",
-                                          "symbol_rate",
-                                          "dsss_code_only",
-                                          "frame",
-                                          "bits",
-                                          "data",
-                                          "data_len",
-                                          "fill",
-                                          "fs",
-                                          NULL };
-  const char        *type             = "tone";
-  PyObject          *freq             = NULL;
-  PyObject          *snr              = NULL;
-  const char        *snr_mode         = "auto";
-  long long          seed_raw         = 0;
-  int                sps              = 1;
-  int                pn_length        = 15;
-  PyObject          *pn_poly_obj      = NULL;
-  unsigned long long pn_poly_raw      = 0;
-  const char        *lfsr             = "galois";
-  PyObject          *level            = NULL;
-  int                background       = 0;
-  PyObject          *f_end            = NULL;
-  PyObject          *span_obj         = NULL;
-  unsigned long long span_raw         = 0;
-  PyObject          *doppler          = NULL;
-  PyObject          *doppler_rate     = NULL;
-  double             carrier_hz       = 0.0;
-  const char        *doppler_lifetime = "per_instance";
-  const char        *modulation       = "bpsk";
-  const char        *pulse            = "rect";
-  double             rrc_beta         = 0.35;
-  int                rrc_span         = 8;
-  PyObject          *symbols          = NULL;
-  PyObject          *acq_code         = NULL;
-  PyObject          *acq_reps_obj     = NULL;
-  unsigned long long acq_reps_raw     = 1;
-  PyObject          *data_code        = NULL;
-  PyObject          *sync             = NULL;
-  PyObject          *crc              = NULL;
-  double             symbol_rate      = 0.0;
-  int                dsss_code_only   = 0;
-  PyObject          *frame            = NULL;
-  PyObject          *bits             = NULL;
-  PyObject          *data             = NULL;
-  PyObject          *data_len_obj     = NULL;
-  unsigned long long data_len_raw     = 0;
-  PyObject          *fill             = NULL;
-  double             fs               = 1e6;
-  PyObject          *_kw              = kwds;
-  int                _kw_owned        = 0;
+  static char       *kwlist[]              = { "type",
+                                               "freq",
+                                               "snr",
+                                               "snr_mode",
+                                               "seed",
+                                               "sps",
+                                               "pn_length",
+                                               "pn_poly",
+                                               "lfsr",
+                                               "level",
+                                               "background",
+                                               "f_end",
+                                               "span",
+                                               "doppler",
+                                               "doppler_rate",
+                                               "carrier_hz",
+                                               "doppler_lifetime",
+                                               "modulation",
+                                               "pulse",
+                                               "rrc_beta",
+                                               "rrc_span",
+                                               "symbols",
+                                               "acq_code",
+                                               "acq_reps",
+                                               "data_code",
+                                               "sync",
+                                               "crc",
+                                               "symbol_rate",
+                                               "dsss_code_only",
+                                               "frame",
+                                               "bits",
+                                               "data",
+                                               "data_len",
+                                               "fill",
+                                               "code_only_symbols",
+                                               "frame_symbols",
+                                               "fs",
+                                               NULL };
+  const char        *type                  = "tone";
+  PyObject          *freq                  = NULL;
+  PyObject          *snr                   = NULL;
+  const char        *snr_mode              = "auto";
+  long long          seed_raw              = 0;
+  int                sps                   = 1;
+  int                pn_length             = 15;
+  PyObject          *pn_poly_obj           = NULL;
+  unsigned long long pn_poly_raw           = 0;
+  const char        *lfsr                  = "galois";
+  PyObject          *level                 = NULL;
+  int                background            = 0;
+  PyObject          *f_end                 = NULL;
+  PyObject          *span_obj              = NULL;
+  unsigned long long span_raw              = 0;
+  PyObject          *doppler               = NULL;
+  PyObject          *doppler_rate          = NULL;
+  double             carrier_hz            = 0.0;
+  const char        *doppler_lifetime      = "per_instance";
+  const char        *modulation            = "bpsk";
+  const char        *pulse                 = "rect";
+  double             rrc_beta              = 0.35;
+  int                rrc_span              = 8;
+  PyObject          *symbols               = NULL;
+  PyObject          *acq_code              = NULL;
+  PyObject          *acq_reps_obj          = NULL;
+  unsigned long long acq_reps_raw          = 1;
+  PyObject          *data_code             = NULL;
+  PyObject          *sync                  = NULL;
+  PyObject          *crc                   = NULL;
+  double             symbol_rate           = 0.0;
+  int                dsss_code_only        = 0;
+  PyObject          *frame                 = NULL;
+  PyObject          *bits                  = NULL;
+  PyObject          *data                  = NULL;
+  PyObject          *data_len_obj          = NULL;
+  unsigned long long data_len_raw          = 0;
+  PyObject          *fill                  = NULL;
+  PyObject          *code_only_symbols_obj = NULL;
+  unsigned long long code_only_symbols_raw = 0;
+  PyObject          *frame_symbols_obj     = NULL;
+  unsigned long long frame_symbols_raw     = 0;
+  double             fs                    = 1e6;
+  PyObject          *_kw                   = kwds;
+  int                _kw_owned             = 0;
   if (kwds)
     {
       {
@@ -785,13 +791,14 @@ Synth_init (SynthObject *self, PyObject *args, PyObject *kwds)
       }
     }
   if (!PyArg_ParseTupleAndKeywords (
-          args, _kw, "|sOOsLiiOsOiOOOOdsssdiOOOOOOdiOOOOOd", kwlist, &type,
+          args, _kw, "|sOOsLiiOsOiOOOOdsssdiOOOOOOdiOOOOOOOd", kwlist, &type,
           &freq, &snr, &snr_mode, &seed_raw, &sps, &pn_length, &pn_poly_obj,
           &lfsr, &level, &background, &f_end, &span_obj, &doppler,
           &doppler_rate, &carrier_hz, &doppler_lifetime, &modulation, &pulse,
           &rrc_beta, &rrc_span, &symbols, &acq_code, &acq_reps_obj, &data_code,
           &sync, &crc, &symbol_rate, &dsss_code_only, &frame, &bits, &data,
-          &data_len_obj, &fill, &fs))
+          &data_len_obj, &fill, &code_only_symbols_obj, &frame_symbols_obj,
+          &fs))
     {
       if (_kw_owned)
         Py_DECREF (_kw);
@@ -1224,6 +1231,51 @@ Synth_init (SynthObject *self, PyObject *args, PyObject *kwds)
   if (!_coerce_dp_wfm_source_bits_refuse_text (
           (uint8_t **)&self->src.fill.bits, &self->src.fill.len, fill))
     return -1;
+  if (code_only_symbols_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (code_only_symbols_obj);
+      if (_ix == NULL)
+        {
+          return -1;
+        }
+      code_only_symbols_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((code_only_symbols_raw == (unsigned long long)-1
+           && PyErr_Occurred ())
+          || code_only_symbols_raw > (unsigned long long)SIZE_MAX)
+        {
+          PyErr_Format (
+              PyExc_OverflowError,
+              "code_only_symbols: %S is out of range for size_t [0, %llu]",
+              _ix, (unsigned long long)SIZE_MAX);
+          Py_DECREF (_ix);
+          return -1;
+        }
+      Py_DECREF (_ix);
+    }
+  size_t code_only_symbols    = (size_t)code_only_symbols_raw;
+  self->src.code_only_symbols = code_only_symbols;
+  if (frame_symbols_obj != NULL)
+    {
+      PyObject *_ix = PyNumber_Index (frame_symbols_obj);
+      if (_ix == NULL)
+        {
+          return -1;
+        }
+      frame_symbols_raw = PyLong_AsUnsignedLongLong (_ix);
+      if ((frame_symbols_raw == (unsigned long long)-1 && PyErr_Occurred ())
+          || frame_symbols_raw > (unsigned long long)SIZE_MAX)
+        {
+          PyErr_Format (
+              PyExc_OverflowError,
+              "frame_symbols: %S is out of range for size_t [0, %llu]", _ix,
+              (unsigned long long)SIZE_MAX);
+          Py_DECREF (_ix);
+          return -1;
+        }
+      Py_DECREF (_ix);
+    }
+  size_t frame_symbols    = (size_t)frame_symbols_raw;
+  self->src.frame_symbols = frame_symbols;
   return 0;
 }
 
@@ -2151,6 +2203,75 @@ Synth_set_fill (SynthObject *self, PyObject *value, void *closure)
              : -1;
 }
 static PyObject *
+Synth_get_code_only_symbols (SynthObject *self, void *closure)
+{
+  (void)closure;
+  return PyLong_FromUnsignedLongLong (
+      (unsigned long long)self->src.code_only_symbols);
+}
+static int
+Synth_set_code_only_symbols (SynthObject *self, PyObject *value, void *closure)
+{
+  (void)closure;
+  unsigned long long _v_raw = 0ULL;
+  {
+    PyObject *_ix = PyNumber_Index (value);
+    if (_ix == NULL)
+      {
+        return -1;
+      }
+    _v_raw = PyLong_AsUnsignedLongLong (_ix);
+    if ((_v_raw == (unsigned long long)-1 && PyErr_Occurred ())
+        || _v_raw > (unsigned long long)SIZE_MAX)
+      {
+        PyErr_Format (
+            PyExc_OverflowError,
+            "code_only_symbols: %S is out of range for size_t [0, %llu]", _ix,
+            (unsigned long long)SIZE_MAX);
+        Py_DECREF (_ix);
+        return -1;
+      }
+    Py_DECREF (_ix);
+  }
+  size_t _v                   = (size_t)_v_raw;
+  self->src.code_only_symbols = _v;
+  return 0;
+}
+static PyObject *
+Synth_get_frame_symbols (SynthObject *self, void *closure)
+{
+  (void)closure;
+  return PyLong_FromUnsignedLongLong (
+      (unsigned long long)self->src.frame_symbols);
+}
+static int
+Synth_set_frame_symbols (SynthObject *self, PyObject *value, void *closure)
+{
+  (void)closure;
+  unsigned long long _v_raw = 0ULL;
+  {
+    PyObject *_ix = PyNumber_Index (value);
+    if (_ix == NULL)
+      {
+        return -1;
+      }
+    _v_raw = PyLong_AsUnsignedLongLong (_ix);
+    if ((_v_raw == (unsigned long long)-1 && PyErr_Occurred ())
+        || _v_raw > (unsigned long long)SIZE_MAX)
+      {
+        PyErr_Format (PyExc_OverflowError,
+                      "frame_symbols: %S is out of range for size_t [0, %llu]",
+                      _ix, (unsigned long long)SIZE_MAX);
+        Py_DECREF (_ix);
+        return -1;
+      }
+    Py_DECREF (_ix);
+  }
+  size_t _v               = (size_t)_v_raw;
+  self->src.frame_symbols = _v;
+  return 0;
+}
+static PyObject *
 Synth_get_fs (SynthObject *self, void *closure)
 {
   (void)closure;
@@ -2391,6 +2512,20 @@ static PyGetSetDef Synth_getset[] = {
     "source always needs them. Without them such a source is refused before "
     "the first sample. A Field on the command line and in a scene, a bit "
     "array in Python. Continuous dsss has no frame to pad, and refuses it.\n",
+    NULL },
+  { "code_only_symbols", (getter)Synth_get_code_only_symbols,
+    (setter)Synth_set_code_only_symbols,
+    "Continuous dsss: pure-code symbols opening each frame of frame_symbols "
+    "symbols. The data pauses through them and runs on across frames, so a "
+    "searcher can integrate coherently over the window; once a payload ends, "
+    "no window is sent. At most frame_symbols, and fewer when a data source "
+    "is set; 0 with frame_symbols 0 = no window.\n",
+    NULL },
+  { "frame_symbols", (getter)Synth_get_frame_symbols,
+    (setter)Synth_set_frame_symbols,
+    "Continuous dsss: the frame, in symbols, that code_only_symbols opens; "
+    "give it with code_only_symbols, or both 0 for no window. The frame runs "
+    "on the stream's own symbol clock, so its edges land at any chip phase.\n",
     NULL },
   { "fs", (getter)Synth_get_fs, (setter)Synth_set_fs, NULL, NULL },
   { NULL, NULL, NULL, NULL, NULL }
@@ -3000,6 +3135,23 @@ static PyTypeObject SynthType = {
       "bit\n"
       "    array in Python. Continuous dsss has no frame to pad, and refuses "
       "it.\n"
+      "code_only_symbols : int, default 0\n"
+      "    Continuous dsss: pure-code symbols opening each frame of "
+      "frame_symbols\n"
+      "    symbols. The data pauses through them and runs on across frames, "
+      "so a\n"
+      "    searcher can integrate coherently over the window; once a payload "
+      "ends,\n"
+      "    no window is sent. At most frame_symbols, and fewer when a data "
+      "source\n"
+      "    is set; 0 with frame_symbols 0 = no window.\n"
+      "frame_symbols : int, default 0\n"
+      "    Continuous dsss: the frame, in symbols, that code_only_symbols "
+      "opens;\n"
+      "    give it with code_only_symbols, or both 0 for no window. The frame "
+      "runs\n"
+      "    on the stream's own symbol clock, so its edges land at any chip "
+      "phase.\n"
       "fs : float, default 1.0\n"
       "    Sample rate in Hz, one per segment and shared by all its sources. "
       "At\n"
@@ -4563,6 +4715,32 @@ Segment_flat_fill (SegmentObject *self, void *closure)
     }
   return PyObject_GetAttrString (PyList_GET_ITEM (self->sources, 0), "fill");
 }
+static PyObject *
+Segment_flat_code_only_symbols (SegmentObject *self, void *closure)
+{
+  (void)closure;
+  if (PyList_GET_SIZE (self->sources) != 1)
+    {
+      PyErr_SetString (PyExc_AttributeError,
+                       "code_only_symbols is only on a single-source Segment");
+      return NULL;
+    }
+  return PyObject_GetAttrString (PyList_GET_ITEM (self->sources, 0),
+                                 "code_only_symbols");
+}
+static PyObject *
+Segment_flat_frame_symbols (SegmentObject *self, void *closure)
+{
+  (void)closure;
+  if (PyList_GET_SIZE (self->sources) != 1)
+    {
+      PyErr_SetString (PyExc_AttributeError,
+                       "frame_symbols is only on a single-source Segment");
+      return NULL;
+    }
+  return PyObject_GetAttrString (PyList_GET_ITEM (self->sources, 0),
+                                 "frame_symbols");
+}
 
 static PyObject *
 Segment_add (SegmentObject *self, PyObject *args)
@@ -4845,6 +5023,18 @@ static PyGetSetDef Segment_getset[] = {
     "source always needs them. Without them such a source is refused before "
     "the first sample. A Field on the command line and in a scene, a bit "
     "array in Python. Continuous dsss has no frame to pad, and refuses it.\n",
+    NULL },
+  { "code_only_symbols", (getter)Segment_flat_code_only_symbols, NULL,
+    "Continuous dsss: pure-code symbols opening each frame of frame_symbols "
+    "symbols. The data pauses through them and runs on across frames, so a "
+    "searcher can integrate coherently over the window; once a payload ends, "
+    "no window is sent. At most frame_symbols, and fewer when a data source "
+    "is set; 0 with frame_symbols 0 = no window.\n",
+    NULL },
+  { "frame_symbols", (getter)Segment_flat_frame_symbols, NULL,
+    "Continuous dsss: the frame, in symbols, that code_only_symbols opens; "
+    "give it with code_only_symbols, or both 0 for no window. The frame runs "
+    "on the stream's own symbol clock, so its edges land at any chip phase.\n",
     NULL },
   { NULL, NULL, NULL, NULL, NULL }
 };
@@ -5184,6 +5374,23 @@ static PyTypeObject SegmentType = {
       "bit\n"
       "    array in Python. Continuous dsss has no frame to pad, and refuses "
       "it.\n"
+      "code_only_symbols : int, default 0\n"
+      "    Continuous dsss: pure-code symbols opening each frame of "
+      "frame_symbols\n"
+      "    symbols. The data pauses through them and runs on across frames, "
+      "so a\n"
+      "    searcher can integrate coherently over the window; once a payload "
+      "ends,\n"
+      "    no window is sent. At most frame_symbols, and fewer when a data "
+      "source\n"
+      "    is set; 0 with frame_symbols 0 = no window.\n"
+      "frame_symbols : int, default 0\n"
+      "    Continuous dsss: the frame, in symbols, that code_only_symbols "
+      "opens;\n"
+      "    give it with code_only_symbols, or both 0 for no window. The frame "
+      "runs\n"
+      "    on the stream's own symbol clock, so its edges land at any chip "
+      "phase.\n"
       "fs : float, default 1.0\n"
       "    Sample rate in Hz, one per segment and shared by all its sources. "
       "At\n"
@@ -5331,6 +5538,7 @@ typedef struct
 {
   PyObject_HEAD dp_wfm_compose_state_t *state;
   int                                   destroyed;
+  int                                   lent; /* gh-2346: the state was lent */
   jm_inflight_t _jm_inflight; /* gh-2272: GIL-free calls running */
 } ComposerObject;
 
@@ -5550,7 +5758,7 @@ _dp_wfm_compose_segments_to_list (const wfm_segment_t *src, size_t n)
 static void
 Composer_dealloc (ComposerObject *self)
 {
-  if (!self->destroyed && self->state)
+  if (self->state && (!self->destroyed || self->lent))
     dp_wfm_compose_destroy (self->state);
   jm_inflight_free (&self->_jm_inflight);
   Py_TYPE (self)->tp_free ((PyObject *)self);
@@ -5905,7 +6113,10 @@ Composer_close (ComposerObject *self, PyObject *Py_UNUSED (ignored))
           self->destroyed = 0;
           return NULL;
         }
-      dp_wfm_compose_destroy (self->state);
+      /* gh-2346: lent -> a borrower may still read it; dealloc
+         frees it once the last one lets go. */
+      if (!self->lent)
+        dp_wfm_compose_destroy (self->state);
     }
   Py_RETURN_NONE;
 }
@@ -6010,10 +6221,31 @@ Composer_to_json (ComposerObject *self, PyObject *Py_UNUSED (ignored))
   return s;
 }
 
+static PyObject *
+Composer_get__capsule (ComposerObject *self, void *Py_UNUSED (closure))
+{
+  if (self->destroyed || !self->state)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "composer already closed");
+      return NULL;
+    }
+  /* Lent, not owned: the capsule never frees the pointer, and
+     holds Composer, so the pointer lives as long as it. */
+  /* gh-2346: lent once, so close() leaves the free to dealloc. */
+  self->lent = 1;
+  return jm_capsule_lend ((void *)(self->state), "doppler.wfm.composer",
+                          (PyObject *)self);
+}
+
 static PyGetSetDef Composer_getset[]
     = { { "segments", (getter)Composer_get_segments, NULL, NULL, NULL },
         { "repeat", (getter)Composer_get_repeat, NULL, NULL, NULL },
         { "continuous", (getter)Composer_get_continuous, NULL, NULL, NULL },
+        { "_capsule", (getter)Composer_get__capsule, NULL,
+          "Borrowed doppler.wfm.composer capsule for this composer.\n\n"
+          "It never frees the composer, and keeps this object alive;\n"
+          "it is valid until the composer is closed.",
+          NULL },
         { NULL, NULL, NULL, NULL, NULL } };
 
 /* Iterator returned by Composer.stream(): drains execute() into blocks. */
@@ -6204,6 +6436,8 @@ static const char *const _Composer_src_keys[] = { "type",
                                                   "data",
                                                   "data_len",
                                                   "fill",
+                                                  "code_only_symbols",
+                                                  "frame_symbols",
                                                   NULL };
 
 static PyObject *

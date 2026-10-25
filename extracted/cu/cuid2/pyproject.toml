@@ -1,25 +1,25 @@
 [build-system]
-requires = [
-    "pdm-backend",
-]
-build-backend = "pdm.backend"
+requires = ["uv_build>=0.7.0,<0.14.0"]
+build-backend = "uv_build"
 
 [project]
 name = "cuid2"
-dynamic = []
-authors = [
-    { name = "Will Gordon", email = "wgordon@redhat.com" },
-]
+version = "2.0.3"
 description = "Next generation GUIDs. Collision-resistant ids optimized for horizontal scaling and performance."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security :: Cryptography",
     "Typing :: Typed",
 ]
@@ -31,10 +31,10 @@ keywords = [
     "cuid",
     "cryptography",
 ]
-version = "2.0.1"
 
-[project.license]
-file = "LICENSE"
+[[project.authors]]
+name = "Will Gordon"
+email = "dev@gordoncode.dev"
 
 [project.urls]
 repository = "https://github.com/gordon-code/cuid2/"
@@ -42,72 +42,48 @@ repository = "https://github.com/gordon-code/cuid2/"
 [project.scripts]
 cuid2 = "cuid2.cli:main"
 
-[tool.pdm.version]
-source = "scm"
-
-[tool.pdm.scripts]
-ruff-check = "ruff check --fix --exit-zero {args:src/ local/tests/}"
-ruff-format = "ruff format {args:src/ local/tests/}"
-spelling = "codespell {args:src/ local/tests/}"
-pylint = "pylint {args:src/ local/tests/}"
-safety = "safety {args:check --bare}"
-typing = "mypy {args:src/ local/tests/}"
-update-pip = "pip install --upgrade pip"
-testing = "pytest local/tests"
-testing-slow = "pytest local/tests --runslow"
-tox = "tox --parallel auto"
-
-[tool.pdm.scripts.ruff-fix]
-composite = [
-    "ruff-check",
-    "ruff-format",
-]
-
-[tool.pdm.scripts.lint-full]
-composite = [
-    "ruff-fix",
-    "spelling",
-    "pylint",
+[tool.uv]
+default-groups = [
+    "lint",
+    "test",
+    "tox",
     "typing",
-    "safety",
-]
-
-[tool.pdm.scripts.tox-full]
-composite = [
-    "update-pip",
-    "lint-full",
-]
-
-[tool.pdm.dev-dependencies]
-lint = [
-    "codespell~=2.2.6",
-    "pylint~=3.1.0",
-    "requests>=2.31.0",
-    "ruff~=0.3.7",
-    "safety==3.1.0",
-]
-test = [
-    "pytest~=8.1.1",
-    "pytest-mock~=3.14.0",
-    "pytest-sugar~=1.0.0",
-]
-tox = [
-    "tox~=4.14.2",
-    "tox-pdm~=0.7.2",
-]
-typing = [
-    "mypy~=1.9.0",
 ]
 
 [tool.tox]
-legacy_tox_ini = "    [tox]\n    min_version = 4\n    env_list = py3{8,9,10,11,12}, check\n    work_dir = local/.tox\n    isolated_build = True\n\n    [testenv]\n    description = run unit tests\n    groups = test\n    commands = testing\n\n    [testenv:check]\n    description = run linters and typing\n    skip_install = true\n    groups = lint, typing, test\n    commands = tox-full\n"
+legacy_tox_ini = """
+    [tox]
+    min_version = 4
+    env_list = py3{10,11,12,13,14}, check
+    work_dir = local/.tox
+    isolated_build = True
+
+    [testenv]
+    runner = uv-venv-lock-runner
+    description = run unit tests
+    dependency_groups = test
+    commands = pytest local/tests
+
+    [testenv:check]
+    runner = uv-venv-lock-runner
+    description = run linters and typing
+    package = skip
+    dependency_groups =
+        lint
+        typing
+        test
+    commands =
+        ruff check src/ local/tests/
+        ruff format --check src/ local/tests/
+        codespell src/ local/tests/
+        pylint src/ local/tests/
+        mypy src/ local/tests/
+"""
 
 [tool.ruff]
 line-length = 120
-src = [
-    "src",
-]
-target-version = "py38"
+src = ["src"]
+target-version = "py310"
 cache-dir = "local/.ruff_cache"
 force-exclude = true
 
@@ -120,7 +96,6 @@ select = [
     "I",
     "N",
     "ASYNC",
-    "TRIO",
     "S",
     "BLE",
     "B",
@@ -179,9 +154,7 @@ unfixable = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = [
-    "src",
-]
+known-first-party = ["src"]
 section-order = [
     "future",
     "standard-library",
@@ -197,6 +170,7 @@ convention = "numpy"
 minversion = "8.1"
 cache_dir = "local/.pytest_cache"
 python_files = "test_*.py"
+testpaths = ["local/tests"]
 
 [tool.pylint.master]
 ignore-patterns = "test_.*.py"
@@ -219,3 +193,20 @@ check-quote-consistency = "yes"
 
 [tool.mypy]
 cache_dir = "local/.mypy_cache"
+
+[dependency-groups]
+lint = [
+    "codespell==2.4.3",
+    "pylint==4.1.2",
+    "ruff==0.16.10",
+]
+test = [
+    "pytest==9.1.1",
+    "pytest-mock==3.16.0",
+    "pytest-sugar==1.1.1",
+]
+tox = [
+    "tox==4.64.8",
+    "tox-uv==1.36.1",
+]
+typing = ["mypy==2.4.0"]

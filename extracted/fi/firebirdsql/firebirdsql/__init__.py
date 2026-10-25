@@ -30,11 +30,23 @@ import decimal
 import time
 from typing import Any
 from firebirdsql.consts import *    # noqa
-from firebirdsql.fbcore import Connection
+from firebirdsql.fbcore import Connection as Connection
+from firebirdsql.array import (
+    Array as Array, ArrayDimension as ArrayDimension, ArrayMeta as ArrayMeta
+)
 import firebirdsql.services
 from firebirdsql.err import (
-    Warning, Error, InterfaceError, DatabaseError, DisconnectByPeer, InternalError,
-    OperationalError, ProgrammingError, IntegrityError, DataError, NotSupportedError
+    Warning as Warning,
+    Error as Error,
+    InterfaceError as InterfaceError,
+    DatabaseError as DatabaseError,
+    DisconnectByPeer as DisconnectByPeer,
+    InternalError as InternalError,
+    OperationalError as OperationalError,
+    ProgrammingError as ProgrammingError,
+    IntegrityError as IntegrityError,
+    DataError as DataError,
+    NotSupportedError as NotSupportedError,
 )
 
 
@@ -128,10 +140,14 @@ TIME = DBAPITypeObject(
     SQL_TYPE_TIME, SQL_TYPE_TIME + 1,
     SQL_TYPE_TIME_TZ, SQL_TYPE_TIME_TZ + 1,
 )
+ARRAY = DBAPITypeObject(
+    list, tuple, Array,
+    SQL_TYPE_ARRAY, SQL_TYPE_ARRAY + 1,
+)
 ROWID = DBAPITypeObject()
 
 
-__version__ = '1.4.7'
+__version__ = '1.5.0'
 apilevel = '2.0'
 threadsafety = 1
 paramstyle = 'qmark'
@@ -157,6 +173,7 @@ def connect(
     timezone: str | None = None,
     wire_compress: bool = False,
     readonly: bool = False,
+    statement_timeout: float | None = None,
     **kwargs: Any,
 ) -> Connection:
     conn = Connection(
@@ -179,6 +196,7 @@ def connect(
         timezone=timezone,
         wire_compress=wire_compress,
         readonly=readonly,
+        statement_timeout=statement_timeout,
         **kwargs,
     )
     conn._initialize()
@@ -204,6 +222,7 @@ def create_database(
     timezone: str | None = None,
     wire_compress: bool = False,
     readonly: bool = False,
+    statement_timeout: float | None = None,
     **kwargs: Any,
 ) -> Connection:
     return connect(
@@ -226,6 +245,7 @@ def create_database(
         timezone=timezone,
         wire_compress=wire_compress,
         readonly=readonly,
+        statement_timeout=statement_timeout,
         **kwargs,
     )
 

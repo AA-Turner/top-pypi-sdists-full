@@ -15,12 +15,24 @@ namespace common {
 
 #ifndef __SINGLE_THREADED__
 
+namespace {
+
+// The scheduler whose slot this thread holds while it runs a task: set for a worker's whole life
+// (it runs tasks only while counted), and on a caller while it runs a task inline. A nested
+// inline run on such a thread reuses its slot.
+// Never outlives the scheduler: workers and launchNewWorkerThread threads are joined before
+// it is destroyed, and SlotGuard restores a caller's previous value.
+thread_local const TaskScheduler* busySlotOwner = nullptr;
+
+} // namespace
+
 #if defined(__APPLE__)
 TaskScheduler::TaskScheduler(uint64_t numWorkerThreads, uint32_t threadQos)
 #else
 TaskScheduler::TaskScheduler(uint64_t numWorkerThreads)
 #endif
-    : stopWorkerThreads{false}, nextScheduledTaskID{0} {
+    : stopWorkerThreads{false}, nextScheduledTaskID{0}, maxNumBusyThreads{numWorkerThreads},
+      numBusyThreads{0} {
 #if defined(__APPLE__)
     this->threadQos = threadQos;
 #endif
@@ -40,17 +52,30 @@ TaskScheduler::~TaskScheduler() {
 }
 
 void TaskScheduler::scheduleTaskAndWaitOrError(const std::shared_ptr<Task>& task,
-    processor::ExecutionContext* context, bool launchNewWorkerThread) {
-    scheduleTaskAndWaitOrError(task, context->clientContext, launchNewWorkerThread);
+    processor::ExecutionContext* context, bool launchNewWorkerThread, TaskBeforeRunFn beforeRun) {
+    scheduleTaskAndWaitOrError(task, context->clientContext, launchNewWorkerThread, beforeRun);
 }
 
 void TaskScheduler::scheduleTaskAndWaitOrError(const std::shared_ptr<Task>& task,
-    main::ClientContext* clientContext, bool launchNewWorkerThread) {
+    main::ClientContext* clientContext, bool launchNewWorkerThread, TaskBeforeRunFn beforeRun) {
     for (auto& dependency : task->children) {
-        scheduleTaskAndWaitOrError(dependency, clientContext);
+        scheduleTaskAndWaitOrError(dependency, clientContext, false, beforeRun);
         if (dependency->terminate()) {
             return;
         }
+    }
+    if (beforeRun != nullptr) {
+        beforeRun(task.get());
+    }
+    // A one-thread task runs on the caller so the pool stays asleep. A timeout still uses
+    // the pool: the waiting caller is what notices the clock and interrupts the worker.
+    if (!launchNewWorkerThread && task->maxNumThreads == 1 &&
+        !(clientContext != nullptr && clientContext->hasTimeout()) &&
+        runOnCallingThread(task.get())) {
+        if (task->hasException()) {
+            std::rethrow_exception(task->getExceptionPtr());
+        }
+        return;
     }
     std::thread newWorkerThread;
     if (launchNewWorkerThread) {
@@ -60,7 +85,12 @@ void TaskScheduler::scheduleTaskAndWaitOrError(const std::shared_ptr<Task>& task
         // numThreadsRegistered field of the task, tt does not keep track of the thread ids or
         // anything specific to the thread.
         task->registerThread();
-        newWorkerThread = std::thread(runTask, task.get());
+        // The caller blocks until the task completes, so the new thread takes over the caller's
+        // slot if it holds one (a GDS call runs inside a task) and holds none otherwise.
+        newWorkerThread = std::thread([taskPtr = task.get(), owner = busySlotOwner] {
+            busySlotOwner = owner;
+            runTask(taskPtr);
+        });
     }
     auto scheduledTask = pushTaskIntoQueue(task);
     cv.notify_all();
@@ -103,7 +133,44 @@ void TaskScheduler::scheduleTaskAndWaitOrError(const std::shared_ptr<Task>& task
     }
 }
 
+bool TaskScheduler::runOnCallingThread(Task* task) {
+    if (busySlotOwner == this) {
+        if (!task->registerThread()) {
+            return false;
+        }
+        runTask(task);
+        return true;
+    }
+    {
+        lock_t lck{taskSchedulerMtx};
+        if (numBusyThreads == maxNumBusyThreads || !task->registerThread()) {
+            return false;
+        }
+        numBusyThreads++;
+    }
+    // Gives the slot back even if runTask throws.
+    struct SlotGuard {
+        TaskScheduler* scheduler;
+        const TaskScheduler* previousOwner;
+        ~SlotGuard() {
+            busySlotOwner = previousOwner;
+            lock_t lck{scheduler->taskSchedulerMtx};
+            scheduler->numBusyThreads--;
+            // A queued task may be waiting for this slot rather than for a worker.
+            if (!scheduler->taskQueue.empty()) {
+                scheduler->cv.notify_one();
+            }
+        }
+    } guard{this, busySlotOwner};
+    busySlotOwner = this;
+    // Writes made here reach a dependent task: it runs on this thread, or this thread queues it
+    // under taskSchedulerMtx. Writes of a child run by workers arrive through its taskMtx.
+    runTask(task);
+    return true;
+}
+
 void TaskScheduler::runWorkerThread() {
+    busySlotOwner = this;
 #if defined(__APPLE__)
     qos_class_t qosClass = (qos_class_t)threadQos;
     if (qosClass != QOS_CLASS_DEFAULT && qosClass != QOS_CLASS_UNSPECIFIED) {
@@ -132,11 +199,17 @@ void TaskScheduler::runWorkerThread() {
             }
             scheduledTask->task->deRegisterThreadAndFinalizeTask();
             scheduledTask = nullptr;
+            numBusyThreads--;
         }
         cv.wait(lck, [&] {
-            scheduledTask = getTaskAndRegister();
+            if (numBusyThreads < maxNumBusyThreads) {
+                scheduledTask = getTaskAndRegister();
+            }
             return scheduledTask != nullptr || stopWorkerThreads;
         });
+        if (scheduledTask != nullptr) {
+            numBusyThreads++;
+        }
         lck.unlock();
         if (stopWorkerThreads) {
             return;
@@ -157,17 +230,20 @@ TaskScheduler::~TaskScheduler() {
 }
 
 void TaskScheduler::scheduleTaskAndWaitOrError(const std::shared_ptr<Task>& task,
-    processor::ExecutionContext* context, bool launchNewWorkerThread) {
-    scheduleTaskAndWaitOrError(task, context->clientContext, launchNewWorkerThread);
+    processor::ExecutionContext* context, bool launchNewWorkerThread, TaskBeforeRunFn beforeRun) {
+    scheduleTaskAndWaitOrError(task, context->clientContext, launchNewWorkerThread, beforeRun);
 }
 
 void TaskScheduler::scheduleTaskAndWaitOrError(const std::shared_ptr<Task>& task,
-    main::ClientContext* clientContext, bool) {
+    main::ClientContext* clientContext, bool, TaskBeforeRunFn beforeRun) {
     for (auto& dependency : task->children) {
-        scheduleTaskAndWaitOrError(dependency, clientContext);
+        scheduleTaskAndWaitOrError(dependency, clientContext, false, beforeRun);
         if (dependency->terminate()) {
             return;
         }
+    }
+    if (beforeRun != nullptr) {
+        beforeRun(task.get());
     }
     task->registerThread();
     // runTask deregisters, so we don't need to deregister explicitly here

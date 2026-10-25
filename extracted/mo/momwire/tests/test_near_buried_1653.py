@@ -401,6 +401,7 @@ _CXX_H_RTOL = 1e-10
     ],
 )
 @pytest.mark.parametrize("magnetic", [False, True], ids=["E", "H"])
+@pytest.mark.slow  # median over the 5 s default-lane budget at 0.84.0
 def test_the_cxx_readout_is_the_numpy_reference(deck, side, magnetic, monkeypatch):
     if _near_buried.cxx_parts() is None:
         pytest.skip("no accelerator: the numpy route is the only one")
@@ -480,7 +481,14 @@ def _tables(text):
     return out
 
 
-@pytest.mark.parametrize("stem", ["d1_buried_dipole", "d2_elev_screen"])
+@pytest.mark.parametrize(
+    "stem",
+    [
+        "d1_buried_dipole",
+        # median over the 5 s default-lane budget at 0.84.1
+        pytest.param("d2_elev_screen", marks=pytest.mark.slow),
+    ],
+)
 def test_g6_razor_2p_reads_the_nec5_reference_near_fields(stem, record_property):
     """Decks whose razor-2p solve agrees with NEC-5's (Z to 0.03 %): every
     NE/NH table - 1 cm above the surface, 5 cm and 50 cm into it, out to

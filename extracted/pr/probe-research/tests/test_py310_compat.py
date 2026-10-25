@@ -138,6 +138,14 @@ def _pyproject() -> dict:
     return _compat.tomllib.loads(_PYPROJECT.read_text(encoding="utf-8"))
 
 
+#: An extra's dependency that was never core's and never will be (so the
+#: two-release split's "core still carries it" does not apply), and why.
+_NEVER_IN_CORE = {
+    ("cli", "cryptography"): "the Probe service's signature check (service/appinstall.py); the service runs only "
+    "from the CLI's env (service/client.py runtime_python), never a core-only install",
+}
+
+
 def test_the_cli_and_mcp_extras_say_what_core_says():
     """Release N of the two-release split: core still carries these, and the
     extras must not drift from it (release N+1 deletes them from core)."""
@@ -151,6 +159,9 @@ def test_the_cli_and_mcp_extras_say_what_core_says():
     extras = project["optional-dependencies"]
     for extra in ("cli", "mcp"):
         for name, spec in by_name(extras[extra]).items():
+            if (extra, name) in _NEVER_IN_CORE:
+                assert name not in core, f"{name} is the {extra} extra's alone: {_NEVER_IN_CORE[(extra, name)]}"
+                continue
             assert name in core, (
                 f"{name} left core. GATE -- plan 2.11 (D29), root TODOS.md \"Packaging (plan "
                 "2.11, D29)\" and tests/test_release_sync.py::test_release_n1_waits_for_the_"

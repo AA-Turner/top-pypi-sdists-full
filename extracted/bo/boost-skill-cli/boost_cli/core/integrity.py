@@ -106,7 +106,7 @@ def status(name: str, entry: dict | None = None) -> str:
         return STATUS_UNLOCKED
     if self_sourced(name, entry):
         return STATUS_OK
-    if util.sha256_dir(sdir) != recorded or exec_drifted(sdir, entry):
+    if not util.sha256_matches(sdir, recorded) or exec_drifted(sdir, entry):
         return STATUS_MODIFIED
     return STATUS_OK
 
@@ -233,6 +233,21 @@ def reaches_no_agent(kind: str | None, entry: dict) -> bool:
         for m in rows)
 
 
+def skill_base(entry: dict) -> str | None:
+    """The ``base`` :func:`agents.materialization_is_written` wants for a
+    skill row: ``None`` at user scope, a non-None marker at project scope.
+
+    A project lock row carries no ``base`` of its own -- the lock file's
+    location is the base -- but it says ``scope: project`` and records its
+    copies as ``materializations``, which a user-scope row never has. The
+    write set depends only on which scope, not on which repo.
+    """
+    if (entry.get("scope") == scopes.SCOPE_PROJECT
+            or entry.get("materializations")):
+        return scopes.SCOPE_PROJECT
+    return None
+
+
 def written_agent_names(kind: str | None, entry: dict | None) -> list[str]:
     """The agents an installed item actually reaches, sorted and deduplicated.
 
@@ -246,16 +261,31 @@ def written_agent_names(kind: str | None, entry: dict | None) -> list[str]:
     The filter is :func:`reaches_no_agent`'s own predicate, row for row, so
     the two can't disagree: when that answers ``True`` this answers ``[]``.
     A row with no ``agent`` counts as written, as it does there. A skill
-    records a flat ``agents`` list of links, not rows, and passes through.
+    records a flat ``agents`` list instead of rows, and is filtered by the
+    same predicate (:func:`skill_base`): it used to pass through, so with
+    cursor disabled `boost list` still named cursor for every skill while
+    dropping it for every rule, and doctor named only the rules.
+
+    A row marked ``unwritable`` is a *refusal* install recorded, not a file:
+    the agent's dir (or something in the way) stopped the write, and install
+    said "not written". It is dropped here too, so `list`, `info` and `stats`
+    agree with install and with `doctor`, which names that row "was not
+    written". :func:`reaches_no_agent` keeps it, deliberately: an item whose
+    every row was refused is fixed by a `chmod` and `boost sync`, which
+    doctor names, not by enabling an agent. So its ``True`` still implies
+    ``[]`` here, and the converse need not hold.
     """
     if not entry:
         return []
     kind = str(kind or entry.get("kind") or "rule")
     if kind == "skill":
-        return lockfile.agent_names(kind, entry)
+        base = skill_base(entry)
+        return [a for a in lockfile.agent_names(kind, entry)
+                if agents.materialization_is_written(kind, base, a)]
     written = [m for m in entry.get("materializations") or []
-               if agents.materialization_is_written(kind, entry.get("base"),
-                                                    m.get("agent"))]
+               if not m.get("unwritable")
+               and agents.materialization_is_written(kind, entry.get("base"),
+                                                     m.get("agent"))]
     return lockfile.agent_names(kind, {"materializations": written})
 
 
@@ -434,7 +464,7 @@ def project_status(entry: dict, base) -> str:
     present = project_skill_dirs(entry, base)
     if not present:
         return STATUS_MISSING
-    if recorded and any(util.sha256_dir(p) != recorded
+    if recorded and any(not util.sha256_matches(p, recorded)
                         or exec_drifted(p, entry) for p in present):
         return STATUS_MODIFIED
     if rows:

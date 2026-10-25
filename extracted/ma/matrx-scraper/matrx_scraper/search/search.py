@@ -2,11 +2,29 @@ import asyncio
 import random
 from typing import Any
 
-from matrx_utils import vcprint
+from matrx_utils import capture_error, vcprint
 
 from matrx_scraper.search.brave_client import BraveRateLimitError, get_client
 
 verbose = False
+
+#: Why the last search for a query came back empty-handed (bounded). `async_brave_search` keeps its
+#: contract — None is a failure — but a caller that reports the failure (research_web) names the real
+#: cause instead of "All search queries failed" (2026-10-24: a live failure answered in ~50 ms with no
+#: trace anywhere, because the exception was printed and dropped).
+_FAILURE_REASONS: dict[str, str] = {}
+_MAX_FAILURE_REASONS = 256
+
+
+def _note_failure(query: str, reason: str) -> None:
+    if len(_FAILURE_REASONS) >= _MAX_FAILURE_REASONS:
+        _FAILURE_REASONS.pop(next(iter(_FAILURE_REASONS)))
+    _FAILURE_REASONS[query] = reason
+
+
+def brave_failure_reason(query: str) -> str | None:
+    """Why the last `async_brave_search` for `query` returned None, or None when it did not fail."""
+    return _FAILURE_REASONS.get(query)
 
 
 def extract_urls_from_search_results(
@@ -152,6 +170,7 @@ async def async_brave_search(
                 color="blue",
             )
 
+            _FAILURE_REASONS.pop(query, None)
             result = await client.search(
                 query=query,
                 count=count,
@@ -195,6 +214,7 @@ async def async_brave_search(
                 title="Brave throttled",
                 color="red",
             )
+            _note_failure(query, "the search engine is rate-limiting us (HTTP 429)")
             return None
 
         except Exception as e:
@@ -203,6 +223,9 @@ async def async_brave_search(
                 title=f"Error for query '{query}'",
                 color="red",
             )
+            _note_failure(query, f"{type(e).__name__}: {e}")
+            # Printed and dropped was the defect: record it where errors are read.
+            await capture_error(e, kind="brave_search_failed", context={"query_length": len(query), "country": country})
             return None
 
     return None

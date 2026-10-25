@@ -73,13 +73,15 @@ struct LBUG_API SystemConfig {
      * Default to false.
      * @param enableDefaultHashIndex If true, node tables create the default primary-key hash
      * index.
+     * @param physicalPlanPoolPerThread How many reusable cloned physical plans each thread
+     * retains per cached prepared statement (pooled-plan fast path). 0 disables pooling.
      */
     explicit SystemConfig(uint64_t bufferPoolSize = -1u, uint64_t maxNumThreads = 0,
         bool enableCompression = true, bool readOnly = false, uint64_t maxDBSize = -1u,
         bool autoCheckpoint = true, uint64_t checkpointThreshold = 16777216 /* 16MB */,
         bool forceCheckpointOnClose = true, bool throwOnWalReplayFailure = false,
         bool enableChecksums = true, bool enableMultiWrites = false,
-        bool enableDefaultHashIndex = true
+        bool enableDefaultHashIndex = true, uint64_t physicalPlanPoolPerThread = 5
 #if defined(__APPLE__)
         ,
         uint32_t threadQos = QOS_CLASS_DEFAULT
@@ -98,6 +100,7 @@ struct LBUG_API SystemConfig {
     bool enableChecksums;
     bool enableMultiWrites;
     bool enableDefaultHashIndex;
+    uint64_t physicalPlanPoolPerThread;
 #if defined(__APPLE__)
     uint32_t threadQos;
 #endif
@@ -203,6 +206,7 @@ private:
     std::unique_ptr<DBConfig> dbConfig;
     std::unique_ptr<common::VirtualFileSystem> vfs;
     std::unique_ptr<storage::BufferManager> bufferManager;
+    // After bufferManager, so it is destroyed first: ~MemoryManager returns kept buffers to it.
     std::unique_ptr<storage::MemoryManager> memoryManager;
     std::unique_ptr<processor::QueryProcessor> queryProcessor;
     std::unique_ptr<catalog::Catalog> catalog;

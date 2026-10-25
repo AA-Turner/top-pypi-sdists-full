@@ -12,17 +12,27 @@
 
 from __future__ import annotations
 
-import itertools
 from dataclasses import InitVar, dataclass
 from typing import cast
 
+import jax
+import jax.numpy as jnp
 import numpy as np
 
 from ffsim import gates, linalg, protocols
-from ffsim.linalg.util import unitary_from_parameters, unitary_to_parameters
+from ffsim.linalg.util import (
+    mask_from_indices,
+    real_symmetric_from_parameters_jax,
+    rows_and_cols,
+    unitary_from_parameters,
+    unitary_from_parameters_jax,
+    unitary_to_parameters,
+    upper_triangular_indices,
+)
 from ffsim.variational.util import (
     orbital_rotation_from_t1_amplitudes,
     validate_interaction_pairs,
+    validate_t2_antisymmetric,
 )
 
 
@@ -156,9 +166,10 @@ class UCJOpSpinless(
 
         Raises:
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list contained lower triangular pairs.
         """
-        validate_interaction_pairs(interaction_pairs, ordered=False)
+        validate_interaction_pairs(interaction_pairs, ordered=False, norb=norb)
         # Each diagonal Coulomb matrix has one parameter per upper triangular
         # entry unless indices are passed explicitly
         n_triu_indices = norb * (norb + 1) // 2
@@ -204,6 +215,7 @@ class UCJOpSpinless(
             ValueError: The number of parameters passed did not match the number
                 expected based on the function inputs.
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list contained lower triangular pairs.
         """
         n_params = UCJOpSpinless.n_params(
@@ -218,12 +230,8 @@ class UCJOpSpinless(
                 "based on the function inputs. "
                 f"Expected {n_params} but got {len(params)}."
             )
-        triu_indices = cast(
-            list[tuple[int, int]],
-            list(itertools.combinations_with_replacement(range(norb), 2)),
-        )
         if interaction_pairs is None:
-            interaction_pairs = triu_indices
+            interaction_pairs = upper_triangular_indices(norb)
         diag_coulomb_mats = np.zeros((n_reps, norb, norb))
         orbital_rotations = np.zeros((n_reps, norb, norb), dtype=complex)
         index = 0
@@ -237,13 +245,12 @@ class UCJOpSpinless(
             )
             index += n_params
             # Diag Coulomb matrix
-            if interaction_pairs:
-                n_params = len(interaction_pairs)
-                rows, cols = zip(*interaction_pairs)
-                vals = params[index : index + n_params]
-                diag_coulomb_mat[cols, rows] = vals
-                diag_coulomb_mat[rows, cols] = vals
-                index += n_params
+            n_params = len(interaction_pairs)
+            rows, cols = rows_and_cols(interaction_pairs)
+            vals = params[index : index + n_params]
+            diag_coulomb_mat[cols, rows] = vals
+            diag_coulomb_mat[rows, cols] = vals
+            index += n_params
         # Final orbital rotation
         final_orbital_rotation = None
         if with_final_orbital_rotation:
@@ -280,6 +287,7 @@ class UCJOpSpinless(
 
         Raises:
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list contained lower triangular pairs.
         """
         n_reps, norb, _ = self.diag_coulomb_mats.shape
@@ -290,12 +298,8 @@ class UCJOpSpinless(
             with_final_orbital_rotation=self.final_orbital_rotation is not None,
         )
 
-        triu_indices = cast(
-            list[tuple[int, int]],
-            list(itertools.combinations_with_replacement(range(norb), 2)),
-        )
         if interaction_pairs is None:
-            interaction_pairs = triu_indices
+            interaction_pairs = upper_triangular_indices(norb)
 
         params = np.zeros(n_params)
         index = 0
@@ -307,12 +311,11 @@ class UCJOpSpinless(
             params[index : index + n_params] = unitary_to_parameters(orbital_rotation)
             index += n_params
             # Diag Coulomb matrix
-            if interaction_pairs:
-                n_params = len(interaction_pairs)
-                params[index : index + n_params] = diag_coulomb_mat[
-                    tuple(zip(*interaction_pairs))
-                ]
-                index += n_params
+            n_params = len(interaction_pairs)
+            params[index : index + n_params] = diag_coulomb_mat[
+                rows_and_cols(interaction_pairs)
+            ]
+            index += n_params
         # Final orbital rotation
         if self.final_orbital_rotation is not None:
             params[index:] = unitary_to_parameters(self.final_orbital_rotation)
@@ -327,12 +330,13 @@ class UCJOpSpinless(
         interaction_pairs: list[tuple[int, int]] | None = None,
         tol: float = 1e-8,
         optimize: bool = False,
-        method: str = "L-BFGS-B",
-        callback=None,
-        options: dict | None = None,
         regularization: float = 0,
         multi_stage_start: int | None = None,
         multi_stage_step: int | None = None,
+        validate: bool = True,
+        rtol: float = 1e-5,
+        atol: float = 1e-8,
+        **optimize_kwargs,
     ) -> UCJOpSpinless:
         r"""Initialize the UCJ operator from t2 (and optionally t1) amplitudes.
 
@@ -347,11 +351,23 @@ class UCJOpSpinless(
         ``tol`` and ``n_reps``.
         If ``optimize`` is set to ``True``, then the entries of the resulting tensors
         (the diagonal Coulomb matrices and orbital rotations) are further optimized with
-        `scipy.optimize.minimize`_ to reduce the error in the factorization.
-        See :func:`ffsim.linalg.double_factorized_t2` for details.
+        :func:`scipy.optimize.minimize` to reduce the error in the factorization.
+        See :func:`ffsim.linalg.double_factorized_t2_compressed` for details.
+
+        The t2 amplitudes follow the same convention as :class:`ffsim.UCCSDOpSpinless`:
+        they define the doubles operator
+
+        .. math::
+
+            T_2 = \frac14 \sum_{ijab} t_{ijab} a^\dagger_a a^\dagger_b a_j a_i
+
+        and must be antisymmetric in the occupied indices and in the virtual indices.
+        With this convention, the UCJ operator agrees with the UCCSD operator
+        constructed from the same t2 amplitudes to first order in the amplitudes.
 
         Args:
-            t2: The t2 amplitudes.
+            t2: The t2 amplitudes, which must be antisymmetric in the occupied indices
+                and in the virtual indices.
             t1: The t1 amplitudes.
             n_reps: The number of ansatz repetitions. If not specified, then it is set
                 to the number of terms resulting from the double factorization of the
@@ -372,57 +388,65 @@ class UCJOpSpinless(
                 The error is defined as the maximum absolute difference between
                 an element of the original tensor and the corresponding element of
                 the reconstructed tensor.
-            optimize: Whether to optimize the tensors returned by the decomposition to
+            optimize: Whether to optimize the tensors returned by the decomposition
                 to minimize the error in the factorization.
-            method: The optimization method. See the documentation of
-                `scipy.optimize.minimize`_ for possible values.
+            regularization: See
+                :func:`ffsim.linalg.double_factorized_t2_compressed` for a description
+                of this argument.
                 This argument is ignored if ``optimize`` is set to ``False``.
-            callback: Callback function for the optimization. See the documentation of
-                `scipy.optimize.minimize`_ for usage.
+            multi_stage_start: See
+                :func:`ffsim.linalg.double_factorized_t2_compressed` for a description
+                of this argument.
                 This argument is ignored if ``optimize`` is set to ``False``.
-            options: Options for the optimization. See the documentation of
-                `scipy.optimize.minimize`_ for usage.
+            multi_stage_step: See
+                :func:`ffsim.linalg.double_factorized_t2_compressed` for a description
+                of this argument.
                 This argument is ignored if ``optimize`` is set to ``False``.
-            regularization: See :func:`ffsim.linalg.double_factorized_t2` for a
-                description of this argument.
-                This argument is ignored if ``optimize`` is set to ``False``.
-            multi_stage_start: See :func:`ffsim.linalg.double_factorized_t2` for a
-                description of this argument.
-                This argument is ignored if ``optimize`` is set to ``False``.
-            multi_stage_step: See :func:`ffsim.linalg.double_factorized_t2` for a
-                description of this argument.
-                This argument is ignored if ``optimize`` is set to ``False``.
+            validate: Whether to validate the symmetry of the t2 amplitudes.
+            rtol: Relative numerical tolerance for validation checks.
+            atol: Absolute numerical tolerance for validation checks.
+            optimize_kwargs: Keyword arguments to pass to
+                :func:`scipy.optimize.minimize`. The default method is
+                ``"L-BFGS-B"``.
+                These arguments are ignored if ``optimize`` is set to ``False``.
 
         Returns:
             The UCJ operator with parameters initialized from the t2 amplitudes.
 
         Raises:
             ValueError: Interaction pairs list contained duplicate interactions.
+            ValueError: Interaction pairs list contained out-of-range orbital indices.
             ValueError: Interaction pairs list contained lower triangular pairs.
-
-        .. _scipy.optimize.minimize: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html
+            ValueError: The t2 amplitudes were not antisymmetric.
         """
         if isinstance(n_reps, int) and n_reps <= 0:
             raise ValueError(f"n_reps must be at least 1. Got {n_reps}.")
-        validate_interaction_pairs(interaction_pairs, ordered=False)
-
         nocc, _, nvrt, _ = t2.shape
         norb = nocc + nvrt
+        validate_interaction_pairs(interaction_pairs, ordered=False, norb=norb)
+        if validate:
+            validate_t2_antisymmetric(t2, rtol=rtol, atol=atol)
 
+        # double_factorized_t2 expects amplitudes for the doubles operator with a
+        # prefactor of 1/2 rather than 1/4. Compression starts from the untruncated
+        # factorization.
         diag_coulomb_mats, orbital_rotations = linalg.double_factorized_t2(
-            t2,
-            tol=tol,
-            max_terms=n_reps,
-            optimize=optimize,
-            method=method,
-            callback=callback,
-            options=options,
-            diag_coulomb_indices=interaction_pairs,
-            regularization=regularization,
-            multi_stage_start=multi_stage_start,
-            multi_stage_step=multi_stage_step,
-            return_optimize_result=False,
+            0.5 * t2, tol=tol, max_terms=None if optimize else n_reps
         )
+        # The compression requires at least one term
+        if optimize and len(orbital_rotations):
+            diag_coulomb_mats, orbital_rotations, _ = (
+                linalg.double_factorized_t2_compressed(
+                    0.5 * t2,
+                    initial_guess=(diag_coulomb_mats, orbital_rotations),
+                    max_terms=n_reps,
+                    diag_coulomb_indices=interaction_pairs,
+                    regularization=regularization,
+                    multi_stage_start=multi_stage_start,
+                    multi_stage_step=multi_stage_step,
+                    **optimize_kwargs,
+                )
+            )
 
         n_vecs, _, _ = diag_coulomb_mats.shape
         if n_reps is not None and n_vecs < n_reps:
@@ -441,11 +465,9 @@ class UCJOpSpinless(
 
         # Zero out diagonal coulomb matrix entries if requested
         if interaction_pairs is not None:
-            mask = np.zeros((norb, norb), dtype=bool)
-            rows, cols = zip(*interaction_pairs)
-            mask[rows, cols] = True
-            mask[cols, rows] = True
-            diag_coulomb_mats *= mask
+            diag_coulomb_mats *= mask_from_indices(
+                norb, interaction_pairs, symmetric=True
+            )
 
         return UCJOpSpinless(
             diag_coulomb_mats=diag_coulomb_mats,
@@ -537,3 +559,57 @@ class UCJOpSpinless(
                 )
             return True
         return NotImplemented
+
+
+def ucj_op_spinless_from_parameters_jax(
+    params: jax.Array,
+    *,
+    norb: int,
+    n_reps: int,
+    interaction_pairs: list[tuple[int, int]] | None = None,
+    with_final_orbital_rotation: bool = False,
+) -> tuple[jax.Array, jax.Array, jax.Array | None]:
+    """JAX version of UCJOpSpinless.from_parameters.
+
+    Returns:
+        The diagonal Coulomb matrices, orbital rotations, and final orbital rotation
+        (or None), with the same shapes as the corresponding attributes of
+        UCJOpSpinless.
+    """
+    n_params = UCJOpSpinless.n_params(
+        norb,
+        n_reps,
+        interaction_pairs=interaction_pairs,
+        with_final_orbital_rotation=with_final_orbital_rotation,
+    )
+    if len(params) != n_params:
+        raise ValueError(
+            "The number of parameters passed did not match the number expected "
+            "based on the function inputs. "
+            f"Expected {n_params} but got {len(params)}."
+        )
+    if interaction_pairs is None:
+        interaction_pairs = upper_triangular_indices(norb)
+    diag_coulomb_mats = jnp.zeros((n_reps, norb, norb))
+    orbital_rotations = jnp.zeros((n_reps, norb, norb), dtype=complex)
+    index = 0
+    for rep in range(n_reps):
+        # Orbital rotation
+        n_params = norb**2
+        orbital_rotations = orbital_rotations.at[rep].set(
+            unitary_from_parameters_jax(params[index : index + n_params], norb)
+        )
+        index += n_params
+        # Diag Coulomb matrix
+        n_params = len(interaction_pairs)
+        diag_coulomb_mats = diag_coulomb_mats.at[rep].set(
+            real_symmetric_from_parameters_jax(
+                params[index : index + n_params], norb, interaction_pairs
+            )
+        )
+        index += n_params
+    # Final orbital rotation
+    final_orbital_rotation = None
+    if with_final_orbital_rotation:
+        final_orbital_rotation = unitary_from_parameters_jax(params[index:], norb)
+    return diag_coulomb_mats, orbital_rotations, final_orbital_rotation

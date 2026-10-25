@@ -168,6 +168,15 @@ class MandateResolution:
     #: whose choice ran. ``None`` = the host offers none.
     run_stamp: dict[str, Any] | None = None
 
+    def __post_init__(self) -> None:
+        # A mandate picks a model, never the device it runs on: ``served_via`` comes only
+        # from the person's own run request (config/served_via.py, L5 R2).
+        from matrx_ai.config.served_via import refuse_served_via_outside_the_run_request
+
+        refuse_served_via_outside_the_run_request(
+            self.config_overrides, where="a mandate's config overrides"
+        )
+
 
 LegacyMandateResolution = tuple[AgentSource, dict[str, Any] | None]
 MandateResolver = Callable[[str], Awaitable[MandateResolution | LegacyMandateResolution]]
@@ -249,6 +258,13 @@ class HolderRef:
     #: The rung whose choice this pick is, for the run record (the try door's candidate provenance:
     #: ``current`` / ``mandate-pinned`` / ``latest`` / ``agent`` / ``version``). ``None`` = ``run``.
     rung: str | None = None
+
+    def __post_init__(self) -> None:
+        from matrx_ai.config.served_via import refuse_served_via_outside_the_run_request
+
+        refuse_served_via_outside_the_run_request(
+            self.config_overrides, where="a mandate Holder pick's config overrides"
+        )
 
 
 @dataclass(frozen=True, slots=True)

@@ -193,14 +193,14 @@ NK_PUBLIC void nk_mahalanobis_f32_smef64( //
     nk_sme_start_streaming_();
     nk_f64_t quadratic = nk_mahalanobis_f32_smef64_streaming_(a, b, c, dimensions);
     nk_sme_stop_streaming_();
-    *result = nk_f64_sqrt_neon(quadratic > 0 ? quadratic : 0);
+    *result = nk_f64_sqrt_neon(quadratic < 0 ? 0 : quadratic);
 }
 
 /**
  *  @brief f64 bilinear: row-by-row streaming SVE with Dot2 compensation.
  *  4-row fast path shares b_f64x loads; 1-row tail for remainder.
  */
-static void nk_bilinear_f64_smef64_ssve_( //
+NK_STREAMING_OUTLINED_ void nk_bilinear_f64_smef64_ssve_( //
     nk_f64_t const *a, nk_f64_t const *b, nk_f64_t const *c, nk_size_t dimensions, nk_f64_t *result) NK_STREAMING_ {
     svbool_t predicate_all_b64x = svptrue_b64();
     nk_f64_t outer_sum = 0.0, outer_comp = 0.0;
@@ -263,7 +263,7 @@ static void nk_bilinear_f64_smef64_ssve_( //
         nk_f64_dot2_(&outer_sum, &outer_comp, a[row], cb_j);
     }
 
-    *result = outer_sum + outer_comp;
+    *result = nk_f64_compensated_sum_(outer_sum, outer_comp);
 }
 
 NK_PUBLIC void nk_bilinear_f64_smef64( //
@@ -277,7 +277,7 @@ NK_PUBLIC void nk_bilinear_f64_smef64( //
  *  @brief f64 Mahalanobis: row-by-row streaming SVE with Dot2 compensation.
  *  4-row fast path shares (a−b) column vector; 1-row tail for remainder.
  */
-static nk_f64_t nk_mahalanobis_f64_smef64_ssve_( //
+NK_STREAMING_OUTLINED_ nk_f64_t nk_mahalanobis_f64_smef64_ssve_( //
     nk_f64_t const *a, nk_f64_t const *b, nk_f64_t const *c, nk_size_t dimensions) NK_STREAMING_ {
     svbool_t predicate_all_b64x = svptrue_b64();
     nk_f64_t outer_sum = 0.0, outer_comp = 0.0;
@@ -344,7 +344,7 @@ static nk_f64_t nk_mahalanobis_f64_smef64_ssve_( //
         nk_f64_dot2_(&outer_sum, &outer_comp, diff_row, cb_j);
     }
 
-    return outer_sum + outer_comp;
+    return nk_f64_compensated_sum_(outer_sum, outer_comp);
 }
 
 NK_PUBLIC void nk_mahalanobis_f64_smef64( //
@@ -352,7 +352,7 @@ NK_PUBLIC void nk_mahalanobis_f64_smef64( //
     nk_sme_start_streaming_();
     nk_f64_t quadratic = nk_mahalanobis_f64_smef64_ssve_(a, b, c, dimensions);
     nk_sme_stop_streaming_();
-    *result = nk_f64_sqrt_neon(quadratic > 0 ? quadratic : 0);
+    *result = nk_f64_sqrt_neon(quadratic < 0 ? 0 : quadratic);
 }
 
 /**
@@ -447,7 +447,7 @@ NK_PUBLIC void nk_bilinear_f32c_smef64( //
  *  @brief f64c bilinear: interleaved Dot2 with permute + deferred XOR sign-flip.
  *  2 accumulators instead of 4, halving inner loop work (~15 vs ~28 SVE ops).
  */
-static void nk_bilinear_f64c_smef64_ssve_( //
+NK_STREAMING_OUTLINED_ void nk_bilinear_f64c_smef64_ssve_( //
     nk_f64c_t const *a_pairs, nk_f64c_t const *b_pairs, nk_f64c_t const *c_pairs, nk_size_t dimensions,
     nk_f64c_t *results) NK_STREAMING_ {
     svbool_t predicate_all_b64x = svptrue_b64();
@@ -492,10 +492,10 @@ static void nk_bilinear_f64c_smef64_ssve_( //
             sveor_u64_x(predicate_all_b64x, svreinterpret_u64_f64(sum_real_f64x), sign_mask_u64x));
         comp_real_f64x = svreinterpret_f64_u64(
             sveor_u64_x(predicate_all_b64x, svreinterpret_u64_f64(comp_real_f64x), sign_mask_u64x));
-        nk_f64_t inner_real = nk_svaddv_f64_(predicate_all_b64x,
-                                             svadd_f64_x(predicate_all_b64x, sum_real_f64x, comp_real_f64x));
-        nk_f64_t inner_imag = nk_svaddv_f64_(predicate_all_b64x,
-                                             svadd_f64_x(predicate_all_b64x, sum_imag_f64x, comp_imag_f64x));
+        nk_f64_t inner_real = nk_f64_compensated_sum_(nk_svaddv_f64_(predicate_all_b64x, sum_real_f64x),
+                                                      nk_svaddv_f64_(predicate_all_b64x, comp_real_f64x));
+        nk_f64_t inner_imag = nk_f64_compensated_sum_(nk_svaddv_f64_(predicate_all_b64x, sum_imag_f64x),
+                                                      nk_svaddv_f64_(predicate_all_b64x, comp_imag_f64x));
 
         // Outer Dot2 complex multiply: a × inner
         nk_f64_dot2_(&outer_sum_real, &outer_comp_real, a_real, inner_real);
@@ -504,8 +504,8 @@ static void nk_bilinear_f64c_smef64_ssve_( //
         nk_f64_dot2_(&outer_sum_imag, &outer_comp_imag, a_imag, inner_real);
     }
 
-    results->real = outer_sum_real + outer_comp_real;
-    results->imag = outer_sum_imag + outer_comp_imag;
+    results->real = nk_f64_compensated_sum_(outer_sum_real, outer_comp_real);
+    results->imag = nk_f64_compensated_sum_(outer_sum_imag, outer_comp_imag);
 }
 
 NK_PUBLIC void nk_bilinear_f64c_smef64( //

@@ -3,7 +3,9 @@
 #include <mutex>
 
 #include "binder/ddl/bound_alter_info.h"
+#include "catalog/catalog.h"
 #include "catalog/catalog_entry/dummy_catalog_entry.h"
+#include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "common/assert.h"
 #include "common/exception/catalog.h"
@@ -18,6 +20,12 @@ namespace lbug {
 namespace catalog {
 
 CatalogSet::CatalogSet(bool isInternal) {
+    if (isInternal) {
+        nextOID = INTERNAL_CATALOG_SET_START_OID;
+    }
+}
+
+CatalogSet::CatalogSet(Catalog* catalog, bool isInternal) : catalog{catalog} {
     if (isInternal) {
         nextOID = INTERNAL_CATALOG_SET_START_OID;
     }
@@ -104,6 +112,7 @@ CatalogEntry* CatalogSet::createEntryNoLock(const Transaction* transaction,
 }
 
 void CatalogSet::emplaceNoLock(std::unique_ptr<CatalogEntry> entry) {
+    entry->setOwningCatalog(catalog);
     if (entries.contains(entry->getName())) {
         entry->setPrev(std::move(entries.at(entry->getName())));
         entries.erase(entry->getName());
@@ -171,41 +180,61 @@ CatalogEntry* CatalogSet::dropEntryNoLock(const Transaction* transaction, const 
 
 void CatalogSet::alterTableEntry(Transaction* transaction, const binder::BoundAlterInfo& alterInfo,
     bool skipLoggingToWAL) {
-    std::unique_lock lck{mtx};
-    // LCOV_EXCL_START
-    validateExistNoLock(transaction, alterInfo.tableName);
-    // LCOV_EXCL_STOP
-    auto entry = getEntryNoLock(transaction, alterInfo.tableName);
-    DASSERT(entry->getType() == CatalogEntryType::NODE_TABLE_ENTRY ||
-            entry->getType() == CatalogEntryType::REL_GROUP_ENTRY);
-    const auto tableEntry = entry->ptrCast<TableCatalogEntry>();
-    auto newEntry = tableEntry->alter(transaction->getID(), alterInfo, this);
-    switch (alterInfo.alterType) {
-    case AlterType::RENAME: {
-        // We treat rename table as drop and create.
-        dropEntryNoLock(transaction, alterInfo.tableName, entry->getOID());
-        auto createdEntry = createEntryNoLock(transaction, std::move(newEntry));
-        if (transaction->shouldAppendToUndoBuffer()) {
-            transaction->pushAlterCatalogEntry(*this, *entry, alterInfo, skipLoggingToWAL);
-            transaction->pushCreateDropCatalogEntry(*this, *createdEntry, isInternal(),
-                true /* skipLoggingToWAL */);
+    // Record the work that needs undo-buffer pushes after releasing mtx. Holding mtx while
+    // acquiring the transaction's changedCatalogsMutex (inside pushAlterCatalogEntry) inverts
+    // the lock order vs Transaction::publishCommit (-> graphs) vs withGraphCatalog (-> mtx)
+    // and trips TSan lock-order warnings, so never push while holding mtx.
+    CatalogEntry* alterOldEntry = nullptr;
+    CatalogEntry* renameCreatedEntry = nullptr;
+    bool isRename = false;
+    auto addedRelTableOID = common::INVALID_TABLE_ID;
+    {
+        std::unique_lock lck{mtx};
+        // LCOV_EXCL_START
+        validateExistNoLock(transaction, alterInfo.tableName);
+        // LCOV_EXCL_STOP
+        auto entry = getEntryNoLock(transaction, alterInfo.tableName);
+        DASSERT(entry->getType() == CatalogEntryType::NODE_TABLE_ENTRY ||
+                entry->getType() == CatalogEntryType::REL_GROUP_ENTRY);
+        const auto tableEntry = entry->ptrCast<TableCatalogEntry>();
+        auto newEntry = tableEntry->alter(transaction->getID(), alterInfo, this);
+        switch (alterInfo.alterType) {
+        case AlterType::RENAME: {
+            // We treat rename table as drop and create.
+            dropEntryNoLock(transaction, alterInfo.tableName, entry->getOID());
+            auto createdEntry = createEntryNoLock(transaction, std::move(newEntry));
+            isRename = true;
+            alterOldEntry = entry;
+            renameCreatedEntry = createdEntry;
+        } break;
+        case AlterType::COMMENT:
+        case AlterType::ADD_PROPERTY:
+        case AlterType::DROP_PROPERTY:
+        case AlterType::RENAME_PROPERTY:
+        case AlterType::SET_SORTED_BY:
+        case AlterType::ADD_FROM_TO_CONNECTION:
+        case AlterType::DROP_FROM_TO_CONNECTION: {
+            if (alterInfo.alterType == AlterType::ADD_FROM_TO_CONNECTION) {
+                addedRelTableOID =
+                    newEntry->ptrCast<RelGroupCatalogEntry>()->getRelEntryInfos().back().oid;
+            }
+            emplaceNoLock(std::move(newEntry));
+            alterOldEntry = entry;
+        } break;
+        default: {
+            UNREACHABLE_CODE;
         }
-    } break;
-    case AlterType::COMMENT:
-    case AlterType::ADD_PROPERTY:
-    case AlterType::DROP_PROPERTY:
-    case AlterType::RENAME_PROPERTY:
-    case AlterType::SET_SORTED_BY:
-    case AlterType::ADD_FROM_TO_CONNECTION:
-    case AlterType::DROP_FROM_TO_CONNECTION: {
-        emplaceNoLock(std::move(newEntry));
-        if (transaction->shouldAppendToUndoBuffer()) {
-            transaction->pushAlterCatalogEntry(*this, *entry, alterInfo);
         }
-    } break;
-    default: {
-        UNREACHABLE_CODE;
     }
+    if (transaction->shouldAppendToUndoBuffer()) {
+        if (isRename) {
+            transaction->pushAlterCatalogEntry(*this, *alterOldEntry, alterInfo, skipLoggingToWAL);
+            transaction->pushCreateDropCatalogEntry(*this, *renameCreatedEntry, isInternal(),
+                true /* skipLoggingToWAL */);
+        } else {
+            transaction->pushAlterCatalogEntry(*this, *alterOldEntry, alterInfo, false,
+                addedRelTableOID);
+        }
     }
 }
 
@@ -300,8 +329,13 @@ void CatalogSet::serializeSnapshot(Serializer serializer, const Transaction* sna
 }
 
 std::unique_ptr<CatalogSet> CatalogSet::deserialize(Deserializer& deserializer) {
+    return deserialize(nullptr, deserializer);
+}
+
+std::unique_ptr<CatalogSet> CatalogSet::deserialize(Catalog* catalog, Deserializer& deserializer) {
     std::string debuggingInfo;
     auto catalogSet = std::make_unique<CatalogSet>();
+    catalogSet->catalog = catalog;
     deserializer.validateDebuggingInfo(debuggingInfo, "nextOID");
     deserializer.deserializeValue<oid_t>(catalogSet->nextOID);
     uint64_t numEntries = 0;
@@ -314,6 +348,10 @@ std::unique_ptr<CatalogSet> CatalogSet::deserialize(Deserializer& deserializer) 
         }
     }
     return catalogSet;
+}
+
+std::string CatalogSet::getOwnerCatalogName() const {
+    return catalog ? catalog->getCatalogName() : "";
 }
 
 // Ideally we should not trigger the following check. Instead, we should throw more informative

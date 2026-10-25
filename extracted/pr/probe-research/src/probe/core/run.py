@@ -5,7 +5,8 @@ the process's stdout, which a server cannot give one request), and the
 desktop app can too. The contract is `probe wizard --json`'s:
 
     argv    one action: configure | recorder | logout | uninstall | update |
-            session_default | status | version | report | desktop. Spawn it as `<python> -I -m
+            session_default | workspace_limit | status | version | report | desktop.
+            Spawn it as `<python> -I -m
             probe.core.run <action>` from a directory of its own: `-m` puts
             the working directory first on `sys.path`, so a `probe/` folder or
             a `json.py` there would run instead (`-I` keeps it off).
@@ -18,7 +19,8 @@ desktop app can too. The contract is `probe wizard --json`'s:
             action: it writes `probe status --json`'s one object instead, and
             `version` writes `{"cli_version": "<the installed CLI's>", "cli_latest":
             "<the newest release, or null>"}` (`{"latest": true}`: asked of the
-            manifest itself, else the cached manifest; `{"refresh": true}`:
+            manifest itself, adding `"reachable"`, false when it got no HTTP
+            answer at all, else the cached manifest; `{"refresh": true}`:
             the cached manifest refreshed first, as the CLI's own refresher
             does, adding `"ok"` and `"fetched_at"`). `report` is a read too:
             one diagnostic report to the Probe team (`probe.core.report`;
@@ -77,8 +79,11 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
         from probe import __version__
 
         refreshed = _refresh_manifest() if request.refresh else {}
-        latest = _cli_latest(fetch=request.latest)
-        sys.stdout.write(json.dumps({"cli_version": __version__, "cli_latest": latest, **refreshed}) + "\n")
+        latest, reachable = _cli_latest(fetch=request.latest)
+        answer = {"cli_version": __version__, "cli_latest": latest, **refreshed}
+        if request.latest:
+            answer["reachable"] = reachable
+        sys.stdout.write(json.dumps(answer) + "\n")
         return 0
 
     from probe.sdk import agent_session
@@ -200,28 +205,42 @@ def _desktop(source: TextIO | None) -> int:
     return code
 
 
-def _cli_latest(*, fetch: bool) -> str | None:
-    """The newest CLI the release manifest names, or None when unknown.
+def _cli_latest(*, fetch: bool) -> tuple[str | None, bool | None]:
+    """The newest CLI the release manifest names, or None when unknown, and
+    whether the manifest's server answered at all (None: not asked).
 
     Without `fetch`: the cached manifest's answer, no network (the service's
     reads after an update must stay quick). With it: the manifest itself,
     fetched with the shared TLS trust and the caller's environment (its proxy),
     and NOT written to the cache: a failed fetch here must never push the
-    CLI's own refresh into its back-off (`version_policy.write_cache`)."""
+    CLI's own refresh into its back-off (`version_policy.write_cache`). An
+    error that is no network at all (a name that did not resolve, no route:
+    `probe._shared.offline`) is no answer; a refused connection, a timeout,
+    TLS, an HTTP error or a body that is not a manifest is one."""
+    reachable = None
     try:
         from probe import version_policy
 
         if fetch:
             from probe.sdk.tls import ssl_context
 
-            manifest = version_policy.fetch(version_policy.base_url() + version_policy.MANIFEST_PATH,
-                                            context=ssl_context())
+            url, context = version_policy.base_url() + version_policy.MANIFEST_PATH, ssl_context()
+            try:
+                manifest = version_policy.fetch(url, context=context)
+            except Exception as exc:
+                # No network at all (a name that did not resolve, no route); a
+                # refused connection, a timeout or TLS is an answer of a kind.
+                from probe._shared import offline
+
+                reachable = not offline.no_network(exc)
+                raise
+            reachable = True
         else:
             manifest, _, _ = version_policy.read_cache()
         latest = (manifest or {}).get("cli", {}).get("latest")
-        return latest if isinstance(latest, str) and latest else None
+        return (latest if isinstance(latest, str) and latest else None), reachable
     except Exception:  # noqa: BLE001 -- unknown: the caller decides without it
-        return None
+        return None, reachable
 
 
 def _refresh_manifest() -> dict:
@@ -278,6 +297,8 @@ def _dispatch(action, request) -> int:
         return actions.update()
     if action is ActionName.SESSION_DEFAULT:
         return actions.session_default(request)
+    if action is ActionName.WORKSPACE_LIMIT:
+        return actions.workspace_limit(request)
     raise AssertionError(f"no dispatch for {action}")  # every ActionName is handled above
 
 

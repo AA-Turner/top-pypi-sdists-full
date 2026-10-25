@@ -123,7 +123,14 @@ class Geocif:
         else:
             self.do_parallel = False
         self.update_input_file = self.parser.getboolean("DEFAULT", "update_input_file")
-        self.correlation_plots = self.parser.getboolean("DEFAULT", "correlation_plots")
+        # Correlation pre-screen of the CID candidates (and its heatmaps).
+        # Default OFF: when off, every CID column goes straight to feature
+        # selection. When on, CIDs whose r2 with raw (not detrended) yield
+        # falls below correlation_threshold are dropped first, and the
+        # result changes skill enough that on/off runs are not comparable.
+        self.correlation_plots = self.parser.getboolean(
+            "DEFAULT", "correlation_plots", fallback=False
+        )
         # Diagnostic: when True, write per-cell (feature, yield) scatter
         # grids alongside the ccc/r2 heatmaps so the data behind each
         # correlation value is inspectable. Default False (gated to avoid

@@ -40,6 +40,7 @@ from ..client_headers import (
 import functools
 from urllib.parse import urlsplit
 
+from .._shared import update_request
 from . import client_status
 from . import diagnostics as _diagnostics
 from . import durable
@@ -47,6 +48,7 @@ from . import errors
 from . import safe_warn
 from . import session_marker
 from . import unstorable
+from . import workspace_limit as _workspace_limit
 from .config import DAEMON_SHELL_CONFIG, Settings
 from .agent_session import AGENT_SESSION_HEADER, agent_session_headers
 from .surface import ATTRIBUTION_HEADER, SURFACE_HEADER, TOOL_HEADER, Surface, current_tool
@@ -730,6 +732,34 @@ class Transport:
             headers["Authorization"] = f"Bearer {bearer}"
         return headers
 
+    # -- workspace limit -------------------------------------------------------
+    def _workspace_limit_headers(self) -> dict[str, str]:
+        """The limit headers for one request, read per request like the client
+        identity above: inside `workspace_limit.without_limit()` none (a picker's
+        list); under the hosted MCP's per-request scope the CALLER's (an empty one
+        included: they sent none); else this transport's settings'. An
+        environment slug is looked up once, without the limit. Raises rather than
+        sending nothing: a limit this process cannot name is never dropped."""
+        if _workspace_limit.suppressed():
+            return {}
+        forwarded = _workspace_limit.forwarded()
+        if forwarded is not None:
+            return dict(forwarded)
+        limit = getattr(self.settings, "workspace_limit", None)
+        if limit is None:
+            return {}
+
+        def listed() -> Any:
+            with _workspace_limit.without_limit():
+                return self.request("GET", "/v1/workspaces", idempotent=True).json()
+
+        bearer = self.settings.token or self.settings.service_token
+        ident = _workspace_limit.resolve_id(
+            limit, base_url=self.settings.base_url, list_workspaces=listed,
+            account=_workspace_limit.account_key(bearer),
+        )
+        return _workspace_limit.request_headers(limit, ident)
+
     # -- deadline -------------------------------------------------------------
     def _attempt_timeout(self, requested: float | None, what: str) -> tuple[Any, bool]:
         """``(timeout kwarg value, clamped)`` for one attempt.
@@ -940,6 +970,9 @@ class Transport:
             **client_identity,
             **device_identity,
             **self._auth_headers(path, raw_body),
+            # This computer's workspace limit: a read narrowing the API applies
+            # (`workspace_limit.py`). Never on `/ingest` (capture is not limited).
+            **({} if path.startswith("/ingest") else self._workspace_limit_headers()),
         }
         if json_body is not None:
             headers["Content-Type"] = "application/json"
@@ -1061,6 +1094,9 @@ class Transport:
                 # Only for our OWN identity: under an override (the hosted MCP)
                 # the status grades someone else's client, not this process.
                 client_status.notice(resp.headers, client_identity, self.surface)
+                # Probe staff asked this machine to update (the CLI's next command
+                # hands it to the updater): one lookup when the header is absent.
+                update_request.note(resp.headers)
             if resp.status_code >= 400:
                 if attempt > 1 and method.upper() == "DELETE" and _is_trash_notice(resp):
                     # A RETRIED delete that finds the thing in the trash: the
@@ -1161,6 +1197,16 @@ class Transport:
         error = errors.error_for(resp.status_code, detail)
         if in_trash:
             error.in_trash = True
+        applied = resp.headers.get(_workspace_limit.APPLIED_HEADER)
+        if applied and resp.status_code == 404:
+            # The API answered under this computer's workspace limit: what was
+            # asked for may well exist, outside it. Said, never left to read as
+            # gone (agents have filed data-loss reports off a silent miss).
+            error.workspace_limit_applied = applied
+            _workspace_limit.annotate_not_found(
+                error,
+                _workspace_limit.hidden_hint(applied, getattr(self.settings, "workspace_limit", None)),
+            )
         return _with_retry_after(error, resp)
 
     # -- typed helpers ------------------------------------------------------

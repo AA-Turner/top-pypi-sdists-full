@@ -30,6 +30,7 @@ from typing import NamedTuple
 
 from ..sdk.durable import file_lock, fsync_directory, now_iso
 from ..sdk.tls import ssl_context
+from ..tap_core import capture_gate as tap_gate
 from ..tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from ..tap_core.session_identity import compatible_copy, validate_identity
 from ..tap_core.session_journal import (
@@ -572,6 +573,10 @@ class Census:
     #: them is what stops the walk's own total from reading as the whole
     #: population. See `history_sessions`.
     known_no_transcript: int = 0
+    #: Sessions whose Probe switch reads `off`, or that have a stretch written
+    #: while it was (their gap file, `probe.service.capture_gate`): Probe off
+    #: means the session is not captured, and an import never backfills one.
+    switched_off: int = 0
     #: Every directory actually walked, so an empty result can say WHERE it
     #: looked instead of only that it found nothing.
     roots: list[Path] = field(default_factory=list)
@@ -633,6 +638,9 @@ def discover(
             if session_id in tracked:
                 census.captured_live += 1
                 continue
+            if _switched_off(session_id):
+                census.switched_off += 1
+                continue
             key = f"{agent}:{session_id}"
             if key in conflicting:
                 continue
@@ -676,6 +684,24 @@ def discover(
     # someone is most likely to be looking for.
     census.candidates = sorted(by_session.values(), key=lambda t: t.mtime, reverse=True)
     return census
+
+
+def _switched_off(session_id: str) -> bool:
+    """Was Probe switched off for this session itself (its own `.state` says
+    `off`), or for a stretch of it (its gap file holds a gap, or does not
+    read)? Such a session is never imported: not the stretch, and not the rest
+    either, since an import cannot tell where the stretch was. A machine
+    default of `off`, or PROBE_SESSION_STATE in this shell, skips nothing: it
+    says nothing about a session written before it was set."""
+    try:
+        from probe.service import capture_gate
+
+        sessions = capture_gate.sessions_dir_for(os.environ)
+        if capture_gate.read_gap_file(sessions, session_id):
+            return True
+        return capture_gate.explicitly_off(session_id, sessions)
+    except Exception:  # noqa: BLE001 -- the switch decides nothing it cannot be read for
+        return False
 
 
 def tap_tracked_sessions(plugin_dir: Path) -> set[str]:
@@ -1163,13 +1189,16 @@ def upload_session(
         restarts = 0
         while True:
             stage = "reading transcript"
-            body = journal.stage(
-                transcript.session_id, cwd=transcript.cwd or "", historical_only=True,
-                require_no_pending=expected_history is not None, expected_history=expected_history,
-                # Protocol 3 packs toward 2 MiB: a smaller budget must still
-                # fit a batch, as protocol 2's 1 MiB fits the 1 MB minimum.
-                packing_cap=budget_bytes,
-            )
+            # The switch was decided above (`_switched_off`: a session's own
+            # `off`); the journal's gate still skips what its gap file covers.
+            with tap_gate.switch_decided():
+                body = journal.stage(
+                    transcript.session_id, cwd=transcript.cwd or "", historical_only=True,
+                    require_no_pending=expected_history is not None, expected_history=expected_history,
+                    # Protocol 3 packs toward 2 MiB: a smaller budget must still
+                    # fit a batch, as protocol 2's 1 MiB fits the 1 MB minimum.
+                    packing_cap=budget_bytes,
+                )
             if body is None:
                 result.ok = True
                 break
@@ -1326,6 +1355,8 @@ def gate_lines(
         skipped.append(f"{census.already_in_probe} already in Probe")
     if census.sidechains:
         skipped.append(f"{census.sidechains} subagent sidechains")
+    if census.switched_off:
+        skipped.append(f"{census.switched_off} switched off, or with a stretch written while off")
     if skipped:
         lines += ["", "  Skipped: " + ", ".join(skipped)]
     if census.unreadable:

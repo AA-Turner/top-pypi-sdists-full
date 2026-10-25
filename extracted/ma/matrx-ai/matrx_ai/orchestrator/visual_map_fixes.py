@@ -45,6 +45,7 @@ ROUTE_GEOMETRY: tuple[str, ...] = ("route", "via", "channelX", "channelY", "bias
 #: Codes whose fix is global (no one item to blame): a whole-spec answer keeps every change for these.
 GLOBAL_CODES = ("render/scale", "render/tooSmall", "content/dropped", "schema/")
 
+_OVERFLOW = re.compile(r'(Sublabel|Tag) ".*?" needs ~\d+px at the [\d.]+px legible minimum, but node "([^"]+)" provides')
 _TEXT_ID = re.compile(r"^(node|edge):(.+?)(?:#\d+)?$")
 _LABEL_AT = re.compile(
     r'Label "(?P<label>.+?)".*?Suggested fix: set labelAt \[(?P<x>-?[\d.]+), (?P<y>-?[\d.]+)\]', re.S
@@ -132,6 +133,27 @@ def _secondary_field_for(item: dict[str, Any], text: str) -> str | None:
     return None
 
 
+def identity_fixes(spec: dict[str, Any], diagnostics: list[dict[str, Any]]) -> tuple[dict[str, Any], list[str]]:
+    """The spec's identity set to the engine's own constant. Returns (new spec, edits made).
+
+    ``schema/const`` at /schema_version or /diagram_type carries the one allowed value as evidence: fully
+    determined, and frozen to the repairer (``_FROZEN``). 2026-10-24 live: a lifecycle written as
+    diagram_type "state" / schema_version 1; three repair answers set 3 + "lifecycle", every one was
+    refused, and the error could never clear. The loop adopts these edits unconditionally: no other
+    change can remove the error."""
+    out = copy.deepcopy(spec)
+    edits: list[str] = []
+    for d in diagnostics:
+        if not isinstance(d, dict) or d.get("severity") != "error" or d.get("code") != "schema/const":
+            continue
+        path = str((d.get("subject") or {}).get("path") or "").strip("/")
+        evidence = d.get("evidence") or {}
+        if path in _FROZEN and "allowedValue" in evidence and out.get(path) != evidence["allowedValue"]:
+            edits.append(f"{path}: {out.get(path)!r} → {evidence['allowedValue']!r} (the engine's constant)")
+            out[path] = evidence["allowedValue"]
+    return out, edits
+
+
 def mechanical_fixes(
     type_: str, spec: dict[str, Any], diagnostics: list[dict[str, Any]],
 ) -> tuple[dict[str, Any], list[str]]:
@@ -177,6 +199,18 @@ def mechanical_fixes(
                 idx = int(parts[1])
                 if idx < len(items) and isinstance(items[idx], dict):
                     edit = _move_to_card(out, items[idx], field)
+                    if edit:
+                        edits.append(edit)
+            continue
+        # A workflow node too narrow for its sublabel / tag arrives as layout/constraint with the field and
+        # node only in the message ("Sublabel "…" needs ~252px …, but node "x" provides 192px"); engine
+        # releases from 2026-10-23 shorten such a sublabel themselves, older ones refuse the picture.
+        named = _OVERFLOW.findall(message) if code == "layout/constraint" else []
+        if named:
+            for field, node_id in named:
+                found = _find_item(out, node_id)
+                if found:
+                    edit = _move_to_card(out, found[2], field.lower())
                     if edit:
                         edits.append(edit)
             continue

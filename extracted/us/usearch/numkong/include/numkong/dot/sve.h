@@ -53,13 +53,16 @@ extern "C" {
 #pragma GCC target("arch=armv8.2-a+sve")
 #endif
 
-/** @brief Compensated horizontal sum of SVE f64 lanes via TwoSum tree reduction.
+/**
+ *  @brief Compensated horizontal sum of SVE f64 lanes via TwoSum tree reduction.
  *
  *  Uses svtbl to extract the upper half at each tree level. Out-of-range indices
  *  return 0 (SVE spec), which is harmless since only the lower half is meaningful
  *  after each halving stage.
  */
 NK_INTERNAL nk_f64_t nk_dot_stable_sum_f64_sve_(svbool_t predicate_b64x, svfloat64_t sum, svfloat64_t compensation) {
+    // Zero NaN compensation lanes, which overflow leaves beside infinite sums
+    compensation = svsel_f64(svcmpuo_f64(predicate_b64x, compensation, compensation), svdup_n_f64(0.0), compensation);
     // Stage 0: TwoSum merge of sum + compensation (parallel across all active lanes)
     svfloat64_t tentative_sum_f64x = svadd_f64_x(predicate_b64x, sum, compensation);
     svfloat64_t virtual_addend_f64x = svsub_f64_x(predicate_b64x, tentative_sum_f64x, sum);
@@ -68,8 +71,13 @@ NK_INTERNAL nk_f64_t nk_dot_stable_sum_f64_sve_(svbool_t predicate_b64x, svfloat
         svsub_f64_x(predicate_b64x, sum, svsub_f64_x(predicate_b64x, tentative_sum_f64x, virtual_addend_f64x)),
         svsub_f64_x(predicate_b64x, compensation, virtual_addend_f64x));
 
-    // Tree reduction: TwoSum halving at each level, log2(VL) iterations
-    for (unsigned int half = (unsigned int)svcntd() / 2; half > 0; half >>= 1) {
+    // Tree reduction: TwoSum halving at each level. SVE permits any vector length that is a
+    // multiple of 128 bits, so `svcntd()` need not be a power of two — at VL=384 it is 6, and
+    // halving from 3 would never fold lanes 2 and 5 into lane 0. Start from the next power of
+    // two instead; `svtbl` yields 0 for out-of-range indices, and adding 0 is exact for TwoSum.
+    unsigned int lanes_rounded_up = 1;
+    while (lanes_rounded_up < (unsigned int)svcntd()) lanes_rounded_up <<= 1;
+    for (unsigned int half = lanes_rounded_up / 2; half > 0; half >>= 1) {
         svuint64_t upper_indices_u64x = svadd_n_u64_x(predicate_b64x, svindex_u64(0, 1), half);
         svfloat64_t upper_sum_f64x = svtbl_f64(tentative_sum_f64x, upper_indices_u64x);
         svfloat64_t upper_error_f64x = svtbl_f64(accumulated_error_f64x, upper_indices_u64x);
@@ -88,8 +96,8 @@ NK_INTERNAL nk_f64_t nk_dot_stable_sum_f64_sve_(svbool_t predicate_b64x, svfloat
     }
     // Result is in lane 0
     svbool_t predicate_first_b64x = svwhilelt_b64_u64(0u, 1);
-    return svlastb_f64(predicate_first_b64x, tentative_sum_f64x) +
-           svlastb_f64(predicate_first_b64x, accumulated_error_f64x);
+    return nk_f64_compensated_sum_(svlastb_f64(predicate_first_b64x, tentative_sum_f64x),
+                                   svlastb_f64(predicate_first_b64x, accumulated_error_f64x));
 }
 
 NK_PUBLIC void nk_dot_f32_sve(nk_f32_t const *a_scalars, nk_f32_t const *b_scalars, nk_size_t count_scalars,

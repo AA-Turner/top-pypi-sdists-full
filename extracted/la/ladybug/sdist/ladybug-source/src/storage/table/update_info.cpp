@@ -1,6 +1,7 @@
 #include "storage/table/update_info.h"
 
 #include <bitset>
+#include <unordered_set>
 
 #include "common/exception/runtime.h"
 #include "common/vector/value_vector.h"
@@ -126,7 +127,12 @@ void UpdateInfo::iterateVectorInfo(const Transaction* transaction, idx_t idx,
     DASSERT(head);
     std::shared_lock chainLock{head->mtx};
     auto current = head->info.get();
-    DASSERT(current);
+    if (current == nullptr) {
+        // The chain was emptied after the prefix check (retention dropped every node
+        // below the horizon, or a rollback removed its entries). Either way the base
+        // page now holds the newest value, so there is nothing to overlay.
+        return;
+    }
     while (current) {
         if (current->version == transaction->getID() ||
             current->version <= transaction->getStartTS()) {
@@ -293,6 +299,190 @@ void UpdateInfo::iterateScan(const Transaction* transaction, uint64_t startOffse
         posInVector += numRowsInVector;
         idx++;
     }
+}
+
+std::vector<VectorRetentionPlan> UpdateInfo::planRetention(transaction_t horizon) const {
+    std::vector<VectorRetentionPlan> plans;
+    std::shared_lock lock{mtx};
+    for (auto vectorIdx = 0u; vectorIdx < updates.size(); vectorIdx++) {
+        const auto& node = updates[vectorIdx];
+        if (!node) {
+            continue;
+        }
+        VectorRetentionPlan plan;
+        plan.vectorIdx = vectorIdx;
+        std::shared_lock chainLock{node->mtx};
+        for (auto* current = node->info.get(); current != nullptr; current = current->getPrev()) {
+            if (current->version >= horizon) {
+                plan.kept.push_back(current);
+                for (auto i = 0u; i < current->numRowsUpdated; i++) {
+                    plan.keptRows.set(current->rowsInVector[i]);
+                }
+            } else {
+                if (plan.newestBelow == nullptr) {
+                    plan.newestBelow = current;
+                }
+                for (auto i = 0u; i < current->numRowsUpdated; i++) {
+                    plan.belowRows.set(current->rowsInVector[i]);
+                }
+            }
+        }
+        if (plan.hasKept() || plan.newestBelow != nullptr) {
+            plans.push_back(std::move(plan));
+        }
+    }
+    return plans;
+}
+
+bool UpdateInfo::plansHaveKeptNodes(const std::vector<VectorRetentionPlan>& plans) {
+    for (const auto& plan : plans) {
+        if (plan.hasKept()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void UpdateInfo::dropUnretainedNodes(const std::vector<VectorRetentionPlan>& plans,
+    bool exclusive) {
+    std::unique_lock lock{mtx};
+    for (const auto& plan : plans) {
+        if (plan.vectorIdx >= updates.size() || !updates[plan.vectorIdx]) {
+            continue;
+        }
+        auto& node = updates[plan.vectorIdx];
+        std::unordered_set<VectorUpdateInfo*> keepSet(plan.kept.begin(), plan.kept.end());
+        if (plan.hasKept() && plan.newestBelow != nullptr) {
+            keepSet.insert(plan.newestBelow);
+        }
+        // Dismantle newest-first, then relink the survivors preserving chain order.
+        std::unique_lock chainLock{node->mtx};
+        std::vector<std::unique_ptr<VectorUpdateInfo>> survivors;
+        auto head = std::move(node->info);
+        while (head) {
+            auto prev = head->movePrev();
+            if (keepSet.contains(head.get())) {
+                survivors.push_back(std::move(head));
+            }
+            head = std::move(prev);
+        }
+        // survivors[] is newest-first; relink head=newest with prev/next pairing
+        // (chainLock from above is still held).
+        if (survivors.empty()) {
+            node->info = nullptr;
+            continue;
+        }
+        node->info = std::move(survivors[0]);
+        auto* cursor = node->info.get();
+        cursor->setNext(nullptr);
+        for (auto i = 1u; i < survivors.size(); i++) {
+            cursor->setPrev(std::move(survivors[i]));
+            cursor->getPrev()->setNext(cursor);
+            cursor = cursor->getPrev();
+        }
+        cursor->setPrev(nullptr);
+    }
+    if (exclusive) {
+        std::erase_if(updates, [](const auto& node) { return !node || node->info == nullptr; });
+    }
+}
+
+namespace {
+// Relinks dismantled chain nodes (newest-first) as head=front with prev/next pairing.
+void relinkChainNewestFirst(UpdateNode& header,
+    std::vector<std::unique_ptr<VectorUpdateInfo>>& nodes) {
+    if (nodes.empty()) {
+        header.info = nullptr;
+        return;
+    }
+    header.info = std::move(nodes[0]);
+    auto* cursor = header.info.get();
+    cursor->setNext(nullptr);
+    for (auto i = 1u; i < nodes.size(); i++) {
+        cursor->setPrev(std::move(nodes[i]));
+        cursor->getPrev()->setNext(cursor);
+        cursor = cursor->getPrev();
+    }
+    cursor->setPrev(nullptr);
+}
+} // namespace
+
+VectorUpdateInfo& UpdateInfo::insertRetainedBaseNode(MemoryManager& memoryManager,
+    LogicalType dataType, idx_t vectorIdx, transaction_t horizon) {
+    auto& header = getOrCreateUpdateNode(vectorIdx);
+    std::unique_lock chainLock{header.mtx};
+    // Dismantle newest-first.
+    std::vector<std::unique_ptr<VectorUpdateInfo>> nodes;
+    auto head = std::move(header.info);
+    while (head) {
+        auto prev = head->movePrev();
+        nodes.push_back(std::move(head));
+        head = std::move(prev);
+    }
+    for (const auto& node : nodes) {
+        if (node->version == horizon) {
+            relinkChainNewestFirst(header, nodes);
+            auto* cursor = header.info.get();
+            while (cursor->version != horizon) {
+                cursor = cursor->getPrev();
+            }
+            return *cursor;
+        }
+    }
+    // Splice the new node directly above the newest node older than the horizon (chain
+    // order is newest-first, so everything at/after the horizon precedes it).
+    auto inserted = std::make_unique<VectorUpdateInfo>(memoryManager, horizon, std::move(dataType));
+    auto* result = inserted.get();
+    std::vector<std::unique_ptr<VectorUpdateInfo>> relinked;
+    bool placed = false;
+    for (auto& node : nodes) {
+        if (!placed && node->version < horizon) {
+            relinked.push_back(std::move(inserted));
+            placed = true;
+        }
+        relinked.push_back(std::move(node));
+    }
+    if (!placed) {
+        relinked.push_back(std::move(inserted));
+    }
+    relinkChainNewestFirst(header, relinked);
+    return *result;
+}
+
+bool UpdateInfo::stageRetainedRow(MemoryManager& memoryManager, LogicalType dataType,
+    idx_t vectorIdx, transaction_t version, sel_t rowInVector, const ColumnChunkData& srcData,
+    row_idx_t srcPos) {
+    auto& header = getOrCreateUpdateNode(vectorIdx);
+    std::unique_lock chainLock{header.mtx};
+    VectorUpdateInfo* node = nullptr;
+    for (auto* current = header.info.get(); current != nullptr; current = current->getPrev()) {
+        if (current->version == version) {
+            node = current;
+            break;
+        }
+    }
+    if (node == nullptr) {
+        // Prepended as newest: callers stage oldest-first (below-horizon node, then the
+        // horizon base, then kept nodes oldest-first), so chain order is preserved.
+        auto newInfo =
+            std::make_unique<VectorUpdateInfo>(memoryManager, version, std::move(dataType));
+        node = newInfo.get();
+        auto currentInfo = std::move(header.info);
+        if (currentInfo) {
+            currentInfo->setNext(node);
+        }
+        newInfo->setPrev(std::move(currentInfo));
+        header.info = std::move(newInfo);
+    }
+    for (auto i = 0u; i < node->numRowsUpdated; i++) {
+        if (node->rowsInVector[i] == rowInVector) {
+            return false;
+        }
+    }
+    const auto pos = node->numRowsUpdated++;
+    node->rowsInVector[pos] = rowInVector;
+    node->data->write(&srcData, srcPos, pos, 1);
+    return true;
 }
 
 } // namespace storage

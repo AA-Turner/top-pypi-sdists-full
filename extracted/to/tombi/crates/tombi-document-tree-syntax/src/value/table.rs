@@ -223,10 +223,10 @@ impl<'t> Table<'t> {
             }
             (Table | InlineTable { .. } | KeyValue, Table | InlineTable { .. })
             | (InlineTable { .. }, ParentTable | ParentKey | KeyValue)
-            | (ParentTable, ParentKey) => {
+            | (ParentTable, InlineTable { .. }) => {
                 is_conflict = true;
             }
-            (ParentTable, Table | InlineTable { .. }) => {
+            (ParentTable, Table) => {
                 self.kind = other.kind;
                 if let Some(directives) = other.header_comment_directives {
                     self.header_comment_directives = Some(directives);
@@ -263,7 +263,7 @@ impl<'t> Table<'t> {
                     let value1 = entry.get_mut();
                     match (value1, value2) {
                         (Value::Table(table1), Value::Table(table2)) => {
-                            if let Err(errs) = table1.merge(table2) {
+                            if let Err(errs) = table1.merge_child(table2) {
                                 errors.extend(errs);
                             };
                         }
@@ -296,6 +296,20 @@ impl<'t> Table<'t> {
         }
     }
 
+    /// Merges a table found under the same key of another tree. A table defined by a `[table]`
+    /// header cannot be extended by dotted keys from another table, at any depth.
+    fn merge_child(&mut self, other: Self) -> Result<(), Vec<crate::Error>> {
+        if self.kind == TableKind::Table
+            && matches!(other.kind, TableKind::KeyValue | TableKind::ParentKey)
+        {
+            return Err(vec![crate::Error::ConflictTable {
+                range1: self.symbol_span,
+                range2: other.symbol_span,
+            }]);
+        }
+        self.merge(other)
+    }
+
     pub(crate) fn insert(
         mut self,
         key: Key<'t>,
@@ -308,7 +322,7 @@ impl<'t> Table<'t> {
                 let existing_value = entry.get_mut();
                 match (existing_value, value) {
                     (Value::Table(table1), Value::Table(table2)) => {
-                        if let Err(errs) = table1.merge(table2) {
+                        if let Err(errs) = table1.merge_child(table2) {
                             errors.extend(errs);
                         }
                     }

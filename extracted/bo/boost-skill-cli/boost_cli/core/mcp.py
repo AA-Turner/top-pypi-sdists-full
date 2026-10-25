@@ -394,16 +394,19 @@ def str_arg(args: Mapping, key: str) -> str | None:
 READ_LIMIT = 12000
 
 
-def state_marks(entry: dict | None) -> str:
+def state_marks(entry: dict | None, modified: bool = False) -> str:
     """``boost_list``'s trailing markers for one lock row.
 
     ``[pinned]`` holds the version; ``[quarantined]`` and ``[sidelined]``
     mean no agent loads the item at all. Without the last two a quarantined
     item read as installed and "usable this second" under a description that
-    promises exactly that, while CLI `boost list` flagged it.
+    promises exactly that, while CLI `boost list` flagged it. ``[modified]``
+    is the caller's answer from :func:`integrity.locally_edited`: an agent
+    told an edited copy is the tap's procedure reads the wrong one.
     """
     e = entry or {}
-    return "".join((" [pinned]" if e.get("pinned") else "",
+    return "".join((" [modified]" if modified else "",
+                    " [pinned]" if e.get("pinned") else "",
                     " [quarantined]" if e.get("quarantined")
                     else " [sidelined]" if e.get("sidelined_by") else ""))
 
@@ -480,6 +483,14 @@ def config_problem(cfg_err: str) -> str:
     the real fix while ``boost_search`` and ``boost_list`` gave that advice in
     the same session, so all three take this one sentence.
     """
+    from . import jsonstate, paths
+    if isinstance(cfg_err, jsonstate.Unreadable):
+        # Its bytes may be intact, and every config write refuses over it, so
+        # "re-add their taps" names a command that cannot succeed.
+        return ("%s — boost is running on defaults, so the user's taps are "
+                "not listed; ask the user to %s (run `boost doctor` for "
+                "details)" % (cfg_err, jsonstate.read_remedy(
+                    cfg_err, paths.tilde)))
     return ("%s — boost is running on defaults, so the user's taps are not "
             "listed; ask the user to repair the file or re-add their taps "
             "(run `boost doctor` for details)" % cfg_err)

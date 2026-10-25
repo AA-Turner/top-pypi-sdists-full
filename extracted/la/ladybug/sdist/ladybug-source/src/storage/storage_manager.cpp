@@ -64,7 +64,7 @@ StorageManager::StorageManager(const std::string& databasePath, bool readOnly, b
     : databasePath{databasePath}, readOnly{readOnly}, dataFH{nullptr}, memoryManager{memoryManager},
       enableCompression{enableCompression}, enableDefaultHashIndex{enableDefaultHashIndex},
       vfs_{vfs} {
-    wal = std::make_unique<WAL>(databasePath, readOnly, enableChecksums, vfs);
+    wal = std::make_unique<WAL>(databasePath, readOnly, enableChecksums, vfs, this);
     shadowFile =
         std::make_unique<ShadowFile>(*memoryManager.getBufferManager(), vfs, this->databasePath);
     inMemory = main::DBConfig::isDBPathInMemory(databasePath);
@@ -80,6 +80,9 @@ StorageManager::StorageManager(const std::string& databasePath, bool readOnly, b
 StorageManager::~StorageManager() = default;
 
 void StorageManager::initDataFileHandle(VirtualFileSystem* vfs, main::ClientContext* context) {
+    if (dataFH != nullptr && dataFH->getFileInfo() != nullptr) {
+        return;
+    }
     if (inMemory) {
         dataFH = memoryManager.getBufferManager()->getFileHandle(databasePath,
             FileHandle::O_PERSISTENT_FILE_IN_MEM, vfs, context);
@@ -103,6 +106,7 @@ void StorageManager::initDataFileHandle(VirtualFileSystem* vfs, main::ClientCont
                 dataFH->getFileInfo()->writeFile(headerWriter->getPage(0).data(), LBUG_PAGE_SIZE,
                     StorageConstants::DB_HEADER_PAGE_IDX);
                 dataFH->getFileInfo()->syncFile();
+                vfs->syncParentDirectory(databasePath);
             }
         }
     }
@@ -427,7 +431,9 @@ bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& cat
             hasChanges =
                 tables.at(info.oid)->checkpoint(context, entry, pageAllocator) || hasChanges;
         }
-        entry->vacuumColumnIDs(1);
+        if (entry->vacuumColumnIDs(1)) {
+            context->getDatabase()->getCatalog()->incrementColumnIDsVersion();
+        }
     }
     lck.unlock();
     reclaimDroppedIndexes();
@@ -444,7 +450,8 @@ bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& cat
 
 bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& catalog,
     const Transaction& snapshotTxn, PageAllocator& pageAllocator,
-    const std::unordered_map<table_id_t, uint64_t>& epochWatermarks) {
+    const std::unordered_map<table_id_t, uint64_t>& epochWatermarks, transaction_t retentionHorizon,
+    const std::vector<transaction_t>& openStartTSs) {
     bool hasChanges = false;
     auto nodeTableEntries = catalog.getNodeTableEntries(&snapshotTxn);
     const auto relGroupEntries = catalog.getRelGroupEntries(&snapshotTxn);
@@ -465,14 +472,15 @@ bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& cat
             const uint64_t watermark =
                 watermarkIt != epochWatermarks.end() ? watermarkIt->second : 0;
             hasChanges = childSM->getTable(tableID)->checkpoint(context, entry,
-                             *childSM->getDataFH()->getPageManager(), &snapshotTxn, watermark) ||
+                             *childSM->getDataFH()->getPageManager(), &snapshotTxn, watermark,
+                             retentionHorizon, openStartTSs) ||
                          hasChanges;
             continue;
         }
         const auto watermarkIt = epochWatermarks.find(tableID);
         const uint64_t watermark = watermarkIt != epochWatermarks.end() ? watermarkIt->second : 0;
         hasChanges = tables.at(tableID)->checkpoint(context, entry, pageAllocator, &snapshotTxn,
-                         watermark) ||
+                         watermark, retentionHorizon, openStartTSs) ||
                      hasChanges;
     }
     for (const auto entry : relGroupEntries) {
@@ -485,10 +493,12 @@ bool StorageManager::checkpoint(main::ClientContext* context, const Catalog& cat
             const uint64_t watermark =
                 watermarkIt != epochWatermarks.end() ? watermarkIt->second : 0;
             hasChanges = tables.at(info.oid)->checkpoint(context, entry, pageAllocator,
-                             &snapshotTxn, watermark) ||
+                             &snapshotTxn, watermark, retentionHorizon, openStartTSs) ||
                          hasChanges;
         }
-        entry->vacuumColumnIDs(1);
+        if (entry->vacuumColumnIDs(1)) {
+            context->getDatabase()->getCatalog()->incrementColumnIDsVersion();
+        }
     }
     lck.unlock();
     reclaimDroppedIndexes();
@@ -743,6 +753,10 @@ StorageManager* StorageManager::Get(const main::ClientContext& context) {
         return context.getAttachedDatabase()->getStorageManager();
     }
     auto dbManager = main::DatabaseManager::Get(context);
+    if (auto* replayOwnerCatalog = dbManager->getReplayOwnerCatalog();
+        replayOwnerCatalog != nullptr) {
+        return replayOwnerCatalog->getStorageManager();
+    }
     auto graphStorageManager = dbManager->getDefaultGraphStorageManager();
     if (graphStorageManager != nullptr) {
         return graphStorageManager;

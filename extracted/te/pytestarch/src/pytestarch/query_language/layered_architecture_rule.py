@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from functools import partial
+from typing import Any
 
 from pytestarch.eval_structure.evaluable_architecture import (
     EvaluableArchitecture,
@@ -10,6 +11,7 @@ from pytestarch.eval_structure.evaluable_architecture import (
     ModuleNameFilter,
     ModuleNameRegexFilter,
 )
+from pytestarch.eval_structure.module_name_boundaries import is_submodule_of
 from pytestarch.query_language.base_language import (
     AccessSpecification,
     BaseLayeredArchitecture,
@@ -29,6 +31,7 @@ from pytestarch.rule_assessment.rule_check.rule_matcher import (
     LayerRuleMatcher,
     RuleMatcher,
 )
+from pytestarch.utils.list_helpers import listify
 
 _MISSING_RULE_ERROR_MESSAGE = "Please start by specifying layers."
 
@@ -45,11 +48,11 @@ class LayeredArchitecture(BaseLayeredArchitecture, LayerName, LayerDefinition):
     def layer_mapping(self) -> LayerMapping:
         return LayerMapping(self._modules_by_layer_name)
 
-    def with_layer(self) -> LayerName:
+    def with_layer(self) -> LayeredArchitecture:
         """This is simply a convenience method to achieve proper typing. It can be omitted."""
         return self
 
-    def layer(self, name: str) -> LayerDefinition:
+    def layer(self, name: str) -> LayeredArchitecture:
         underspecified_layers = self._get_layers_without_modules()
 
         if underspecified_layers:
@@ -72,16 +75,21 @@ class LayeredArchitecture(BaseLayeredArchitecture, LayerName, LayerDefinition):
         ]
         return underspecified_layers
 
-    def containing_modules(self, modules: str | list[str]) -> LayeredArchitecture:
+    def _get_pending_layer_name(self) -> str:
         layers_without_modules = self._get_layers_without_modules()
         if not layers_without_modules or len(layers_without_modules) > 1:
             raise ImproperlyConfigured(
                 "Specify layer name before specifying its modules."
             )
 
-        modules_list = modules if isinstance(modules, list) else [modules]
+        return layers_without_modules[0]
 
-        module_set = set(modules)
+    def containing_modules(self, modules: str | list[str]) -> LayeredArchitecture:
+        pending_layer = self._get_pending_layer_name()
+
+        modules_list = listify(modules)
+
+        module_set = set(modules_list)
         existing_modules = set(
             [
                 value.identifier
@@ -94,11 +102,26 @@ class LayeredArchitecture(BaseLayeredArchitecture, LayerName, LayerDefinition):
 
         if duplicates:
             raise ImproperlyConfigured(
-                f"Module(s) {', '.join(duplicates)} already assigned to a layer."
+                f"Module(s) {', '.join(sorted(duplicates))} already assigned to a layer."
             )
 
-        self._modules_by_layer_name[layers_without_modules[0]] = (
-            self._to_module_objects(modules_list)
+        nesting_conflicts: set[str] = set()
+        for existing_module in existing_modules:
+            for module in modules_list:
+                is_nested = is_submodule_of(module, existing_module) or is_submodule_of(
+                    existing_module, module
+                )
+                if is_nested:
+                    nesting_conflicts.add(module)
+
+        if nesting_conflicts:
+            raise ImproperlyConfigured(
+                f"Module(s) {', '.join(sorted(nesting_conflicts))} are a submodule or parent module of a module"
+                " assigned to another layer."
+            )
+
+        self._modules_by_layer_name[pending_layer] = self._to_module_objects(
+            modules_list
         )
 
         return self
@@ -106,15 +129,11 @@ class LayeredArchitecture(BaseLayeredArchitecture, LayerName, LayerDefinition):
     def have_modules_with_names_matching(
         self,
         regex: str,
-    ) -> BaseLayeredArchitecture:
-        layers_without_modules = self._get_layers_without_modules()
-        if not layers_without_modules or len(layers_without_modules) > 1:
-            raise ImproperlyConfigured(
-                "Specify layer name before specifying its modules."
-            )
+    ) -> LayeredArchitecture:
+        pending_layer = self._get_pending_layer_name()
 
-        self._modules_by_layer_name[layers_without_modules[0]] = (
-            self._from_regex_to_module_objects(regex)
+        self._modules_by_layer_name[pending_layer] = self._from_regex_to_module_objects(
+            regex
         )
 
         return self
@@ -136,7 +155,7 @@ class LayeredArchitecture(BaseLayeredArchitecture, LayerName, LayerDefinition):
         return [ModuleNameRegexFilter(name=regex)]
 
 
-class LayerRule(
+class LayerRule(  # pyrefly: ignore[invalid-inheritance]
     RuleApplier,
     LayerRuleBase[LayeredArchitecture],
     LayerRuleSubject,
@@ -154,7 +173,7 @@ class LayerRule(
     def __init__(
         self, rule_matcher_class: type[RuleMatcher] = LayerRuleMatcher
     ) -> None:
-        self._rule = None
+        self._rule: Any = None
         self._architecture: LayeredArchitecture | None = None
         self._rule_matcher_class = rule_matcher_class
 
@@ -180,95 +199,68 @@ class LayerRule(
 
         return self
 
-    def are_named(self, layers: str | list[str]) -> LayerBehaviorSpecification:
+    def are_named(self, names: str | list[str]) -> LayerRule:
         if self._rule is None:
             raise ImproperlyConfigured(
                 "Please start with 'layers_that' to ensure the rule is properly set up."
             )
 
-        if not self._rule.rule_subjects and isinstance(layers, list):
+        if not self._rule.rule_subjects and isinstance(names, list):
             raise ImproperlyConfigured(
                 "Layer rule subjects cannot be specified in batch."
             )
 
-        layers = self._listify(layers)
+        layers = listify(names)
         modules = self._get_all_modules_in_layers(layers)
 
-        self._rule = self._rule._add_modules(modules)
+        self._rule = self._rule._add_modules(modules)  # type: ignore[assignment]
         return self
 
     def should(self) -> AccessSpecification:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.should()
+        self._rule = self._rule_or_error.should()
         return self
 
     def should_only(self) -> AccessSpecification:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.should_only()
+        self._rule = self._rule_or_error.should_only()
         return self
 
     def should_not(self) -> AccessSpecification:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.should_not()
+        self._rule = self._rule_or_error.should_not()
         return self
 
     def access_layers_that(self) -> LayerRuleObject:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.import_modules_that()
+        self._rule = self._rule_or_error.import_modules_that()
         return self
 
     def be_accessed_by_layers_that(self) -> LayerRuleObject:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.be_imported_by_modules_that()
+        self._rule = self._rule_or_error.be_imported_by_modules_that()
         return self
 
     def access_layers_except_layers_that(self) -> LayerRuleObject:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.import_modules_except_modules_that()
+        self._rule = self._rule_or_error.import_modules_except_modules_that()
         return self
 
     def be_accessed_by_layers_except_layers_that(self) -> LayerRuleObject:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.be_imported_by_modules_except_modules_that()
+        self._rule = self._rule_or_error.be_imported_by_modules_except_modules_that()
         return self
 
     def access_any_layer(self) -> RuleApplier:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.import_anything()
+        self._rule = self._rule_or_error.import_anything()
         return self
 
     def be_accessed_by_any_layer(self) -> RuleApplier:
-        if self._rule is None:
-            raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
-
-        self._rule = self._rule.be_imported_by_anything()
+        self._rule = self._rule_or_error.be_imported_by_anything()
         return self
 
     def assert_applies(self, evaluable: EvaluableArchitecture) -> None:
+        self._rule_or_error.assert_applies(evaluable)
+
+    @property
+    def _rule_or_error(self) -> Rule:
         if self._rule is None:
             raise ImproperlyConfigured(_MISSING_RULE_ERROR_MESSAGE)
 
-        self._rule.assert_applies(evaluable)
-
-    @classmethod
-    def _listify(cls, layers: str | list[str]) -> list[str]:
-        return layers if isinstance(layers, list) else [layers]
+        return self._rule
 
     def _get_all_modules_in_layers(self, layers: list[str]) -> list[tuple[str, bool]]:
         if self._architecture is None:

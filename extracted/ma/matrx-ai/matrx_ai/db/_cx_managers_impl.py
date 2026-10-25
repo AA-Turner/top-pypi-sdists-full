@@ -596,6 +596,7 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         delivery: str = "next_boundary",
         metadata: dict[str, Any] | None = None,
         status: str = "pending",
+        organization_id: str | None = None,
     ) -> CxPendingInjection:
         # `status` exists for ONE producer: a deferred tool hand-off writes its
         # row as 'running' BEFORE the work finishes, so a process that dies
@@ -608,14 +609,18 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
         # organization rather than defaulting or reading the caller's ambient
         # request context (which need not match the target conversation's
         # org for a cross-conversation "remember" write). Never assume.
-        rows = await CxConversation.filter(id=conversation_id).values("organization_id")
-        if not rows or not rows[0].get("organization_id"):
-            raise ValueError(
-                f"cannot enqueue a pending injection for conversation {conversation_id!r}: "
-                "its organization_id could not be resolved (conversation missing or "
-                "carries no organization)."
-            )
-        organization_id = rows[0]["organization_id"]
+        # A caller that already holds the conversation's organization passes it; the
+        # database refuses one foreign to the conversation (`_1_refuse_foreign_org`) and
+        # never fills a missing one (no-db-assigned-org: `trg_inherit_org` is detached).
+        if not organization_id:
+            rows = await CxConversation.filter(id=conversation_id).values("organization_id")
+            if not rows or not rows[0].get("organization_id"):
+                raise ValueError(
+                    f"cannot enqueue a pending injection for conversation {conversation_id!r}: "
+                    "its organization_id could not be resolved (conversation missing or "
+                    "carries no organization)."
+                )
+            organization_id = rows[0]["organization_id"]
         return await self.create_item(
             id=injection_id,
             conversation_id=conversation_id,
@@ -661,9 +666,10 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
     async def claim_next_turn_end(
         self, conversation_id: str, *, request_id: str | None = None
     ) -> list[CxPendingInjection]:
-        """Atomically claim the SINGLE oldest QUEUE row (``delivery='turn_end'``)
-        — one queued message per turn, per the three-send-modes ruling ("when we
-        are DONE, THE NEXT QUEUED MESSAGE submits"). The conditional
+        """Atomically claim the oldest QUEUE row (``delivery='turn_end'``) — one queued
+        PERSON's message per turn, per the three-send-modes ruling ("when we are DONE,
+        THE NEXT QUEUED MESSAGE submits") — or, when the oldest is a host note, every
+        waiting host note in one round. The conditional
         ``UPDATE … WHERE id … AND status='pending'`` makes the two-step
         read-then-claim race-safe: a concurrent winner leaves this claim with
         zero rows and the item is simply gone (already claimed)."""
@@ -698,14 +704,27 @@ class CxPendingInjectionManager(CxPendingInjectionBase):
             ]
         if not candidates:
             return []
-        head = min(candidates, key=lambda r: int(r.enqueued_seq or 0))
-        result = await self.update_where(
-            {"id": str(head.id), "status": str(getattr(head, "status", "pending") or "pending")},
-            status="consumed",
-            consumed_at=datetime.now(UTC),
-            consumed_by_request_id=request_id,
-        )
-        return list(result.updated_rows or [])
+        ordered = sorted(candidates, key=lambda r: int(r.enqueued_seq or 0))
+        head = ordered[0]
+        # A PERSON'S queued message is one per turn (the three-send-modes ruling). HOST
+        # NOTES — helper reports, wake-ups, background-run ends, agent mail — are taken ALL
+        # AT ONCE (Arman 2026-10-25: "if there are multiple, we don't wake the agent up over
+        # and over again"): one extra model round answers every report waiting, never one
+        # round per report. A person's message waiting behind them rides the next round.
+        if str(getattr(head, "kind", "") or "") == "user_message":
+            take = [head]
+        else:
+            take = [r for r in ordered if str(getattr(r, "kind", "") or "") != "user_message"]
+        claimed: list[CxPendingInjection] = []
+        for row in take:
+            result = await self.update_where(
+                {"id": str(row.id), "status": str(getattr(row, "status", "pending") or "pending")},
+                status="consumed",
+                consumed_at=datetime.now(UTC),
+                consumed_by_request_id=request_id,
+            )
+            claimed.extend(result.updated_rows or [])
+        return claimed
 
     async def list_for_conversation(
         self, conversation_id: str, created_by: str, *, status: str = "pending"

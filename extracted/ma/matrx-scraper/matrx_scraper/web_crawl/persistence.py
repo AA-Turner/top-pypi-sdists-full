@@ -80,6 +80,7 @@ from matrx_scraper.events import (
     PageSummary,
 )
 from matrx_scraper.screenshot_dimensions import resolve_screenshot_dimensions
+from matrx_scraper.render_readiness import blank_flag_metadata
 from matrx_scraper._ext import has_ext
 from matrx_scraper.source_landing import (
     SOURCE_LANDING_EXT,
@@ -952,7 +953,15 @@ class WebCrawlRepository:
                     "guessed_kind": candidate.guessed_kind,
                     "url": candidate.url,
                     "value": candidate.value,
-                    "context": candidate.context,
+                    # THE identity key (matrx_social.identity) + who found it; ``value`` keeps its shape (the
+                    # dedup index hashes it). ONE-HOME-PLAN W1.
+                    "context": {
+                        **(candidate.context or {}),
+                        "identity_key": finding_identity_key(
+                            candidate.category, candidate.guessed_kind, candidate.url, candidate.value
+                        ),
+                        "found_by": "homepage_scrape",
+                    },
                     "confidence": candidate.confidence,
                     "status": "pending",
                 }
@@ -1933,6 +1942,19 @@ class WebCrawlRepository:
         return None
 
 
+# Capture kinds that photograph the WHOLE page. Stored as kind="full" — never
+# "viewport", or a tall page reaches a reader that wants the above-the-fold
+# picture (the brand overview's hero showed the middle of a full-page shot).
+FULL_PAGE_CAPTURE_KINDS = frozenset({"full_page", "desktop_full", "mobile_full"})
+
+
+def canonical_screenshot_kind(capture_kind: str, *, homepage_bootstrap: bool) -> str:
+    """The web.screenshot.kind a crawl capture is stored under."""
+    if homepage_bootstrap:
+        return "homepage"
+    return "full" if capture_kind in FULL_PAGE_CAPTURE_KINDS else "viewport"
+
+
 async def prune_screenshot_history(
     *,
     site_id: str,
@@ -2312,7 +2334,10 @@ class CanonicalBodyPersister:
                         width=width,
                         height=height,
                         captured_at=captured_at,
-                        metadata={"initialization": True},
+                        metadata={
+                            "initialization": True,
+                            **blank_flag_metadata(shot.bytes, width, height),
+                        },
                     )
                     screenshot_ids[shot.kind] = str(screenshot.id)
 
@@ -2515,13 +2540,7 @@ class CanonicalBodyPersister:
                     self.state.pages_unchanged += 1
             if screenshot_artifacts and result.page_id:
                 canonical_kinds = {
-                    (
-                        "homepage"
-                        if self.state.homepage_bootstrap
-                        else "full"
-                        if shot.kind == "full_page"
-                        else "viewport"
-                    )
+                    canonical_screenshot_kind(shot.kind, homepage_bootstrap=self.state.homepage_bootstrap)
                     for shot, _ in screenshot_artifacts
                 }
                 prune_counts = await prune_screenshot_history(
@@ -2815,12 +2834,8 @@ class CanonicalBodyPersister:
                         shot.height,
                         shot.bytes,
                     )
-                    canonical_kind = (
-                        "homepage"
-                        if self.state.homepage_bootstrap
-                        else "full"
-                        if shot.kind == "full_page"
-                        else "viewport"
+                    canonical_kind = canonical_screenshot_kind(
+                        shot.kind, homepage_bootstrap=self.state.homepage_bootstrap
                     )
                     screenshot = await WebScreenshot.create(
                         organization_id=self.state.organization_id,
@@ -2833,7 +2848,10 @@ class CanonicalBodyPersister:
                         width=width,
                         height=height,
                         captured_at=captured_at,
-                        metadata={"capture_kind": shot.kind},
+                        metadata={
+                            "capture_kind": shot.kind,
+                            **blank_flag_metadata(shot.bytes, width, height),
+                        },
                     )
                     screenshot_ids[shot.kind] = str(screenshot.id)
                     if self.state.homepage_bootstrap and self.state.homepage_screenshot_id is None:
@@ -3152,3 +3170,28 @@ __all__ = [
     "prune_screenshot_history",
     "url_hash",
 ]
+
+
+def finding_text(value: Any) -> str | None:
+    """A crawler finding's display text: ``value.text``, else a postal address's parts joined (``{"address": {...}}``),
+    else None (media and social rows carry their address in ``url``)."""
+    if not isinstance(value, dict):
+        return str(value) if value else None
+    text = value.get("text") or value.get("value")
+    if isinstance(text, str) and text.strip():
+        return text
+    address = value.get("address")
+    if isinstance(address, dict):
+        parts = [str(address[k]) for k in ("streetAddress", "addressLocality", "addressRegion", "postalCode",
+                                           "addressCountry") if address.get(k)]
+        return ", ".join(parts) or None
+    if isinstance(address, str):
+        return address
+    return None
+
+
+def finding_identity_key(category: str, guessed_kind: str | None, url: str | None, value: Any) -> str | None:
+    """THE identity key of a crawler finding (``matrx_social.identity.identity_key``)."""
+    from matrx_social.identity import identity_key
+
+    return identity_key(category, guessed_kind, url, finding_text(value))

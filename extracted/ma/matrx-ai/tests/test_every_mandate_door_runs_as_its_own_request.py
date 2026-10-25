@@ -137,7 +137,7 @@ def test_run_agent_doors_fork_their_own_request(door: str) -> None:
     assert child.tree_request_id == CALLER_REQUEST, door
 
 
-def test_workflow_step_runs_under_its_own_request() -> None:
+def test_workflow_step_runs_under_its_own_request(monkeypatch: pytest.MonkeyPatch) -> None:
     import asyncio
 
     from matrx_connect import ConsoleEmitter
@@ -156,8 +156,10 @@ def test_workflow_step_runs_under_its_own_request() -> None:
             return None
 
     root = AppContext(emitter=_Emitter(), user_id=USER_ID, request_id=CALLER_REQUEST)
-    agent_action.get_ext = lambda name: fake_runner  # type: ignore[assignment]
-    agent_action.has_ext = lambda name: False  # type: ignore[assignment]
+    # Scoped: a bare assignment outlived this test and handed every later
+    # build_agent_request a function as its AgentStartRequest.
+    monkeypatch.setattr(agent_action, "get_ext", lambda name: fake_runner)
+    monkeypatch.setattr(agent_action, "has_ext", lambda name: False)
     step = SimpleNamespace(app=root.fork_for_workflow_step(NAMED_CONVERSATION), node_id="n")
     asyncio.run(agent_action.run_step_agent(step, "agent", object(), mandate_key=KEY))  # type: ignore[arg-type]
     assert seen and seen[0] != CALLER_REQUEST

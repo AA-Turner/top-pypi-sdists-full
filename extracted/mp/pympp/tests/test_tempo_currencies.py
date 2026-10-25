@@ -14,6 +14,7 @@ import rlp
 
 import mpp.methods.tempo as tempo_exports
 from mpp import Challenge, Credential, Receipt
+from mpp.errors import InternalPaymentError
 from mpp.methods.tempo import (
     CHAIN_ID,
     MACH,
@@ -43,7 +44,7 @@ from mpp.methods.tempo.schemas import ChargeRequest
 from mpp.runtime import PaymentRuntime
 from mpp.server import ComposedChallenges, Intent, Mpp, VerifiableIntent
 from mpp.server.intent import VerificationError
-from tests import MockRequest, make_bound_credential
+from tests import MockRequest, internal_cause, make_bound_credential
 
 REALM = "api.example.com"
 SECRET = "test-secret"
@@ -595,9 +596,7 @@ async def _fake_rpc_call(
     client: object | None = None,
 ) -> str:
     del rpc_url, params, client
-    return {"eth_chainId": hex(CHAIN_ID), "eth_getTransactionCount": "0x0", "eth_gasPrice": "0x1"}[
-        method_name
-    ]
+    return {"eth_chainId": hex(CHAIN_ID), "eth_gasPrice": "0x1"}[method_name]
 
 
 async def _sign(client_method: TempoMethod, challenge: Challenge) -> Credential:
@@ -779,7 +778,6 @@ async def _fake_client_rpc(chain_id: int, gas_price: int = 1) -> Any:
         del rpc_url, params, client
         return {
             "eth_chainId": hex(chain_id),
-            "eth_getTransactionCount": "0x0",
             "eth_gasPrice": hex(gas_price),
         }[method_name]
 
@@ -958,8 +956,9 @@ class TestSponsoredFeeToken:
     )
     async def test_disallowed_fee_token_is_rejected(self, kwargs: dict[str, Any]) -> None:
         intent = sponsor_intent(**kwargs)
-        with pytest.raises(VerificationError, match="feeToken is not allowed"):
+        with pytest.raises(InternalPaymentError) as raised:
             await intent._resolve_fee_token(None, charge_request())
+        assert "feeToken is not allowed" in str(internal_cause(raised.value))
 
     @pytest.mark.asyncio
     async def test_configured_fee_token_matches_case_insensitively(self) -> None:
@@ -968,8 +967,9 @@ class TestSponsoredFeeToken:
 
     @pytest.mark.asyncio
     async def test_resolution_requires_a_local_fee_payer(self) -> None:
-        with pytest.raises(VerificationError, match="No fee payer"):
+        with pytest.raises(InternalPaymentError) as raised:
             await ChargeIntent()._resolve_fee_token(None, charge_request())
+        assert "No fee payer" in str(internal_cause(raised.value))
 
     def test_fee_token_requires_local_fee_payer(self) -> None:
         with pytest.raises(ValueError, match="local fee_payer"):

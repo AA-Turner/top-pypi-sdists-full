@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connectrpc
-Version: 0.12.1
+Version: 0.13.0
 Summary: Server and client runtime library for Connect RPC
 Keywords: connect,grpc,http,protobuf,rpc
 License-Expression: Apache-2.0
@@ -10,19 +10,21 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Classifier: Programming Language :: Python :: Free Threading
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: protobuf-py>=0.3.0
-Requires-Dist: pyqwest>=0.5.1
+Requires-Dist: protobuf-py>=0.6.0
+Requires-Dist: pyqwest>=0.12.0
+Requires-Dist: typing-extensions>=4.16.0
 Maintainer: Anuraag Agrawal, Spencer Nelson, Stefan VanBuren, Yasushi Itoh
 Maintainer-email: Anuraag Agrawal <anuraaga@gmail.com>, Spencer Nelson <spencer@firetiger.com>, Stefan VanBuren <stefan@vanburen.xyz>, Yasushi Itoh <i2y.may.roku@gmail.com>
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Project-URL: Documentation, https://connectrpc.com/docs/python/getting-started/
 Project-URL: Homepage, https://github.com/connectrpc/connect-py
 Project-URL: Issues, https://github.com/connectrpc/connect-py/issues
@@ -42,6 +44,7 @@ Description-Content-Type: text/markdown
 Connect is the **easiest way to build modern APIs**.
 
 [Docs](https://connectrpc.com/docs/python/getting-started/) •
+[API reference](https://connectrpc.github.io/connect-py/api/) •
 [Example](https://github.com/connectrpc/connect-py/tree/main/example) •
 [New to Connect?](https://connectrpc.com/)
 
@@ -59,7 +62,7 @@ Connect already works with your current tech stack:
 
 ## Features
 
-- **Servers:** WSGI and ASGI-ready, use with any [compatible server](https://connectrpc.com/docs/python/deployment/)
+- **Servers:** WSGI and ASGI-ready (including trio), use with any [compatible server](https://connectrpc.com/docs/python/deployment/)
 - **Clients:** Lightweight sync and async clients, backed by `pyqwest`
 - **Protocols:** Supports Connect, gRPC, and gRPC-Web (HTTP/1.1 and HTTP/2)
 - **Type safety:** Fully type-annotated generated code

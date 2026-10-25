@@ -33,6 +33,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -171,7 +172,58 @@ def test_below_recommended_carries_the_advisory_and_the_restart_note(hook, monke
     out = _drive(hook, monkeypatch, manifest=_manifest(cli_recommended="0.146.0"), cli="0.144.0")
     msg = _message(out)
     assert "422" in msg, f"the advisory did not reach the machine it describes: {msg!r}"
+    # The tap it updates to (0.4.5) never hands its sessions to the Probe
+    # service, and no install ledger says the plugin is user-scope: open
+    # sessions need the restart they always did.
     assert "restart Claude Code" in msg, msg
+    assert "no restart" not in msg.lower(), msg
+
+
+def _ledger(scope: str) -> None:
+    path = Path.home() / ".claude" / "plugins" / "installed_plugins.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    extra = {} if scope == "user" else {"projectPath": "/repo"}
+    path.write_text(json.dumps({"version": 2, "plugins": {
+        name: [{"scope": scope, "installPath": f"/x/{name}", **extra}]
+        for name in ("probe-research@research-os-agent", "probe-research-tap@research-os-agent")
+    }}))
+
+
+@pytest.mark.parametrize("case", ["follows", "project-scope", "old-tap", "codex", "kimi", "protocol-1"])
+def test_no_restart_is_said_only_where_open_sessions_follow(hook, monkeypatch, case) -> None:
+    """"Open sessions pick it up at their next prompt" is true for Claude Code
+    and Codex with a user-scope install and a tap that hands its sessions to
+    the Probe service (0.10.13+), every live `tap watch` one the prompt hook
+    can move: anywhere else (a project's install, a tap before the hand-back,
+    Kimi Code, a session on a protocol-1 tap) the restart note stays."""
+    manifest = _manifest(cli_recommended="0.146.0")
+    manifest["tap"] = {"latest": "0.10.12" if case == "old-tap" else "0.10.16", "min": "0.1.0"}
+    _ledger("project" if case == "project-scope" else "user")
+    if case == "codex":
+        monkeypatch.setenv("PLUGIN_ROOT", str(_HOOK.parents[1]))
+    elif case == "kimi":
+        monkeypatch.setenv("KIMI_PLUGIN_ROOT", str(_HOOK.parents[1]))
+    watchers = Path.home() / "watchers"
+    watchers.mkdir()
+    monkeypatch.setenv("PROBE_TAP_WATCHER_DIR", str(watchers))
+    sleeper = None
+    if case == "protocol-1":
+        sid = "0b8f1c9e-protocol-1"
+        sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)", "tap watch", sid])
+        (watchers / f"probe-research-tap-watcher-{sid}.pid").write_text(str(sleeper.pid))
+        (watchers / f"probe-research-tap-watcher-{sid}.version").write_text("0.4.4")
+    try:
+        out = _drive(hook, monkeypatch, manifest=manifest, cli="0.144.0", tap="0.10.9")
+    finally:
+        if sleeper is not None:
+            sleeper.kill()
+            sleeper.wait()
+    msg, ctx = _message(out), _context(out)
+    if case in ("follows", "codex"):
+        assert "(open sessions pick it up at their next prompt)" in msg, msg
+        assert "restart" not in msg.lower() and "then restart" not in ctx, (msg, ctx)
+    else:
+        assert "restart" in msg and "to apply" in msg and "no restart" not in msg.lower(), msg
 
 
 def test_the_pair_points_at_latest_not_at_recommended(hook, monkeypatch) -> None:

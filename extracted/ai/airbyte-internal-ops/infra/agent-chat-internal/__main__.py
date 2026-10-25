@@ -104,6 +104,8 @@ PREVIEW_MTX_MCP_URL = (
     or "https://mcp.internal.airbyte.ai/mtx-mcp-preview"
 )
 AGENT_MODEL = config.get("agent-model") or ""
+GITHUB_OAUTH_CLIENT_ID = config.get("github-oauth-client-id") or ""
+GITHUB_APP_SLUG = config.get("github-app-slug") or ""
 ANTHROPIC_SECRET_ID = config.get("anthropic-secret-id") or ""
 ANTHROPIC_BASE_URL = config.get("anthropic-base-url") or ""
 PREVIEW_AGENT_MODEL = config.get("preview-agent-model") or AGENT_MODEL
@@ -170,6 +172,9 @@ SECRET_ENVS = {
     "AIRBYTE_AGUI_SERVER_MCP_CLIENT_ID": config.get("mcp-client-id-secret-id") or "",
     "AIRBYTE_AGUI_SERVER_MCP_CLIENT_SECRET": (config.get("mcp-client-secret-id") or ""),
     "AIRBYTE_AGUI_SERVER_OAUTH_CLIENT_SECRET": config.get("oauth-secret-id") or "",
+    "AIRBYTE_AGUI_SERVER_GITHUB_OAUTH_CLIENT_SECRET": (
+        config.get("github-oauth-secret-id") or ""
+    ),
     "AIRBYTE_AGUI_SERVER_LOGFIRE_TOKEN": config.get("logfire-secret-id") or "",
 }
 
@@ -602,6 +607,8 @@ def _server_envs(
     iap_audience: str,
     *,
     agent_model: str,
+    github_oauth_client_id: str,
+    github_app_slug: str,
     anthropic_secret_id: str,
     anthropic_base_url: str,
     mtx_mcp_url: str,
@@ -615,6 +622,12 @@ def _server_envs(
         _env("AIRBYTE_AGUI_SERVER_MCP_AUTH_MODE", MCP_AUTH_MODE),
         _env("AIRBYTE_AGUI_SERVER_MCP_UI", MCP_UI),
     ]
+    if github_oauth_client_id:
+        envs.append(
+            _env("AIRBYTE_AGUI_SERVER_GITHUB_OAUTH_CLIENT_ID", github_oauth_client_id)
+        )
+    if github_app_slug:
+        envs.append(_env("AIRBYTE_AGUI_SERVER_GITHUB_APP_SLUG", github_app_slug))
     if anthropic_base_url:
         envs.append(_env("AIRBYTE_AGUI_SERVER_ANTHROPIC_BASE_URL", anthropic_base_url))
     if PATH_PREFIX:
@@ -655,6 +668,8 @@ def main() -> None:
         _server_envs(
             SERVER_IAP_AUDIENCE,
             agent_model=AGENT_MODEL,
+            github_oauth_client_id=GITHUB_OAUTH_CLIENT_ID,
+            github_app_slug=GITHUB_APP_SLUG,
             anthropic_secret_id=ANTHROPIC_SECRET_ID,
             anthropic_base_url=ANTHROPIC_BASE_URL,
             mtx_mcp_url=MTX_MCP_URL,
@@ -685,6 +700,8 @@ def main() -> None:
         _server_envs(
             PREVIEW_SERVER_IAP_AUDIENCE,
             agent_model=PREVIEW_AGENT_MODEL,
+            github_oauth_client_id=GITHUB_OAUTH_CLIENT_ID,
+            github_app_slug=GITHUB_APP_SLUG,
             anthropic_secret_id=PREVIEW_ANTHROPIC_SECRET_ID,
             anthropic_base_url=PREVIEW_ANTHROPIC_BASE_URL,
             mtx_mcp_url=PREVIEW_MTX_MCP_URL,

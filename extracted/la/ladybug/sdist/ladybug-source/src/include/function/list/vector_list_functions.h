@@ -125,6 +125,18 @@ struct ListProductFunction {
     static function_set getFunctionSet();
 };
 
+struct ListMinFunction {
+    static constexpr const char* name = "LIST_MIN";
+
+    static function_set getFunctionSet();
+};
+
+struct ListMaxFunction {
+    static constexpr const char* name = "LIST_MAX";
+
+    static function_set getFunctionSet();
+};
+
 struct ListDistinctFunction {
     static constexpr const char* name = "LIST_DISTINCT";
 
@@ -208,6 +220,12 @@ struct ListSingleFunction {
 
 struct ListHasAllFunction {
     static constexpr const char* name = "LIST_HAS_ALL";
+
+    static function_set getFunctionSet();
+};
+
+struct ListHasAnyFunction {
+    static constexpr const char* name = "LIST_HAS_ANY";
 
     static function_set getFunctionSet();
 };

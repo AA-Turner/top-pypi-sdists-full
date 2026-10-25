@@ -176,13 +176,34 @@ def choose(*, asking: bool) -> list[str]:
 
     from probe.sdk.config import WORKSPACE_HANDOVER, load_context, save_context
 
+    from probe.sdk import workspace_limit as wl
+
     later = "`probe workspace use <slug>` sets it later"
     settings = resolve()
     if not settings.token:
         return []
+    limit = wl.stored(load_context())
+    lifted: list[str] = []
     try:
         with Client(settings=settings, async_writes=False, surface=Surface.CLI.value) as client:
-            rows = [r for r in client.list_workspaces() if r.get("id")]
+            # The picker's list: every workspace, whatever this computer's limit says.
+            with wl.without_limit():
+                listed = client.list_workspaces()
+            rows = [r for r in listed if r.get("id")]
+            if limit is not None:
+                if limit.id is not None and limit.id in {wl.as_uuid(r["id"]) for r in rows}:
+                    # Limited to one workspace (`probe workspace limit`): that is where
+                    # this computer's work goes, and the pin may not move off it.
+                    return [f"✔ this computer is limited to {limit.label}, and its work goes there "
+                            f"(`{wl.COMMAND}` changes it)"]
+                # Deleted, or another team's (a re-login): every request would be
+                # refused under it, so it goes with its pin, and the step goes on.
+                save_context({"workspace": None})
+                settings.workspace_limit = None  # this client's own requests too
+                from probe.cli import workspace_limit_cmd
+
+                lifted = [f"! this computer's workspace limit named {limit.label}, which this team does "
+                          "not have: it was lifted", *workspace_limit_cmd.resync_copies()]
             try:
                 user_id = str(client.me().get("user_id") or "") or None
             except Exception:  # noqa: BLE001 - the preselection only
@@ -195,7 +216,7 @@ def choose(*, asking: bool) -> list[str]:
                 # be refused with it, so it goes; the choice below replaces it.
                 save_context({"workspace": None})
             if not rows:
-                return []  # the team's first project creates its first workspace
+                return lifted  # the team's first project creates its first workspace
             start = preselect(rows, pinned=pinned, user_id=user_id)
             if len(rows) == 1:
                 chosen = rows[0]
@@ -209,6 +230,7 @@ def choose(*, asking: bool) -> list[str]:
                     save_context({WORKSPACE_HANDOVER: True})
                 if chosen is None:
                     return [
+                        *lifted,
                         "! this team has several workspaces and this computer has none "
                         f"set yet; {later} (see `probe workspace list`)"
                     ]
@@ -216,17 +238,18 @@ def choose(*, asking: bool) -> list[str]:
                 answer = run_picker(rows, start)
                 if answer is None or answer is tui.BACK:
                     if pinned in by_id:
-                        return [f"✔ this computer's work goes into {by_id[pinned].get('name')}"]
-                    return [f"! this computer has no workspace set yet; {later}"]
+                        return [*lifted, f"✔ this computer's work goes into {by_id[pinned].get('name')}"]
+                    return [*lifted, f"! this computer has no workspace set yet; {later}"]
                 if answer == NEW_WORKSPACE:
                     created = _create(client, default_name="My workspace")
                     if created is None:
-                        return [f"! no workspace created; {later}"]
+                        return [*lifted, f"! no workspace created; {later}"]
                     chosen = created
                 else:
                     chosen = by_id[str(answer)]
             _pin(chosen, pinned=pinned)
             return [
+                *lifted,
                 f"✔ this computer's work goes into {chosen.get('name')} "
                 "(`probe workspace use <slug>` changes it)",
                 *_env_note(chosen),

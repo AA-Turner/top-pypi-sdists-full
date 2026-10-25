@@ -5,6 +5,9 @@
                         and their mode, the recorders it runs, its warm hook
                         hosts, the runs `probe exec` holds, and its updater
                         (a cycle running, the last check, a deferral)
+    recorders()         `probe session status` and the update report: the
+                        sessions it records, whether each recorder holds its
+                        session now, and the tap they run
     finish_recorders()  `probe capture off` for one agent: the recorders it
                         runs for that agent finish now, not at their next
                         killswitch check
@@ -13,6 +16,11 @@
                         sees it without a lock-file scan
     refresh_manifest()  the every-command version check: the service refreshes
                         a stale manifest cache instead of a detached child
+    capture_switched()  `probe session state` moved a session's switch: the
+                        service looks at it now (Probe off: not captured),
+                        and, the switch on again, a service gone idle while
+                        the session was off starts (the one call here that
+                        may start it; never for a session switched off)
     start_import()      an approved import's worker: started and watched by
                         the service (it survives this CLI, and `service.status`
                         lists it) instead of detached from this process
@@ -40,6 +48,8 @@ from probe._compat import StrEnum
 
 #: `probe status` / `probe doctor`: the whole read, every call included.
 VIEW_TIMEOUT_S = 1.0
+#: `recorders()`: one `service.status`, on the path of a session status read.
+RECORDERS_TIMEOUT_S = 0.5
 #: `probe exec`'s hold and release: on the path to the wrapped command's start.
 HOLD_TIMEOUT_S = 0.5
 #: The every-command check: it must never stall a command (a `probe log` in a
@@ -51,6 +61,9 @@ FINISH_WAIT_S = 5.0
 FINISH_TIMEOUT_S = 2.0
 #: An import's start: a folder check and a process start on the service's side.
 IMPORT_TIMEOUT_S = 3.0
+#: `capture_switched`: the look itself, and the wait for a service it started.
+SWITCH_TIMEOUT_S = 1.0
+SWITCH_START_S = 5.0
 #: `import.start` carries the environment as `hooks.run` does (at most
 #: `protocol.MAX_HOOK_ENV` variables of `MAX_HOOK_ENV_VALUE` each), and the
 #: request within one wire line; past either, the worker starts here.
@@ -202,7 +215,8 @@ def _rows(items: object, keys: dict) -> list[dict]:
 #: A session's delivery receipts (`session.list`, `probe.service.receipts`, D29).
 RECEIPT_KEYS = {
     "last_line": int, "received_bytes": int, "received_at": (int, float), "pending_bytes": int,
-    "pending_lines": int, "pending_batch": bool, "finalized": bool, "retrying": bool, "scope": dict,
+    "pending_lines": int, "pending_batch": bool, "finalized": bool, "retrying": bool, "offline": bool,
+    "scope": dict,
 }
 #: The same per agent and account (`session.list`'s `harnesses`).
 HARNESS_KEYS = {
@@ -224,6 +238,21 @@ def _cut(item: object, keys: dict) -> dict | None:
     return out
 
 
+def _agent_live(row: dict, raw: dict) -> bool | None:
+    """Does the session's agent still run? The service's `alive` says so for
+    every session but one in mode `off`, which it never counts alive, whatever
+    its agent does (`registry.Session.alive`: an off session holds nothing up).
+    For that one, the service's own `agent_live` (its owner, watched until it
+    exits; a heartbeat inside its TTL). None from a service before that field:
+    nothing is asked here instead (no `ps` per session on every read)."""
+    if row.get("alive") is True:
+        return True
+    if row.get("mode") != "off":
+        return False
+    live = raw.get("agent_live")
+    return live if isinstance(live, bool) else None
+
+
 def _sessions(listing: object) -> list[dict]:
     rows = listing.get("sessions") if isinstance(listing, dict) else None
     out = _rows(rows, {"sid": str, "harness": str, "mode": str, "alive": bool})
@@ -231,12 +260,33 @@ def _sessions(listing: object) -> list[dict]:
         # A service from before receipts lists none: each row's is null then.
         for row, raw in zip(out, (item for item in rows if isinstance(item, dict))):
             row["receipts"] = _cut(raw.get("receipts"), RECEIPT_KEYS)
+            row["agent_live"] = _agent_live(row, raw)
     return out
+
+
+def live_off(session: dict) -> bool:
+    """A session in mode `off` whose agent still runs (`agent_live`; unknown
+    counts as running: the service drops a session once its owner exits)."""
+    return session.get("alive") is not True and session.get("mode") == "off" and session.get("agent_live") is not False
 
 
 def _harnesses(listing: object) -> list[dict]:
     found = listing.get("harnesses") if isinstance(listing, dict) else None
     return [_cut(row, HARNESS_KEYS) for row in found if isinstance(row, dict)] if isinstance(found, list) else []
+
+
+#: A recorder (`service.status`'s `recorders`, `recorders.RecorderHost.public`).
+#: `alive`: its thread runs (also in a retry wait); `recording`: its loop holds
+#: the session's journal claim now (null from a tap before 0.10.5); `harness`:
+#: the agent its `session.record` named; `tap_version`: the tap the service
+#: loaded and runs it on (null from an older service).
+RECORDER_KEYS = {
+    "sid": str, "alive": bool, "recording": bool, "last": str, "failures": int, "harness": str, "tap_version": str,
+    # Probe is off for the session: its recorder holds it, nothing is captured.
+    "off": bool,
+}
+#: What `view()` keeps of one (`service.recorders` in `probe status --json`).
+VIEW_RECORDER_KEYS = {name: RECORDER_KEYS[name] for name in ("sid", "alive", "recording", "last", "failures", "off")}
 
 
 def _filled(status: dict, listing: object) -> dict:
@@ -249,7 +299,7 @@ def _filled(status: dict, listing: object) -> dict:
         started_at=_of(status.get("started_at"), number),
         sessions=_sessions(listing),
         harnesses=_harnesses(listing),
-        recorders=_rows(status.get("recorders"), {"sid": str, "alive": bool, "last": str, "failures": int}),
+        recorders=_rows(status.get("recorders"), VIEW_RECORDER_KEYS),
         hook_hosts=_rows(status.get("hook_hosts"), {"root": str, "pid": int}),
         runs=_rows(status.get("runs"), {"run": str, "pid": int, "since": number}),
         imports=_rows(status.get("imports"), {"job_id": str, "pid": int, "since": number}),
@@ -264,13 +314,81 @@ def _filled(status: dict, listing: object) -> dict:
             "in_progress": _of(update.get("in_progress"), bool),
             "step": _of(update.get("step"), str),
             "last_check": _of(update.get("last_check"), number),
-            "last_ok": _of(last.get("ok"), bool) if isinstance(last, dict) else None,
+            "last_ok": cycle_ok(last),
             "next_check": _of(update.get("next_check"), number),
             "deferred_reason": _of(deferred.get("reason"), str),
             "deferred_at": _of(deferred.get("at"), number),
             "deferred_since": _of(update.get("deferred_since"), number),
+            "app": _app_update(update, last),
         }
     return out
+
+
+def _app_update(update: dict, last: object) -> dict | None:
+    """The desktop app's update as the service last recorded it
+    (`update.status`'s `app.last`) and the last cycle's `app` step (a skip
+    records no check: `not_writable`, `app_running`, ...). None from a service
+    before the app step, or on a machine where it never ran."""
+    app = update.get("app")
+    record = app.get("last") if isinstance(app, dict) else None
+    steps = last.get("steps") if isinstance(last, dict) else None
+    step = steps.get("app") if isinstance(steps, dict) else None
+    if not isinstance(record, dict) and not isinstance(step, dict):
+        return None
+    record = record if isinstance(record, dict) else {}
+    step = step if isinstance(step, dict) else {}
+    number = (int, float)
+    return {
+        "state": _of(record.get("state"), str),
+        "result": _of(record.get("result"), str),
+        "via": _of(record.get("via"), str),
+        "version_before": _of(record.get("version_before"), str),
+        "version_after": _of(record.get("version_after"), str),
+        "error": _of(record.get("error"), str),
+        "at": _of(record.get("at"), number),
+        "step_state": _of(step.get("state"), str),
+        "step_outcome": _of(step.get("outcome"), str),
+        "step_detail": _of(step.get("detail"), str),
+        # An install's undo failed and left an app that may not verify (sticky in the service).
+        "reinstall": step.get("reinstall") is True or record.get("reinstall") is True,
+    }
+
+
+#: `updater.VIA_SERVICE_INSTALL`: the service installed a closed app's update.
+_VIA_SERVICE_INSTALL = "service_install"
+
+
+def app_update_text(app: dict | None) -> str | None:
+    """The desktop app's last update in one line (`probe doctor`), or None."""
+    if not isinstance(app, dict):
+        return None
+    before, after = app.get("version_before"), app.get("version_after")
+    at = when(app.get("at"))
+    if app.get("reinstall"):
+        return ("an update could not put the old app back and the app may not pass its signature check; "
+                "the Probe service repairs it with the next release, or reinstall Probe")
+    skipped = app.get("step_state") == "skipped" and app.get("step_outcome") in (
+        "not_writable", "app_running", "not_permitted", "no_helper", "refused_release",
+    )
+    if skipped:
+        detail = app.get("step_detail")
+        return f"last cycle skipped ({app['step_outcome']}" + (f": {detail}" if detail else "") + \
+            "); the app updates itself at its next launch"
+    result = app.get("result")
+    if app.get("state") == "delegated":
+        return f"update check handed to the open app ({at})"
+    if result == "updated" and app.get("via") == _VIA_SERVICE_INSTALL:
+        return f"{before} -> {after}, installed by the Probe service while the app was closed ({at})"
+    if result == "updated":
+        return f"{before} -> {after}, installed by the app ({at})"
+    if result == "current":
+        return f"{after or before or 'installed'} is the newest (checked {at})"
+    if result == "ready":
+        return f"{after} downloaded; installs when the app quits or is idle with no window ({at})"
+    if result == "failed":
+        error = app.get("error")
+        return f"update failed ({at})" + (f": {error}" if error else "")
+    return None
 
 
 def view(timeout: float = VIEW_TIMEOUT_S) -> dict:
@@ -316,6 +434,27 @@ def view(timeout: float = VIEW_TIMEOUT_S) -> dict:
     return _filled(status, listing)
 
 
+def recorders(timeout: float = RECORDERS_TIMEOUT_S) -> list[dict] | None:
+    """The sessions the service records (`service.status`'s `recorders`), each
+    cut to RECORDER_KEYS, within `timeout` seconds in all. None when no service
+    answers in time (none runs, Windows, a refusal, an unreadable answer) or
+    one from before its recorders: the caller then does what it did before.
+    Never starts it, never raises."""
+    if not _reachable():
+        return None
+    try:
+        from probe.service import client
+        from probe.service.protocol import Client, Method
+
+        status = client.call_within(Method.STATUS, budget=timeout, client=Client.CLI, client_version=_version())
+    except Exception:  # noqa: BLE001 -- a status read never raises
+        return None
+    found = status.get("recorders") if isinstance(status, dict) else None
+    if not isinstance(found, list):
+        return None
+    return _rows(found, RECORDER_KEYS)
+
+
 def when(epoch: object) -> str:
     if not isinstance(epoch, (int, float)) or isinstance(epoch, bool):
         return "never"
@@ -342,8 +481,12 @@ def summary(view_: dict | None) -> str:
         parts.append(str(view_["version"]))
     if view_.get("pid"):
         parts.append(f"pid {view_['pid']}")
-    sessions = [s for s in view_.get("sessions") or [] if s.get("alive")]
-    parts.append(_count(len(sessions), "live session"))
+    listed = view_.get("sessions") or []
+    sessions = [s for s in listed if s.get("alive")]
+    # A session in mode off is never `alive` to the service, whatever its agent
+    # does: one whose agent runs is live, and said apart.
+    off = [s for s in listed if live_off(s)]
+    parts.append(_count(len(sessions) + len(off), "live session") + (f" ({len(off)} off)" if off else ""))
     recorders = view_.get("recorders") or []
     if recorders:
         parts.append(f"{len(recorders)} recorded by it")
@@ -359,6 +502,22 @@ def summary(view_: dict | None) -> str:
     elif update.get("deferred_reason"):
         parts.append(f"update deferred: {update['deferred_reason']}")
     return " · ".join(parts)
+
+
+def cycle_ok(last: object) -> bool | None:
+    """Did the updater's last cycle (`update.last_result`) end ok? Not when a
+    step of it says `complete: false`: an update child that exited 0 without
+    finishing every step (a CLI install that left nothing while the plugins
+    moved), which a service before 0.301 recorded as ok (live test C). None
+    when there is no readable record."""
+    if not isinstance(last, dict) or not isinstance(last.get("ok"), bool):
+        return None
+    steps = last.get("steps")
+    if isinstance(steps, dict) and any(
+        isinstance(step, dict) and step.get("complete") is False for step in steps.values()
+    ):
+        return False
+    return last["ok"]
 
 
 def update_text(update: dict) -> str:
@@ -599,3 +758,46 @@ def refresh_manifest() -> bool:
     except Exception:  # noqa: BLE001 -- no service, an older one, a refused context
         return False
     return answer.get("outcome") in (CheckOutcome.STARTED, CheckOutcome.RUNNING)
+
+
+def _holds_session(session_id: str) -> bool:
+    """Does the service's saved record of what it records (`recorders.json`)
+    name `session_id`? A session held while off is saved there when its
+    service goes idle; the next service resumes it."""
+    try:
+        import json
+
+        from probe.service import paths
+
+        data = json.loads((paths.service_dir() / "recorders.json").read_text(encoding="utf-8"))
+        return any(isinstance(s, dict) and s.get("sid") == session_id for s in data.get("sessions") or [])
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def capture_switched(session_id: str, *, off: bool) -> bool | None:
+    """The CLI just moved `session_id`'s switch. Probe off means the session is
+    NOT captured: the Probe service, which records it, looks at the switch now
+    (`session.recording`), so a session turned off is held before its agent
+    writes another line, and one turned on again is recorded from this moment
+    (what it wrote while off is never sent: `probe.service.capture_gate`).
+
+    The one call here that may START the service: with the switch on again,
+    a session the service holds (its saved recorders name it) whose service
+    went idle while it was off. Never for a session switched off: Probe off
+    starts nothing. True when a service answered, None when none did. Never
+    raises."""
+    try:
+        from probe.service import client
+        from probe.service.protocol import Client, Method
+
+        if not _reachable():
+            if off or os.name != "posix" or not _holds_session(session_id):
+                return None
+            if client.ensure(wait=SWITCH_START_S) != client.Ensured.RUNNING:
+                return None
+        client.call_within(Method.SESSION_RECORDING, {"sid": session_id}, budget=SWITCH_TIMEOUT_S,
+                           client=Client.CLI, client_version=_version())
+        return True
+    except Exception:  # noqa: BLE001 -- the service's own look comes within a moment while it runs
+        return None

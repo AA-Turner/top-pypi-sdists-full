@@ -8,7 +8,7 @@ continuation turn (announced as a warning in Watch AI) and only then fails.
 
 from __future__ import annotations
 
-import inspect
+from matrx_utils.source_guard import stable_source
 from types import SimpleNamespace
 
 from matrx_ai.config import (
@@ -59,7 +59,7 @@ def test_blank_turn_after_tool_results_gets_one_continuation_then_fails() -> Non
 
 
 def test_loop_tries_the_continuation_before_the_failed_branch() -> None:
-    src = inspect.getsource(executor)
+    src = stable_source(executor)
     assert src.index("_drop_blank_turn_for_continuation(current_request, state)") < src.index(
         "Provider reported a terminal"
     )

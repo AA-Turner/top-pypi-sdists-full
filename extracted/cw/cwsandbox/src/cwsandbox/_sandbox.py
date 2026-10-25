@@ -87,6 +87,7 @@ from cwsandbox._error_info import (
     CWSANDBOX_FILE_TOO_LARGE,
     CWSANDBOX_FILE_TRUNCATED,
     CWSANDBOX_FSS_BUCKET_MISMATCH,
+    CWSANDBOX_FSS_BUCKET_PROVISIONING,
     CWSANDBOX_FSS_NOT_FOUND,
     CWSANDBOX_FSS_NOT_READY,
     CWSANDBOX_FSS_NOT_SUPPORTED,
@@ -95,6 +96,8 @@ from cwsandbox._error_info import (
     CWSANDBOX_FSS_WAIT_TIMEOUT,
     CWSANDBOX_INVALID_REQUEST,
     CWSANDBOX_RESOURCE_CEILING_EXCEEDED,
+    CWSANDBOX_RUNNER_CAPACITY_EXHAUSTED,
+    CWSANDBOX_RUNNER_OVERLOADED,
     CWSANDBOX_RUNNER_SHARD_RETIRING,
     CWSANDBOX_SANDBOX_NOT_FOUND,
     CWSANDBOX_VOLUME_BACKEND_NOT_FOUND,
@@ -209,6 +212,7 @@ from cwsandbox.exceptions import (
     SandboxUnavailableError,
     SnapshotBackendThrottledError,
     SnapshotBucketMismatchError,
+    SnapshotBucketProvisioningError,
     SnapshotNotFoundError,
     SnapshotNotReadyError,
     SnapshotNotSupportedError,
@@ -824,9 +828,8 @@ def _translate_snapshot_reason(
     """Map a trusted FSS ``CWSANDBOX_FSS_*`` reason to a typed exception.
 
     Returns ``None`` when ``reason`` is not a known FSS reason, so the caller
-    can fall through to status-code mapping. The ``file_system_snapshot_id`` is attached
-    only to ``SandboxSnapshotError`` variants; the transient and wait-timeout
-    classes inherit non-snapshot parents and do not carry it.
+    can fall through to status-code mapping. All mapped exceptions belong to
+    ``SandboxSnapshotError`` and carry the snapshot ID when known.
     """
     snapshot_classes: dict[str, type[SandboxSnapshotError]] = {
         CWSANDBOX_FSS_NOT_FOUND: SnapshotNotFoundError,
@@ -835,6 +838,7 @@ def _translate_snapshot_reason(
         CWSANDBOX_FSS_SIZE_EXCEEDED: SnapshotSizeExceededError,
         CWSANDBOX_FSS_QUOTA_EXCEEDED: SnapshotQuotaExceededError,
         CWSANDBOX_FSS_BUCKET_MISMATCH: SnapshotBucketMismatchError,
+        CWSANDBOX_FSS_BUCKET_PROVISIONING: SnapshotBucketProvisioningError,
     }
     cls = snapshot_classes.get(reason)
     if cls is not None:
@@ -856,6 +860,7 @@ def _translate_snapshot_reason(
     if reason == CWSANDBOX_FSS_WAIT_TIMEOUT:
         return SnapshotWaitTimeoutError(
             f"{operation} timed out waiting for snapshot ready ({reason}): {details}",
+            file_system_snapshot_id=file_system_snapshot_id,
             reason=reason,
             metadata=metadata,
             retry_delay=retry_delay,
@@ -863,6 +868,7 @@ def _translate_snapshot_reason(
     if reason in SNAPSHOT_TRANSIENT_REASONS:
         return SnapshotBackendThrottledError(
             f"Snapshot backend throttled ({reason}): {details}",
+            file_system_snapshot_id=file_system_snapshot_id,
             reason=reason,
             metadata=metadata,
             retry_delay=retry_delay,
@@ -1883,6 +1889,7 @@ class Sandbox:
         tags: list[str] | None = None,
         base_url: str | None = None,
         request_timeout_seconds: float | None = None,
+        create_retry_budget_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
         max_lifetime_seconds: float | None = None,
@@ -1929,6 +1936,10 @@ class Sandbox:
             container_image: Container image to use (default: python:3.11)
             tags: Optional tags for the sandbox
             base_url: API URL (default: CWSANDBOX_BASE_URL env or localhost)
+            create_retry_budget_seconds: Opt-in capacity retry budget per placement
+                attempt, in seconds (default 0, disabled). Retries trusted runner
+                capacity/overload rejections with backoff and the same request ID.
+                Does not retry quota, auth, or ambiguous transport failures.
             request_timeout_seconds: Timeout for API requests (client-side,
                 default: 300s). Share-token recovery also caps each replay at
                 this value, 5s, and the remaining 15s recovery budget.
@@ -2075,6 +2086,16 @@ class Sandbox:
             else effective_data_plane_mode
         )
         self._direct_data_plane = DirectDataPlaneClient()
+        self._create_retry_budget_seconds = (
+            self._defaults.create_retry_budget_seconds
+            if create_retry_budget_seconds is None
+            else create_retry_budget_seconds
+        )
+        if (
+            not math.isfinite(self._create_retry_budget_seconds)
+            or self._create_retry_budget_seconds < 0
+        ):
+            raise ValueError("create_retry_budget_seconds must be finite and nonnegative")
         self._poll_retry_budget_seconds = (
             poll_retry_budget_seconds
             if poll_retry_budget_seconds is not None
@@ -2094,6 +2115,8 @@ class Sandbox:
             self._max_lifetime_seconds = self._defaults.max_lifetime_seconds
 
         self._tags: list[str] | None = self._defaults.merge_tags(tags)
+        self._observed_tags: tuple[str, ...] = tuple(self._tags or ())
+        self._created_at: datetime | None = None
         self._environment_variables = (
             {}
             if using_containers
@@ -2353,6 +2376,7 @@ class Sandbox:
         defaults: SandboxDefaults | None = None,
         auth: AuthConfig | None = None,
         request_timeout_seconds: float | None = None,
+        create_retry_budget_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
         max_lifetime_seconds: float | None = None,
@@ -2403,6 +2427,10 @@ class Sandbox:
             container_image: Container image to use
             defaults: Optional SandboxDefaults to apply
             auth: Authentication mode or provider. Overrides ``defaults.auth``.
+            create_retry_budget_seconds: Opt-in capacity retry budget per placement
+                attempt, in seconds (default 0, disabled). Retries trusted runner
+                capacity/overload rejections with backoff and the same request ID.
+                Does not retry quota, auth, or ambiguous transport failures.
             request_timeout_seconds: Timeout for API requests (client-side).
                 Share-token recovery replays are also capped at this value.
             poll_retry_budget_seconds: Wall-clock budget for retrying transient
@@ -2498,6 +2526,7 @@ class Sandbox:
             defaults=defaults,
             auth=auth,
             request_timeout_seconds=request_timeout_seconds,
+            create_retry_budget_seconds=create_retry_budget_seconds,
             poll_retry_budget_seconds=poll_retry_budget_seconds,
             poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
             max_lifetime_seconds=max_lifetime_seconds,
@@ -2601,6 +2630,7 @@ class Sandbox:
         defaults: SandboxDefaults | None = None,
         auth: AuthConfig | None = None,
         request_timeout_seconds: float | None = None,
+        create_retry_budget_seconds: float | None = None,
         poll_retry_budget_seconds: float | None = None,
         poll_rpc_timeout_seconds: float | None = None,
         max_lifetime_seconds: float | None = None,
@@ -2685,6 +2715,7 @@ class Sandbox:
             defaults=defaults,
             auth=auth,
             request_timeout_seconds=request_timeout_seconds,
+            create_retry_budget_seconds=create_retry_budget_seconds,
             poll_retry_budget_seconds=poll_retry_budget_seconds,
             poll_rpc_timeout_seconds=poll_rpc_timeout_seconds,
             max_lifetime_seconds=max_lifetime_seconds,
@@ -2767,6 +2798,7 @@ class Sandbox:
         sandbox._status_updated_at = datetime.now(UTC)
         sandbox._base_url = base_url
         sandbox._request_timeout_seconds = timeout_seconds
+        sandbox._create_retry_budget_seconds = 0.0
         sandbox._poll_retry_budget_seconds = poll_retry_budget_seconds
         sandbox._poll_rpc_timeout_seconds = poll_rpc_timeout_seconds
         _validate_poll_config(
@@ -2778,6 +2810,8 @@ class Sandbox:
         sandbox._args = None
         sandbox._container_image = None
         sandbox._tags = None
+        sandbox._observed_tags = ()
+        sandbox._created_at = None
         sandbox._max_lifetime_seconds = None
         sandbox._runner_ids = None
         sandbox._environment_variables = {}
@@ -3760,6 +3794,24 @@ class Sandbox:
         return self._sandbox_id
 
     @property
+    def tags(self) -> tuple[str, ...]:
+        """Tags from the latest create, get, or list response.
+
+        Before creation, contains the requested tags, including defaults.
+        The returned tuple cannot mutate the sandbox's tags.
+        """
+        return self._observed_tags
+
+    @property
+    def created_at(self) -> datetime | None:
+        """Server creation timestamp in UTC, distinct from container start time.
+
+        Available after a create, get, or list response includes ``create_time``.
+        None before creation or when the server omits the timestamp.
+        """
+        return self._created_at
+
+    @property
     def returncode(self) -> int | None:
         """Exit code if sandbox has completed, None if still running.
 
@@ -4639,10 +4691,8 @@ class Sandbox:
                         self._from_file.primary_service,
                     )
                     try:
-                        response = await self._stub.CreateSandboxFromFile(
-                            from_file_request,
-                            timeout=self._request_timeout_seconds,
-                            metadata=self._auth_metadata,
+                        response = await self._create_with_capacity_retry(
+                            self._stub.CreateSandboxFromFile, from_file_request
                         )
                     except grpc.RpcError as e:
                         raise _translate_rpc_error(e, operation="Create sandbox from file") from e
@@ -4656,10 +4706,8 @@ class Sandbox:
                     )
                     logger.debug("Creating sandbox from template %s", template_id)
                     try:
-                        response = await self._stub.CreateSandboxFromTemplate(
-                            template_request,
-                            timeout=self._request_timeout_seconds,
-                            metadata=self._auth_metadata,
+                        response = await self._create_with_capacity_retry(
+                            self._stub.CreateSandboxFromTemplate, template_request
                         )
                     except grpc.RpcError as e:
                         raise _translate_rpc_error(
@@ -4843,6 +4891,62 @@ class Sandbox:
             self._sandbox_id,
         )
 
+    async def _create_with_capacity_retry(
+        self, rpc: Callable[..., Awaitable[Any]], request: Any
+    ) -> Any:
+        """Retry definite pool-busy rejections without changing the create body/key."""
+        deadline: float | None = None
+        delay = DEFAULT_POLL_INTERVAL_SECONDS
+        timeout = self._request_timeout_seconds
+        while True:
+            # Capacity waits must not consume the post-create NOT_FOUND grace
+            # period or inflate the startup time of the accepted attempt.
+            if deadline is not None:
+                self._start_accepted_at = time.monotonic()
+            try:
+                return await rpc(request, timeout=timeout, metadata=self._auth_metadata)
+            except grpc.RpcError as exc:
+                parsed = parse_error_info(exc)
+                if (
+                    self._create_retry_budget_seconds <= 0
+                    or parsed is None
+                    or parsed.domain != CWSANDBOX_ERROR_DOMAIN
+                    or parsed.reason
+                    not in {
+                        CWSANDBOX_RUNNER_CAPACITY_EXHAUSTED,
+                        CWSANDBOX_RUNNER_OVERLOADED,
+                    }
+                    or exc.code()
+                    not in (grpc.StatusCode.RESOURCE_EXHAUSTED, grpc.StatusCode.UNAVAILABLE)
+                ):
+                    raise
+                if deadline is None:
+                    deadline = time.monotonic() + self._create_retry_budget_seconds
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise
+                translated = _translate_rpc_error(exc, operation="Create sandbox")
+                hint = translated.retry_delay
+                delay = (
+                    min(hint.total_seconds(), MAX_POLL_RETRY_HINTED_DELAY_SECONDS)
+                    if hint is not None and hint.total_seconds() > 0
+                    else random.uniform(
+                        DEFAULT_POLL_INTERVAL_SECONDS,
+                        max(
+                            DEFAULT_POLL_INTERVAL_SECONDS,
+                            min(
+                                DEFAULT_MAX_POLL_INTERVAL_SECONDS,
+                                delay * DEFAULT_POLL_BACKOFF_FACTOR,
+                            ),
+                        ),
+                    )
+                )
+                await asyncio.sleep(min(delay, remaining))
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise
+                timeout = min(self._request_timeout_seconds, remaining)
+
     async def _create_with_optional_spillover(self) -> Any:
         """CreateSandbox with at most one placement-mode spillover retry.
 
@@ -4876,11 +4980,7 @@ class Sandbox:
                 attempt,
             )
             try:
-                response = await self._stub.CreateSandbox(
-                    request,
-                    timeout=self._request_timeout_seconds,
-                    metadata=self._auth_metadata,
-                )
+                response = await self._create_with_capacity_retry(self._stub.CreateSandbox, request)
             except grpc.RpcError as e:
                 translated = _translate_rpc_error(e, operation="Create sandbox")
                 if (
@@ -5436,6 +5536,8 @@ class Sandbox:
 
     def _apply_status_echo(self, view: _SandboxView) -> None:
         """Refresh property echoes from a v1 Sandbox resource (create/Get/list)."""
+        self._observed_tags = tuple(view._sandbox.spec.tags)
+        self._created_at = _proto_timestamp_to_datetime(view._sandbox.status, "create_time")
         self._scratch_volume_names = tuple(
             volume.name
             for volume in view._sandbox.spec.volumes
@@ -6640,6 +6742,7 @@ class Sandbox:
         *,
         wait_for_ready: bool,
         request_id: str | None,
+        retry_budget_seconds: float | None = None,
     ) -> str:
         """Internal async: create a mid-life snapshot and return its ID."""
         await self._ensure_started_async()
@@ -6684,7 +6787,11 @@ class Sandbox:
                 timeout=create_timeout,
                 scratch_volume_name=names[0] if names else None,
             ),
-            budget_seconds=DEFAULT_FSS_RETRY_BUDGET_SECONDS,
+            budget_seconds=(
+                DEFAULT_FSS_RETRY_BUDGET_SECONDS
+                if retry_budget_seconds is None
+                else retry_budget_seconds
+            ),
             operation="Create file-system snapshot",
             # The create timeout is the snapshot's ceiling (it blocks on the
             # archive), so a client DEADLINE_EXCEEDED is the ceiling being hit,
@@ -6701,6 +6808,7 @@ class Sandbox:
         *,
         wait_for_ready: bool = True,
         request_id: str | None = None,
+        retry_budget_seconds: float | None = None,
     ) -> OperationRef[str]:
         """Capture a file-system snapshot (FSS) of the configured mount.
 
@@ -6718,7 +6826,11 @@ class Sandbox:
                 before returning. When False, returns once the snapshot is
                 created (likely still CREATING).
             request_id: Optional client-supplied key to deduplicate the
-                request on retries.
+                request on retries. Reuse it when retrying an ambiguous failure.
+            retry_budget_seconds: Budget for retrying transient RPC failures,
+                in seconds. Defaults to 30; zero disables retries. Must be
+                finite and nonnegative. This is separate from the archive
+                timeout: an in-flight snapshot can outlive the retry budget.
 
         Returns:
             OperationRef[str]: Use .result() to block (or await) for the new
@@ -6740,10 +6852,15 @@ class Sandbox:
                 snap = Sandbox.get_snapshot(snapshot_id).result()
             ```
         """
+        if retry_budget_seconds is not None and (
+            not math.isfinite(retry_budget_seconds) or retry_budget_seconds < 0
+        ):
+            raise ValueError("retry_budget_seconds must be finite and nonnegative")
         future = self._loop_manager.run_async(
             self._snapshot_async(
                 wait_for_ready=wait_for_ready,
                 request_id=request_id,
+                retry_budget_seconds=retry_budget_seconds,
             )
         )
         return OperationRef(future)

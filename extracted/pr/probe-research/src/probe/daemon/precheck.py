@@ -160,6 +160,9 @@ OWNERS: dict[str, str] = {
     "whoami": READ,
     "workspace create": RESEARCHER, "workspace delete": RESEARCHER,
     "workspace get": READ, "workspace list": READ,
+    # `workspace limit` narrows what EVERY Probe client on this computer reads,
+    # the daemon's own included: the researcher's, like `workspace use` (D-d).
+    "workspace limit": RESEARCHER,
     "workspace rename": RESEARCHER, "workspace use": RESEARCHER, "workspace writers set": RESEARCHER,
     "workspace writers show": READ,
 }

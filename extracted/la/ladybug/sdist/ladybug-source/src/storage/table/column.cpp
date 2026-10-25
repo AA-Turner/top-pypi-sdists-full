@@ -20,6 +20,7 @@
 #include "storage/table/column_chunk_data.h"
 #include "storage/table/list_column.h"
 #include "storage/table/null_column.h"
+#include "storage/table/page_reclaim_deferral.h"
 #include "storage/table/string_column.h"
 #include "storage/table/struct_column.h"
 #include <bit>
@@ -294,12 +295,29 @@ void Column::scanSegment(const SegmentState& state, offset_t startOffsetInSegmen
 void Column::lookupValue(const ChunkState& state, offset_t nodeOffset, ValueVector* resultVector,
     uint32_t posInVector) const {
     auto [segmentState, offsetInSegment] = state.findSegment(nodeOffset);
+    lookupSegment(*segmentState, offsetInSegment, resultVector, posInVector);
+}
+
+void Column::lookupSegment(const SegmentState& state, offset_t offsetInSegment,
+    ValueVector* resultVector, uint32_t posInVector) const {
     if (nullColumn) {
-        nullColumn->lookupInternal(*segmentState->nullState, offsetInSegment, resultVector,
-            posInVector);
+        DASSERT(state.nullState);
+        const auto& nullMetadata = state.nullState->metadata.compMeta;
+        if (nullMetadata.isConstant()) {
+            bool isNull = false;
+            ConstantCompression::decompressValues(reinterpret_cast<uint8_t*>(&isNull), 0 /*offset*/,
+                1 /*numValues*/, PhysicalTypeID::BOOL, 1 /*numBytesPerValue*/, nullMetadata);
+            resultVector->setNullRange(posInVector, 1, isNull);
+        } else {
+            nullColumn->lookupInternal(*state.nullState, offsetInSegment, resultVector,
+                posInVector);
+        }
     }
-    if (!resultVector->isNull(posInVector)) {
-        lookupInternal(*segmentState, offsetInSegment, resultVector, posInVector);
+    if (resultVector->isNull(posInVector)) {
+        // Also makes a struct's fields null.
+        resultVector->setNull(posInVector, true);
+    } else {
+        lookupInternal(state, offsetInSegment, resultVector, posInVector);
     }
 }
 
@@ -338,7 +356,8 @@ void Column::updateStatistics(ColumnChunkMetadata& metadata, offset_t maxIndex,
         // If new values are outside of the existing min/max, update them
         if (max->gt(metadata.compMeta.max, dataType.getPhysicalType())) {
             metadata.compMeta.max = *max;
-        } else if (metadata.compMeta.min.gt(*min, dataType.getPhysicalType())) {
+        }
+        if (metadata.compMeta.min.gt(*min, dataType.getPhysicalType())) {
             metadata.compMeta.min = *min;
         }
     }
@@ -529,7 +548,11 @@ std::vector<std::unique_ptr<ColumnChunkData>> Column::checkpointSegment(
     }
     SegmentState chunkState;
     checkpointState.persistentData.initializeScanState(chunkState, this);
-    if (canCheckpointInPlace(chunkState, checkpointState)) {
+    // An in-flight scan's chunk state names these pages. Rewriting them in place would
+    // change the bytes that scan is still reading, so the replacement goes to new pages
+    // and the old ones stay until the scan drops its pin.
+    if (PageReclaimDeferral::current() == nullptr &&
+        canCheckpointInPlace(chunkState, checkpointState)) {
         checkpointColumnChunkInPlace(chunkState, checkpointState, pageAllocator);
 
         if (chunkState.metadata.compMeta.compression == CompressionType::ALP) {

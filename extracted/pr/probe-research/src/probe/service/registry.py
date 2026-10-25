@@ -81,12 +81,22 @@ class Session:
             return now - self.heartbeat_at < ttl
         return self.owner_live
 
+    def agent_live(self, now: float, ttl: float) -> bool:
+        """Does its agent still run, whatever its mode? `alive` without the
+        mode: an off session's agent is watched like any other's."""
+        if self.owner is None:
+            return now - self.heartbeat_at < ttl
+        return self.owner_live
+
     def public(self, now: float, ttl: float) -> dict:
         return {
             "sid": self.sid,
             "harness": self.harness,
             "mode": self.mode,
             "alive": self.alive(now, ttl),
+            # `alive` is False for every session in mode off by design; this
+            # says whether its agent runs (`probe doctor`'s "(off)").
+            "agent_live": self.agent_live(now, ttl),
             "owner": dict(self.owner) if self.owner else None,
             "generation": self.generation,
             "registered_at": self.registered_at,

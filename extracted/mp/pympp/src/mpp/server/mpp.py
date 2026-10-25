@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast, overload
 
 from mpp import PAYMENT_AUTHORIZATION_HEADER, Challenge, Credential, Receipt
 from mpp._parsing import ParseError, _b64_decode, _parse_timestamp
-from mpp._units import parse_units, transform_units
+from mpp._units import transform_units
 from mpp.errors import (
     InvalidChallengeError,
     MalformedCredentialError,
@@ -37,18 +37,27 @@ from mpp.server.decorator import (
     bind_framework_scope,
     resolve_body_param,
     wrap_payment_handler,
+    x402_input,
 )
 from mpp.server.intent import Validation
 from mpp.server.intent import broadcast_credential as broadcast_intent_credential
 from mpp.server.intent import validate_credential as validate_intent_credential
-from mpp.server.method import _SupportsPaymentSuccess, prepare_intent, transform_request
+from mpp.server.method import (
+    _SupportsPaymentSuccess,
+    prepare_intent,
+    request_amount,
+    transform_request,
+)
 from mpp.server.verify import (
+    _application_meta,
     _authenticate_echo,
     _body_digest_error,
     _challenge_from_echo,
     verify_or_challenge,
 )
 from mpp.store import Store
+from mpp.x402._server import X402Input, X402Intent, challenges_payment_required_header
+from mpp.x402._types import PaymentRequirements
 
 if TYPE_CHECKING:
     from mpp.events import ServerPaymentSuccessPayload
@@ -115,6 +124,7 @@ class Mpp:
         defaults: dict[str, Any] | None = None,
         store: Store | None = None,
         requires_auth: bool = False,
+        unique_challenges: bool = True,
     ) -> None:
         """Initialize the payment handler.
 
@@ -127,6 +137,8 @@ class Mpp:
             store: Optional key-value store for replay protection.
                 When provided, automatically wired into intents that
                 accept a ``store`` (e.g., ``ChargeIntent``).
+            unique_challenges: Disable only while rolling out nonce-aware verification
+                to all replicas; enable afterward to prevent fixed-expiry collisions.
             requires_auth: When True, challenges advertise
                 ``header="Payment-Authorization"`` so ``Authorization`` remains
                 available for application authentication.
@@ -136,6 +148,7 @@ class Mpp:
         self.realm = realm
         self.secret_key = secret_key
         self.defaults = defaults or {}
+        self.unique_challenges = unique_challenges
         self.requires_auth = requires_auth
         self.credential_header = PAYMENT_AUTHORIZATION_HEADER if requires_auth else None
         self._compose_implicit_methods = False
@@ -221,7 +234,7 @@ class Mpp:
             expires = _parse_timestamp(echo.expires)
         except ParseError as error:
             raise PaymentExpiredError(echo.expires) from error
-        if expires.tzinfo is None or expires < datetime.now(UTC):
+        if expires.tzinfo is None or expires <= datetime.now(UTC):
             raise PaymentExpiredError(echo.expires)
 
         if request is not None:
@@ -236,7 +249,7 @@ class Mpp:
         if request is not None or meta is not _CONTEXT_UNSET or body is not _CONTEXT_UNSET:
             expected_meta = None if meta is _CONTEXT_UNSET else meta
             expected_body = None if body is _CONTEXT_UNSET else body
-            if echoed_opaque != expected_meta:
+            if _application_meta(echoed_opaque) != (expected_meta or None):
                 raise InvalidChallengeError(echo.id, "credential opaque does not match")
             if digest_error := _body_digest_error(echo.digest, expected_body):
                 raise InvalidChallengeError(echo.id, digest_error)
@@ -419,6 +432,7 @@ class Mpp:
         store: Store | None = None,
         *,
         requires_auth: bool = False,
+        unique_challenges: bool = True,
     ) -> Mpp: ...
 
     @classmethod
@@ -431,6 +445,7 @@ class Mpp:
         secret_key: str | None = None,
         store: Store | None = None,
         requires_auth: bool = False,
+        unique_challenges: bool = True,
     ) -> Mpp: ...
 
     @classmethod
@@ -443,6 +458,7 @@ class Mpp:
         *,
         methods: Sequence[Method] | None = None,
         requires_auth: bool = False,
+        unique_challenges: bool = True,
     ) -> Mpp:
         """Create an Mpp instance with smart defaults.
 
@@ -453,6 +469,7 @@ class Mpp:
             secret_key: HMAC secret. Required unless `MPP_SECRET_KEY` is set.
             store: Optional key-value store for replay protection.
                 Automatically wired into intents that accept a store.
+            unique_challenges: Disable only for a staged verifier-first rollout.
             requires_auth: Uses ``Payment-Authorization`` for Payment credentials
                 so ``Authorization`` remains available for application
                 authentication.
@@ -476,6 +493,7 @@ class Mpp:
             secret_key=resolved_secret_key,
             store=store,
             requires_auth=requires_auth,
+            unique_challenges=unique_challenges,
         )
         server._compose_implicit_methods = methods is not None
         if methods is not None:
@@ -496,6 +514,51 @@ class Mpp:
         from mpp.server.compose import _configure_entries
 
         return _configure_entries(self, entries, body)
+
+    def _x402_accepts(self, challenge: Challenge) -> PaymentRequirements | None:
+        """Return the x402 requirements that pay one of this server's challenges."""
+        if challenge.realm and challenge.realm != self.realm:
+            return None
+        method = next((m for m in self.methods if m.name == challenge.method), None)
+        intent = method.intents.get(challenge.intent) if method is not None else None
+        if not isinstance(intent, X402Intent):
+            return None
+        return intent.x402_requirements(challenge.request)
+
+    def x402_payment_required(
+        self,
+        challenges: Challenge | ComposedChallenges | Sequence[Challenge],
+        resource_url: str,
+        error: Exception | str | None = None,
+        *,
+        http_method: str = "GET",
+    ) -> str | None:
+        """Build the x402 ``PAYMENT-REQUIRED`` header value for unpaid challenges.
+
+        For servers that build responses themselves from :meth:`charge`.
+        Returns ``None`` when no challenge can be paid with x402.
+
+        Args:
+            challenges: The challenges returned by :meth:`charge`.
+            resource_url: Absolute URL of the protected resource.
+            error: Optional reason the previous payment was rejected.
+            http_method: The request's HTTP method, bound into the route binding.
+                Pass the same value to :meth:`charge`.
+        """
+        if isinstance(challenges, Challenge):
+            items: Sequence[Challenge] = (challenges,)
+        elif isinstance(challenges, ComposedChallenges):
+            items = challenges.challenges
+            error = error if error is not None else challenges.error
+        else:
+            items = challenges
+        return challenges_payment_required_header(
+            items,
+            self._x402_accepts,
+            resource_url,
+            http_method,
+            str(error) if error is not None else None,
+        )
 
     def payment_credential_value(
         self,
@@ -524,6 +587,9 @@ class Mpp:
         extra: dict[str, str] | None = None,
         body: str | bytes | dict[str, Any] | None = None,
         payment_authorization: str | None = None,
+        payment_signature: str | None = None,
+        resource_url: str | None = None,
+        http_method: str = "GET",
         **method_options: Any,
     ) -> Challenge | ComposedResult:
         """Handle a charge intent.
@@ -531,8 +597,8 @@ class Mpp:
         Args:
             authorization: The Authorization header value (or None).
             amount: Payment amount in human units (e.g., "0.50" for $0.50).
-                Automatically converted to base units using the method's
-                decimals (6 for Tempo stablecoins).
+                Converted to base units using the method's decimals (6 for
+                Tempo stablecoins), unless the method defines ``parse_amount``.
             currency: Offer only this currency instead of the method's
                 accepted currencies.
             recipient: Override the method's default recipient.
@@ -548,6 +614,14 @@ class Mpp:
                 digest and submitted credentials must echo a matching digest.
             payment_authorization: The Payment-Authorization header value.
                 Used when the server was created with ``requires_auth=True``.
+            payment_signature: The x402 ``PAYMENT-SIGNATURE`` header value.
+                Paid only by methods that support x402 (``evm``), and only
+                when ``resource_url`` is set and no Payment credential is sent.
+            resource_url: Absolute URL of the protected resource. Enables x402
+                for methods that support it; build the ``PAYMENT-REQUIRED``
+                header for unpaid results with :meth:`x402_payment_required`.
+            http_method: The request's HTTP method, bound into x402 route
+                binding. Pass the same value to :meth:`x402_payment_required`.
 
         Returns:
             Challenge, or ComposedChallenges for multiple offers (methods or
@@ -569,6 +643,17 @@ class Mpp:
             "extra": extra,
             **method_options,
         }
+        if payment_signature is not None and resource_url is None:
+            raise ValueError("payment_signature requires resource_url")
+        x402 = (
+            X402Input(
+                resource_url=resource_url,
+                payment_signature=payment_signature,
+                http_method=http_method,
+            )
+            if resource_url is not None
+            else None
+        )
         composed_methods = self._composed_methods(methods, options)
         if composed_methods:
             handler = self.compose(
@@ -576,7 +661,8 @@ class Mpp:
                 body=body,
             )
             result = await handler.verify(
-                self.payment_credential_value(authorization, payment_authorization)
+                self.payment_credential_value(authorization, payment_authorization),
+                x402=x402,
             )
             if len(handler._offers) == 1 and isinstance(result, ComposedChallenges):
                 return result.challenges[0]
@@ -593,10 +679,13 @@ class Mpp:
             secret_key=self.secret_key,
             method=methods[0].name,
             description=description,
+            meta=options.get("meta"),
             expires=challenge_expires,
             body=body,
             events=self._events,
             header=self.credential_header,
+            unique_challenges=self.unique_challenges,
+            x402=x402,
         )
 
     def pay(
@@ -695,14 +784,21 @@ class Mpp:
                     secret_key=self.secret_key,
                     method=methods[0].name,
                     description=description,
+                    meta=options.get("meta"),
                     expires=challenge_expires,
                     body=await resolve_body_param(body, _request_obj),
                     events=self._events,
                     header=self.credential_header,
+                    unique_challenges=self.unique_challenges,
+                    x402=x402_input(_request_obj) if isinstance(intent_obj, X402Intent) else None,
                 )
 
             return wrap_payment_handler(
-                handler, _verify, lambda: self.realm, requires_auth=self.requires_auth
+                handler,
+                _verify,
+                lambda: self.realm,
+                requires_auth=self.requires_auth,
+                x402_accepts=self._x402_accepts,
             )
 
         return decorator
@@ -748,9 +844,7 @@ class Mpp:
             raise ValueError(f"recipient must be set on the method or passed to {api_name}()")
 
         request: dict[str, Any] = {
-            "amount": str(
-                parse_units(options["amount"], getattr(method, "decimals", DEFAULT_DECIMALS))
-            ),
+            "amount": request_amount(method, options["amount"]),
             "currency": currency,
             "recipient": recipient,
         }

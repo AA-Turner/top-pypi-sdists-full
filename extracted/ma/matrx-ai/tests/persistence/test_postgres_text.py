@@ -137,3 +137,20 @@ async def test_tool_completion_event_sanitizes_its_persisted_result_copy() -> No
 
     events = stream.get_events_for_persistence()
     assert events[0]["data"]["result"]["stdout"] == "first\ufffdsecond"
+
+
+def test_lone_surrogate_halves_are_replaced_and_real_pairs_kept() -> None:
+    # 2026-10-24: a research context item carried a lone LOW surrogate; the
+    # coordinator passed it through and Postgres refused the whole turn
+    # (22P02 "Unicode low surrogate must follow a high surrogate"), losing 5 ops.
+    original = {
+        "content": [{"type": "text", "text": "cut \udc80 here, end \ud83d"}],
+        "paired": "\ud83d\ude00",  # a correctly paired high+low stays as written
+        "emoji": "fine 😀",
+    }
+    result = sanitize_postgres_text(original)
+    assert result.replacements == 2
+    assert result.value["content"][0]["text"] == "cut \ufffd here, end \ufffd"
+    assert result.value["paired"] == "\ud83d\ude00"
+    assert result.value["emoji"] == "fine 😀"
+    assert result.paths == ("payload.content[0].text",)

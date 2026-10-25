@@ -186,28 +186,39 @@ def run_typescript_batch(paths: list[Path], fe_root: Path) -> dict[str, list[dic
 
     with tempfile.TemporaryDirectory() as tmp:
         out_file = Path(tmp) / "blocks.json"
-        proc = subprocess.run(
-            [
-                "npx",
-                "tsx",
-                "--tsconfig",
-                str(fe_root / "tsconfig.json"),
-                str(script),
-                *[str(p.resolve()) for p in paths],
-                "--out",
-                str(out_file),
-            ],
-            cwd=str(fe_root),
-            capture_output=True,
-            text=True,
-            timeout=900,
-            env=bridge_env(),
-        )
-        if proc.returncode != 0:
-            raise BridgeUnavailable(f"TS bridge exited {proc.returncode}\n{proc.stderr[-4000:]}")
-        if not out_file.is_file():
-            raise BridgeUnavailable(f"TS bridge wrote no output file\n{proc.stderr[-4000:]}")
-        raw = json.loads(out_file.read_text())
+        # Node resolves package exports relative to the importing file. Stage
+        # this cross-repo bridge beside the frontend's node_modules, as the
+        # partial-value bridge already does, and always remove it afterward.
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=script.suffix, dir=fe_root, delete=False
+        ) as staged_file:
+            staged_file.write(script.read_text())
+            staged = Path(staged_file.name)
+        try:
+            proc = subprocess.run(
+                [
+                    "npx",
+                    "tsx",
+                    "--tsconfig",
+                    str(fe_root / "tsconfig.json"),
+                    str(staged),
+                    *[str(p.resolve()) for p in paths],
+                    "--out",
+                    str(out_file),
+                ],
+                cwd=str(fe_root),
+                capture_output=True,
+                text=True,
+                timeout=900,
+                env=bridge_env(),
+            )
+            if proc.returncode != 0:
+                raise BridgeUnavailable(f"TS bridge exited {proc.returncode}\n{proc.stderr[-4000:]}")
+            if not out_file.is_file():
+                raise BridgeUnavailable(f"TS bridge wrote no output file\n{proc.stderr[-4000:]}")
+            raw = json.loads(out_file.read_text())
+        finally:
+            staged.unlink(missing_ok=True)
 
     return {key: _normalize(blocks) for key, blocks in raw.items()}
 

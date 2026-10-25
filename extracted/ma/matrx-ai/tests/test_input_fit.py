@@ -97,7 +97,7 @@ def _clean(monkeypatch):
 
 def _budget(limit: int):
     input_fit.set_input_budget_resolver(
-        lambda _ctx, config: (limit, estimate_prompt_tokens(config))
+        lambda _ctx, config, _prompt: (limit, estimate_prompt_tokens(config))
     )
 
 
@@ -226,3 +226,55 @@ async def test_the_compactor_never_runs_at_the_loop_stage() -> None:
     assert len(config.messages) == len(ledger)
     assert all(a is b for a, b in zip(config.messages, ledger, strict=True))
     assert record["fits"] is True and estimate_prompt_tokens(config) <= limit
+
+
+# ── CONDENSE-ONLY LIMITS (2026-10-24): a person's own chat is condensed at its cap, never trimmed ──
+
+
+def _soft_budget(limit: int):
+    input_fit.set_input_budget_resolver(
+        lambda _ctx, config, _prompt: (limit, estimate_prompt_tokens(config), False)
+    )
+
+
+@pytest.mark.asyncio
+async def test_over_a_condense_only_cap_the_send_is_condensed_first() -> None:
+    """Red before: a person's turn had no host budget at all, so a send over the conversation's
+    cap was never condensed before it went out (only the 1M window was measured)."""
+    config = _long_tool_loop()
+    _soft_budget(estimate_prompt_tokens(config) // 3)
+    calls: list[int] = []
+
+    async def _compact(cfg, *, limit_tokens, estimated_tokens, ctx, conversation_id):
+        calls.append(limit_tokens)
+        cfg.messages[:] = cfg.messages[:1] + cfg.messages[-2:]
+        return True
+
+    input_fit.set_compactor(_compact)
+    record = await input_fit.ensure_fits(
+        config, policy=None, stage=STAGE_RESOLVE, conversation_id=CONVERSATION_ID, trim=_forced_trim
+    )
+    assert len(calls) == 1 and record["fits"] is True
+    assert [p["pass"] for p in record["passes"]] == ["compaction"]
+
+
+@pytest.mark.asyncio
+async def test_over_a_condense_only_cap_nothing_is_ever_trimmed() -> None:
+    config = _long_tool_loop()
+    _soft_budget(estimate_prompt_tokens(config) // 3)
+    snapshot = [repr(m.content) for m in config.messages]
+
+    async def _nothing(cfg, **_kw):
+        return False  # condensing switched off for this organization
+
+    input_fit.set_compactor(_nothing)
+    at_resolve = await input_fit.ensure_fits(
+        config, policy=None, stage=STAGE_RESOLVE, conversation_id=CONVERSATION_ID, trim=_forced_trim
+    )
+    at_loop = await input_fit.ensure_fits(
+        config, policy=None, stage=STAGE_LOOP, conversation_id=CONVERSATION_ID, trim=_forced_trim
+    )
+    assert at_resolve["fits"] is True and at_resolve.get("condense_only") is True
+    assert [p["pass"] for p in at_resolve["passes"]] == ["compaction"]
+    assert at_loop["fits"] is True and at_loop.get("condense_only") is True and at_loop["passes"] == []
+    assert [repr(m.content) for m in config.messages] == snapshot, "a person's chat was trimmed for its cap"

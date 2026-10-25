@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 9.0.0.dev3140
+Version: 9.0.0.dev3169
 Summary: Home Assistant MCP Server - Complete control of Home Assistant through MCP
 Keywords: mcp,home-assistant,ai,automation,smart-home
 Author: Julien
@@ -25,7 +25,7 @@ Requires-Dist: joserfc>=1.5.0
 Requires-Dist: jsonref>=1.1.0
 Requires-Dist: jsonschema>=4.20.0
 Requires-Dist: jsonschema-path>=0.3.4
-Requires-Dist: openapi-pydantic>=0.5.1
+Requires-Dist: openapi-pydantic>=0.6.0
 Requires-Dist: opentelemetry-api>=1.28.0
 Requires-Dist: platformdirs>=4.0.0
 Requires-Dist: psutil>=7.0.0

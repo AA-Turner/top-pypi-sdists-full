@@ -180,6 +180,25 @@ def test_a_restart_on_purpose_is_no_start_to_back_off_from(service_home):
     os.kill(wait_for(service_home.status, 5.0)["pid"], signal.SIGKILL)
 
 
+def test_idle_exits_and_manual_stops_are_no_starts_to_back_off_from(service_home, monkeypatch):
+    """`ensure`'s back-off (three starts a minute) is for a service that dies.
+    One that stopped on purpose -- idle, or `probe service stop` -- counted
+    too, so a session starting right after two quick idle exits and a stop
+    found no service for most of a minute (live test I, 2026-10-24)."""
+    monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "0.2")
+    for _ in range(2):
+        status = service_home.start()
+        assert service_home.wait_exit(status["pid"], 5.0), service_home.log()
+    assert service_home.log().count("stopping (idle)") == 2
+    third = service_home.start()
+    service_home.call(Method.STOP)
+    assert service_home.wait_exit(third["pid"], 5.0)
+    starts = json.loads(paths.starts_path().read_text())["starts"]
+    assert starts == [], starts
+    assert client.ensure() == client.Ensured.SPAWNED
+    assert wait_for(service_home.status, 5.0)
+
+
 def test_a_second_instance_exits_zero_at_once(service_home):
     first = service_home.start()
     started = time.monotonic()

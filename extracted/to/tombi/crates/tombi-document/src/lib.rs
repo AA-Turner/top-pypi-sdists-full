@@ -105,11 +105,11 @@ impl<'de> serde::Deserializer<'de> for &'de Document {
 #[cfg(test)]
 #[macro_export]
 macro_rules! test_deserialize {
-    {#[test] fn $name:ident($source:expr) -> Ok($json:expr)} => {
-        test_deserialize! {#[test] fn $name($source, tombi_toml_version::TomlVersion::default()) -> Ok($json)}
+    {#[test] fn $name:ident($source:expr) -> Ok($json:expr $(, accessors = $accessors:expr)?)} => {
+        test_deserialize! {#[test] fn $name($source, tombi_toml_version::TomlVersion::default()) -> Ok($json $(, accessors = $accessors)?)}
     };
 
-    {#[test] fn $name:ident($source:expr, $toml_version:expr) -> Ok($json:expr)} => {
+    {#[test] fn $name:ident($source:expr, $toml_version:expr) -> Ok($json:expr $(, accessors = $accessors:expr)?)} => {
         #[cfg(feature = "serde")]
         #[test]
         fn $name() {
@@ -123,6 +123,21 @@ macro_rules! test_deserialize {
             let p = tombi_parser::parse(&source.trim());
             pretty_assertions::assert_eq!(p.errors, Vec::<tombi_parser::Error>::new());
             let root = p.root();
+            $(
+                use tombi_ast_syntax::GetHeaderAccessors as _;
+                let actual_accessors = root
+                    .table_or_array_of_tables()
+                    .map(|header| {
+                        header
+                            .get_header_accessors($toml_version)
+                            .unwrap()
+                            .into_iter()
+                            .map(|accessor| accessor.to_string())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>();
+                pretty_assertions::assert_eq!(actual_accessors, $accessors);
+            )?
             let decoded = root.decode_strings($toml_version);
             let (document_tree, errors) = root
                 .into_document_tree_and_errors($toml_version, &decoded)

@@ -11,7 +11,11 @@ from urllib.parse import parse_qs
 
 from . import _server_shared
 from ._codec import Codec, get_default_codecs
-from ._compression import negotiate_compression, resolve_compressions
+from ._compression import (
+    negotiate_compression,
+    resolve_compressions,
+    unknown_compression_error,
+)
 from ._envelope import EnvelopeReader, EnvelopeWriter
 from ._interceptor_sync import (
     BidiStreamInterceptorSync,
@@ -30,6 +34,7 @@ from ._protocol_connect import (
     ConnectServerProtocol,
     codec_name_from_content_type,
 )
+from ._protocol_grpc import GRPCServerProtocol
 from ._protocol_server import negotiate_server_protocol
 from ._server_shared import (
     DEFAULT_READ_MAX_BYTES,
@@ -38,19 +43,15 @@ from ._server_shared import (
     EndpointServerStreamSync,
     EndpointUnarySync,
 )
+from ._shared import decode_message, decompress
 from .code import Code
 from .errors import ConnectError
 from .request import Headers, RequestContext
 
 if TYPE_CHECKING:
-    import sys
     from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
     from io import BytesIO
-
-    if sys.version_info >= (3, 11):
-        from wsgiref.types import ErrorStream, StartResponse, WSGIEnvironment
-    else:
-        from _typeshed.wsgi import ErrorStream, StartResponse, WSGIEnvironment
+    from wsgiref.types import ErrorStream, StartResponse, WSGIEnvironment
 
     from .compression import Compression
 else:
@@ -62,6 +63,9 @@ _REQ = TypeVar("_REQ")
 _RES = TypeVar("_RES")
 
 _BODY_CHUNK_SIZE = 4096
+
+# We don't mutate query params so use a singleton for when they're not set.
+_UNSET_QUERY_PARAMS: dict[str, list[str]] = {}
 
 # While _server_shared.EndpointSync is a closed type, we can't indicate that to Python so define
 # a more precise type here.
@@ -110,14 +114,45 @@ def prepare_response_headers(
     return headers
 
 
-def _read_body_with_content_length(
-    environ: WSGIEnvironment, content_length: int
-) -> bytes:
-    input_stream: BytesIO = environ["wsgi.input"]
+class _RequestBody:
+    """The request body, capped at content-length."""
 
+    __slots__ = ("_remaining", "_stream")
+
+    @classmethod
+    def from_environ(cls, environ: WSGIEnvironment) -> _RequestBody:
+        """Read the body of the request described by environ, bounded by CONTENT_LENGTH."""
+        content_length = environ.get("CONTENT_LENGTH")
+        remaining: int | None = None
+        if content_length:
+            try:
+                remaining = int(content_length)
+            except ValueError:
+                remaining = None
+        return cls(environ["wsgi.input"], remaining)
+
+    def __init__(self, stream: BytesIO, remaining: int | None) -> None:
+        self._stream = stream
+        self._remaining = remaining
+
+    def read(self, size: int = -1) -> bytes:
+        if self._remaining is None:
+            return self._stream.read(size)
+        if self._remaining <= 0:
+            return b""
+        if size < 0:
+            size = self._remaining
+        chunk = self._stream.read(min(size, self._remaining))
+        self._remaining -= len(chunk)
+        return chunk
+
+
+def _read_body_with_content_length(
+    request_body: _RequestBody, content_length: int
+) -> bytes:
     # Many app servers buffer the entire request before executing the app
     # so do an optimistic read before looping.
-    chunk = input_stream.read(content_length)
+    chunk = request_body.read(content_length)
     if len(chunk) == content_length:
         return chunk
 
@@ -125,7 +160,7 @@ def _read_body_with_content_length(
     chunks = [chunk]
     while bytes_read < content_length:
         to_read = content_length - bytes_read
-        chunk = input_stream.read(to_read)
+        chunk = request_body.read(to_read)
         if not chunk:
             break
         chunks.append(chunk)
@@ -138,10 +173,9 @@ def _read_body_with_content_length(
     return b"".join(chunks)
 
 
-def _read_body(environ: WSGIEnvironment) -> Iterator[bytes]:
-    input_stream: BytesIO = environ["wsgi.input"]
+def _read_body(request_body: _RequestBody) -> Iterator[bytes]:
     while True:
-        chunk = input_stream.read(_BODY_CHUNK_SIZE)
+        chunk = request_body.read(_BODY_CHUNK_SIZE)
         if not chunk:
             return
         yield chunk
@@ -201,6 +235,8 @@ class ConnectWSGIApplication(ABC):
         self, environ: WSGIEnvironment, start_response: StartResponse
     ) -> Iterable[bytes]:
         ctx: RequestContext | None = None
+        protocol: ServerProtocol | None = None
+        request_body = _RequestBody.from_environ(environ)
         try:
             path = environ["PATH_INFO"]
             if not path:
@@ -240,42 +276,79 @@ class ConnectWSGIApplication(ABC):
                 protocol, ConnectServerProtocol
             ):
                 return self._handle_unary(
-                    environ, start_response, http_method, endpoint, ctx, headers
+                    environ,
+                    request_body,
+                    start_response,
+                    http_method,
+                    endpoint,
+                    ctx,
+                    headers,
                 )
             return self._handle_stream(
-                environ, start_response, send_trailers, protocol, headers, endpoint, ctx
+                environ,
+                request_body,
+                start_response,
+                send_trailers,
+                protocol,
+                headers,
+                endpoint,
+                ctx,
             )
 
         except Exception as e:  # noqa: BLE001 # invoking user callback
-            _drain_request_body(environ)
+            _drain_request_body(environ, request_body)
             _maybe_log_exception(environ, e)
-            return self._handle_error(e, ctx, start_response)
+            return self._handle_error(e, ctx, protocol, start_response)
 
     def _handle_unary(
         self,
         environ: WSGIEnvironment,
+        request_body: _RequestBody,
         start_response: StartResponse,
         http_method: str,
         endpoint: EndpointUnarySync[_REQ, _RES],
         ctx: RequestContext[_REQ, _RES],
         headers: Headers,
     ) -> Iterable[bytes]:
+        if http_method == "GET":
+            query_params = parse_qs(
+                environ.get("QUERY_STRING", ""), keep_blank_values=True
+            )
+            codec_name = query_params.get("encoding", ("",))[0]
+        else:
+            query_params = _UNSET_QUERY_PARAMS
+            codec_name = codec_name_from_content_type(
+                headers.get("content-type", ""), stream=False
+            )
+        codec = self._codecs.get(codec_name)
+        if not codec:
+            raise HTTPError(
+                HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                [("Accept-Post", "application/json, application/proto")],
+            )
+
         metadata_run = MetadataInterceptorsRunSync(self._metadata_interceptors, ctx)
         response: _RES | None = None
-        codec: Codec | None = None
         error: Exception | None = None
         try:
             metadata_run.start()
             # Handle request based on method
             if http_method == "GET":
-                request, codec = self._handle_get_request(environ, endpoint)
+                request = self._handle_get_request(query_params, endpoint, codec)
             else:
-                request, codec = self._handle_post_request(environ, endpoint, headers)
+                request = self._handle_post_request(
+                    environ, request_body, endpoint, codec
+                )
 
             # Process request
             response = endpoint.function(request, ctx)
         except Exception as e:  # noqa: BLE001 # re-raised after ending the run
             error = e
+        except BaseException as e:
+            # Save the error for on_end, then let the exception reach the app server.
+            error = ConnectError(Code.UNKNOWN, "Request was interrupted")
+            error.__cause__ = e
+            raise
         finally:
             # End the run before sending the response so on_end can still modify
             # response metadata.
@@ -283,7 +356,6 @@ class ConnectWSGIApplication(ABC):
         if error is not None:
             raise error
         assert response is not None  # noqa: S101 # no error means function returned
-        assert codec is not None  # noqa: S101 # no error means request was parsed
 
         # Encode response
         res_bytes = codec.encode(response)
@@ -310,20 +382,11 @@ class ConnectWSGIApplication(ABC):
     def _handle_post_request(
         self,
         environ: WSGIEnvironment,
+        request_body: _RequestBody,
         endpoint: _server_shared.EndpointSync[_REQ, _RES],
-        request_headers: Headers,
-    ) -> tuple[_REQ, Codec]:
+        codec: Codec,
+    ) -> _REQ:
         """Handle POST request with body."""
-        codec_name = codec_name_from_content_type(
-            request_headers.get("content-type", ""), stream=False
-        )
-        codec = self._codecs.get(codec_name)
-        if not codec:
-            raise HTTPError(
-                HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
-                [("Accept-Post", "application/json, application/proto")],
-            )
-
         try:
             content_length = environ.get("CONTENT_LENGTH")
             content_length = 0 if not content_length else int(content_length)
@@ -336,11 +399,11 @@ class ConnectWSGIApplication(ABC):
                         Code.RESOURCE_EXHAUSTED,
                         f"message is larger than configured max {self._read_max_bytes}",
                     )
-                req_body = _read_body_with_content_length(environ, content_length)
+                req_body = _read_body_with_content_length(request_body, content_length)
             else:
                 chunks: list[bytes] = []
                 read_bytes = 0
-                for chunk in _read_body(environ):
+                for chunk in _read_body(request_body):
                     read_bytes += len(chunk)
                     if (
                         self._read_max_bytes is not None
@@ -354,28 +417,12 @@ class ConnectWSGIApplication(ABC):
                 req_body = b"".join(chunks)
 
             # Handle compression if specified
-            compression_name = environ.get("HTTP_CONTENT_ENCODING", "identity").lower()
+            compression_name = environ.get("HTTP_CONTENT_ENCODING") or "identity"
             compression = self._compressions.get(compression_name)
             if not compression:
-                raise ConnectError(
-                    Code.UNIMPLEMENTED,
-                    f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
-                )
-            try:
-                req_body = compression.decompress(req_body, self._read_max_bytes)
-            except ConnectError:
-                raise
-            except Exception as e:
-                raise ConnectError(
-                    Code.INVALID_ARGUMENT, f"Failed to decompress request body: {e!s}"
-                ) from e
-
-            try:
-                return codec.decode(req_body, endpoint.method.input), codec
-            except Exception as e:
-                raise ConnectError(
-                    Code.INVALID_ARGUMENT, f"Failed to decode request body: {e!s}"
-                ) from e
+                raise unknown_compression_error(compression_name, self._compressions)
+            req_body = decompress(compression, req_body, self._read_max_bytes)
+            return decode_message(codec, req_body, endpoint.method.input)
 
         except Exception as e:
             if not isinstance(e, ConnectError):
@@ -386,13 +433,13 @@ class ConnectWSGIApplication(ABC):
             raise
 
     def _handle_get_request(
-        self, environ: WSGIEnvironment, endpoint: EndpointUnarySync[_REQ, _RES]
-    ) -> tuple[_REQ, Codec]:
+        self,
+        params: dict[str, list[str]],
+        endpoint: EndpointUnarySync[_REQ, _RES],
+        codec: Codec,
+    ) -> _REQ:
         """Handle GET request with query parameters."""
         try:
-            query_string = environ.get("QUERY_STRING", "")
-            params = parse_qs(query_string, keep_blank_values=True)
-
             if "message" not in params:
                 raise ConnectError(
                     Code.INVALID_ARGUMENT,
@@ -412,34 +459,13 @@ class ConnectWSGIApplication(ABC):
                 message = message.encode("utf-8")
 
             # Handle compression if specified
-            if "compression" in params:
-                compression_name = params["compression"][0]
-            else:
-                compression_name = "identity"
+            compression_name = params.get("compression", [""])[0] or "identity"
             compression = self._compressions.get(compression_name)
             if not compression:
-                raise ConnectError(
-                    Code.UNIMPLEMENTED,
-                    f"unknown compression: '{compression_name}': supported encodings are {', '.join(self._compressions.keys())}",
-                )
-            message = compression.decompress(message, self._read_max_bytes)
+                raise unknown_compression_error(compression_name, self._compressions)
+            message = decompress(compression, message, self._read_max_bytes)
 
-            codec_name = params.get("encoding", ("",))[0]
-            codec = self._codecs.get(codec_name)
-            if not codec:
-                raise ConnectError(
-                    Code.UNIMPLEMENTED, f"invalid message encoding: '{codec_name}'"
-                )
-            # Handle GET request with proto decoder
-            try:
-                # TODO - Use content type from queryparam
-                request = codec.decode(message, endpoint.method.input)
-            except Exception as e:
-                raise ConnectError(
-                    Code.INVALID_ARGUMENT, f"Failed to decode message: {e!s}"
-                ) from e
-            else:
-                return request, codec
+            return decode_message(codec, message, endpoint.method.input)
 
         except Exception as e:
             if not isinstance(e, ConnectError):
@@ -449,6 +475,7 @@ class ConnectWSGIApplication(ABC):
     def _handle_stream(
         self,
         environ: WSGIEnvironment,
+        request_body: _RequestBody,
         start_response: StartResponse,
         send_trailers: Callable[[list[tuple[str, str]]], None] | None,
         protocol: ServerProtocol,
@@ -479,11 +506,12 @@ class ConnectWSGIApplication(ABC):
         try:
             metadata_run.start()
             if not req_compression:
-                raise ConnectError(
-                    Code.UNIMPLEMENTED, "Unrecognized request compression"
+                raise unknown_compression_error(
+                    headers.get(protocol.compression_header_name(), ""),
+                    self._compressions,
                 )
             request_stream = _request_stream(
-                environ,
+                request_body,
                 endpoint.method.input,
                 codec,
                 req_compression,
@@ -538,6 +566,7 @@ class ConnectWSGIApplication(ABC):
             return _response_stream(
                 first_response,
                 environ,
+                request_body,
                 response_stream,
                 writer,
                 send_trailers,
@@ -550,7 +579,7 @@ class ConnectWSGIApplication(ABC):
             # full error-only response.
             error = metadata_run.end(e)
             assert error is not None  # noqa: S101 # end never discards an error
-            _drain_request_body(environ)
+            _drain_request_body(environ, request_body)
             _maybe_log_exception(environ, error)
             _send_stream_response_headers(
                 start_response, protocol, codec, resp_compression.name(), ctx
@@ -563,14 +592,30 @@ class ConnectWSGIApplication(ABC):
                     send_trailers,
                 )
             ]
+        except BaseException as e:
+            # Report the error to on_end, then let the exception reach the app server.
+            error = ConnectError(Code.UNKNOWN, "Request was interrupted")
+            error.__cause__ = e
+            metadata_run.end(error)
+            raise
 
     def _handle_error(
-        self, exc: Exception, ctx: RequestContext | None, start_response: StartResponse
+        self,
+        exc: Exception,
+        ctx: RequestContext | None,
+        protocol: ServerProtocol | None,
+        start_response: StartResponse,
     ) -> Iterable[bytes]:
         """Handle and log errors with detailed information."""
         headers: list[tuple[str, str]]
         body: list[bytes]
         status: str
+        if isinstance(protocol, GRPCServerProtocol) and not isinstance(exc, HTTPError):
+            # gRPC clients read the status from trailers, so this is a trailers-only
+            # response: HTTP 200 with the gRPC status in the headers.
+            grpc_headers = protocol.trailers_only_headers(ctx, exc)
+            start_response("200 OK", list(grpc_headers.allitems()))
+            return []
         if isinstance(exc, HTTPError):
             headers = exc.headers
             body = []
@@ -625,20 +670,21 @@ def _send_stream_response_headers(
 
 
 def _request_stream(
-    environ: WSGIEnvironment,
+    request_body: _RequestBody,
     request_class: type[_REQ],
     codec: Codec,
     compression: Compression,
     read_max_bytes: int | None = None,
 ) -> Iterator[_REQ]:
-    reader = EnvelopeReader(request_class, codec, compression, read_max_bytes)
-    for chunk in _read_body(environ):
-        yield from reader.feed(chunk)
+    with EnvelopeReader(request_class, codec, compression, read_max_bytes) as reader:
+        for chunk in _read_body(request_body):
+            yield from reader.feed(chunk)
 
 
 def _response_stream(
     first_response: _RES,
     environ: WSGIEnvironment,
+    request_body: _RequestBody,
     response_stream: Iterator[_RES],
     writer: EnvelopeWriter,
     send_trailers: Callable[[list[tuple[str, str]]], None] | None,
@@ -654,7 +700,14 @@ def _response_stream(
             yield body
     except Exception as e:  # noqa: BLE001 # invoking user callback
         error = e
-        _drain_request_body(environ)
+        _drain_request_body(environ, request_body)
+    except BaseException as e:
+        # A GeneratorExit is the app server closing the response, not a handler error.
+        if not isinstance(e, GeneratorExit):
+            # Save the error for on_end, then let the exception reach the app server.
+            error = ConnectError(Code.UNKNOWN, "Request was interrupted")
+            error.__cause__ = e
+        raise
     finally:
         # End the run before ending the response so on_end can still modify
         # response trailers. This is a no-op if the run already ended.
@@ -716,12 +769,12 @@ def _apply_interceptors(
             return replace(endpoint, function=func)
 
 
-def _drain_request_body(environ: WSGIEnvironment) -> None:
+def _drain_request_body(environ: WSGIEnvironment, request_body: _RequestBody) -> None:
     if environ.get("SERVER_PROTOCOL", "").startswith("HTTP/1"):
         # In HTTP/1, the request body should be drained before returning. Generally it's
         # best for the application server to handle this, but gunicorn is a famous
         # server that doesn't do so, so we go ahead and do it ourselves.
-        for _ in _read_body(environ):
+        for _ in _read_body(request_body):
             pass
 
 

@@ -384,3 +384,17 @@ def test_mechanical_fixes_walk_one_reported_conflict_after_another():
     out = _run(SpecEngine(validate), {"__kind": "visual_map", "type": "workflow", "spec": spec}, None)
     assert out.verified and [r.stage for r in out.rounds] == ["validate", "mechanical", "mechanical", "deliver"]
     assert out.log()["adopted_counts"] == [1, 1, 0]
+
+
+def test_a_sublabel_wider_than_its_node_moves_into_a_card():
+    # 2026-10-23 live S6 (Haiku): the engine refused with layout/constraint naming the node only in the
+    # message, so no mechanical fix applied and the picture was "could not be drawn".
+    spec = {"lanes": [{"id": "l", "label": "L"}], "nodes": [
+        {"id": "read", "lane": "l", "col": 0, "type": "backend", "label": "Read", "sublabel": "Paste text, attach a file, or share a link"},
+    ], "edges": []}
+    diagnostics = [{"code": "layout/constraint", "severity": "error", "subject": {}, "evidence": {},
+                    "message": 'Workflow layout validation failed: Sublabel "Paste text, attach a file, or share a link" needs ~252px at the 6px legible minimum, but node "read" provides 192px — shorten the sublabel or increase node.width.'}]
+    fixed, edits = mechanical_fixes("workflow", spec, diagnostics)
+    assert "sublabel" not in fixed["nodes"][0]
+    assert fixed["cards"][0]["items"] == ["Read: Paste text, attach a file, or share a link"]
+    assert len(edits) == 1

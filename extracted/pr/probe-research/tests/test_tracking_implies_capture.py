@@ -29,7 +29,7 @@ def test_status_reports_tracked_not_captured(pi_session, monkeypatch):
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(False, None, "not started"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(False, None, "not started"),
     )
     monkeypatch.setattr(
         capture_state, "ensure_capture", lambda *a, **k: capture_state.HealResult(False, "off")
@@ -46,7 +46,7 @@ def test_status_reports_tracked_when_a_daemon_is_live(pi_session, monkeypatch):
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(True, 4242, "running"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(True, 4242, "running"),
     )
     monkeypatch.setattr(
         capture_state, "ensure_capture", lambda *a, **k: capture_state.HealResult(False, "running")
@@ -68,7 +68,7 @@ def test_initialize_never_heals(pi_session, monkeypatch):
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(False, None, "not started"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(False, None, "not started"),
     )
     result = runner.invoke(
         app, ["session", "initialize", "--session", SID, "--cwd", str(pi_session)]
@@ -88,7 +88,7 @@ def test_status_heals(pi_session, monkeypatch):
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(False, None, "not started"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(False, None, "not started"),
     )
     runner.invoke(app, ["session", "status", "--session", SID])
     assert len(calls) == 1
@@ -311,7 +311,7 @@ def test_an_ephemeral_session_says_why_not_just_that_nothing_runs(pi_session, mo
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(False, None, "not started"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(False, None, "not started"),
     )
     monkeypatch.setattr(
         capture_state,
@@ -333,7 +333,7 @@ def test_a_heal_reason_outside_the_vocabulary_never_reaches_the_surface(pi_sessi
     monkeypatch.setattr(
         capture_state,
         "session_capture_state",
-        lambda sid, source=None: capture_state.CaptureState(False, None, "not started"),
+        lambda sid, source=None, **_kw: capture_state.CaptureState(False, None, "not started"),
     )
     for refusal in ("off", "not applicable"):
         monkeypatch.setattr(

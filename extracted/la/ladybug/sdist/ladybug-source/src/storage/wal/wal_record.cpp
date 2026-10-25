@@ -1,5 +1,7 @@
 #include "storage/wal/wal_record.h"
 
+#include <algorithm>
+
 #include "common/exception/runtime.h"
 #include "common/serializer/buffer_writer.h"
 #include "common/serializer/deserializer.h"
@@ -20,6 +22,8 @@ void WALRecord::serializeWithLength(Serializer& serializer, const WALRecord& rec
     auto bufferWriter = std::make_shared<BufferWriter>();
     Serializer bufferSerializer{bufferWriter};
     record.serialize(bufferSerializer);
+    bufferSerializer.writeDebuggingInfo("ownerCatalogName");
+    bufferSerializer.write<std::string>(record.ownerCatalogName);
 
     const auto recordLength = bufferWriter->getSize();
     serializer.write(recordLength);
@@ -83,6 +87,9 @@ std::unique_ptr<WALRecord> WALRecord::deserialize(Deserializer& deserializer,
     case WALRecordType::UPDATE_SEQUENCE_RECORD: {
         walRecord = UpdateSequenceRecord::deserialize(deserializer);
     } break;
+    case WALRecordType::UPDATE_SEQUENCE_NAMED_RECORD: {
+        walRecord = UpdateSequenceNamedRecord::deserialize(deserializer);
+    } break;
     case WALRecordType::LOAD_EXTENSION_RECORD: {
         walRecord = LoadExtensionRecord::deserialize(deserializer);
     } break;
@@ -90,9 +97,40 @@ std::unique_ptr<WALRecord> WALRecord::deserialize(Deserializer& deserializer,
         throw RuntimeException("Corrupted wal file. Read out invalid WAL record type.");
     }
     }
+    bool hasOwnerTrailer = deserializer.hasRemainingData();
+    bool hasCompleteLengthField = false;
+    uint64_t declaredOwnerNameLength = 0;
+    uint64_t decodedOwnerNameLength = 0;
+    bool hasTrailingInFrame = false;
+    if (hasOwnerTrailer) {
+        deserializer.validateDebuggingInfo(key, "ownerCatalogName");
+        hasCompleteLengthField = deserializer.getRemainingReadLimit() >= sizeof(uint64_t);
+        deserializer.deserializeValue(declaredOwnerNameLength);
+        decodedOwnerNameLength =
+            std::min(declaredOwnerNameLength, deserializer.getRemainingReadLimit());
+        auto& ownerCatalogName = walRecord->ownerCatalogName;
+        ownerCatalogName.resize(decodedOwnerNameLength);
+        deserializer.read(reinterpret_cast<uint8_t*>(ownerCatalogName.data()),
+            decodedOwnerNameLength);
+        hasTrailingInFrame = deserializer.hasRemainingData();
+    }
     walRecord->type = type;
     deserializer.skipReadLimit();
     deserializer.getReader()->onObjectEnd();
+    if (hasOwnerTrailer) {
+        if (!hasCompleteLengthField || declaredOwnerNameLength != decodedOwnerNameLength) {
+            throw RuntimeException(
+                "Corrupted wal file. Owner catalog name length overflows the record boundary.");
+        }
+        const auto& ownerCatalogName = walRecord->ownerCatalogName;
+        if (ownerCatalogName.find('\0') != std::string::npos) {
+            throw RuntimeException("Corrupted wal file. Owner catalog name contains a null byte.");
+        }
+        if (hasTrailingInFrame) {
+            throw RuntimeException(
+                "Corrupted wal file. Trailing bytes after the owner catalog name.");
+        }
+    }
     return walRecord;
 }
 

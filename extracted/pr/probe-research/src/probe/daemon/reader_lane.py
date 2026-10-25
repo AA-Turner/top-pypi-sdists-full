@@ -12,8 +12,9 @@ deliver.
         messages a crash left unpublished -> published
         asks held READ_ASK_TIMEOUT_S with no answer -> closed as failed
         when due -> one turn of the reader's conversation
-    due:  an ask waits -> now; the researcher's prompt arrived -> now (unless the
-          server or PROBE_READER_PROMPT_WAKE turned prompt wakes off); new
+    due:  an ask waits -> now; the researcher's prompt arrived -> now (unless a
+          Probe hint serves the session and the server agreed, or
+          PROBE_READER_PROMPT_WAKE=off: `model.reader_prompt_wake`); new
           events and READ_EVERY_S since the last turn -> now
     turn: the next user message = only the events new since its last turn, plus
           the ask it answers; ends with final_result(message); history, cursor,
@@ -63,8 +64,8 @@ def _env_seconds(name: str, default: float) -> float:
         return default
 
 
-#: New events alone wake the reader at most this often; 0 = never (a prompt or an
-#: ask still does). 30 minutes (Richard 2026-10-07, "maybe 30 mins or something";
+#: New events alone wake the reader at most this often; 0 = never (an ask still
+#: does, and a prompt while prompt wakes are on). 30 minutes (Richard 2026-10-07, "maybe 30 mins or something";
 #: it was 20 s): in a week 1,012 such turns sent 59 messages, and on the reader
 #: bench 20 s / 10 min / off all recalled 2 of 3 at $2.31 / $1.35 / $1.11 an
 #: active hour. `PROBE_READER_EVERY_S` overrides it.
@@ -360,6 +361,27 @@ class ReaderLane:
             out.append(ev)
         return out
 
+    def next_window(self, after: int | None = None) -> list:
+        """The window a look reads after `after` (default the cursor). While a
+        prompt wakes the reader, the OLDEST (`new_events`): prompt turns read their
+        way through a backlog turn by turn. With prompt wakes off (Probe hints own
+        prompt time, `model.reader_prompt_wake`) nothing drains a backlog that way,
+        so the NEWEST, and the older unread events drop off when the cursor passes
+        them (as `_trim_backlog` after a gate's skip): a check-in, a gate's look
+        or an answer to an ask is about the work now, never hours behind."""
+        from probe.daemon import model as model_mod
+
+        start = self.cursor() if after is None else after
+        if model_mod.reader_prompt_wake():
+            return self.new_events(start)
+        out, used = [], 0
+        for ev in reversed(self.store.events_upto(start, self.store.newest_seq(), READ_MAX_EVENTS)):
+            used += bite_mod.reader_shown_chars(ev)
+            if out and used > READ_MAX_CHARS:
+                break
+            out.append(ev)
+        return out[::-1]
+
     def window_to(self, last: int) -> list:
         """The newest events up to `last` after the cursor, as many as one turn
         shows (READ_MAX_EVENTS, about READ_MAX_CHARS), oldest first: what a turn
@@ -428,10 +450,11 @@ class ReaderLane:
         mode = model_mod.reader_gate_mode()
         if mode == model_mod.GateMode.OFF or self.store.waiting_read_asks():
             return await self.run_turn(trigger)
-        # The gate reads the next window after its mark, oldest first, so every
-        # event is put to it once and none is passed over unread; in SHADOW (mark =
+        # The gate reads the next window after its mark (`next_window`: the oldest
+        # while prompts wake the reader, so every event is put to it once and none
+        # is passed over unread; the newest when they do not); in SHADOW (mark =
         # cursor) that is exactly the window the reader turn reads.
-        judged = self.new_events(self.mark())
+        judged = self.next_window(self.mark())
         verdict = await reader_gate.decide(self._gate_model_for_turn(), read_session_text(),
                                            self.build_prompt(judged, None, first=False, with_sent=True))
         worker_mod._count_device_tokens(verdict.uncached_tokens, LANE_READ)
@@ -573,7 +596,7 @@ class ReaderLane:
         if events is None:
             # An ask while the first worker still reads the session's history: answered
             # on no events, the cursor where it is (the history is judged first).
-            events = [] if self._catching_up() else self.new_events()
+            events = [] if self._catching_up() else self.next_window()
         instructions = read_session_text()
         fingerprint = self._fingerprint(instructions)
         size = agent_mod.read_context_tokens()
@@ -731,10 +754,11 @@ class ReaderLane:
         # reader bench, recall equal).
         too_big = _too_big(seen.get("run"), state.context_tokens)
         why = stopped or state.limit_why or state.detector.tripped
-        if why and ended and state.limit_kind is agent_mod.TurnLimit.SIZE and state.detector.tripped is None:
-            # The size guard's planned end, and the model ended the turn itself: not
-            # a stuck reader (strand-ai 2026-10-17: 18 rounds of lookups, then its
-            # answer, pinged as "reader turn stopped: 180,000 tokens").
+        if why and ended and state.limit_kind is not None and state.detector.tripped is None:
+            # A guard (size, rounds, time) told the model to end the turn and it
+            # did, with its answer: nothing broke, so nobody is told (strand-ai
+            # 2026-10-17: "180,000 tokens"; Bucket 2026-10-24: "40 model rounds",
+            # answered at round 41). A turn cut off unanswered still is.
             log.info("reader: turn wrapped up at %s", why)
             why = None
         write_status(self.sid, Status.TURN_STOPPED if why else Status.OK, why or "")

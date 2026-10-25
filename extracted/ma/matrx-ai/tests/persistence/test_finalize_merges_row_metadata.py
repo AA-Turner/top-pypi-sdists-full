@@ -105,8 +105,8 @@ async def test_missing_row_or_failed_read_yields_incoming_unchanged(monkeypatch)
 
 
 def test_finalize_routes_both_metadata_writes_through_the_merge():
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
-    src = inspect.getsource(persistence)
+    src = stable_source(persistence)
     assert 'merge_into_existing_metadata(\n                    "conversation"' in src
     assert 'merge_into_existing_metadata(\n                    "user_request"' in src

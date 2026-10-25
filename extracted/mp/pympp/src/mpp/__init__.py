@@ -25,6 +25,8 @@ from mpp._parsing import (
 )
 from mpp.errors import (
     BadRequestError,
+    CredentialReplayedError,
+    InternalPaymentError,
     InvalidChallengeError,
     InvalidPayloadError,
     MalformedCredentialError,
@@ -334,6 +336,7 @@ class Challenge:
             digest=self.digest,
             opaque=opaque_b64,
             header=self.header,
+            description=self.description,
         )
 
 
@@ -363,6 +366,7 @@ class ChallengeEcho:
     digest: str | None = None
     opaque: str | None = None
     header: str | None = None
+    description: str | None = None
 
     def __post_init__(self) -> None:
         advertised = advertised_credential_header(self.header)
@@ -426,6 +430,18 @@ class Receipt:
     subscription_id: str | None = None
     extra: dict[str, Any] | None = None
     extensions: dict[str, Any] | None = None
+    payer: str | None = None
+    """Payer identity verified by the payment method (``Validation.payer``).
+
+    Server-side only: set on receipts returned by server verification and
+    never serialized into the ``Payment-Receipt`` header.
+    """
+    funding_currency: str | None = None
+    """Currency actually debited to fund the payment, when known.
+
+    Serialized as ``fundingCurrency``. For Tempo pull-mode charges this is the
+    swap input token of a DEX auto-swap route, or the charge currency otherwise.
+    """
 
     @classmethod
     def from_payment_receipt(cls, header: str) -> Receipt:
@@ -444,6 +460,7 @@ class Receipt:
         method: str = "tempo",
         external_id: str | None = None,
         subscription_id: str | None = None,
+        funding_currency: str | None = None,
     ) -> Receipt:
         """Create a success receipt with current timestamp."""
         return cls(
@@ -453,6 +470,7 @@ class Receipt:
             method=method,
             external_id=external_id,
             subscription_id=subscription_id,
+            funding_currency=funding_currency,
         )
 
 

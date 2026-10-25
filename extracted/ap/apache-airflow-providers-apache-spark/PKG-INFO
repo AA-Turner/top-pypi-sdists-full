@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: apache-airflow-providers-apache-spark
-Version: 6.3.3
+Version: 6.3.4
 Summary: Provider package apache-airflow-providers-apache-spark for Apache Airflow
 Keywords: airflow-provider,apache.spark,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -23,7 +23,7 @@ Classifier: Topic :: System :: Monitoring
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: apache-airflow>=2.11.0
-Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.23.0
 Requires-Dist: pyspark-client>=4.0.0
 Requires-Dist: grpcio-status>=1.67.0
 Requires-Dist: requests>=2.32.0
@@ -32,8 +32,8 @@ Requires-Dist: apache-airflow-providers-cncf-kubernetes>=7.4.0 ; extra == "cncf-
 Requires-Dist: apache-airflow-providers-openlineage ; extra == "openlineage"
 Requires-Dist: pyspark>=4.0.0 ; extra == "pyspark"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.3/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.3
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.4/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.4
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -71,7 +71,7 @@ Import-Namespace: airflow.providers.apache
 
 Package ``apache-airflow-providers-apache-spark``
 
-Release: ``6.3.3``
+Release: ``6.3.4``
 
 
 `Apache Spark <https://spark.apache.org/>`__
@@ -84,7 +84,7 @@ This is a provider package for ``apache.spark`` provider. All classes for this p
 are in ``airflow.providers.apache.spark`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.3/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.4/>`_.
 
 Installation
 ------------
@@ -102,7 +102,7 @@ Requirements
 PIP package                                 Version required
 ==========================================  ==================
 ``apache-airflow``                          ``>=2.11.0``
-``apache-airflow-providers-common-compat``  ``>=1.12.0``
+``apache-airflow-providers-common-compat``  ``>=1.23.0``
 ``pyspark-client``                          ``>=4.0.0``
 ``grpcio-status``                           ``>=1.67.0``
 ``requests``                                ``>=2.32.0``
@@ -140,5 +140,5 @@ Extra                Dependencies
 ===================  ===================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.3/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-apache-spark/6.3.4/changelog.html>`_.
 

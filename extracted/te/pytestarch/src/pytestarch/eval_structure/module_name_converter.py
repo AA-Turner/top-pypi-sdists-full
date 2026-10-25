@@ -5,7 +5,6 @@ from collections import defaultdict
 from collections.abc import Sequence
 from typing import cast
 
-from pytestarch.eval_structure.breadth_first_searches import get_all_submodules_of
 from pytestarch.eval_structure.evaluable_architecture import (
     EvaluableArchitecture,
     Module,
@@ -43,7 +42,6 @@ class ModuleNameConverter:
 
         converted_module_filters = set()
         conversion_mapping = defaultdict(list)
-        matching_submodules = set()
 
         module_names_that_need_to_be_matched = list(
             map(lambda module: module.identifier, modules_that_need_converting)
@@ -62,21 +60,12 @@ class ModuleNameConverter:
 
                     never_matched.discard(module_to_match)
 
-                    submodules_of_match = get_all_submodules_of(
-                        arch._graph,  # type: ignore
-                        converted_module_filter,
-                    )
-                    submodules_of_match.remove(
-                        actually_present_module
-                    )  # should not count as its own submodule here
-                    matching_submodules.update(submodules_of_match)
-
         if never_matched:
             raise ImpossibleMatch(
                 f"No modules found that match: {', '.join(never_matched)}"
             )
 
-        all_converted_modules = list(converted_module_filters) + other_modules  # type: ignore
+        all_converted_modules = [*converted_module_filters, *other_modules]
         return all_converted_modules, conversion_mapping
 
     @classmethod
@@ -91,12 +80,12 @@ class ModuleNameConverter:
         cls, modules: Sequence[ModuleFilter]
     ) -> tuple[list[ModuleNameRegexFilter], Sequence[ModuleFilter]]:
         modules_with_regex_name_pattern: list[ModuleNameRegexFilter] = []
-        other_modules = []
+        other_modules: list[ModuleFilter] = []
 
         for module in modules:
             if module.identifier_is_regex:
                 module = cast(ModuleNameRegexFilter, module)
-                modules_with_regex_name_pattern.append(module)  # type: ignore
+                modules_with_regex_name_pattern.append(module)
             else:
                 other_modules.append(module)
 

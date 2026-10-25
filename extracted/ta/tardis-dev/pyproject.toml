@@ -1,24 +1,25 @@
 [tool.black]
 line-length = 125
-target-version = ["py310"]
+target-version = ["py311"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
-markers = [
-    "live: tests that call live tardis.dev endpoints",
-]
+markers = ["live: tests that call live tardis.dev endpoints"]
+
+[tool.uv]
+exclude-newer = "7 days"
+
+[tool.uv.build-backend]
+module-root = ""
 
 [project]
 name = "tardis-dev"
-version = "5.0.2"
+version = "5.0.4"
 description = "Python client for tardis.dev - historical tick-level cryptocurrency market data replay API."
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 license = "MPL-2.0"
 license-files = ["LICENSE"]
-authors = [
-    { name = "Thad", email = "thad@tardis.dev" },
-]
 keywords = [
     "cryptocurrency data feed",
     "market data",
@@ -30,11 +31,15 @@ keywords = [
     "cryptocurrency api",
 ]
 dependencies = [
-    "aiohttp>=3.14.3",
+    "aiohttp>=3.14.4",
     "python-dateutil>=2.8.2,<3",
     "aiofiles>=24.1.0,<25",
     "zstandard>=0.19.0",
 ]
+
+[[project.authors]]
+name = "Thad"
+email = "thad@tardis.dev"
 
 [project.urls]
 Homepage = "https://github.com/tardis-dev/tardis-python"
@@ -43,14 +48,8 @@ Homepage = "https://github.com/tardis-dev/tardis-python"
 dev = [
     "pytest>=9.0.3,<10",
     "pytest-asyncio>=1.4.0,<2",
-    "black>=26.3.1,<27",
+    "black>=26.10.1,<27",
 ]
-
-[tool.uv]
-exclude-newer = "7 days"
-
-[tool.uv.build-backend]
-module-root = ""
 
 [build-system]
 requires = ["uv_build>=0.9.28,<0.10.0"]

@@ -157,8 +157,11 @@ def _session(deps: Any, args: list[str]):
         if words:
             given["event_id"] = words[0]
     elif op in ("search", "logbook"):
-        if words:
-            given["query"] = " ".join(words)
+        if not words:
+            # The tool's own refusal names its `query` argument, which reads as
+            # a `--query` to try here.
+            return _ok(f"not run: {op} needs the words to look for: probe daemon session {op} \"<words>\". {usage}", 2)
+        given["query"] = " ".join(words)
     elif words:
         return _ok(f"not run: {op} takes no words ({' '.join(words)!r}). {usage}", 2)
     text = tools.session(deps, op, status=deps.record_status, **given)
@@ -252,6 +255,11 @@ def _target(deps: Any):
     if not key or not url:
         raise mcp_bridge.BridgeError("the daemon has no Probe MCP here (no key, or no MCP for its Probe)")
     headers = {"Authorization": f"Bearer {key}", **client_version_headers("cli", __version__)}
+    # The researcher's workspace limit holds for the daemon's reads too (the
+    # hosted MCP forwards it); only for this computer's own deployment.
+    from probe.sdk.workspace_limit import ambient_headers
+
+    headers.update(ambient_headers(deps.probe_env.get("PROBE_BASE_URL") or None, bearer=key))
     if deps.reader:
         from probe.sdk.agent_session import AGENT_HEADER, AGENT_SESSION_HEADER, HIDE_SESSION_WORK_HEADER
 

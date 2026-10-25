@@ -28,10 +28,11 @@
                        CREDENTIAL_CHECK_S (`watch.json` keeps when), asked once
                        (`credential_refused`, once per key)
                    ──> for the sessions the service does not supervise: their daemon
-                       lease released with `error`/`gateway`/`unauthorized`, or
+                       lease released with `error`/`gateway`/`unauthorized` (not a
+                       `gateway` marked offline), or
                        expired (`hung` / `not_running`); a hosted recorder whose
                        beat is STALL_S old (`stalled`); a `tap watch` session whose
-                       heartbeat is GONE_S old (`gone`): each the same on two scans
+                       heartbeat is GONE_S old (`gone`, once per registration): each the same on two scans
                        in a row, its agent still running, and never in the
                        WAKE_GRACE_S after the machine slept (wall time ran ahead of
                        monotonic time between two scans)
@@ -149,7 +150,9 @@ SCAN_S = 15.0
 #: A daemon lease past its expiry by more than this, on two scans, is a lapsed worker.
 LEASE_GRACE_S = 60.0
 #: Lease reasons that are failures (`tap/companion_lease.py`); `stopped`,
-#: `budget` and `handover` are on purpose.
+#: `budget` and `handover` are on purpose, `disk_full` is the machine's. A
+#: `gateway` release the worker marked `offline` (no network at all,
+#: `probe._shared.offline`) is the laptop's, not a failure.
 LEASE_FAILURES = frozenset({"error", "gateway", "unauthorized"})
 #: A hosted recorder's beat (`tap.hosted.Controls.beat`, every pass and every
 #: second between) this old while its agent runs: `stalled`.
@@ -203,9 +206,10 @@ CONSENT_VARS = ("PROBE_TELEMETRY", "PROBE_DIAGNOSTICS", "PROBE_BASE_URL")
 REPORTS_ENV = "PROBE_SERVICE_REPORTS"
 SCAN_ENV = "PROBE_SERVICE_WATCH_S"
 #: The watch's own record: the incidents reported once ever (a rejected
-#: version, a tap that would not load, an update cycle's streak).
+#: version, a tap that would not load, an update cycle's streak, a session's
+#: lost recorder per registration), the oldest dropped past MAX_ONCE.
 STATE_NAME = "watch.json"
-MAX_ONCE = 64
+MAX_ONCE = 256
 #: The service's record of itself (`last_run`), and of a crash (`record_crash`).
 RUN_NAME = "service.run"
 LAST_CRASH_NAME = "last-crash.json"
@@ -696,7 +700,7 @@ def _count(value: object) -> int:
     """A status file's count, or 0 for one that is not a number."""
     try:
         return max(0, int(value or 0))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0
 
 
@@ -800,6 +804,23 @@ def _credential_id(base_url: str, kind: str, token: str) -> str:
     return hashlib.sha256(f"{base_url}\0{kind}\0{token}".encode()).hexdigest()[:16]
 
 
+def configured_key_ids() -> dict[str, str]:
+    """`{kind: id}` (`_credential_id`) of each key the CLI config's active
+    context holds (CREDENTIAL_KEYS), the backend's as `credential_verdicts`
+    names them; {} without a config. Blocking: a thread."""
+    try:
+        from probe.sdk._telemetry_core import DEFAULT_BASE, read_cli_config
+
+        config = read_cli_config()
+        base_url = str(config.get("base_url") or DEFAULT_BASE).rstrip("/")
+    except Exception:  # noqa: BLE001 -- no config: no keys
+        return {}
+    return {
+        kind: _credential_id(base_url, kind, config[key])
+        for kind, key, _ in CREDENTIAL_KEYS if isinstance(config.get(key), str) and config.get(key)
+    }
+
+
 def credential_verdicts(
     *, due: Callable[[str], bool] = lambda ident: True,
     ask: Callable[[str, str, float, str], str] = _ask, monotonic: Callable[[], float] = time.monotonic,
@@ -844,8 +865,10 @@ def capture_conditions(receipts: Mapping, now: float, still: dict | None = None)
     not yet counted, bytes) or a staged batch waiting. Its age is
     `received_at`'s; a receipt without one (a tap before 0.10.6, or a session
     none of whose batches ever landed) is aged from when `still` (the
-    caller's, kept across calls: sid -> (`received_bytes`, since when)) first
-    saw its cursor where it is now. A trailing line with no newline yet is
+    caller's, kept across calls: sid -> (`received_bytes`, since when, last
+    seen offline)) first saw its cursor where it is now. A session whose last
+    upload had no network (`offline`) is not stalled, and once back is aged
+    from the last time it was offline. A trailing line with no newline yet is
     not waiting."""
     still = {} if still is None else still
     found = {}
@@ -864,10 +887,19 @@ def capture_conditions(receipts: Mapping, now: float, still: dict | None = None)
         cursor = receipt.get("received_bytes")
         seen = still.get(sid)
         if seen is None or seen[0] != cursor:
-            seen = still[sid] = (cursor, now)
+            seen = (cursor, now, None)
+        if receipt.get("offline"):
+            # No network at all: the laptop's, not a stall. Once it is back, the
+            # wait counts from the last time it was offline, not its last receipt.
+            still[sid] = (seen[0], seen[1], now)
+            continue
+        still[sid] = seen
         received_at = receipt.get("received_at")
         stamped = isinstance(received_at, (int, float))
         since = received_at if stamped else seen[1]
+        offline_at = seen[2] if len(seen) > 2 else None
+        if offline_at is not None:
+            since = max(since, offline_at)
         if now - since < CAPTURE_STALL_S:
             continue
         found[sid] = {"received_h": round((now - since) / 3600.0, 1),
@@ -1062,6 +1094,8 @@ class Watch:
         #: Each key's id (`_credential_id`) -> when (wall) it was last answered
         #: (`watch.json`), read on first use.
         self._credentials_at: dict = {}
+        #: Each key kind's last answer (`ok`/`refused`/`unknown`), for `key_answers`.
+        self._key_answers: dict = {}
         #: The credential check running in the background, if one is.
         self._credential_task: asyncio.Future | None = None
         #: Each key's id -> when (wall) it was last asked and not answered.
@@ -1160,6 +1194,10 @@ class Watch:
             self._credentials_at = {
                 k: float(v) for k, v in asked.items() if isinstance(k, str) and isinstance(v, (int, float))
             } if isinstance(asked, dict) else {}
+            answers = data.get("key_answers") if isinstance(data, dict) else None
+            self._key_answers = {
+                k: v for k, v in answers.items() if isinstance(k, str) and v in ("ok", "refused", "unknown")
+            } if isinstance(answers, dict) else {}
         return self._once
 
     def _write_state(self) -> None:
@@ -1173,6 +1211,10 @@ class Watch:
                 state = {"v": 1, "once": list(self._once_order)}
                 if self._credentials_at:
                     state["credentials_at"] = dict(self._credentials_at)
+                if self._key_answers:
+                    # Only keys answered lately: a key replaced or gone drops out with its time.
+                    live = set(self._credentials_at) | set(self._credentials_tried)
+                    state["key_answers"] = {k: v for k, v in self._key_answers.items() if k in live}
             write_json(paths.service_dir() / STATE_NAME, state)
 
     def _mark_once(self, key: str) -> None:
@@ -1359,11 +1401,15 @@ class Watch:
             now = self.clock()
             for sid, heartbeat_at in heartbeats:
                 if now - heartbeat_at > GONE_S:
-                    found[(Family.RECORDER, sid)] = ("gone", {"heartbeat_s": round(now - heartbeat_at)})
-        last, self._cond_last = self._cond_last, {key: cond for key, (cond, _) in found.items()}
-        for (family, sid), (cond, facts) in found.items():
+                    # Once per registration: a session its next service did not
+                    # resume stays gone, unchanged, until its agent's next prompt
+                    # registers it again, which may be hours away.
+                    found[(Family.RECORDER, sid)] = ("gone", {"heartbeat_s": round(now - heartbeat_at)},
+                                                     f"recorder_gone:{sid}:{heartbeat_at!r}")
+        last, self._cond_last = self._cond_last, {key: cond for key, (cond, *_) in found.items()}
+        for (family, sid), (cond, facts, *once) in found.items():
             if last.get((family, sid)) == cond:
-                self.note(family, cond, sid, facts, threshold=1)
+                self.note(family, cond, sid, facts, once=once[0] if once else None, threshold=1)
 
     async def _slow_checks(self) -> None:
         """Every SLOW_CHECK_S (and on the first scan): the outbox and each live
@@ -1449,15 +1495,27 @@ class Watch:
             self.log(f"watch: {family} cleared before it was reported; dropped")
 
     async def _may_ask_keys(self) -> bool:
-        """The consent a `credential_refused` report would need (a machine
-        family's: every session whose agent runs, else the login shell, and
-        the CLI config's backend), asked before the keys are: a check whose
-        answer could not be reported is not made."""
-        base_url = await asyncio.to_thread(config_base_url)
+        """The consent a `credential_refused` report would need, asked before
+        the keys are: a check whose answer could not be reported is not made."""
+        try:
+            allowed, _ = await self.machine_consent()
+        except (asyncio.TimeoutError, RuntimeError):
+            return False  # the config cannot be read: no
+        return allowed
+
+    async def machine_consent(self) -> tuple[bool, str | None]:
+        """A machine family's consent as it stands (every session whose agent
+        runs, else the login shell, and the CLI config's backend), and that
+        backend (None: unset, the hosted default). Raises when the config
+        cannot be read in time."""
+        # A daemon thread of its own: a hung home mount is left behind, never
+        # joined at exit. Raises (TimeoutError, RuntimeError) when the config
+        # cannot be read: "unread" is not "unset" (None, the hosted default).
+        base_url = await _on_daemon_thread(config_base_url, CREDENTIAL_TIMEOUT_S)
         voters = list(self.voters())
         login = None if voters else await self._login_env()
         allowed, _ = await asyncio.to_thread(decide_machine, voters, base_url, login)
-        return allowed
+        return bool(allowed), base_url
 
     async def _credential_check(self, now: float) -> None:
         """Each key not answered within CREDENTIAL_CHECK_S, asked once (and
@@ -1496,6 +1554,9 @@ class Watch:
                 self._credentials_after = now + CREDENTIAL_RETRY_S
                 self.log("watch: the credential check did not finish in time")
                 return
+            with self._lock:
+                self._load_state()
+                self._key_answers.update({ident: verdict for ident, verdict in verdicts.values()})
             for ident, verdict in verdicts.values():
                 if verdict == "unknown":
                     self._credentials_tried[ident] = now
@@ -1506,6 +1567,7 @@ class Watch:
                 with self._lock:
                     kept = {k: v for k, v in self._credentials_at.items() if 0 <= now - v < 2 * CREDENTIAL_CHECK_S}
                     self._credentials_at = {**kept, **settled}
+            if verdicts:
                 await asyncio.to_thread(self._write_state)
             refused = sorted(kind for kind, (_, verdict) in verdicts.items() if verdict == "refused")
             if refused:
@@ -1649,7 +1711,10 @@ class Watch:
                         self._pending.setdefault(incident.key, incident)
                     said += f"; again in {wait / 60:.0f} min"
             self.log(f"watch: report {incident.family} ({incident.reason}){sid}: {said}")
-            if incident.once is not None and settled:
+            # A session family's `deduped` is the child's (family, session)
+            # window, which another registration's report may hold: not this one's.
+            deduped = isinstance(value, dict) and value.get("skipped") == "deduped"
+            if incident.once is not None and settled and not (deduped and incident.family in SESSION_FAMILIES):
                 await asyncio.to_thread(self._mark_once, incident.once)
         except asyncio.CancelledError:
             raise
@@ -1659,6 +1724,22 @@ class Watch:
             self._child = None
             if not self._closed:
                 self._spawn(self._send_next())
+
+    def last_login_env(self) -> dict | None:
+        """The login shell's consent variables as last read (None: never read,
+        or unreadable). Never reads them: it may run at exit."""
+        cached = self._login_cache
+        return cached[1] if cached is not None else None
+
+    def key_answers(self) -> dict:
+        """Each key kind the CLI config holds NOW -> the API's last answer to
+        that very key (`ok`, `refused`, `unknown`), None when it has not been
+        asked; a key the config no longer holds is not listed. Blocking (the
+        config): a thread."""
+        with self._lock:
+            self._load_state()
+            answers = dict(self._key_answers)
+        return {kind: answers.get(ident) for kind, ident in configured_key_ids().items()}
 
     def public(self) -> dict:
         """`service.status`'s `watch`: what `probe doctor` and the debug log show."""
@@ -1684,7 +1765,7 @@ def lease_condition(state_dir: str, sid: str, now: float) -> tuple[str, dict] | 
     if not isinstance(data, dict) or data.get("writer") != "daemon":
         return None
     reason, expires = data.get("reason"), data.get("expires_at")
-    if reason in LEASE_FAILURES:
+    if reason in LEASE_FAILURES and not (reason == "gateway" and data.get("offline") is True):
         return f"lease_{reason}", {"lease_reason": reason, "released_at": data.get("renewed_at")}
     if reason is None and isinstance(expires, (int, float)) and now - expires > LEASE_GRACE_S:
         try:

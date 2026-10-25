@@ -193,9 +193,20 @@ def collapse(base, gap):
 
 
 # Default-lane budget is 5 s; the bspline rungs at 0.02/0.005/0.002 m have CI
-# medians 5.9/6.4/5.2 s (momwire 0.82.0 release prep). The other seven rungs
-# stay in the default lane.
-_G1004_SLOW = {(0.02, "bspline"), (0.005, "bspline"), (0.002, "bspline")}
+# medians 5.9/6.4/5.2 s (momwire 0.82.0 release prep); at 0.84.0 prep the
+# sg rungs at 0.005/0.002/0.02/0.1 m and bspline at 0.1/0.5 m joined them
+# (Linux medians 10.0/8.8/7.8/5.9 and 6.7/6.1 s).
+_G1004_SLOW = {
+    (0.02, "bspline"),
+    (0.005, "bspline"),
+    (0.002, "bspline"),
+    (0.1, "bspline"),
+    (0.5, "bspline"),
+    (0.1, "sg"),
+    (0.02, "sg"),
+    (0.005, "sg"),
+    (0.002, "sg"),
+}
 
 
 @pytest.mark.parametrize(
@@ -227,7 +238,14 @@ def test_the_near_plane_cross_block_collapses(base, gap, record_property):
 # ----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("base", ["bspline", "sg"])
+@pytest.mark.parametrize(
+    "base",
+    [
+        # median over the 5 s default-lane budget at 0.84.1
+        pytest.param("bspline", marks=pytest.mark.slow),
+        "sg",
+    ],
+)
 def test_the_raised_order_is_what_buys_it(base, monkeypatch, record_property):
     """The gate above with the lever pinned off, in the same process.
 

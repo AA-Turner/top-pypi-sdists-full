@@ -38,6 +38,7 @@ from probe.core.requests import (
     RecorderRequest,
     SessionDefaultRequest,
     SessionState,
+    WorkspaceLimitRequest,
 )
 
 #: Every parameter of `probe.cli.main.wizard`, as typer hands it over for a
@@ -135,6 +136,49 @@ def session_default(
     return _run(sink, lambda: _apply_session_default(request.state))
 
 
+def workspace_limit(request: WorkspaceLimitRequest, sink: events.EventSink | None = None) -> int:
+    """Limit what Probe on this computer reads to one workspace, or lift the limit
+    (`workspace` None): `probe workspace limit <workspace> [--team-items ...] --yes
+    --json` / `--team --json`, the same function (`probe.cli.workspace_limit_cmd`).
+
+    Not a wizard action: its events are a `result` row for the device (`agent`
+    null) whose `requested` is the request and whose `actual` is exactly what the
+    CLI's `--json` prints (`{"ok", "workspace_limit"}`, or `{"ok": false, "code",
+    "message"}`), then `done`. Refused from inside a session the Probe daemon
+    records, as the daemon's guard refuses the command (D-d)."""
+    if not isinstance(request, WorkspaceLimitRequest):
+        raise TypeError("workspace_limit takes a WorkspaceLimitRequest")
+    return _run(sink, lambda: _apply_workspace_limit(request))
+
+
+def _apply_workspace_limit(request: WorkspaceLimitRequest) -> None:
+    import typer
+
+    from probe.cli import workspace_limit_cmd as cmd
+
+    _refuse_from_daemon_session(ActionName.WORKSPACE_LIMIT.value, matched="probe workspace limit")
+    events.begin_result(ActionName.WORKSPACE_LIMIT.value, [None])
+    requested = {
+        "workspace": request.workspace,
+        "team_items": None if request.team_items is None else request.team_items.value,
+    }
+    try:
+        outcome = cmd.apply(
+            request.workspace,
+            team=request.workspace is None,
+            team_items=requested["team_items"],
+        )
+    except cmd.LimitRefused as exc:
+        events.agent_result(None, requested=requested, actual=exc.as_json(), ok=False, message=exc.message)
+        usage = exc.code == cmd.Code.USAGE
+        events.error(events.ErrorCode.USAGE if usage else events.ErrorCode.FAILED, exc.message)
+        print(f"error: {exc.message}", file=sys.stderr)
+        raise typer.Exit(2 if usage else 1) from None
+    for line in outcome.lines:
+        print(line, file=sys.stderr)
+    events.agent_result(None, requested=requested, actual=outcome.as_json(), ok=True)
+
+
 def _cli() -> Any:
     """The `probe.cli.main` MODULE. (`from probe.cli import main` is the
     package's `main()` function, which shadows it.)"""
@@ -153,7 +197,7 @@ def _wizard(sink: events.EventSink | None, flags: dict[str, Any]) -> int:
     return _run(sink, run_wizard)
 
 
-def _refuse_from_daemon_session(action: str) -> None:
+def _refuse_from_daemon_session(action: str, *, matched: str | None = None) -> None:
     """A wizard action run from inside a coding agent's session the Probe daemon
     records (`<sid>.profile`, the lean plugin's mark): exit 2, nothing changed.
 
@@ -172,7 +216,7 @@ def _refuse_from_daemon_session(action: str) -> None:
     session_id = agent_session.session_id_from_env()
     if not session_id or session_marker.session_profile(session_id) != session_marker.RECORDER_DAEMON:
         return
-    message = session_marker.DAEMON_PROFILE_DENY.format(matched=f"probe wizard --action {action}")
+    message = session_marker.DAEMON_PROFILE_DENY.format(matched=matched or f"probe wizard --action {action}")
     print(message, file=sys.stderr)
     events.error(events.ErrorCode.USAGE, message)
     raise typer.Exit(2)

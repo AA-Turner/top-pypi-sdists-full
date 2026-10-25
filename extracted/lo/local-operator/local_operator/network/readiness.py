@@ -193,8 +193,12 @@ def _safe_text(value: Any, *, limit: int = 300) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _open_store(root: Path) -> Any | None:
+def _open_store(root: Path, *, read_only: bool = False) -> Any | None:
     """An ``AuthStore`` for ``root``, or ``None`` when no database exists yet.
+
+    ``read_only=True`` is the readiness path's no-write mode. Offer/share reads
+    keep the default: they need the live WAL answer even though the historical
+    constructor has side effects, which are outside this readiness fix.
 
     THE GUARD IS THE READ-ONLY PROMISE: ``AuthStore.__init__`` CREATES its
     database (mkdir, a 0600 file, then the schema), so constructing one on a
@@ -212,7 +216,29 @@ def _open_store(root: Path) -> Any | None:
         return None
     from local_operator.providers.auth_store import AuthStore
 
+    if read_only:
+        return AuthStore.open_read_only(database)
     return AuthStore(db_path=database, config_dir=root)
+
+
+def _read_only_store_unavailable(store: Any) -> bool:
+    """Whether an immutable store cannot prove its CURRENT credential contents.
+
+    Corrupt/foreign schemas and a non-empty, uncheckpointed WAL must both read as
+    UNKNOWN. Returning rows (or ``[]``) in either case would fabricate readiness.
+    """
+    if store is None:
+        return False
+    for name in ("read_only_unavailable", "read_only_sidecar_present"):
+        probe = getattr(store, name, None)
+        if not callable(probe):
+            continue
+        try:
+            if probe():
+                return True
+        except Exception:  # noqa: BLE001 — an unreadable probe cannot prove contents
+            return True
+    return False
 
 
 def operator_fact() -> dict[str, Any]:
@@ -560,7 +586,7 @@ def _server_refs(
     return rows
 
 
-def mcp_servers_fact(root: Path) -> dict[str, Any]:
+def mcp_servers_fact(root: Path, *, read_only: bool = False) -> dict[str, Any]:
     """The USER-SCOPE MCP servers, their login rows and their credential shapes.
 
     Reads the file the WRITERS target (``<root>/mcp.json``), not the merged
@@ -595,10 +621,15 @@ def mcp_servers_fact(root: Path) -> dict[str, Any]:
     except Exception:  # noqa: BLE001 — an unreadable file already reads as no servers
         literal_keys = []
     presence: dict[str, bool | None] = {}
+    # One evidence read per network, not per server. These are the same durable,
+    # value-free broker outcomes ``server_states`` already renders: readiness must
+    # not replace an observed owner refusal with a guess from a local row.
+    evidence_by_network: dict[str, dict[str, dict[str, Any]]] = {}
     store = None
     store_unreadable = False
     try:
-        store = _open_store(root)
+        store = _open_store(root) if not read_only else _open_store(root, read_only=True)
+        store_unreadable = read_only and _read_only_store_unavailable(store)
     except Exception:  # noqa: BLE001 — an unopenable store is "could not be read"
         store_unreadable = True
     try:
@@ -623,6 +654,7 @@ def mcp_servers_fact(root: Path) -> dict[str, Any]:
             has_row: bool | None = None
             has_placement = False
             diagnostics: dict[str, Any] | None = None
+            auth_evidence: dict[str, Any] | None = None
             if transport in ("http", "sse") and url:
                 from local_operator.mcp.auth import mcp_grant_diagnostics
 
@@ -636,11 +668,18 @@ def mcp_servers_fact(root: Path) -> dict[str, Any]:
                 # on an explicit act (``lop network credentials``), never on the
                 # provider path, so a peer that has not pulled cannot borrow and
                 # must not be reported as ready to.
+                from local_operator.network.credentials import mcp_state
                 from local_operator.network.credentials.placement import (
                     placement_entries_for,
                 )
 
-                has_placement = placement_entries_for(mcp_url=url, root=root) is not None
+                placed = placement_entries_for(mcp_url=url, root=root)
+                has_placement = placed is not None
+                if placed is not None:
+                    network_id, _entry = placed
+                    if network_id not in evidence_by_network:
+                        evidence_by_network[network_id] = mcp_state.load(network_id, root)
+                    auth_evidence = evidence_by_network[network_id].get(f"mcp:{url}")
             servers.append(
                 {
                     "name": _safe_text(name, limit=120),
@@ -656,6 +695,7 @@ def mcp_servers_fact(root: Path) -> dict[str, Any]:
                         dict(row) for row in literal_keys if str(row.get("server")) == str(name)
                     ],
                     **({"auth_diagnostics": diagnostics} if diagnostics is not None else {}),
+                    **({"auth_evidence": auth_evidence} if auth_evidence else {}),
                 }
             )
     finally:
@@ -777,7 +817,9 @@ def default_model_fact(root: Path) -> dict[str, Any]:
     }
 
 
-def has_local_provider_credential(root: Path, provider: str) -> bool | None:
+def has_local_provider_credential(
+    root: Path, provider: str, *, read_only: bool = False
+) -> bool | None:
     """Whether this device holds a credential row for ``provider``.
 
     Three-valued like ``has_stored_row``: ``None`` is "the store could not be
@@ -788,12 +830,14 @@ def has_local_provider_credential(root: Path, provider: str) -> bool | None:
     if not provider:
         return False
     try:
-        store = _open_store(root)
+        store = _open_store(root) if not read_only else _open_store(root, read_only=True)
     except Exception:  # noqa: BLE001 — an unopenable store is "could not be read"
         return None
     if store is None:
         return False
     try:
+        if read_only and _read_only_store_unavailable(store):
+            return None
         return bool(list(store.list_credentials(provider)))
     except Exception:  # noqa: BLE001
         return None
@@ -1010,9 +1054,9 @@ def collect_peer_facts(
         "provider": provider,
         # The provider is the ``provider`` key above; the fact is three-valued
         # (True / False / None = the store could not be read).
-        "has_local": has_local_provider_credential(root, provider),
+        "has_local": has_local_provider_credential(root, provider, read_only=True),
         "credential_placement": placement_fact(provider=provider, root=root),
-        "mcp": mcp_servers_fact(root),
+        "mcp": mcp_servers_fact(root, read_only=True),
         "git": git_identity_fact(home),
         "tooling": tooling_fact(home),
         "operator": operator_fact(),
@@ -1152,7 +1196,8 @@ class ViewerFacts:
     def _open(self) -> Any:
         if not self._opened:
             try:
-                self._store = _open_store(self.root)
+                self._store = _open_store(self.root, read_only=True)
+                self._store_unreadable = _read_only_store_unavailable(self._store)
             except Exception:  # noqa: BLE001 — unopenable is "could not be read"
                 self._store = None
                 self._store_unreadable = True
@@ -1164,8 +1209,10 @@ class ViewerFacts:
         if not provider:
             return []
         store = self._open()
+        if self._store_unreadable:
+            return None
         if store is None:
-            return None if self._store_unreadable else []
+            return []
         try:
             return list(store.list_credentials(provider))
         except Exception:  # noqa: BLE001
@@ -1173,8 +1220,10 @@ class ViewerFacts:
 
     def holds_mcp_login(self, url: str) -> bool | None:
         store = self._open()
+        if self._store_unreadable:
+            return None
         if store is None:
-            return None if self._store_unreadable else False
+            return False
         return _mcp_row_exists(store, url)
 
     def placement(self, *, provider: str = "", mcp_url: str = "") -> dict[str, Any]:
@@ -1952,6 +2001,9 @@ def model_credential_row(
     owner = str(placement.get("owner_device") or "")
     peer_is_holder = member.device_id in _holder_names(placement)
     if owner and peer_is_holder:
+        # A real observation failure is more specific than store uncertainty and
+        # must keep its established precedence. A definite local row above still
+        # outranks it: that row is positive proof the peer can serve itself.
         observed_failure = _observation_failure(observation)
         if observed_failure:
             return _capability_row(
@@ -1970,6 +2022,40 @@ def model_credential_row(
                 ],
                 source=SOURCE_PEER,
             )
+    # Placement is only a borrow ROUTE, not proof that the peer's store is
+    # readable. Unknown follows an observed failure but precedes every ok route.
+    if held is None:
+        return _capability_row(
+            device_id=member.device_id,
+            device_name=peer_label,
+            capability=CAPABILITY_MODEL_CREDENTIAL,
+            ok=False,
+            code=CODE_UNKNOWN,
+            detail=(
+                "a credential store could not be read (this side or the peer's), so "
+                "whether this provider can be served is not known"
+            ),
+            remedies=[f"check the credential store on {peer_label} and here, then re-check"],
+            source=SOURCE_UNKNOWN,
+        )
+    if owner and owner == member.device_id:
+        # The placement says the PEER owns this key, yet no local row was found
+        # on it (``held`` is not True, or this branch was reached first). The
+        # two documents disagree; report the disagreement rather than pick one.
+        return _capability_row(
+            device_id=member.device_id,
+            device_name=peer_label,
+            capability=CAPABILITY_MODEL_CREDENTIAL,
+            ok=False,
+            code=CODE_UNKNOWN,
+            detail=(
+                f"the placement entry for {provider} names {peer_label} as its owner, but "
+                "no credential row was found there — the two do not agree yet"
+            ),
+            remedies=[f"sign in to {provider} on {peer_label} and re-check"],
+            source=SOURCE_PEER,
+        )
+    if owner and peer_is_holder:
         if owner == viewer.device_id:
             return _capability_row(
                 device_id=member.device_id,
@@ -1991,23 +2077,6 @@ def model_credential_row(
                 f"{peer_label} borrows {provider} from "
                 f"{_owner_label(placement, fallback='another device')} (not verified from here)"
             ),
-            source=SOURCE_PEER,
-        )
-    if owner and owner == member.device_id:
-        # The placement says the PEER owns this key, yet no local row was found
-        # on it (``held`` is not True, or this branch was reached first). The
-        # two documents disagree; report the disagreement rather than pick one.
-        return _capability_row(
-            device_id=member.device_id,
-            device_name=peer_label,
-            capability=CAPABILITY_MODEL_CREDENTIAL,
-            ok=False,
-            code=CODE_UNKNOWN,
-            detail=(
-                f"the placement entry for {provider} names {peer_label} as its owner, but "
-                "no credential row was found there — the two do not agree yet"
-            ),
-            remedies=[f"sign in to {provider} on {peer_label} and re-check"],
             source=SOURCE_PEER,
         )
     if owner and not peer_is_holder:
@@ -2070,7 +2139,7 @@ def model_credential_row(
             remedies=[f"share it with {peer_label} (run here)"],
             source=SOURCE_LOCAL,
         )
-    if held is None or mine is None:
+    if mine is None:
         return _capability_row(
             device_id=member.device_id,
             device_name=peer_label,
@@ -2299,14 +2368,66 @@ def _mcp_credential_row(
 ) -> dict[str, Any]:
     has_row = server.get("has_row")
     diagnostics = server.get("auth_diagnostics")
-    if (
+    local_unavailable = (
         isinstance(diagnostics, Mapping)
         and has_row is True
         and diagnostics.get("sharing_mode") == "unavailable"
-    ):
+    )
+    placement = viewer.placement(mcp_url=url)
+    owner = str(placement.get("owner_device") or "")
+    peer_is_holder = member.device_id in _holder_names(placement)
+    evidence = server.get("auth_evidence")
+    evidence = evidence if isinstance(evidence, Mapping) else {}
+    evidence_owner = str(evidence.get("owner_device") or "")
+    owner_evidence_is_newer = True
+    if local_unavailable:
+        assert isinstance(diagnostics, Mapping)  # narrowed by local_unavailable
+        from local_operator.network.credentials.types import peer_number
+
+        # A local grant is the runtime's first rung. Only a refusal observed
+        # AFTER its current chain began may supersede it; an older refusal, a
+        # tie, or missing timing keeps the repair on this device. Refresh
+        # rotations carry the chain stamp, so this compares grant identity, not
+        # the last metadata write.
+        evidence_at = peer_number(evidence.get("at"), default=0)
+        local_grant_at = peer_number(diagnostics.get("grant_chain_at"), default=0)
+        owner_evidence_is_newer = (
+            evidence_at > 0 and local_grant_at > 0 and evidence_at > local_grant_at
+        )
+    current_owner_evidence = (
+        bool(owner)
+        and peer_is_holder
+        and server.get("has_placement") is True
+        and evidence_owner == owner
+        and owner_evidence_is_newer
+        and (local_unavailable or has_row is False)
+    )
+    if current_owner_evidence and evidence.get("state") == "expired":
+        # This is an OBSERVED owner refusal, not an inference from a copied row
+        # or an expiry stamp. The session warning already names this device; the
+        # readiness detail and its remedy must send the operator to that same one.
+        owner_label = _bounded(evidence.get("owner_name") or "", 120) or _owner_label(
+            placement, fallback=owner
+        )
+        return _capability_row(
+            device_id=member.device_id,
+            device_name=peer_label,
+            capability=CAPABILITY_MCP_CREDENTIAL,
+            ok=False,
+            code=CODE_OBSERVED_FAILURE,
+            detail=(
+                f"{owner_label}: sign in again — {peer_label} cannot borrow the login "
+                f"for {name} ({url}) until then"
+            ),
+            remedies=(f"sign in again on {owner_label}",),
+            source=SOURCE_PEER,
+            observed={"server": name, "url": url, "auth_evidence": dict(evidence)},
+        )
+    if local_unavailable:
         # A present but dead/expired-unrefreshable grant cannot satisfy the
-        # existing local-login branch. Do not silently fall through to a
-        # placement: the runtime also prioritizes this local grant.
+        # existing local-login branch. Without current owner-expiry evidence this
+        # is a LOCAL repair, and both sentences must name the same device.
+        assert isinstance(diagnostics, Mapping)  # narrowed by local_unavailable
         return _capability_row(
             device_id=member.device_id,
             device_name=peer_label,
@@ -2315,9 +2436,9 @@ def _mcp_credential_row(
             code="local_grant_unavailable",
             detail=(
                 f"{peer_label}'s stored login for {name} ({url}) is unavailable; "
-                "sign in again there"
+                f"sign in again on {peer_label}"
             ),
-            remedies=(mcp_login_remedy(url),),
+            remedies=(f"sign in again on {peer_label}",),
             source=SOURCE_PEER,
             observed={"server": name, "url": url, "auth_diagnostics": dict(diagnostics)},
         )
@@ -2331,9 +2452,41 @@ def _mcp_credential_row(
             source=SOURCE_PEER,
             observed={"server": name, "url": url},
         )
-    placement = viewer.placement(mcp_url=url)
-    owner = str(placement.get("owner_device") or "")
-    peer_is_holder = member.device_id in _holder_names(placement)
+    # As with the provider row, placement cannot substitute for a readable
+    # peer store. Check its tri-state fact before any self-borrow shortcut.
+    if has_row is None:
+        return _capability_row(
+            device_id=member.device_id,
+            device_name=peer_label,
+            capability=CAPABILITY_MCP_CREDENTIAL,
+            ok=False,
+            code=CODE_UNKNOWN,
+            detail=(
+                f"{peer_label}'s credential store could not be read, so whether it holds "
+                f"a login for {name} is not known"
+            ),
+            remedies=[f"check the credential store on {peer_label}, then re-check"],
+            source=SOURCE_UNKNOWN,
+            observed={"server": name, "url": url},
+        )
+    if owner and owner == member.device_id:
+        # An owner cannot issue its promised grant without the local row. This
+        # must precede the generic holder success when the owner is also listed
+        # as a holder; only a positively read row above proves the self-serve.
+        return _capability_row(
+            device_id=member.device_id,
+            device_name=peer_label,
+            capability=CAPABILITY_MCP_CREDENTIAL,
+            ok=False,
+            code=CODE_UNKNOWN,
+            detail=(
+                f"the placement entry for {name} names {peer_label} as its owner, but "
+                "no credential row was found there — the two do not agree yet"
+            ),
+            remedies=[f"sign in to {name} on {peer_label}, then re-check"],
+            source=SOURCE_PEER,
+            observed={"server": name, "url": url},
+        )
     if owner and peer_is_holder:
         # THE PULL GAP, per server: this device's own document says the peer is a
         # holder, but the peer's OWN answer says it has no placement entry for
@@ -2407,7 +2560,8 @@ def _mcp_credential_row(
             source=SOURCE_PEER,
             observed={"server": name, "url": url},
         )
-    if viewer.holds_mcp_login(url):
+    mine = viewer.holds_mcp_login(url)
+    if mine:
         return _capability_row(
             device_id=member.device_id,
             device_name=peer_label,
@@ -2422,7 +2576,9 @@ def _mcp_credential_row(
             source=SOURCE_LOCAL,
             observed={"server": name, "url": url},
         )
-    if has_row is None:
+    if mine is None:
+        # ``None`` is not an empty viewer store. Keep the no-placement fallback
+        # tri-state too, or an open-WAL/corrupt login gets a sign-in-first remedy.
         return _capability_row(
             device_id=member.device_id,
             device_name=peer_label,
@@ -2430,10 +2586,10 @@ def _mcp_credential_row(
             ok=False,
             code=CODE_UNKNOWN,
             detail=(
-                f"{peer_label}'s credential store could not be read, so whether it holds "
-                f"a login for {name} is not known"
+                "this device's credential store could not be read, so whether it holds "
+                f"a login for {name} ({url}) is not known"
             ),
-            remedies=[f"check the credential store on {peer_label}, then re-check"],
+            remedies=["check the credential store on this device, then re-check"],
             source=SOURCE_UNKNOWN,
             observed={"server": name, "url": url},
         )

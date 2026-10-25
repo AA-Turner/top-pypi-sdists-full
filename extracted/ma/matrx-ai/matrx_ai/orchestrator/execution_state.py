@@ -264,6 +264,10 @@ class ExecutionState:
     # nothing was saved rather than the run quietly accepting the claim.
     change_claim_corrections: int = 0
 
+    # THE ANSWER CHECK (``orchestrator/answer_checks.py``): corrective turns spent because the finishing answer broke
+    # a rule its own kind sets (host seam ``answer_check``; knob ``mandate_honesty.answer_check_correction_turns``).
+    answer_check_corrections: int = 0
+
     # BLANK-TURN CONTINUATION (``_drop_blank_turn_for_continuation``). A model
     # that ends a turn with no visible output (reasoning only / nothing at all
     # — live: Gemini Pro after tool results) gets ONE continuation turn that

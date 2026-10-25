@@ -23,6 +23,7 @@ Retry routing will grow here later — keep it a single function.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 from typing import Any, Literal
 
 from matrx_utils import vcprint
@@ -71,6 +72,11 @@ class QuarantineRecord(BaseModel):
 
 # Host-visible ledger of every quarantined row (reset on each reload).
 QUARANTINED_ROWS: list[QuarantineRecord] = []
+#: The quarantine list a compile in progress writes to (set by ``_compile_rows``); swapped into
+#: QUARANTINED_ROWS when the compiled state is applied, so a reader never sees a half-built list.
+_QUARANTINE_SINK: contextvars.ContextVar[list[QuarantineRecord] | None] = contextvars.ContextVar(
+    "catalog_quarantine_sink", default=None
+)
 
 
 class CatalogCounts(BaseModel):
@@ -96,7 +102,8 @@ def _quarantine(
     errors: list[str],
 ) -> None:
     record = QuarantineRecord(kind=kind, row_id=row_id, name=name, errors=tuple(errors))
-    QUARANTINED_ROWS.append(record)
+    sink = _QUARANTINE_SINK.get()
+    (sink if sink is not None else QUARANTINED_ROWS).append(record)
     detail = "\n".join(f"    ● {e}" for e in errors)
     vcprint(
         f"ai.{kind} '{name}' ({row_id}) failed catalog compilation and is QUARANTINED "
@@ -288,7 +295,7 @@ class AiCatalogManager:
                 color="red",
             )
 
-        self.load_from_rows(
+        rows = dict(
             endpoints=[self._endpoint_dict(r) for r in endpoint_rows],
             apis=[self._api_dict(r) for r in api_rows],
             offerings=[self._offering_dict(r) for r in offering_rows],
@@ -299,6 +306,9 @@ class AiCatalogManager:
             voices=voices,
             rule_cells=await self._load_rule_cells(),
         )
+        # The compile is CPU work (~2 s on the live catalog): run it off the event loop, then
+        # swap the finished state in on the loop, so requests keep being served during a reload.
+        self._apply_state(await asyncio.to_thread(self._compile_rows, **rows))
 
     @staticmethod
     async def _load_rule_cells() -> list[dict[str, Any]] | None:
@@ -469,7 +479,30 @@ class AiCatalogManager:
             "kind": _row_value(row, "kind", "alias"),
         }
 
-    def load_from_rows(
+    def load_from_rows(self, **rows: Any) -> None:
+        """Compile + validate raw row dicts into the served catalog (sync): ``_compile_rows`` then
+        ``_apply_state``. The seam unit tests share; ``reload()`` runs the compile in a worker
+        thread so a catalog reload never blocks the event loop (stall 2026-10-24: ~2.2 s)."""
+        self._apply_state(self._compile_rows(**rows))
+
+    def _apply_state(self, state: dict[str, Any]) -> None:
+        """Swap a compiled state in: plain attribute assignments, on the caller's thread (the loop)."""
+        QUARANTINED_ROWS[:] = state.pop("_quarantined")
+        for name, value in state.items():
+            setattr(self, name, value)
+
+    def _compile_rows(self, **rows: Any) -> dict[str, Any]:
+        """Run the compile with its own quarantine list; returns the state ``_apply_state`` swaps in."""
+        sink: list[QuarantineRecord] = []
+        token = _QUARANTINE_SINK.set(sink)
+        try:
+            state = self._compile_state(**rows)
+        finally:
+            _QUARANTINE_SINK.reset(token)
+        state["_quarantined"] = sink
+        return state
+
+    def _compile_state(
         self,
         *,
         endpoints: list[dict[str, Any]],
@@ -481,8 +514,8 @@ class AiCatalogManager:
         aliases: list[dict[str, Any]] | None = None,
         voices: list[dict[str, Any]] | None = None,
         rule_cells: list[dict[str, Any]] | None = None,
-    ) -> None:
-        """Compile + validate raw row dicts into the served catalog (sync, pure).
+    ) -> dict[str, Any]:
+        """Compile + validate raw row dicts into the served catalog's state (sync, pure; no ``self`` writes).
 
         The seam unit tests and ``reload()`` share — fixture rows in tests, live
         rows in production. Replaces the entire served state atomically at the end.
@@ -494,8 +527,6 @@ class AiCatalogManager:
         lists available offerings — and every call with ``rule_cells=None``
         compile from ai.api.rules / ai.offering.override exactly as before.
         """
-        QUARANTINED_ROWS.clear()
-
         cells_by_offering: dict[str, dict[str, dict[str, Any]]] = {}
         cells_error: str | None = None
         if rule_cells:
@@ -725,25 +756,27 @@ class AiCatalogManager:
             if target:
                 display_names.setdefault(alias, target)
 
-        self._settings = parsed_settings
-        self._endpoints = parsed_endpoints
-        self._apis = parsed_apis
-        self._offerings = parsed_offerings
-        self._offerings_by_model = by_model
-        self._voices_by_provider = {
-            provider: tuple(items) for provider, items in voices_by_provider.items()
+        return {
+            "_settings": parsed_settings,
+            "_endpoints": parsed_endpoints,
+            "_apis": parsed_apis,
+            "_offerings": parsed_offerings,
+            "_offerings_by_model": by_model,
+            "_voices_by_provider": {
+                provider: tuple(items) for provider, items in voices_by_provider.items()
+            },
+            "_model_state": {
+                str(model.get("id")): dict(model) for model in (models or []) if model.get("id")
+            },
+            "_providers": dict(providers or {}),
+            "_compiled": compiled,
+            "_model_ids": frozenset(model_ids),
+            "_model_names": model_names,
+            "_aliases": alias_map,
+            "_display_names": display_names,
+            "_rules_source": rules_source,
+            "_loaded": True,
         }
-        self._model_state = {
-            str(model.get("id")): dict(model) for model in (models or []) if model.get("id")
-        }
-        self._providers = dict(providers or {})
-        self._compiled = compiled
-        self._model_ids = frozenset(model_ids)
-        self._model_names = model_names
-        self._aliases = alias_map
-        self._display_names = display_names
-        self._rules_source = rules_source
-        self._loaded = True
 
     # ── reads ────────────────────────────────────────────────────────────────
     def offerings_for(self, model_id: str) -> list[CatalogOffering]:
@@ -795,6 +828,21 @@ class AiCatalogManager:
             return None
         window = state.get("context_window")
         return int(window) if isinstance(window, int) and window > 0 else None
+
+    def wire_format_for(self, model_ref: str | None, offering_id: str | None = None) -> str | None:
+        """The ``ai.api.translator_key`` a call for ``model_ref`` is sent with — the pinned
+        offering's when it belongs to this model, else the preferred available offering's (the
+        same choice ``resolve_call_profile`` makes). ``None`` when the catalog cannot say; never
+        a guess. Sync and memory-only, for readers on the send path (the prompt estimator)."""
+        if not model_ref:
+            return None
+        model_id = self.resolve_model_ref(str(model_ref))
+        offering = self._offerings.get(str(offering_id)) if offering_id else None
+        if offering is None or str(offering.model_id) != model_id:
+            available = self.offerings_for(model_id)
+            offering = available[0] if available else None
+        api = self._apis.get(str(offering.api_id)) if offering is not None else None
+        return str(api.translator_key) if api is not None else None
 
     def model_display_name(self, model_ref: str | None) -> str | None:
         """THE NAME A PERSON READS for a model id, name or alias.

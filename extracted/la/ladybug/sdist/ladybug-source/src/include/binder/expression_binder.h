@@ -31,6 +31,11 @@ struct ExpressionBinderConfig {
     // may lead to empty result.
     // e.g. [* (r, n | WHERE label(n)='dummy') ]
     bool disableLabelFunctionLiteralRewrite = false;
+    // Set while a projection list is bound: an aggregate there is computed by that projection, so
+    // one whose structural name an earlier clause's expression has gets a fresh name, the same one
+    // for each occurrence in the list. In WHERE or ORDER BY it keeps the structural name.
+    bool bindingProjectionList = false;
+    std::unordered_map<std::string, std::string> projectionAggregateNames;
 };
 
 class ExpressionBinder {
@@ -44,6 +49,9 @@ public:
 
     // TODO(Xiyang): move to an expression rewriter
     LBUG_API std::shared_ptr<Expression> foldExpression(
+        const std::shared_ptr<Expression>& expression) const;
+    // Folds unless the result is too large to keep as a literal; then returns the expression.
+    std::shared_ptr<Expression> tryFoldExpression(
         const std::shared_ptr<Expression>& expression) const;
 
     // Boolean expressions.
@@ -152,10 +160,14 @@ public:
     const ExpressionBinderConfig& getConfig() { return config; }
 
 private:
+    std::shared_ptr<Expression> createFoldedExpression(
+        const std::shared_ptr<Expression>& expression, common::Value value) const;
     std::shared_ptr<Expression> simplifyExpression(const std::shared_ptr<Expression>& expression);
     std::shared_ptr<Expression> simplifyBooleanExpression(
         const std::shared_ptr<Expression>& expression);
     std::shared_ptr<Expression> simplifyCaseExpression(
+        const std::shared_ptr<Expression>& expression);
+    std::shared_ptr<Expression> simplifyArithmeticExpression(
         const std::shared_ptr<Expression>& expression);
 
 private:

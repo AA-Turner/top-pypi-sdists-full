@@ -5,6 +5,7 @@
 #include <type_traits>
 
 #include "common/cast.h"
+#include "common/exception/runtime.h"
 #include "common/serializer/buffer_reader.h"
 #include "common/serializer/serializer.h"
 #include "common/type_utils.h"
@@ -187,6 +188,33 @@ private:
             return false;
         }
         auto hashValue = HashIndexUtils::hash(key);
+        if (probeSlotChain(transaction, header, key, hashValue, result, isVisible)) {
+            return true;
+        }
+        if constexpr (std::same_as<T, common::string_t>) {
+            // Issue #1092: string-key hash indexes persisted by <= 0.20.x on signed-char
+            // platforms (x86-64, macOS arm64, wasm32) placed non-ASCII keys with the pre-0.21
+            // sign-extending string hash (issue #882), so the current hash probes the wrong
+            // slots. If the key sits in its legacy slot, fail loudly with the remedy instead
+            // of silently reporting it missing (0-row FTS queries, "term ... is missing"
+            // deletes). The hit is decided by byte-equality, so this never misfires; keys
+            // absent under both hashes still return false.
+            auto legacyHash = HashIndexUtils::hashStringPre021(key);
+            if (legacyHash != hashValue &&
+                probeSlotChain(transaction, header, key, legacyHash, result, isVisible)) {
+                throw common::RuntimeException{
+                    "Detected a stale string primary-key hash index entry (issue #1092): this "
+                    "index was built by v0.20.x or earlier and misplaces non-ASCII keys under "
+                    "the current string hash. Rebuild the index: for an FTS index run "
+                    "CALL DROP_FTS_INDEX followed by CALL CREATE_FTS_INDEX; for a table with "
+                    "a non-ASCII STRING primary key, recreate the table."};
+            }
+        }
+        return false;
+    }
+
+    bool probeSlotChain(const transaction::Transaction* transaction, const HashIndexHeader& header,
+        Key key, common::hash_t hashValue, common::offset_t& result, visible_func isVisible) {
         auto fingerprint = HashIndexUtils::getFingerprintForHash(hashValue);
         auto iter = getSlotIterator(HashIndexUtils::getPrimarySlotIdForHash(header, hashValue),
             transaction);
@@ -383,7 +411,24 @@ public:
     inline bool lookup(const transaction::Transaction* trx, T key, common::offset_t& result,
         visible_func isVisible) {
         DASSERT(indexInfo.keyDataTypes[0] == common::TypeUtils::getPhysicalTypeIDForType<T>());
-        return getTypedHashIndex(key)->lookupInternal(trx, key, result, isVisible);
+        auto* curIndex = getTypedHashIndex(key);
+        if (curIndex->lookupInternal(trx, key, result, isVisible)) {
+            return true;
+        }
+        if constexpr (std::same_as<HashIndexType<T>, common::string_t>) {
+            std::string_view sv = stringViewFromKey(key);
+            auto curPos = HashIndexUtils::getHashIndexPosition(key);
+            auto legacyPos = HashIndexUtils::getLegacyHashIndexPosition(sv);
+            if (legacyPos != curPos) {
+                common::offset_t legacyResult = 0;
+                auto* legacyIndex = getTypedHashIndexByPos<common::string_t>(legacyPos);
+                if (legacyIndex->lookupInternal(trx, sv, legacyResult, isVisible)) {
+                    result = legacyResult;
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     bool lookup(const transaction::Transaction* trx, common::ValueVector* keyVector,
@@ -412,6 +457,18 @@ public:
     inline bool insert(const transaction::Transaction* transaction, T key, common::offset_t value,
         visible_func isVisible) {
         DASSERT(indexInfo.keyDataTypes[0] == common::TypeUtils::getPhysicalTypeIDForType<T>());
+        if constexpr (std::same_as<HashIndexType<T>, common::string_t>) {
+            std::string_view sv = stringViewFromKey(key);
+            auto curPos = HashIndexUtils::getHashIndexPosition(key);
+            auto legacyPos = HashIndexUtils::getLegacyHashIndexPosition(sv);
+            if (legacyPos != curPos) {
+                common::offset_t tmp = 0;
+                auto* legacyIndex = getTypedHashIndexByPos<common::string_t>(legacyPos);
+                if (legacyIndex->lookupInternal(transaction, sv, tmp, isVisible)) {
+                    return false;
+                }
+            }
+        }
         return getTypedHashIndex(key)->insertInternal(transaction, std::move(key), value,
             isVisible);
     }
@@ -433,8 +490,32 @@ public:
         DASSERT(std::all_of(buffer.begin(), buffer.end(), [&](auto& elem) {
             return HashIndexUtils::getHashIndexPosition(elem.first) == indexPos;
         }));
+        if constexpr (std::same_as<HashIndexType<T>, common::string_t>) {
+            for (size_t i = bufferOffset; i < buffer.size(); i++) {
+                std::string_view sv = stringViewFromKey(buffer[i].first);
+                auto legacyPos = HashIndexUtils::getLegacyHashIndexPosition(sv);
+                if (legacyPos != indexPos) {
+                    common::offset_t tmp = 0;
+                    auto* legacyIndex = getTypedHashIndexByPos<common::string_t>(legacyPos);
+                    if (legacyIndex->lookupInternal(transaction, sv, tmp, isVisible)) {
+                        return i - bufferOffset;
+                    }
+                }
+            }
+        }
         return getTypedHashIndexByPos<HashIndexType<T>>(indexPos)->appendNoLock(transaction, buffer,
             bufferOffset, isVisible);
+    }
+
+    template<typename T>
+    static std::string_view stringViewFromKey(const T& key) {
+        if constexpr (std::same_as<T, common::string_t>) {
+            return key.getAsStringView();
+        } else if constexpr (std::same_as<T, std::string>) {
+            return std::string_view(key);
+        } else {
+            return key;
+        }
     }
 
     void delete_(common::string_t key) { return delete_(key.getAsStringView()); }

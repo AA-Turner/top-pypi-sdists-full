@@ -28,6 +28,7 @@
 import base64
 import binascii
 import builtins
+from collections.abc import Sequence, Set as AbstractSet
 import contextlib
 from datetime import datetime, timedelta, timezone
 import glob
@@ -395,7 +396,7 @@ class PersistentStore:
         # Files to renew on calls to flush
         self.__renew = set()
 
-        if not isinstance(namespace, str) or not self.__valid_key.match(
+        if not isinstance(namespace, str) or not self.__valid_key.fullmatch(
             namespace
         ):
             raise AppriseImproperlyConfigured(
@@ -457,6 +458,10 @@ class PersistentStore:
         With ``expires=False``, the entry is marked for renewal so pruning
         does not remove it.
         """
+        # Use the default key so renewal targets the file actually read.
+        if key is None:
+            key = self.base_key
+
         try:
             with self.open(key, mode="rb", compress=compress) as fd:
                 results = fd.read(self.max_file_size)
@@ -498,7 +503,7 @@ class PersistentStore:
         if key is None:
             key = self.base_key
 
-        elif not isinstance(key, str) or not self.__valid_key.match(key):
+        elif not isinstance(key, str) or not self.__valid_key.fullmatch(key):
             raise AppriseImproperlyConfigured(
                 f"Persistent Storage key ({key} provided is invalid"
             )
@@ -757,7 +762,7 @@ class PersistentStore:
         if key is None:
             key = self.base_key
 
-        elif not isinstance(key, str) or not self.__valid_key.match(key):
+        elif not isinstance(key, str) or not self.__valid_key.fullmatch(key):
             raise AppriseImproperlyConfigured(
                 f"Persistent Storage key ({key} provided is invalid"
             )
@@ -847,11 +852,15 @@ class PersistentStore:
         except KeyError:
             pass
 
+        # Replacing a saved entry changes what is on disk too
+        replaced = key in self._cache and self._cache[key].persistent
+
         # Store our new cache
         self._cache[key] = CacheObject(value, expires, persistent=persistent)
 
-        # Set our dirty flag
-        self.__dirty = persistent
+        # Set our dirty flag, but never clear it.  An earlier change may
+        # still be waiting to be written.
+        self.__dirty = self.__dirty or persistent or replaced
 
         if self.__dirty and self.__mode == PersistentStoreMode.FLUSH:
             # Flush changes to disk
@@ -1073,7 +1082,7 @@ class PersistentStore:
     ) -> bool:
         """Save the cache to disk."""
 
-        if self._cache is None or self.__mode == PersistentStoreMode.MEMORY:
+        if self.__mode == PersistentStoreMode.MEMORY:
             # nothing to do
             return True
 
@@ -1095,6 +1104,10 @@ class PersistentStore:
                 # We can't access the file or it does not exist
                 logger.debug("Could not update file timestamp: %s", path)
                 logger.debug("Persistent Storage Exception: %s", str(e))
+
+        if self._cache is None:
+            # The cache was never loaded, so there is nothing to save
+            return True
 
         if not force and self.__dirty is False:
             # Nothing further to do
@@ -1337,7 +1350,9 @@ class PersistentStore:
     @staticmethod
     def disk_scan(
         path: str,
-        namespace: Optional[Union[str, list[str]]] = None,
+        namespace: Optional[
+            Union[str, Sequence[str], AbstractSet[str]]
+        ] = None,
         closest: bool = True,
     ) -> list[str]:
         """Scan a path and return the detected namespaces."""
@@ -1348,7 +1363,7 @@ class PersistentStore:
             """Validate what was detected is a valid namespace."""
             return os.path.isdir(
                 os.path.join(path, x)
-            ) and PersistentStore.__valid_key.match(x)
+            ) and PersistentStore.__valid_key.fullmatch(x)
 
         # Handle our namespace searching
         if namespace:
@@ -1397,7 +1412,9 @@ class PersistentStore:
     @staticmethod
     def disk_prune(
         path: str,
-        namespace: Optional[Union[str, list[str]]] = None,
+        namespace: Optional[
+            Union[str, Sequence[str], AbstractSet[str]]
+        ] = None,
         expires: Optional[Union[int, float]] = None,
         action: bool = False,
     ) -> dict[str, list[dict[str, Union[str, bool]]]]:
@@ -1407,9 +1424,10 @@ class PersistentStore:
         ``action=True`` removes them and records the result.
         """
 
-        # Prepare our File Expiry
-        expires = (
-            datetime.now() - timedelta(seconds=expires)
+        # Prepare our File Expiry.  A missing or negative value falls
+        # back to the default expiry.
+        expires = datetime.now() - timedelta(
+            seconds=expires
             if isinstance(expires, (float, int)) and expires >= 0
             else PersistentStore.default_file_expiry
         )
@@ -1746,7 +1764,7 @@ class PersistentStore:
                     if not result
                     else (
                         result["key"]
-                        if self.__valid_key.match(result["key"])
+                        if self.__valid_key.fullmatch(result["key"])
                         else None
                     )
                 )
@@ -1770,7 +1788,7 @@ class PersistentStore:
                     if not result
                     else (
                         result["key"]
-                        if self.__valid_key.match(result["key"])
+                        if self.__valid_key.fullmatch(result["key"])
                         else None
                     )
                 )

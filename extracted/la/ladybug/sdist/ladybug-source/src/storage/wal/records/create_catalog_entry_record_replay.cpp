@@ -1,11 +1,15 @@
+#include "binder/ddl/bound_create_table_info.h"
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/index_catalog_entry.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
+#include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/scalar_macro_catalog_entry.h"
 #include "catalog/catalog_entry/sequence_catalog_entry.h"
 #include "catalog/catalog_entry/table_catalog_entry.h"
 #include "catalog/catalog_entry/type_catalog_entry.h"
+#include "common/partition_routing.h"
 #include "storage/index/art_index.h"
+#include "storage/partition_storage_registry.h"
 #include "storage/storage_manager.h"
 #include "storage/table/node_table.h"
 #include "storage/wal/wal_replayer.h"
@@ -53,9 +57,81 @@ void WALReplayer::replayCreateCatalogEntryRecord(WALRecord& walRecord) const {
     case CatalogEntryType::NODE_TABLE_ENTRY:
     case CatalogEntryType::REL_GROUP_ENTRY: {
         auto& entry = record.ownedCatalogEntry->constCast<TableCatalogEntry>();
-        auto newEntry = catalog->createTableEntry(transaction,
-            entry.getBoundCreateTableInfo(transaction, record.isInternal));
-        storageManager->createTable(newEntry->ptrCast<TableCatalogEntry>(), &clientContext);
+        auto boundInfo = entry.getBoundCreateTableInfo(transaction, record.isInternal);
+        const auto isRelGroup = entry.getType() == CatalogEntryType::REL_GROUP_ENTRY;
+        auto* recordedNodeEntry = isRelGroup ? nullptr : &entry.constCast<NodeTableCatalogEntry>();
+        const auto isPartitionParent =
+            recordedNodeEntry != nullptr && recordedNodeEntry->isPartitioned();
+        const auto isPartitionChild =
+            recordedNodeEntry != nullptr && recordedNodeEntry->isPartitionChild();
+        auto replayedParentID = common::INVALID_TABLE_ID;
+        if (isPartitionParent) {
+            // Every partition child carries its own create record and re-attaches below, so
+            // replay must not recreate the initial partition set implicitly: the names
+            // would collide with the replayed children.
+            boundInfo.extraInfo->ptrCast<binder::BoundExtraCreateNodeTableInfo>()
+                ->skipInitialPartitionCreation = true;
+        }
+        if (isPartitionChild) {
+            // The recorded parent ID is stale when recovery shifted the ID space; the
+            // replayed parent always precedes its children in WAL order.
+            replayedParentID = getReplayedEntryID(CatalogEntryType::NODE_TABLE_ENTRY,
+                recordedNodeEntry->getParentTableID());
+            boundInfo.extraInfo->ptrCast<binder::BoundExtraCreateNodeTableInfo>()
+                ->setPartitionParent(replayedParentID, recordedNodeEntry->getPartitionIndex());
+        }
+        if (isRelGroup) {
+            for (auto& relTableInfo :
+                boundInfo.extraInfo->ptrCast<binder::BoundExtraCreateRelTableGroupInfo>()
+                    ->relTableInfos) {
+                relTableInfo.nodePair.srcTableID = getReplayedEntryID(
+                    CatalogEntryType::NODE_TABLE_ENTRY, relTableInfo.nodePair.srcTableID);
+                relTableInfo.nodePair.dstTableID = getReplayedEntryID(
+                    CatalogEntryType::NODE_TABLE_ENTRY, relTableInfo.nodePair.dstTableID);
+            }
+        }
+        auto newEntry = catalog->createTableEntry(transaction, boundInfo);
+        auto* newTableEntry = newEntry->ptrCast<TableCatalogEntry>();
+        recordReplayedEntryID(entry.getType(), entry.getTableID(), newTableEntry->getTableID());
+        if (isRelGroup) {
+            const auto& recordedRelEntryInfos =
+                entry.constCast<RelGroupCatalogEntry>().getRelEntryInfos();
+            const auto& replayedRelEntryInfos =
+                newTableEntry->constCast<RelGroupCatalogEntry>().getRelEntryInfos();
+            DASSERT(recordedRelEntryInfos.size() == replayedRelEntryInfos.size());
+            for (auto i = 0u; i < recordedRelEntryInfos.size(); i++) {
+                recordReplayedEntryID(entry.getType(), recordedRelEntryInfos[i].oid,
+                    replayedRelEntryInfos[i].oid);
+            }
+        }
+        if (isPartitionChild) {
+            // Re-attach the child to the replayed parent: the child's own record is the
+            // only WAL trace of the parent's child set and LIST key map, both of which
+            // mutated after the parent's create record was logged.
+            auto* replayedParent = catalog->getTableCatalogEntry(transaction, replayedParentID)
+                                       ->ptrCast<NodeTableCatalogEntry>();
+            replayedParent->addChildTableID(newTableEntry->getTableID());
+            if (replayedParent->isPartitioned() &&
+                static_cast<common::PartitionMethod>(*replayedParent->getPartitionMethod()) ==
+                    common::PartitionMethod::LIST &&
+                !recordedNodeEntry->getListPartitionKey().empty()) {
+                replayedParent->addListPartition(recordedNodeEntry->getListPartitionKey(),
+                    newTableEntry->getTableID());
+            }
+            // Partition children own per-partition storage files; like the
+            // partitioned-parent branch of StorageManager::createTable, provision them
+            // through the registry rather than the primary storage manager.
+            auto* registry = PartitionStorageRegistry::Get(&clientContext);
+            if (!registry->isRemotelyRouted(replayedParentID,
+                    recordedNodeEntry->getPartitionIndex())) {
+                registry
+                    ->getOrCreate(&clientContext, newTableEntry->getTableID(),
+                        newTableEntry->getName())
+                    .createTable(newTableEntry, &clientContext);
+            }
+        } else {
+            storageManager->createTable(newTableEntry, &clientContext);
+        }
     } break;
     case CatalogEntryType::SCALAR_MACRO_ENTRY: {
         auto& macroEntry = record.ownedCatalogEntry->constCast<ScalarMacroCatalogEntry>();
@@ -64,23 +140,35 @@ void WALReplayer::replayCreateCatalogEntryRecord(WALRecord& walRecord) const {
     } break;
     case CatalogEntryType::SEQUENCE_ENTRY: {
         auto& sequenceEntry = record.ownedCatalogEntry->constCast<SequenceCatalogEntry>();
-        catalog->createSequence(transaction,
+        const auto replayedSequenceID = catalog->createSequence(transaction,
             sequenceEntry.getBoundCreateSequenceInfo(record.isInternal));
+        recordReplayedEntryID(CatalogEntryType::SEQUENCE_ENTRY, sequenceEntry.getOID(),
+            replayedSequenceID);
     } break;
     case CatalogEntryType::TYPE_ENTRY: {
         auto& typeEntry = record.ownedCatalogEntry->constCast<TypeCatalogEntry>();
         catalog->createType(transaction, typeEntry.getName(), typeEntry.getLogicalType().copy());
     } break;
     case CatalogEntryType::INDEX_ENTRY: {
-        auto& indexEntry = record.ownedCatalogEntry->constCast<IndexCatalogEntry>();
-        auto indexEntryCopy = indexEntry.copy();
-        catalog->createIndex(transaction, std::move(record.ownedCatalogEntry));
+        auto* indexEntry = record.ownedCatalogEntry->ptrCast<IndexCatalogEntry>();
+        indexEntry->setTableID(
+            getReplayedEntryID(CatalogEntryType::NODE_TABLE_ENTRY, indexEntry->getTableID()));
+        auto indexEntryCopy = indexEntry->copy();
+        const auto recordedIndexID = indexEntry->getOID();
+        const auto replayedIndexID =
+            catalog->createIndex(transaction, std::move(record.ownedCatalogEntry));
+        recordReplayedEntryID(CatalogEntryType::INDEX_ENTRY, recordedIndexID, replayedIndexID);
         rebuildArtIndexFromCatalog(clientContext, storageManager, catalog, transaction,
             *indexEntryCopy);
     } break;
     case CatalogEntryType::GRAPH_ENTRY: {
         auto& graphEntry = record.ownedCatalogEntry->constCast<GraphCatalogEntry>();
         catalog->createGraph(transaction, graphEntry.getName(), graphEntry.isAnyGraphType());
+        // Graph-entry IDs shift when rolled-back DDL consumed IDs between logging and
+        // replay, so a later GRAPH_ENTRY drop must translate through this map like every
+        // other entry type.
+        recordReplayedEntryID(CatalogEntryType::GRAPH_ENTRY, graphEntry.getOID(),
+            catalog->getGraphEntry(transaction, graphEntry.getName())->getOID());
     } break;
     default: {
         UNREACHABLE_CODE;

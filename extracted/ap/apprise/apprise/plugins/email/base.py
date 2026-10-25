@@ -738,6 +738,21 @@ class NotifyEmail(NotifyBase):
 
         return not has_error
 
+    def _url_address(self, email: str) -> str:
+        """Return ``email`` with its display name (if any) for url()."""
+        name = self.names.get(email)
+        if not name:
+            return email
+
+        # Quote a name holding a list delimiter (or @) so it is not split
+        # apart.  Apprise parses the name back as is, so no RFC 2047
+        # encoding or escaping is wanted here.
+        return (
+            f'"{name}" <{email}>'
+            if any(c in name for c in ",;@")
+            else f"{name} <{email}>"
+        )
+
     def url(self, privacy=False, *args, **kwargs):
         """
         Returns the URL built dynamically based on specified arguments.
@@ -787,8 +802,11 @@ class NotifyEmail(NotifyBase):
         params.update(self.url_parameters(privacy=privacy, *args, **kwargs))
 
         from_addr = None
-        if len(self.targets) == 1 and self.targets[0][1] != self.from_addr[1]:
-            # A custom email was provided
+        if not self.user or self.from_addr[1] != "{}@{}".format(
+            re.split(r"[\s@]+", self.user)[0], self.host
+        ):
+            # A custom email was provided.  Write it out unless the next
+            # parse would rebuild the same address from user@host.
             from_addr = self.from_addr[1]
 
         if self.smtp_host != self.host:
@@ -812,51 +830,18 @@ class NotifyEmail(NotifyBase):
         elif from_addr:
             params["from"] = formataddr((False, from_addr), charset="utf-8")
 
-        elif not self.user:
-            params["from"] = formataddr(
-                (False, self.from_addr[1]), charset="utf-8"
-            )
-
         if self.cc:
             # Handle our Carbon Copy Addresses
-            params["cc"] = ",".join(
-                [
-                    formataddr(
-                        (self.names.get(e, False), e),
-                        # Swap comma for its escaped url code (if
-                        # detected) since we use it as a delimiter
-                        charset="utf-8",
-                    ).replace(",", "%2C")
-                    for e in self.cc
-                ]
-            )
+            params["cc"] = ",".join([self._url_address(e) for e in self.cc])
 
         if self.bcc:
             # Handle our Blind Carbon Copy Addresses
-            params["bcc"] = ",".join(
-                [
-                    formataddr(
-                        (self.names.get(e, False), e),
-                        # Swap comma for its escaped url code (if
-                        # detected) since we use it as a delimiter
-                        charset="utf-8",
-                    ).replace(",", "%2C")
-                    for e in self.bcc
-                ]
-            )
+            params["bcc"] = ",".join([self._url_address(e) for e in self.bcc])
 
         if self.reply_to:
             # Handle our Reply-To Addresses
             params["reply"] = ",".join(
-                [
-                    formataddr(
-                        (self.names.get(e, False), e),
-                        # Swap comma for its escaped url code (if
-                        # detected) since we use it as a delimiter
-                        charset="utf-8",
-                    ).replace(",", "%2C")
-                    for e in self.reply_to
-                ]
+                [self._url_address(e) for e in self.reply_to]
             )
 
         # pull email suffix from username (if present)
@@ -1187,12 +1172,11 @@ class NotifyEmail(NotifyBase):
                 for addr in bcc_
             ]
 
-            if reply_to_:
-                # Format our reply-to addresses to support the Name field
-                reply_to = [
-                    formataddr((names.get(addr, False), addr), charset="utf-8")
-                    for addr in reply_to_
-                ]
+            # Format our reply-to addresses to support the Name field
+            reply_to_ = [
+                formataddr((names.get(addr, False), addr), charset="utf-8")
+                for addr in reply_to_
+            ]
 
             logger.debug(
                 "Email From: {}".format(formataddr(from_addr, charset="utf-8"))
@@ -1515,11 +1499,11 @@ class NotifyEmail(NotifyBase):
             base["Message-ID"] = make_msgid(domain=smtp_host)
             base["Date"] = format_datetime(datetime.now(tz=tzinfo))
 
-            if cc:
+            if cc_:
                 base["Cc"] = ",".join(cc_)
 
             if reply_to_:
-                base["Reply-To"] = ",".join(reply_to)
+                base["Reply-To"] = ",".join(reply_to_)
 
             yield EmailMessage(
                 recipient=to_addr,

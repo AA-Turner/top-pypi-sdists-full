@@ -1,7 +1,7 @@
 from sys import maxsize
 from typing import Any, TypeVar
 
-from reactivex import Observable
+from reactivex import Observable, abc, defer
 from reactivex import operators as ops
 from reactivex.internal import curry_flip
 
@@ -55,6 +55,13 @@ def slice_(
     _stop: int = maxsize if stop is None else stop
     _step: int = 1 if step is None else step
 
+    if _step < 0:
+        # Reversing events is not supported
+        raise TypeError("Negative step not supported.")
+
+    if _start < 0 and stop is not None and _stop > 0:
+        return _slice_mixed_bounds(source, _start, _stop, _step)
+
     pipeline: list[Any] = []
 
     if _stop >= 0:
@@ -70,11 +77,34 @@ def slice_(
 
     if _step > 1:
         pipeline.append(ops.filter_indexed(lambda x, i: i % _step == 0))
-    elif _step < 0:
-        # Reversing events is not supported
-        raise TypeError("Negative step not supported.")
 
     return source.pipe(*pipeline)
+
+
+def _slice_mixed_bounds(
+    source: Observable[_T], start: int, stop: int, step: int
+) -> Observable[_T]:
+    def factory(_: abc.SchedulerBase) -> Observable[_T]:
+        def before_stop(item: tuple[_T, int]) -> bool:
+            return item[1] < stop
+
+        def discard_index(item: tuple[_T, int]) -> _T:
+            return item[0]
+
+        # Keep source indices until the tail is known. Taking the positive
+        # stop first would make the negative start relative to that prefix.
+        tail = source.pipe(
+            ops.map_indexed(lambda value, index: (value, index)),
+            ops.take_last(-start),
+            ops.take_while(before_stop),
+            ops.map(discard_index),
+        )
+        if step > 1:
+            return tail.pipe(ops.filter_indexed(lambda value, index: index % step == 0))
+        return tail
+
+    # The generated indices must restart for each subscription.
+    return defer(factory)
 
 
 __all__ = ["slice_"]

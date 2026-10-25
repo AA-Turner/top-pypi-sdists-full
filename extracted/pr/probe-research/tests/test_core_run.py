@@ -20,11 +20,14 @@ import inspect
 import json
 import os
 import signal
+import errno
+import socket
 import subprocess
 import sys
 import textwrap
 import threading
 import time
+import urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -858,3 +861,79 @@ def test_the_cli_json_events_module_is_the_core_events_module():
     from probe.cli import json_events
 
     assert json_events is events
+
+
+@pytest.mark.parametrize("raised, reachable", [
+    (urllib.error.URLError(socket.gaierror(8, "nodename nor servname provided")), False),
+    (urllib.error.URLError(OSError(errno.ENETUNREACH, "Network is unreachable")), False),
+    # An answer of a kind: the host refused, or hung; never the laptop's network.
+    (urllib.error.URLError(ConnectionRefusedError(61, "Connection refused")), True),
+    (TimeoutError("timed out"), True),
+    (urllib.error.HTTPError("https://x.invalid", 503, "Service Unavailable", {}, None), True),
+    (ValueError("manifest is not a JSON object"), True),
+    (None, True),
+])
+def test_the_version_read_says_whether_the_manifest_answered(monkeypatch, raised, reachable):
+    """The Probe service reads it after a failed update: offline (no answer at
+    all) is not a failure in a row (`updater._offline`)."""
+    from probe import version_policy
+    from probe.core import run
+
+    def fetch(url, *, context=None):
+        if raised is not None:
+            raise raised
+        return {"cli": {"latest": "9.9.9"}}
+
+    monkeypatch.setattr(version_policy, "fetch", fetch)
+    assert run._cli_latest(fetch=True) == ("9.9.9" if raised is None else None, reachable)
+    monkeypatch.setattr(version_policy, "read_cache", lambda: ({"cli": {"latest": "9.9.8"}}, 0, True))
+    assert run._cli_latest(fetch=False) == ("9.9.8", None), "not asked: no network"
+
+
+# -- workspace_limit: `probe workspace limit`, as the Probe service runs it ------
+
+_LIMITED_CONFIG = {
+    "version": 2,
+    "current_context": "default",
+    "contexts": {"default": {"workspace": {"id": "11111111-1111-1111-1111-111111111111", "project": None,
+                                           "limit": True, "team_items": "hide", "name": "Mine"}}},
+}
+
+
+def _limited_side(tmp_path: Path, side: str) -> Path:
+    _side_env(tmp_path, side)
+    path = tmp_path / side / "config.json"
+    path.write_text(json.dumps(_LIMITED_CONFIG))
+    return path
+
+
+def test_workspace_limit_team_is_the_same_change_as_the_cli_command(tmp_path):
+    """Lifting the limit needs no network: both doors make the same change, and
+    the core run's result row carries exactly the CLI's `--json` object."""
+    cli_config, core_config = _limited_side(tmp_path, "cli"), _limited_side(tmp_path, "core")
+    cli = _child(tmp_path, "cli", "cli", ["workspace", "limit", "--team", "--json"], bare=True)
+    core = _child(tmp_path, "core", "core", ["workspace_limit"], stdin='{"workspace": null}', bare=True)
+
+    assert (cli.returncode, core.returncode) == (0, 0), (cli.stderr, core.stderr)
+    events = _events(core.stdout)
+    assert [e["event"] for e in events] == ["result", "done"]
+    (row,) = events[0]["agents"]
+    assert (row["requested"], row["actual"]) == ({"workspace": None, "team_items": None}, json.loads(cli.stdout))
+    assert json.loads(cli_config.read_text()) == json.loads(core_config.read_text())
+    assert json.loads(core_config.read_text())["contexts"]["default"]["workspace"] == {
+        "id": "11111111-1111-1111-1111-111111111111", "project": None,
+    }
+
+
+def test_an_agent_the_daemon_records_cannot_change_the_limit_through_the_runner(tmp_path, monkeypatch):
+    from probe.sdk import session_marker
+
+    config = _limited_side(tmp_path, "core")
+    monkeypatch.setenv("XDG_STATE_HOME", _side_env(tmp_path, "core")["XDG_STATE_HOME"])
+    session_marker.mark_session_profile(AGENT_SESSION, session_marker.RECORDER_DAEMON)
+    result = _child(tmp_path, "core", "core", ["workspace_limit"], stdin='{"workspace": null}', bare=True,
+                    CLAUDE_CODE_SESSION_ID=AGENT_SESSION)
+    out = _events(result.stdout)
+    assert result.returncode == 2 and out[-1]["event"] == "done" and not out[-1]["ok"], result.stderr
+    assert "probe workspace limit" in next(e["message"] for e in out if e["event"] == "error")
+    assert json.loads(config.read_text()) == _LIMITED_CONFIG

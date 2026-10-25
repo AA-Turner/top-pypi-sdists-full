@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wcwidth
-Version: 0.9.3
+Version: 0.9.4
 Summary: Measures the displayed width of unicode strings in a terminal
 Author-email: Jeff Quast <contact@jeffquast.com>
 Project-URL: Homepage, https://github.com/jquast/wcwidth

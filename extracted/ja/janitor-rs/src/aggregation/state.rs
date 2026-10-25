@@ -501,6 +501,104 @@ impl<'a> AggregationSet<'a> {
         }
     }
 
+    /// Aggregate rows whose matches are a growing prefix of an insertion
+    /// order, filtered by a rank threshold, with an insert-only rank tree.
+    ///
+    /// Queries arrive bucketed by inserted-prefix length: the queries in
+    /// `queries[bin_ends[v - 1]..bin_ends[v]]` are answered once the first
+    /// `v` positions of `insertion_order` have been inserted. Each query
+    /// matches every inserted source position whose `position_ranks` entry
+    /// is at least its threshold rank, and merges their aggregate into its
+    /// output slot. A rank of `usize::MAX` is never inserted.
+    ///
+    /// ELI5: cards arrive one at a time and are filed by their rank. Each
+    /// question asks "of the cards that have arrived so far, combine every
+    /// card ranked at least this high", which a few stacked summary boxes
+    /// answer without looking at each card.
+    ///
+    /// This is the same tree as [`Self::aggregate_dual_rank_tree`]; only the
+    /// order in which positions arrive and the query coordinates are
+    /// supplied explicitly, so range joins can drive it from their own
+    /// layouts. The caller must check [`Self::supports_dual_rank_tree`].
+    ///
+    /// # Arguments
+    ///
+    /// * `insertion_order` - Source positions in the order they become
+    ///   visible to later queries.
+    /// * `position_ranks` - Rank of every source position, or `usize::MAX`.
+    /// * `rank_count` - One past the largest rank in `position_ranks`.
+    /// * `queries` - One `u64` per query: the output slot in the low 32
+    ///   bits and the threshold rank in the high 32. Packing keeps 8 bytes
+    ///   per output row; `(prefix, threshold, slot)` tuples held 24.
+    /// * `bin_ends` - Cumulative query counts per inserted-prefix length;
+    ///   `bin_ends[0]` is 0.
+    /// * `inputs` - The aggregation inputs this set was built from.
+    pub(crate) fn aggregate_rank_threshold_sweep(
+        &mut self,
+        insertion_order: &[usize],
+        position_ranks: &[usize],
+        rank_count: usize,
+        queries: &[u64],
+        bin_ends: &[usize],
+        inputs: &'a [AggregationInput<'_>],
+    ) {
+        if rank_count == 0 || queries.is_empty() {
+            return;
+        }
+        let tree_size = rank_count.next_power_of_two();
+        let tree_output_len = tree_size.saturating_mul(2);
+        let mut tree = AggregationSet::new(tree_output_len, self.source_len, inputs, true)
+            .expect("rank threshold sweep inputs were validated by the caller");
+        let mut inserted = 0_usize;
+        let mut nodes = Vec::new();
+        let mut right_nodes = Vec::new();
+        // A plain slice loop on purpose: driving this loop from a generic
+        // iterator made the Arun 40M count sweep 0.4-0.8 s slower.
+        for bin in 1..bin_ends.len() {
+            let bin_queries = &queries[bin_ends[bin - 1]..bin_ends[bin]];
+            if bin_queries.is_empty() {
+                continue;
+            }
+            let prefix_len = bin.min(insertion_order.len());
+            for &position in &insertion_order[inserted.min(prefix_len)..prefix_len] {
+                let rank = position_ranks[position];
+                if rank != usize::MAX {
+                    tree.insert_path(position, tree_size + rank);
+                }
+            }
+            inserted = inserted.max(prefix_len);
+            for &query in bin_queries {
+                let output_slot = (query as u32) as usize;
+                let threshold = (query >> 32) as usize;
+                if threshold >= rank_count {
+                    continue;
+                }
+                // ELI5: collect the few summary boxes that exactly cover ranks
+                // `threshold..`, walking the usual half-open range up the tree;
+                // the empty padding leaves past `rank_count` are identities.
+                nodes.clear();
+                right_nodes.clear();
+                let mut left = tree_size + threshold;
+                let mut right = tree_output_len;
+                while left < right {
+                    if left & 1 == 1 {
+                        nodes.push(left);
+                        left += 1;
+                    }
+                    if right & 1 == 1 {
+                        right -= 1;
+                        right_nodes.push(right);
+                    }
+                    left /= 2;
+                    right /= 2;
+                }
+                for &node in nodes.iter().chain(right_nodes.iter().rev()) {
+                    self.merge_output_from(&tree, node, output_slot);
+                }
+            }
+        }
+    }
+
     /// Insert one source position into its leaf and every ancestor.
     ///
     /// ELI5: instead of rebuilding a parent from both children after every

@@ -183,6 +183,36 @@ preloader={
             'desc':'calculate time it takes to cross a distance at a speed using How Much Time will be needed to cross a distance Y at Speed of X Time=(Distance/Speed)'
             	},
     f'{uuid1()}':{
+            'cmds':['annual taxable income virginia',"ati va",],
+            'exec':AnnualTaxableIncome_VA,
+            'desc':'calculate your annual taxable income in VA'
+            	},
+    f'{uuid1()}':{
+            'cmds':['annual taxable income federal',"ati fed",],
+            'exec':AnnualTaxableIncome_Federal,
+            'desc':'calculate your federal annual taxable income'
+            	},
+    f'{uuid1()}':{
+            'cmds':['tax bracket va',"tb va",],
+            'exec':TaxBracket_VA,
+            'desc':'calculate your annual state tax'
+            	},
+   	f'{uuid1()}':{
+            'cmds':['federal single tax brackets log',"fstb",],
+            'exec':federalSingleTaxBracketsLogger,
+            'desc':'Store federal tax brackets'
+            	},
+   	   f'{uuid1()}':{
+            'cmds':['virginia state tax brackets log',"vastb",],
+            'exec':virginiaTaxBracketsLogger,
+            'desc':'Store virginia state tax brackets'
+            	},
+    f'{uuid1()}':{
+            'cmds':['tax bracket federal single',"tb fed s",],
+            'exec':TaxBracket_Federal_Single,
+            'desc':'calculate your annual single filing federal tax'
+            	},
+    f'{uuid1()}':{
             'cmds':['trip time 2',"ttm2",'time=distance/speed normalized','t=d/s nml'],
             'exec':trip_time2,
             'desc':'normalized calculate time it takes to cross a distance at a speed using How Much Time will be needed to cross a distance Y at Speed of X Time=(Distance/Speed)'

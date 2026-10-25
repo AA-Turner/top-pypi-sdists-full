@@ -35,10 +35,11 @@ def _request(**kwargs):
     return TogetherTranslator().to_together(_cfg(**kwargs), _profile())
 
 
-def test_unset_sends_nothing():
-    """NOT SET sends nothing unless a cell declares default_effort (V2 verifier:
-    live 6f26a08b sent an undeclared "high"; omission probed live 2026-10-04)."""
-    assert "reasoning_effort" not in _request()
+def test_unset_sends_the_lowest_offered_level():
+    """NOT SET runs at the platform default (owner ruling 2026-10-24: low). This
+    listing offers no "low", so the nearest level it DOES offer is sent — never
+    the provider's own unset depth, never reasoning off."""
+    assert _request()["reasoning_effort"] == "high"
     assert "reasoning" not in _request()
 
 

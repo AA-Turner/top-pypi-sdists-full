@@ -29,6 +29,7 @@ import logging
 import re
 import secrets
 import time
+import unicodedata
 import uuid
 from asyncio import InvalidStateError
 from collections import deque
@@ -311,6 +312,33 @@ ASK_UNAVAILABLE_NOTICE = (
 #: not an arbitrary awaitable — widening the annotation here would push that
 #: distinction out to every caller.
 _AskGateFn = Callable[[list[Any]], Coroutine[Any, Any, dict[str, list[str]] | None]]
+
+
+def _quoted_echo_within_cells(text: str, budget: int = 20) -> str:
+    """Bound the echoed unknown language by rendered display cells.
+
+    Mirrors the terminal's helper, including the ``repr`` detail: the row shows
+    the ESCAPED payload, so twenty backslashes cost forty cells. This module
+    deliberately does not import ``rich`` (the runtime has no console), so
+    width comes from the East Asian Width property: wide and fullwidth
+    characters cost two cells.
+    """
+
+    def width(value: str) -> int:
+        total = 0
+        for char in value:
+            total += 2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1
+        return total
+
+    shown = repr(text)[1:-1]
+    if width(shown) <= budget:
+        return f"'{shown}'"
+    out = ""
+    for char in shown:
+        if width(out + char) > budget - 1:
+            break
+        out += char
+    return f"'{out}…'"
 
 
 class AskUnavailableError(RuntimeError):
@@ -2843,7 +2871,6 @@ class ServingSessionHandle(SessionHandle):
             SPOOL_RECEIPT_PROMPT,
             SPOOL_RECEIPT_WAKE,
             InboxLine,
-            append_inbox,
         )
 
         session = getattr(self, "_session", None)
@@ -2851,9 +2878,14 @@ class ServingSessionHandle(SessionHandle):
         directory = getattr(transcript, "directory", None)
         if directory is None:
             raise self._retiring_refusal()
+        from local_operator.paths import config_dir
+        from local_operator.session.runtime.inbox import append_for_successor
+        from local_operator.wakes.spooled import await_spool_write
+
         try:
-            written = await asyncio.to_thread(
-                append_inbox,
+            written = await await_spool_write(
+                append_for_successor,
+                config_dir(),
                 Path(directory),
                 InboxLine(
                     text=text,
@@ -2891,46 +2923,6 @@ class ServingSessionHandle(SessionHandle):
             "session runtime: spooled a %s for the successor",
             "prompt" if source == SOURCE_USER else "peer message",
         )
-        if source == SOURCE_USER or wake:
-            # THE PROMISE IN THE RECEIPT IS KEPT HERE, and this is the only
-            # writer of it. The two receipts returned below are promises about a
-            # runtime THIS process cannot start: it holds the transcript lease
-            # until it exits, so the successor has to be raised by someone else
-            # — and until this call existed, that someone was "whoever engages
-            # next", which on this fleet is nobody for a headless session with no
-            # wake due. Measured 2026-09-21: a session retired for a newer build
-            # with rows in its spool and no successor, and the receipt it had
-            # handed the sender ("held for the next runtime — it runs it") was
-            # true of no process at all.
-            #
-            # ONLY TURN-ASKING ROWS CREATE THE OBLIGATION. A quiet note does not:
-            # ``wake=False`` means "read this on your next turn", which is a
-            # deferral the sender asked for rather than work a successor owes
-            # (``peer_send.deliver_peer_message`` argues the trade), and raising a
-            # runtime for every note is the process churn that argument declines.
-            # A ``SOURCE_USER`` row always owes one: it is the OWNER's own prompt,
-            # and its receipt says the next runtime runs it.
-            #
-            # Best-effort in both directions, like every evidence write on this
-            # path: the row is already in the spool, so a failure here loses the
-            # RAISING and not the message, and it must not fail a delivery the
-            # sender is about to be told succeeded.
-            # NOTE_SPOOLED_TURN ALSO RAISES THE READER, and that argument lives in
-            # ONE place — see ``wakes.spooled.note_spooled_turn`` (review round 5,
-            # R5-1; round 6, R6-2; rationale deduplicated in round 7, R7-1). What
-            # matters at this call site: the supervisor is normally DOWN and
-            # nothing on the spool path used to revive it, so a row spooled for a
-            # successor waited for an unrelated schedule persist to raise the only
-            # process that can act on it.
-            from local_operator.paths import config_dir
-            from local_operator.wakes.spooled import note_spooled_turn
-
-            noted = str(getattr(session, "session_id", "") or "") or Path(directory).name
-            note_spooled_turn(
-                config_dir(),
-                noted,
-                cwd=str(getattr(self, "_desktop_cwd", "") or ""),
-            )
         if source == SOURCE_USER:
             return SPOOL_RECEIPT_PROMPT
         return SPOOL_RECEIPT_WAKE if wake else SPOOL_RECEIPT_NOTE
@@ -5530,6 +5522,33 @@ class ServingSessionHandle(SessionHandle):
             )
             if carried is not None:
                 spec = spec.model_copy(update={"reasoning_effort": carried})
+        # THE DIAL SURVIVES A PAIR RE-PICK, and a re-pick is the ONLY case
+        # (ui#1266, ui#1265). ``build_model_spec`` never seeds ``fast_mode`` -- a
+        # premium tier must not arrive by inference -- and ``Session.set_model``
+        # assigns the rebuilt spec BEFORE its same-pair early return, so a
+        # re-pick of the row already in force cleared a dial the user had set.
+        # That is exactly the RPC a draft created with the toggle on sends on its
+        # first turn (``attached._consume_model_override``), so the owner dropped
+        # to standard speed at the moment its viewer expected the tier it had
+        # just chosen.
+        #
+        # The carry lives HERE, in the spec this method rebuilds, and not inside
+        # ``Session.set_model``: that surface is also how the toggle itself lands
+        # (``/fast off`` is a same-pair ``model_copy``), so a blanket preserve
+        # there would erase the user's own OFF one edge later.
+        #
+        # A GENUINE switch does NOT carry it -- the tier is bought per model, and
+        # re-arming it on a different route is how a switch costs money nobody
+        # agreed to -- and it is carried only onto a route that SELLS the tier,
+        # the same ``supports_fast_mode`` clamp the journal restore and the spawn
+        # environment apply, because the alternative is a 400 on the next turn.
+        if (
+            current is not None
+            and getattr(current, "fast_mode", False)
+            and (spec.provider, spec.model_id) == (current.provider, current.model_id)
+            and spec.supports_fast_mode
+        ):
+            spec = spec.model_copy(update={"fast_mode": True})
         # ``explicit``: the phone's model switch is a deliberate choice, so a
         # pinned fallback route is withdrawn even when it re-selects the model
         # the fallback displaced — see ``Session.set_model``.
@@ -7949,7 +7968,8 @@ class ServingSessionHandle(SessionHandle):
             return self._approvals_slash(session, args, SlashResult, may_loosen=may_loosen)
         if command == "language":
             # The terminal's funnel, served: one `settings_io.write_setting`
-            # against the `language` key; receipts word for word (see
+            # against the `language` key; the receipt keeps the terminal's
+            # voice but enumerates the values for the phone (see
             # `_language_slash`).
             return self._language_slash(args, SlashResult)
         # THE DELETE-SCOPED VERBS ARE GATED HERE, where the verb is chosen.
@@ -9729,9 +9749,15 @@ class ServingSessionHandle(SessionHandle):
         ITS spec: a phone toggling the dial must reach the spec the next
         provider call is built from, and the app's copy of the rule is not
         loaded in a headless process. Bare toggles, ``on``/``off`` name the
-        resulting state, ``status`` only reports. Session-scoped and never
-        persisted — fast mode is billed at a premium, so it must not outlive
-        the task it was switched on for.
+        resulting state, ``status`` only reports.
+
+        CONVERSATION-scoped, and now DURABLE within that scope: ``set_model``
+        journals the dial beside the model and its level, so a reopen comes back
+        on the speed the operator chose instead of silently reverting
+        (``damianvtran/local-operator-ui#1266``). It is still NOT a global
+        default — nothing here writes config, so a new conversation starts at
+        the model's standard speed and premium pricing never becomes the
+        machine's resting state. This command only names the resulting state.
         """
         spec = getattr(session, "model", None)
         label = getattr(session, "model_label", "") or "this model"
@@ -9796,8 +9822,11 @@ class ServingSessionHandle(SessionHandle):
         from its config watcher (slice C's external-change path announces
         it), which is why this branch writes and receipts but never repaints.
 
-        The receipts mirror the terminal's word for word — the ``/effort``
-        precedent — the option list and the "already" no-op included.
+        The receipts keep the terminal's VOICE but not its bytes: the phone
+        sheet has no argument picker, so this client enumerates the accepted
+        values where the terminal names the space key instead (see the 70-cell
+        notice row in ``OperatorApp._cmd_language``). The "already" no-op stays
+        word for word.
         """
         from local_operator import settings_io
         from local_operator.i18n.resolve import (
@@ -9815,9 +9844,11 @@ class ServingSessionHandle(SessionHandle):
         if not wanted:
             return SlashResult(
                 kind="notice",
+                # The phone sheet has no argument picker, so this client DOES
+                # enumerate the value space; the terminal receipt (which has
+                # the space picker) does not, for its 70-cell notice row.
                 text=(
-                    f"language: {resolved} ({language_name(resolved)}) — "
-                    f"/language <{'|'.join(options)}>; space"
+                    f"language: {resolved} ({language_name(resolved)}) — " f"{', '.join(options)}"
                 ),
                 style="info",
             )
@@ -9831,7 +9862,10 @@ class ServingSessionHandle(SessionHandle):
             # unaudited locale keys no catalogue and would render codes.
             return SlashResult(
                 kind="notice",
-                text=f"unknown language {wanted!r} — available: {', '.join(options)}",
+                text=(
+                    f"unknown language {_quoted_echo_within_cells(wanted)} — "
+                    f"available: {', '.join(options)}"
+                ),
                 style="warning",
             )
         stored = config_value()
@@ -11099,6 +11133,7 @@ async def spawn_owned_session(
     provider: str | None = None,
     model_id: str | None = None,
     birth_effort: str | None = None,
+    birth_fast: bool = False,
     resume: str | None = None,
     model_selection_override: bool = True,
 ) -> ServingSessionHandle:
@@ -11115,6 +11150,13 @@ async def spawn_owned_session(
     ``--effort`` is applied by ``exec_session`` AFTER construction and RAISES on
     a level the model cannot express, where a stored birth choice must clamp.
     Two different contracts, so two different names.
+
+    ``birth_fast`` is the same kind of sample one field over (ui#1265): the SPEED
+    its viewer chose before the conversation existed, when there is no session to
+    hold a dial yet. It rides ``args.birth_fast`` into ``create_session``, which
+    clamps it on the route's own ``supports_fast_mode`` -- a pick can outlive the
+    catalogue that offered it, and refusing a birth record here would turn a
+    stale tier into a conversation that cannot open.
     """
     # These imports MUST stay function-local, and ``create_session`` most of
     # all. Do not "tidy" them to the top of the file.
@@ -11191,6 +11233,7 @@ async def spawn_owned_session(
         train=False,
         resume=resume,
         birth_effort=birth_effort,
+        birth_fast=birth_fast,
         model_selection_override=model_selection_override,
     )
 

@@ -3,6 +3,7 @@
 #include "c_api/helpers.h"
 #include "c_api/lbug.h"
 #include "common/constants.h"
+#include "common/type_utils.h"
 #include "common/types/types.h"
 #include "common/types/value/nested.h"
 #include "common/types/value/node.h"
@@ -40,7 +41,7 @@ static bool canCopyValueForNested(const Value& value, const LogicalType& targetT
     if (value.getDataType() == targetType) {
         return true;
     }
-    if (value.isNull() && value.getDataType().getLogicalTypeID() == LogicalTypeID::ANY) {
+    if (value.isNull()) {
         return true;
     }
     if (isEmptyNestedWithAny(value)) {
@@ -51,8 +52,45 @@ static bool canCopyValueForNested(const Value& value, const LogicalType& targetT
         targetType.getLogicalTypeID() == LogicalTypeID::FLOAT) {
         return true;
     }
-    return value.getDataType().getLogicalTypeID() == targetType.getLogicalTypeID() &&
-           value.getDataType().containsAny();
+    if (LogicalTypeUtils::isIntegral(value.getDataType()) &&
+        LogicalTypeUtils::isIntegral(targetType)) {
+        return true;
+    }
+    if (value.getDataType().getLogicalTypeID() != targetType.getLogicalTypeID()) {
+        return false;
+    }
+    const auto* nested = &value;
+    if (targetType.getLogicalTypeID() == LogicalTypeID::LIST) {
+        const auto& childType = ListType::getChildType(targetType);
+        for (auto i = 0u; i < NestedVal::getChildrenSize(nested); ++i) {
+            if (!canCopyValueForNested(*NestedVal::getChildVal(nested, i), childType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (targetType.getLogicalTypeID() == LogicalTypeID::MAP) {
+        const auto& keyType = MapType::getKeyType(targetType);
+        const auto& valueType = MapType::getValueType(targetType);
+        for (auto i = 0u; i < NestedVal::getChildrenSize(nested); ++i) {
+            auto* mapEntry = NestedVal::getChildVal(nested, i);
+            if (!canCopyValueForNested(*NestedVal::getChildVal(mapEntry, 0), keyType) ||
+                !canCopyValueForNested(*NestedVal::getChildVal(mapEntry, 1), valueType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    if (targetType.getLogicalTypeID() == LogicalTypeID::STRUCT) {
+        for (auto i = 0u; i < NestedVal::getChildrenSize(nested); ++i) {
+            if (!canCopyValueForNested(*NestedVal::getChildVal(nested, i),
+                    StructType::getFieldType(targetType, static_cast<struct_field_idx_t>(i)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+    return value.getDataType().containsAny();
 }
 
 static std::string incompatibleParameterTypeMessage(const LogicalType& left,
@@ -69,28 +107,54 @@ static lbug_value* createCAPIValue(std::unique_ptr<Value> value) {
     return c_value;
 }
 
+// The target comes from LogicalTypeUtils::tryGetMaxLogicalType, which joins two integer types only
+// into one that holds both: implicit integer casts only widen, and a signed/unsigned pair becomes a
+// wider signed type. So the cast below is exact. CreateListAllIntegerPairs pins this.
+static std::unique_ptr<Value> castIntegerForNested(const Value& value,
+    const LogicalType& targetType) {
+    // A null of the target type keeps its exact type: SERIAL's default value is an INT64.
+    auto result = std::make_unique<Value>(Value::createNullValue(targetType));
+    result->setNull(false);
+    TypeUtils::visit(
+        value.getDataType(),
+        [&]<IntegerTypes SRC>(SRC) {
+            TypeUtils::visit(
+                targetType,
+                [&]<IntegerTypes DST>(DST) {
+                    auto castValue = static_cast<DST>(value.getValue<SRC>());
+                    result->copyFromRowLayout(reinterpret_cast<const uint8_t*>(&castValue));
+                },
+                [](auto) { UNREACHABLE_CODE; });
+        },
+        [](auto) { UNREACHABLE_CODE; });
+    return result;
+}
+
 static std::unique_ptr<Value> copyValueForNested(const Value& value,
     const LogicalType& targetType) {
-    if (value.isNull() && value.getDataType().getLogicalTypeID() == LogicalTypeID::ANY) {
+    if (value.getDataType() == targetType) {
+        return value.copy();
+    }
+    if (value.isNull()) {
         return std::make_unique<Value>(Value::createNullValue(targetType));
     }
-    if (value.getDataType() != targetType && isEmptyNestedWithAny(value)) {
+    if (isEmptyNestedWithAny(value)) {
         return std::make_unique<Value>(Value::createDefaultValue(targetType));
     }
-    if (value.getDataType() != targetType &&
-        targetType.getLogicalTypeID() == LogicalTypeID::STRING) {
+    if (targetType.getLogicalTypeID() == LogicalTypeID::STRING) {
         return std::make_unique<Value>(Value::createValue<std::string>(value.toString()));
     }
-    if (value.getDataType() != targetType &&
-        targetType.getLogicalTypeID() == LogicalTypeID::DOUBLE) {
+    if (targetType.getLogicalTypeID() == LogicalTypeID::DOUBLE) {
         return std::make_unique<Value>(std::stod(value.toString()));
     }
-    if (value.getDataType() != targetType &&
-        targetType.getLogicalTypeID() == LogicalTypeID::FLOAT) {
+    if (targetType.getLogicalTypeID() == LogicalTypeID::FLOAT) {
         return std::make_unique<Value>(static_cast<float>(std::stof(value.toString())));
     }
-    if (value.getDataType() != targetType &&
-        value.getDataType().getLogicalTypeID() == LogicalTypeID::LIST &&
+    if (LogicalTypeUtils::isIntegral(value.getDataType()) &&
+        LogicalTypeUtils::isIntegral(targetType)) {
+        return castIntegerForNested(value, targetType);
+    }
+    if (value.getDataType().getLogicalTypeID() == LogicalTypeID::LIST &&
         targetType.getLogicalTypeID() == LogicalTypeID::LIST) {
         std::vector<std::unique_ptr<Value>> children;
         const auto& childType = ListType::getChildType(targetType);
@@ -100,8 +164,7 @@ static std::unique_ptr<Value> copyValueForNested(const Value& value,
         }
         return std::make_unique<Value>(targetType.copy(), std::move(children));
     }
-    if (value.getDataType() != targetType &&
-        value.getDataType().getLogicalTypeID() == LogicalTypeID::MAP &&
+    if (value.getDataType().getLogicalTypeID() == LogicalTypeID::MAP &&
         targetType.getLogicalTypeID() == LogicalTypeID::MAP) {
         std::vector<std::unique_ptr<Value>> children;
         const auto& keyType = MapType::getKeyType(targetType);
@@ -118,6 +181,15 @@ static std::unique_ptr<Value> copyValueForNested(const Value& value,
                 copyValueForNested(*NestedVal::getChildVal(mapEntry, 1), valueType));
             children.push_back(std::make_unique<Value>(LogicalType::STRUCT(std::move(fields)),
                 std::move(structValues)));
+        }
+        return std::make_unique<Value>(targetType.copy(), std::move(children));
+    }
+    if (value.getDataType().getLogicalTypeID() == LogicalTypeID::STRUCT &&
+        targetType.getLogicalTypeID() == LogicalTypeID::STRUCT) {
+        std::vector<std::unique_ptr<Value>> children;
+        for (auto i = 0u; i < NestedVal::getChildrenSize(&value); ++i) {
+            children.push_back(copyValueForNested(*NestedVal::getChildVal(&value, i),
+                StructType::getFieldType(targetType, static_cast<struct_field_idx_t>(i))));
         }
         return std::make_unique<Value>(targetType.copy(), std::move(children));
     }
@@ -391,6 +463,23 @@ lbug_value* lbug_value_create_uuid(const char* val_) {
     auto* c_value = (lbug_value*)calloc(1, sizeof(lbug_value));
     c_value->_value =
         new Value(lbug::common::uuid{lbug::common::UUID::fromCString(val_, strlen(val_))});
+    return c_value;
+    LBUG_C_API_GUARD_END(nullptr)
+}
+
+lbug_value* lbug_value_create_blob(const uint8_t* data, uint64_t length) {
+    LBUG_C_API_GUARD_BEGIN
+    if (data == nullptr && length != 0) {
+        // A null buffer with a non-zero length would read out of bounds in the length-based
+        // std::string construction below, which the exception guard cannot catch.
+        return nullptr;
+    }
+    auto* c_value = (lbug_value*)calloc(1, sizeof(lbug_value));
+    std::string blobStr;
+    if (data != nullptr) {
+        blobStr.assign(reinterpret_cast<const char*>(data), length);
+    }
+    c_value->_value = new Value(LogicalType::BLOB(), std::move(blobStr));
     return c_value;
     LBUG_C_API_GUARD_END(nullptr)
 }

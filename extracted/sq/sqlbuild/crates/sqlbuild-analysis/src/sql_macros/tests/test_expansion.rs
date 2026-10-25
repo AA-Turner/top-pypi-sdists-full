@@ -9,7 +9,7 @@ use crate::sql_macros::tests::test_types::{
 
 const CENTS_TO_DOLLARS: (&str, &str) = (
     "cents_to_dollars",
-    "MACRO (\n  description \"Cents to dollars\",\n  arguments (amount_cents BIGINT, places INT CONST DEFAULT 2),\n  returns DECIMAL(18, 2),\n);\n\nROUND(CAST(@amount_cents AS DECIMAL(18, 4)) / 100, @places)\n",
+    "MACRO (\n  description \"Cents to dollars\",\n  arguments (amount_cents BIGINT, places INT CONST DEFAULT 2),\n  returns DECIMAL(18, 2),\n);\n\nCAST(ROUND(@amount_cents / 100, @places) AS DECIMAL(18, 2))\n",
 );
 const NET_AMOUNT: (&str, &str) = (
     "net_amount",
@@ -121,9 +121,46 @@ const ORDER_KEY: (&str, &str) = (
     "order_key",
     "MACRO (description \"Order key\", arguments (store_code VARCHAR, order_number ANY), returns VARCHAR);\n\n@store_code || '::' || CAST(@order_number AS VARCHAR)\n",
 );
+const SHOUTED_WRONG: (&str, &str) = (
+    "shouted",
+    "MACRO (description \"Shouted\", arguments (value VARCHAR), returns BIGINT);\n\nUPPER(@value)\n",
+);
+const SHOUTED_UNTYPED: (&str, &str) = (
+    "shouted",
+    "MACRO (description \"Shouted\", arguments (value VARCHAR));\n\nUPPER(@value)\n",
+);
+const SHOUTED_ANY: (&str, &str) = (
+    "shouted",
+    "MACRO (description \"Shouted\", arguments (value ANY), returns BIGINT);\n\n@value\n",
+);
+const SHOUTED_NESTED: (&str, &str) = (
+    "shouted_twice",
+    "MACRO (description \"Shouted\", arguments (value VARCHAR), returns BIGINT);\n\n@sql.plus_one(LENGTH(@value)) || 'x'\n",
+);
+const ROUND_ANY: (&str, &str) = (
+    "round_any",
+    "MACRO (description \"Rounded\", arguments (v ANY NUMERIC, places INT CONST DEFAULT 2), returns TYPE OF v);\n\nROUND(@v, @places)\n",
+);
+const SHOUT_NUMBER: (&str, &str) = (
+    "shout_number",
+    "MACRO (description \"Shouted\", arguments (v ANY NUMERIC));\n\nUPPER(@v)\n",
+);
 const ODD: (&str, &str) = (
     "odd",
     "MACRO (description \"Odd\", arguments (v FOO BAR), returns BIGINT);\n\n@v + 1\n",
+);
+
+const WIDE: (&str, &str) = (
+    "wide",
+    "MACRO (description \"Wide\", arguments (v DECIMAL(50, 2)), returns BIGINT);\n\n@v + 1\n",
+);
+const NOT_NULL_ARGUMENT: (&str, &str) = (
+    "not_null_argument",
+    "MACRO (description \"Not null\", arguments (v INTEGER NOT NULL), returns BIGINT);\n\n@v + 1\n",
+);
+const WIDE_NUMERIC_RETURNS: (&str, &str) = (
+    "wide_numeric",
+    "MACRO (description \"Wide\", arguments (v INT64), returns NUMERIC(40, 2));\n\n@v + 1\n",
 );
 
 #[test]
@@ -134,21 +171,21 @@ fn given_calls_of_each_form_when_expanding_then_the_ticket_examples_compile() {
             adapter: "",
             macros: &[CENTS_TO_DOLLARS],
             sql: "SELECT @sql.cents_to_dollars(o.fee_cents + o.tax_cents, places := 0) AS fees FROM orders AS o",
-            expected_sql: "SELECT ROUND(CAST((o.fee_cents + o.tax_cents) AS DECIMAL(18, 4)) / 100, 0) AS fees FROM orders AS o",
+            expected_sql: "SELECT CAST(ROUND((o.fee_cents + o.tax_cents) / 100, 0) AS DECIMAL(18, 2)) AS fees FROM orders AS o",
         },
         ExpansionTestCase {
             description: "expression stacking another expression macro",
             adapter: "",
             macros: &[CENTS_TO_DOLLARS, NET_AMOUNT],
             sql: "SELECT @sql.net_amount(o.gross_cents, o.refund_cents) AS net FROM orders AS o",
-            expected_sql: "SELECT ROUND(CAST((o.gross_cents - COALESCE(o.refund_cents, 0)) AS DECIMAL(18, 4)) / 100, 2) AS net FROM orders AS o",
+            expected_sql: "SELECT CAST(ROUND((o.gross_cents - COALESCE(o.refund_cents, 0)) / 100, 2) AS DECIMAL(18, 2)) AS net FROM orders AS o",
         },
         ExpansionTestCase {
             description: "a backslash-escaped quote in a BigQuery string is not a call",
             adapter: "bigquery",
             macros: &[NET_AMOUNT, CENTS_TO_DOLLARS],
             sql: "SELECT 'it\\'s @sql.x(' AS note, @sql.net_amount(o.a, o.b) AS net FROM orders AS o",
-            expected_sql: "SELECT 'it\\'s @sql.x(' AS note, ROUND(CAST((o.a - COALESCE(o.b, 0)) AS DECIMAL(18, 4)) / 100, 2) AS net FROM orders AS o",
+            expected_sql: "SELECT 'it\\'s @sql.x(' AS note, CAST(ROUND((o.a - COALESCE(o.b, 0)) / 100, 2) AS DECIMAL(18, 2)) AS net FROM orders AS o",
         },
         ExpansionTestCase {
             description: "an expression call before AT TIME ZONE is parenthesised",
@@ -191,6 +228,27 @@ fn given_calls_of_each_form_when_expanding_then_the_ticket_examples_compile() {
             macros: &[CLEAN_ORDERS],
             sql: "WITH orders_raw AS (SELECT * FROM __ref(\"stg_orders\")),\n@sql.clean_orders(orders_raw)\nfinal AS (SELECT order_id, amount FROM latest)\nSELECT * FROM final",
             expected_sql: "WITH orders_raw AS (SELECT * FROM __ref(\"stg_orders\")),\nlive AS (SELECT * FROM orders_raw WHERE NOT is_deleted),\nranked AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) AS row_num\n  FROM live\n),\nlatest AS (SELECT * EXCLUDE (row_num) FROM ranked WHERE row_num = 1),\nfinal AS (SELECT order_id, amount FROM latest)\nSELECT * FROM final",
+        },
+        ExpansionTestCase {
+            description: "CTE list called twice, each call naming its CTEs with __cte",
+            adapter: "",
+            macros: &[CLEAN_ORDERS],
+            sql: "WITH eu_raw AS (SELECT 1 AS order_id), us_raw AS (SELECT 2 AS order_id),\n@sql.clean_orders(eu_raw, __cte := eu_orders)\n@sql.clean_orders(us_raw, __CTE := us_orders)\nfinal AS (SELECT * FROM eu_orders UNION ALL SELECT * FROM us_orders)\nSELECT * FROM final",
+            expected_sql: "WITH eu_raw AS (SELECT 1 AS order_id), us_raw AS (SELECT 2 AS order_id),\neu_orders__live AS (SELECT * FROM eu_raw WHERE NOT is_deleted),\neu_orders__ranked AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) AS row_num\n  FROM eu_orders__live\n),\neu_orders AS (SELECT * EXCLUDE (row_num) FROM eu_orders__ranked WHERE row_num = 1),\nus_orders__live AS (SELECT * FROM us_raw WHERE NOT is_deleted),\nus_orders__ranked AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) AS row_num\n  FROM us_orders__live\n),\nus_orders AS (SELECT * EXCLUDE (row_num) FROM us_orders__ranked WHERE row_num = 1),\nfinal AS (SELECT * FROM eu_orders UNION ALL SELECT * FROM us_orders)\nSELECT * FROM final",
+        },
+        ExpansionTestCase {
+            description: "__cte renames the macro's CTEs but never an argument of the same name",
+            adapter: "",
+            macros: &[CLEAN_ORDERS],
+            sql: "WITH live AS (SELECT 1 AS order_id), @sql.clean_orders(live, __cte := picked) SELECT * FROM picked",
+            expected_sql: "WITH live AS (SELECT 1 AS order_id), picked__live AS (SELECT * FROM live WHERE NOT is_deleted),\npicked__ranked AS (\n  SELECT *, ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY updated_at DESC) AS row_num\n  FROM picked__live\n),\npicked AS (SELECT * EXCLUDE (row_num) FROM picked__ranked WHERE row_num = 1) SELECT * FROM picked",
+        },
+        ExpansionTestCase {
+            description: "__cte renames qualified references to a renamed CTE",
+            adapter: "",
+            macros: &[LATEST_PER_KEY],
+            sql: "WITH r AS (SELECT 1 AS id, 2 AS updated_at), @sql.latest_per_key(r, id, __cte := l) SELECT * FROM l",
+            expected_sql: "WITH r AS (SELECT 1 AS id, 2 AS updated_at), l__latest_ranked AS (\n  SELECT r.*, ROW_NUMBER() OVER (PARTITION BY id ORDER BY updated_at DESC) AS row_num FROM r\n),\nl AS (SELECT * EXCLUDE (row_num) FROM l__latest_ranked WHERE row_num = 1) SELECT * FROM l",
         },
         ExpansionTestCase {
             description: "CTE list extracted from a model compiles to the original",
@@ -281,7 +339,7 @@ fn given_calls_of_each_form_when_expanding_then_the_ticket_examples_compile() {
             adapter: "",
             macros: &[CENTS_TO_DOLLARS],
             sql: "SELECT @py.label(@sql.cents_to_dollars(o.fee)) AS fee FROM orders AS o",
-            expected_sql: "SELECT @py.label(\"ROUND(CAST(o.fee AS DECIMAL(18, 4)) / 100, 2)\") AS fee FROM orders AS o",
+            expected_sql: "SELECT @py.label(\"CAST(ROUND(o.fee / 100, 2) AS DECIMAL(18, 2))\") AS fee FROM orders AS o",
         },
         ExpansionTestCase {
             description: "runtime ROUND precision where the adapter allows one",
@@ -388,6 +446,27 @@ fn given_calls_of_each_form_when_expanding_then_the_ticket_examples_compile() {
             sql: "SELECT @sql.odd(1) AS a",
             expected_sql: "SELECT 1 + 1 AS a",
         },
+        ExpansionTestCase {
+            description: "an ANY family argument of its family",
+            adapter: "duckdb",
+            macros: &[ROUND_ANY],
+            sql: "SELECT @sql.round_any(o.amount, 1) AS a FROM orders AS o",
+            expected_sql: "SELECT ROUND(o.amount, 1) AS a FROM orders AS o",
+        },
+        ExpansionTestCase {
+            description: "an expression macro without returns",
+            adapter: "duckdb",
+            macros: &[SHOUTED_UNTYPED],
+            sql: "SELECT @sql.shouted(o.status) AS a FROM orders AS o",
+            expected_sql: "SELECT UPPER(o.status) AS a FROM orders AS o",
+        },
+        ExpansionTestCase {
+            description: "an ANY argument leaves the body untyped, so returns is trusted",
+            adapter: "duckdb",
+            macros: &[SHOUTED_ANY],
+            sql: "SELECT @sql.shouted(o.status) AS a FROM orders AS o",
+            expected_sql: "SELECT o.status AS a FROM orders AS o",
+        },
     ];
 
     for test_case in test_cases {
@@ -422,12 +501,76 @@ fn given_invalid_calls_when_expanding_then_each_error_names_the_problem() {
             expected_message: "CTE \"live\" from macro clean_orders() clashes with a CTE from macro clean_orders() in model:orders_clean",
         },
         ExpansionErrorTestCase {
+            description: "__cte on an expression macro",
+            adapter: "",
+            macros: &[PLUS_ONE],
+            sql: "SELECT @sql.plus_one(1, __cte := x)",
+            expected_code: "P017",
+            expected_message: "__cte names the CTEs a CTE-list macro inserts; plus_one() is an expression macro",
+        },
+        ExpansionErrorTestCase {
+            description: "__cte that is not a bare name",
+            adapter: "",
+            macros: &[CLEAN_ORDERS],
+            sql: "WITH a AS (SELECT 1), @sql.clean_orders(a, __cte := 'x') SELECT 1",
+            expected_code: "P017",
+            expected_message: "__cte of macro clean_orders() must be a bare CTE name; got 'x'",
+        },
+        ExpansionErrorTestCase {
+            description: "the same __cte name twice",
+            adapter: "",
+            macros: &[CLEAN_ORDERS],
+            sql: "WITH a AS (SELECT 1), @sql.clean_orders(a, __cte := x) @sql.clean_orders(a, __cte := x) SELECT 1",
+            expected_code: "P018",
+            expected_message: "CTE \"x__live\" from macro clean_orders() clashes with a CTE from macro clean_orders() in model:orders_clean",
+        },
+        ExpansionErrorTestCase {
+            description: "a __cte name the caller already defines",
+            adapter: "",
+            macros: &[CLEAN_ORDERS],
+            sql: "WITH a AS (SELECT 1), x AS (SELECT 2), @sql.clean_orders(a, __cte := x) SELECT 1",
+            expected_code: "P018",
+            expected_message: "CTE \"x\" from macro clean_orders() clashes with a CTE already defined in model:orders_clean",
+        },
+        ExpansionErrorTestCase {
             description: "column clash with the caller",
             adapter: "",
             macros: &[AUDIT_COLUMNS],
             sql: "SELECT o.created_at, @sql.audit_columns(o) FROM orders AS o",
             expected_code: "P018",
             expected_message: "column \"created_at\" from macro audit_columns() clashes with a column already defined in model:orders_clean",
+        },
+        ExpansionErrorTestCase {
+            description: "a body whose known type is not returns",
+            adapter: "duckdb",
+            macros: &[SHOUTED_WRONG],
+            sql: "SELECT @sql.shouted(o.status) FROM orders AS o",
+            expected_code: "P024",
+            expected_message: "macro shouted() declares returns BIGINT, but its body is VARCHAR",
+        },
+        ExpansionErrorTestCase {
+            description: "a body typed through a nested call",
+            adapter: "duckdb",
+            macros: &[SHOUTED_NESTED, PLUS_ONE],
+            sql: "SELECT @sql.shouted_twice(o.status) FROM orders AS o",
+            expected_code: "P024",
+            expected_message: "macro shouted_twice() declares returns BIGINT, but its body is VARCHAR",
+        },
+        ExpansionErrorTestCase {
+            description: "a literal outside an ANY family",
+            adapter: "duckdb",
+            macros: &[ROUND_ANY],
+            sql: "SELECT @sql.round_any('ten')",
+            expected_code: "P017",
+            expected_message: "argument v of macro round_any() expects a number; 'ten' is a string",
+        },
+        ExpansionErrorTestCase {
+            description: "a body that misuses an ANY family argument",
+            adapter: "duckdb",
+            macros: &[SHOUT_NUMBER],
+            sql: "SELECT @sql.shout_number(o.amount) FROM orders AS o",
+            expected_code: "P025",
+            expected_message: "body of macro shout_number() does not accept every value of v ANY NUMERIC",
         },
         ExpansionErrorTestCase {
             description: "cycle",
@@ -564,6 +707,38 @@ fn given_invalid_calls_when_expanding_then_each_error_names_the_problem() {
             sql: "SELECT @sql.odd(1) AS a",
             expected_code: "P015",
             expected_message: "argument v of macro odd() type 'FOO BAR' is not valid for adapter 'duckdb'",
+        },
+        ExpansionErrorTestCase {
+            description: "an argument type Postgres cannot parse",
+            adapter: "postgres",
+            macros: &[ODD],
+            sql: "SELECT @sql.odd(1) AS a",
+            expected_code: "P015",
+            expected_message: "argument v of macro odd() type 'FOO BAR' is not valid for adapter 'postgres'",
+        },
+        ExpansionErrorTestCase {
+            description: "an argument type MotherDuck reads as DuckDB",
+            adapter: "motherduck",
+            macros: &[NOT_NULL_ARGUMENT],
+            sql: "SELECT @sql.not_null_argument(1) AS a",
+            expected_code: "P015",
+            expected_message: "argument v of macro not_null_argument() type 'INTEGER NOT NULL' is not valid for adapter 'motherduck'",
+        },
+        ExpansionErrorTestCase {
+            description: "a decimal argument wider than DuckDB holds",
+            adapter: "duckdb",
+            macros: &[WIDE],
+            sql: "SELECT @sql.wide(1) AS a",
+            expected_code: "P015",
+            expected_message: "argument v of macro wide() type 'DECIMAL(50, 2)' is not valid for adapter 'duckdb'",
+        },
+        ExpansionErrorTestCase {
+            description: "a NUMERIC returns wider than BigQuery holds",
+            adapter: "bigquery",
+            macros: &[WIDE_NUMERIC_RETURNS],
+            sql: "SELECT @sql.wide_numeric(1) AS a",
+            expected_code: "P015",
+            expected_message: "returns of macro wide_numeric() type 'NUMERIC(40, 2)' is not valid for adapter 'bigquery'",
         },
     ];
 

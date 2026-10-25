@@ -27,6 +27,7 @@ docstring and re-run this script.
 
 import ast
 import pkgutil
+import shutil
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -102,12 +103,13 @@ def generate_ffsim_rst(sections: list[tuple[str, list[str]]]) -> None:
 
 def generate_submodule_rst(submodule: str) -> None:
     """Generate docs/api/ffsim.<submodule>.rst."""
-    heading, _ = get_module_docstring(submodule)
+    heading, body = get_module_docstring(submodule)
     symbols = read_symbols(module_path(submodule))
 
     title = f"ffsim.{submodule}"
     underline = "=" * len(title)
     entries = "\n".join(f"   {sym}" for sym in symbols)
+    paragraph = f"\n{body}\n" if body else ""
 
     output_path = DOCS_API_DIR / f"ffsim.{submodule}.rst"
     output_path.write_text(
@@ -115,7 +117,7 @@ def generate_submodule_rst(submodule: str) -> None:
         f"{underline}\n"
         f"\n"
         f"{heading}\n"
-        f"\n"
+        f"{paragraph}\n"
         f".. currentmodule:: ffsim.{submodule}\n"
         f"\n"
         f".. autosummary::\n"
@@ -184,8 +186,10 @@ def main() -> None:
         if not mod.name.startswith("_") and mod.name not in exported_submodules
     )
 
-    # Generate API docs
-    DOCS_API_DIR.mkdir(parents=True, exist_ok=True)
+    # Generate API docs. Remove the existing directory first so that autosummary
+    # stubs for removed symbols don't linger and break the build.
+    shutil.rmtree(DOCS_API_DIR, ignore_errors=True)
+    DOCS_API_DIR.mkdir(parents=True)
     generate_ffsim_rst(sections)
     for submodule in standalone_submodules:
         generate_submodule_rst(submodule)

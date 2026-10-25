@@ -19,6 +19,12 @@ std::string IntersectPrintInfo::toString() const {
 }
 
 void Intersect::initLocalStateInternal(ResultSet* resultSet, ExecutionContext* /*context*/) {
+    // Clear member vectors so re-execution on a reused operator starts clean.
+    probeKeyVectors.clear();
+    payloadColumnIdxesToScanFrom.clear();
+    payloadVectorsToScanInto.clear();
+    intersectSelVectors.clear();
+    isIntersectListAFlatValue.clear();
     outKeyVector = resultSet->getValueVector(outputDataPos);
     for (auto& dataInfo : intersectDataInfos) {
         probeKeyVectors.push_back(resultSet->getValueVector(dataInfo.keyDataPos));
@@ -40,10 +46,20 @@ void Intersect::initLocalStateInternal(ResultSet* resultSet, ExecutionContext* /
         isIntersectListAFlatValue.push_back(
             sharedHT->getHashTable()->getTableSchema()->getColumn(1)->isFlat());
     }
+    alignedRightList.resize(DEFAULT_VECTOR_CAPACITY);
+    flatTuplesToIntersect.assign(sharedHTs.size(), nullptr);
+    listsToIntersect.assign(sharedHTs.size(), overflow_value_t{});
+    listIdxes.assign(sharedHTs.size(), 0);
+    selVectorsForIntersectedLists.clear();
+    selVectorsForIntersectedLists.reserve(sharedHTs.size());
+    for (auto& tuples : probedFlatTuples) {
+        tuples.clear();
+    }
+    std::fill(tupleIdxPerBuildSide.begin(), tupleIdxPerBuildSide.end(), 0);
+    carryBuildSideIdx = -1u;
 }
 
 void Intersect::probeHTs() {
-    std::vector<std::vector<overflow_value_t>> flatTuples(probeKeyVectors.size());
     hash_t hashVal = 0;
     for (auto i = 0u; i < probeKeyVectors.size(); i++) {
         DASSERT(probeKeyVectors[i]->state->isFlat());
@@ -78,9 +94,10 @@ void Intersect::twoWayIntersect(nodeID_t* leftNodeIDs, SelectionVector& lSelVect
     rSelVector.setToFiltered(outputValuePosition);
 }
 
-static std::vector<overflow_value_t> fetchListsToIntersectFromTuples(
-    const std::vector<uint8_t*>& tuples, const std::vector<bool>& isFlatValue) {
-    std::vector<overflow_value_t> listsToIntersect(tuples.size());
+// Overwrites every entry of listsToIntersect, which has one entry per tuple.
+static void fetchListsToIntersectFromTuples(const std::vector<uint8_t*>& tuples,
+    const std::vector<bool>& isFlatValue, std::vector<overflow_value_t>& listsToIntersect) {
+    DASSERT(listsToIntersect.size() == tuples.size());
     for (auto i = 0u; i < tuples.size(); i++) {
         if (isFlatValue[i]) {
             listsToIntersect[i] =
@@ -90,12 +107,12 @@ static std::vector<overflow_value_t> fetchListsToIntersectFromTuples(
             memcpy(&listsToIntersect[i], tuples[i] + sizeof(nodeID_t), sizeof(overflow_value_t));
         }
     }
-    return listsToIntersect;
 }
 
-static std::vector<uint32_t> swapSmallestListToFront(std::vector<overflow_value_t>& lists) {
-    DASSERT(lists.size() >= 2);
-    std::vector<uint32_t> listIdxes(lists.size());
+// Overwrites every entry of listIdxes, which has one entry per list.
+static void swapSmallestListToFront(std::vector<overflow_value_t>& lists,
+    std::vector<uint32_t>& listIdxes) {
+    DASSERT(lists.size() >= 2 && listIdxes.size() == lists.size());
     iota(listIdxes.begin(), listIdxes.end(), 0);
     uint32_t smallestListIdx = 0;
     for (auto i = 1u; i < lists.size(); i++) {
@@ -107,7 +124,6 @@ static std::vector<uint32_t> swapSmallestListToFront(std::vector<overflow_value_
         std::swap(lists[smallestListIdx], lists[0]);
         std::swap(listIdxes[smallestListIdx], listIdxes[0]);
     }
-    return listIdxes;
 }
 
 static void sliceSelVectors(const std::vector<SelectionVector*>& selVectorsToSlice,
@@ -122,7 +138,7 @@ static void sliceSelVectors(const std::vector<SelectionVector*>& selVectorsToSli
     }
 }
 
-void Intersect::intersectLists(const std::vector<overflow_value_t>& listsToIntersect) {
+void Intersect::intersectLists() {
     if (listsToIntersect[0].numElements == 0) {
         outKeyVector->state->getSelVectorUnsafe().setSelSize(0);
         return;
@@ -130,40 +146,42 @@ void Intersect::intersectLists(const std::vector<overflow_value_t>& listsToInter
     DASSERT(listsToIntersect[0].numElements <= DEFAULT_VECTOR_CAPACITY);
     memcpy(outKeyVector->getData(), listsToIntersect[0].value,
         listsToIntersect[0].numElements * sizeof(nodeID_t));
-    SelectionVector lSelVector(listsToIntersect[0].numElements);
-    lSelVector.setSelSize(listsToIntersect[0].numElements);
-    std::vector<SelectionVector*> selVectorsForIntersectedLists;
+    leftSelVector.setToUnfiltered(listsToIntersect[0].numElements);
+    selVectorsForIntersectedLists.clear();
     intersectSelVectors[0]->setToUnfiltered(listsToIntersect[0].numElements);
     selVectorsForIntersectedLists.push_back(intersectSelVectors[0].get());
-    // Reusable aligned buffer for the right-hand adjacency list. Lists live in packed
-    // factorized-table/unflat storage without alignment padding, so the raw value pointer
-    // may be misaligned for nodeID_t; copy it into aligned storage before intersecting.
-    std::vector<nodeID_t> alignedRightList;
+    // Lists live in packed factorized-table/unflat storage without alignment padding, so the raw
+    // value pointer may be misaligned for nodeID_t; copy each right-hand list into aligned storage
+    // before intersecting. Each list is one build-side tuple appended from a single ValueVector, so
+    // it holds at most DEFAULT_VECTOR_CAPACITY nodeIDs, like the left list in outKeyVector.
     for (auto i = 0u; i < listsToIntersect.size() - 1; i++) {
-        intersectSelVectors[i + 1]->setToUnfiltered(listsToIntersect[i + 1].numElements);
-        alignedRightList.resize(listsToIntersect[i + 1].numElements);
-        if (!alignedRightList.empty()) {
-            memcpy(alignedRightList.data(), listsToIntersect[i + 1].value,
-                listsToIntersect[i + 1].numElements * sizeof(nodeID_t));
+        const auto& rightList = listsToIntersect[i + 1];
+        DASSERT(rightList.numElements <= DEFAULT_VECTOR_CAPACITY);
+        if (rightList.numElements > alignedRightList.size()) {
+            alignedRightList.resize(rightList.numElements);
         }
-        twoWayIntersect((nodeID_t*)outKeyVector->getData(), lSelVector, alignedRightList.data(),
+        intersectSelVectors[i + 1]->setToUnfiltered(rightList.numElements);
+        if (rightList.numElements > 0) {
+            memcpy(alignedRightList.data(), rightList.value,
+                rightList.numElements * sizeof(nodeID_t));
+        }
+        twoWayIntersect((nodeID_t*)outKeyVector->getData(), leftSelVector, alignedRightList.data(),
             *intersectSelVectors[i + 1]);
         // Here we need to slice all selVectors that have been previously intersected, as all these
         // lists need to be selected synchronously to read payloads correctly.
-        sliceSelVectors(selVectorsForIntersectedLists, lSelVector);
-        lSelVector.setToUnfiltered();
+        sliceSelVectors(selVectorsForIntersectedLists, leftSelVector);
+        leftSelVector.setToUnfiltered();
         selVectorsForIntersectedLists.push_back(intersectSelVectors[i + 1].get());
     }
-    outKeyVector->state->getSelVectorUnsafe().setSelSize(lSelVector.getSelSize());
+    outKeyVector->state->getSelVectorUnsafe().setSelSize(leftSelVector.getSelSize());
 }
 
-void Intersect::populatePayloads(const std::vector<uint8_t*>& tuples,
-    const std::vector<uint32_t>& listIdxes) {
+void Intersect::populatePayloads() {
     for (auto i = 0u; i < listIdxes.size(); i++) {
         auto listIdx = listIdxes[i];
         sharedHTs[listIdx]->getHashTable()->getFactorizedTable()->lookup(
             payloadVectorsToScanInto[listIdx], intersectSelVectors[i].get(),
-            payloadColumnIdxesToScanFrom[listIdx], tuples[listIdx]);
+            payloadColumnIdxesToScanFrom[listIdx], flatTuplesToIntersect[listIdx]);
     }
 }
 
@@ -207,16 +225,15 @@ bool Intersect::getNextTuplesInternal(ExecutionContext* context) {
         // too large to fit in a single ValueVector, we end up chunking the list as multiple tuples
         // in FTable. Thus, when performing the intersection, we need to perform cartesian product
         // between all flat tuples probed from all build sides.
-        std::vector<uint8_t*> flatTuplesToIntersect(getNumBuilds());
         for (auto i = 0u; i < getNumBuilds(); i++) {
             flatTuplesToIntersect[i] = probedFlatTuples[i][tupleIdxPerBuildSide[i]];
         }
-        auto listsToIntersect =
-            fetchListsToIntersectFromTuples(flatTuplesToIntersect, isIntersectListAFlatValue);
-        auto listIdxes = swapSmallestListToFront(listsToIntersect);
-        intersectLists(listsToIntersect);
+        fetchListsToIntersectFromTuples(flatTuplesToIntersect, isIntersectListAFlatValue,
+            listsToIntersect);
+        swapSmallestListToFront(listsToIntersect, listIdxes);
+        intersectLists();
         if (outKeyVector->state->getSelVector().getSelSize() != 0) {
-            populatePayloads(flatTuplesToIntersect, listIdxes);
+            populatePayloads();
         }
         if (!hasNextTuplesToIntersect()) {
             carryBuildSideIdx = -1u;

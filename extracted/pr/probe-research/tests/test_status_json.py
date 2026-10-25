@@ -317,6 +317,7 @@ def test_a_fresh_device_reads_as_the_menu_draws_it(machine):
         "context": "default",
         "base_url": "https://api.test",
         "credential_valid": None,
+        "workspace_limit": None,
     }
     assert not any(row["installed"] for row in local["agents"])
     assert (local["who_records"], local["session_default"]) == ("agent", {"state": "on", "env_override": None})
@@ -642,7 +643,16 @@ def _documented_schema() -> dict:
     check = '{"state": null, "checked": null, "error": null}'
     shape = re.sub(r"\b(str|bool|int|float)( \| null)?\b", "null", block)
     shape = shape.replace("CHECK", check)
+    # An object-or-null (`LIMIT | null`): compared as a scalar here, and its keys by
+    # `test_the_workspace_limit_is_the_documented_object`.
+    shape = shape.replace("LIMIT | null", "null")
     return json.loads(shape)
+
+
+def _documented_limit() -> set[str]:
+    doc = status_impl.__doc__
+    line = next(row for row in doc.splitlines() if row.strip().startswith("LIMIT = "))
+    return set(json.loads(re.sub(r"\b(str|bool|int|float)( \| null)?\b", "null", line.split("=", 1)[1])))
 
 
 def _differences(documented, produced, path="") -> list[str]:
@@ -978,3 +988,53 @@ def test_two_probes_never_see_each_other_as_a_setup(machine):
     counts = [tuple(int(n) for n in prober.communicate(timeout=60)[0].split()) for prober in probers]
     assert all(asked > 1000 for asked, _ in counts), counts
     assert [busy for _, busy in counts] == [0, 0]
+
+
+# -- the workspace limit (`probe workspace limit`) -----------------------------
+
+
+_LIMITED = "11111111-1111-1111-1111-111111111111"
+
+
+def _limit_this_computer(machine, **workspace) -> None:
+    from probe.sdk.config import save_context
+
+    save_context({"workspace": {"id": _LIMITED, "project": None, "limit": True, "name": "Eng", "slug": "eng",
+                                **workspace}})
+
+
+def test_the_workspace_limit_is_the_documented_object(machine):
+    _limit_this_computer(machine, team_items="hide")
+    local, _, _ = status()
+
+    assert set(local["account"]["workspace_limit"]) == _documented_limit()
+    assert local["account"]["workspace_limit"] == {"id": _LIMITED, "name": "Eng", "slug": "eng", "team_items": "hide"}
+    assert local["v"] == status_impl.SCHEMA_VERSION == 1
+
+
+def test_the_workspace_limit_is_read_locally_with_the_environment_on_top(machine, monkeypatch):
+    """No network: `probe status` is read on every desktop focus. An environment
+    slug is shown as a slug (its id would cost a request)."""
+    _limit_this_computer(machine)
+    monkeypatch.setenv("PROBE_WORKSPACE_LIMIT", "research")
+    local, _, _ = status()
+    assert local["account"]["workspace_limit"] == {"id": None, "name": None, "slug": "research", "team_items": "show"}
+
+    monkeypatch.setenv("PROBE_WORKSPACE_LIMIT", "team")
+    local, _, _ = status()
+    assert local["account"]["workspace_limit"] is None
+
+
+def test_the_whole_team_and_the_pin_alone_are_no_limit(machine):
+    from probe.sdk.config import save_context
+
+    save_context({"workspace": {"id": _LIMITED, "project": None}})
+    local, _, _ = status()
+    assert local["account"]["workspace_limit"] is None
+
+
+def test_a_limited_computer_says_so_for_a_person(machine):
+    _limit_this_computer(machine, team_items="hide")
+    result = CliRunner().invoke(main.app, ["status"])
+    assert result.exit_code == 0
+    assert "Workspace limit    Eng (team-wide items hidden)" in result.stdout

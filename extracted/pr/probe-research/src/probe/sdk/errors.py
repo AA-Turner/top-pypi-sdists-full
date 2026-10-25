@@ -23,6 +23,10 @@ class RosError(Exception):
     #: detail itself is the notice sentence by then, so this is how a caller
     #: tells "in the trash" from any other 410 (`client_too_old` included).
     in_trash: bool = False
+    #: The workspace uuid the API limited this request to when it answered 404 (its
+    #: `X-Probe-Workspace-Limit-Applied` echo): the thing may exist outside it. The
+    #: transport sets it and says so in the message.
+    workspace_limit_applied: str | None = None
 
     def __init__(self, message: str, *, status: int | None = None, detail: Any = None):
         super().__init__(message)
@@ -279,6 +283,38 @@ class WorkspaceRequired(ValidationError):
     """
 
 
+#: The server marks a refused workspace limit (`X-Probe-Workspace-Limit`) with these
+#: in `detail.code`: a value that is not a uuid (400) or a uuid naming no workspace
+#: the caller can see (422). `probe.sdk.workspace_limit` raises them locally too.
+INVALID_WORKSPACE_LIMIT = "invalid_workspace_limit"
+WORKSPACE_LIMIT_UNKNOWN = "workspace_limit_unknown"
+#: What every such refusal ends with: the limit is this computer's setting, so the
+#: fix is a command on it, never a credential.
+WORKSPACE_LIMIT_FIX = (
+    "Run `probe workspace limit --team` or pick another (`probe workspace limit <workspace>`)."
+)
+
+
+class WorkspaceLimitError(ValidationError):
+    """This computer's workspace limit was refused: no request it makes can succeed
+    until the limit is changed. Not the credential and not the data -- the outbox
+    keeps the write queued (`journal.classify`: transient) until it is fixed."""
+
+
+class InvalidWorkspaceLimit(WorkspaceLimitError):
+    """400 `invalid_workspace_limit`: the limit (or its team-items choice) is malformed."""
+
+
+class WorkspaceLimitUnknown(WorkspaceLimitError):
+    """422 `workspace_limit_unknown`: the limit names a workspace that no longer exists
+    or that the caller cannot see."""
+
+
+def _limit_message(detail: Any) -> str:
+    message = _detail_message(detail)
+    return message if "probe workspace limit" in message else f"{message.rstrip()} {WORKSPACE_LIMIT_FIX}"
+
+
 class ServerError(RosError):
     """5xx - the API or a database is down / behind schema."""
 
@@ -327,6 +363,10 @@ def error_for(status: int, detail: Any) -> RosError:
         return WorkspaceLockedError(_detail_message(detail), status=403, detail=detail)
     if status == 422 and isinstance(detail, dict) and detail.get("code") == WORKSPACE_REQUIRED:
         return WorkspaceRequired(_detail_message(detail), status=422, detail=detail)
+    if isinstance(detail, dict) and detail.get("code") == WORKSPACE_LIMIT_UNKNOWN:
+        return WorkspaceLimitUnknown(_limit_message(detail), status=status, detail=detail)
+    if isinstance(detail, dict) and detail.get("code") == INVALID_WORKSPACE_LIMIT:
+        return InvalidWorkspaceLimit(_limit_message(detail), status=status, detail=detail)
     if status in _OBJECT_DETAIL_STATUSES:
         cls = _BY_STATUS[status]
         return cls(_detail_message(detail), detail=detail)  # type: ignore[call-arg]

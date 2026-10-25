@@ -46,7 +46,8 @@ SCHEMA (v1). Change it only by adding fields; anything else bumps
         "email": str | null,
         "context": str | null,
         "base_url": str | null,
-        "credential_valid": bool | null
+        "credential_valid": bool | null,
+        "workspace_limit": LIMIT | null
       },
       "agents": [
         {
@@ -92,7 +93,7 @@ SCHEMA (v1). Change it only by adding fields; anything else bumps
         "pid": int | null,
         "state": str | null,
         "started_at": float | null,
-        "sessions": [{"sid": str, "harness": str, "mode": str, "alive": bool,
+        "sessions": [{"sid": str, "harness": str, "mode": str, "alive": bool, "agent_live": bool | null,
                       "receipts": {"last_line": int | null, "received_bytes": int | null,
                                    "received_at": float | null, "pending_bytes": int | null,
                                    "pending_lines": int | null, "pending_batch": bool | null,
@@ -102,7 +103,7 @@ SCHEMA (v1). Change it only by adding fields; anything else bumps
                        "sessions": int | null, "alive": int | null,
                        "received_at": float | null, "pending_bytes": int | null,
                        "pending_lines": int | null, "pending_batches": int | null}],
-        "recorders": [{"sid": str, "alive": bool, "last": str, "failures": int}],
+        "recorders": [{"sid": str, "alive": bool, "recording": bool | null, "last": str, "failures": int}],
         "hook_hosts": [{"root": str, "pid": int}],
         "runs": [{"run": str, "pid": int, "since": float}],
         "imports": [{"job_id": str, "pid": int, "since": float}],
@@ -123,9 +124,13 @@ SCHEMA (v1). Change it only by adding fields; anything else bumps
     }
 
     CHECK = {"state": str | null, "checked": bool, "error": str | null}
+    LIMIT = {"id": str | null, "name": str | null, "slug": str | null, "team_items": str}
 
 What the values mean:
 
+- `account.workspace_limit`: this computer's workspace limit (`probe workspace
+  limit`), from the config and `PROBE_WORKSPACE_LIMIT` -- local, no network, so an
+  environment slug shows as `slug` with `id` null; null for the whole team.
 - `account.signed_in`: a CLI token resolves (the active context, or
   PROBE_TOKEN). `email` and `credential_valid` (accepted / refused / null
   unknown) are the server's answer, so only `--refresh` fills them: the config
@@ -180,7 +185,9 @@ What the values mean:
   `probe service start`), null when that could not be told (`error` says
   why). `state`: discovering | running | grace. `sessions`: every session it
   has registered, with its Probe `mode` (daemon | inline | off), whether it
-  is `alive`, and its delivery `receipts` from its recorder's transcript
+  is `alive` (never for mode off: such a session holds nothing up),
+  `agent_live`: whether its agent still runs, whatever its mode (null when
+  that cannot be told), and its delivery `receipts` from its recorder's transcript
   journal (null when no live recorder holds the session in one): the server's receipt cursor
   (`last_line`, `received_bytes`), when it last took the transcript
   (`received_at`, epoch seconds; null from a tap before 0.10.6), and what waits
@@ -189,8 +196,10 @@ What the values mean:
   URL's host; `customer`), to show only the signed-in account's.
   `harnesses`: the same per agent and scope (null for sessions without receipts), over its listed sessions
   (sums over the sessions where they are known, the latest `received_at`).
-  `recorders`: the sessions it records itself (`last`: how its
-  recorder last ended, `failures`: restarts after a failure). `hook_hosts`: its
+  `recorders`: the sessions it records itself (`alive`: its recorder's
+  thread runs, also while it waits to try again; `recording`: it holds the
+  session now, so it is the one recording it, null from a tap before 0.10.5;
+  `last`: how its recorder last ended, `failures`: restarts after a failure). `hook_hosts`: its
   warm hook hosts, one per plugin folder. `runs`: the runs a `probe exec` holds
   (the updater does not update under them). `imports`: the approved imports
   whose worker it started and watches (`probe wizard --action imports` has
@@ -745,9 +754,12 @@ def _snapshot(budget: _Budget | None) -> dict:
             "context": context,
             "base_url": None if settings is None else settings.base_url,
             "credential_valid": credential_valid,
+            "workspace_limit": (
+                None if settings is None or settings.workspace_limit is None else settings.workspace_limit.as_json()
+            ),
         }
     else:
-        account = dict.fromkeys(("signed_in", "email", "context", "base_url", "credential_valid"))
+        account = dict.fromkeys(("signed_in", "email", "context", "base_url", "credential_valid", "workspace_limit"))
     return {
         "v": SCHEMA_VERSION,
         "refreshed": refresh,
@@ -793,6 +805,13 @@ def _cli_version() -> str:
     return versions.cli_version()
 
 
+def _limit_word(limit) -> str:
+    if not isinstance(limit, dict):
+        return "none (the whole team)"
+    name = limit.get("name") or limit.get("slug") or limit.get("id") or "unknown"
+    return f"{name} (team-wide items {'hidden' if limit.get('team_items') == 'hide' else 'shown'})"
+
+
 def human_lines(state: dict) -> list[str]:
     """A few lines for a person; `--json` is the contract, `probe doctor` the detail."""
 
@@ -814,6 +833,9 @@ def human_lines(state: dict) -> list[str]:
         f"Versions           {state['versions']['status']}",
         f"Setup running      {word(state['wizard_running'])}",
     ]
+    if isinstance(account.get("workspace_limit"), dict):
+        # Only when limited: the whole team is the default and says nothing new.
+        lines.insert(2, f"Workspace limit    {_limit_word(account['workspace_limit'])}")
     if "service" in state:
         from probe.cli import service_calls
 

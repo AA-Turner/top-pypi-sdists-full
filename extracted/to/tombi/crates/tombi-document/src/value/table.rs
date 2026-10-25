@@ -453,4 +453,155 @@ mod test {
             ("conflicting table", ((2, 0), (2, 7)))
         ])
     }
+
+    test_deserialize! {
+        #[test]
+        fn array_of_table_sub_table_after_another_array_of_tables(
+            r#"
+            [[a]]
+            x = 1
+
+            [[b]]
+            z = 0
+
+            [a.c]
+            y = 2
+            "#
+        ) -> Ok(
+            json!({
+                "a": [
+                    {
+                        "x": 1,
+                        "c": {
+                            "y": 2
+                        }
+                    }
+                ],
+                "b": [
+                    {
+                        "z": 0
+                    }
+                ]
+            })
+        )
+    }
+
+    test_deserialize! {
+        #[test]
+        fn dotted_key_into_header_table(
+            r#"
+            [a.b]
+            z = 9
+
+            [a]
+            b.t = 1
+            "#
+        ) -> Err([
+            ("conflicting table", ((4, 2), (4, 7)))
+        ])
+    }
+
+    test_deserialize! {
+        #[test]
+        fn dotted_keys_into_header_table(
+            r#"
+            [a.b]
+
+            [a]
+            b.c.d = 1
+            "#
+        ) -> Err([
+            ("conflicting table", ((3, 2), (3, 9)))
+        ])
+    }
+
+    test_deserialize! {
+        #[test]
+        fn nested_array_of_tables_indices_follow_parent_element(
+            r#"
+            [[a]]
+            [[a.b]]
+            value = 1
+
+            [[x]]
+
+            [[a.b]]
+            value = 2
+
+            [[a]]
+            [[a.b]]
+            value = 3
+            "#
+        ) -> Ok(
+            json!({
+                "a": [
+                    {"b": [{"value": 1}, {"value": 2}]},
+                    {"b": [{"value": 3}]}
+                ],
+                "x": [{}]
+            }),
+            accessors = vec![
+                vec!["a", "[0]"],
+                vec!["a", "[0]", "b", "[0]"],
+                vec!["x", "[0]"],
+                vec!["a", "[0]", "b", "[1]"],
+                vec!["a", "[1]"],
+                vec!["a", "[1]", "b", "[0]"],
+            ]
+        )
+    }
+
+    test_deserialize! {
+        #[test]
+        fn dotted_keys_through_implicit_table(
+            r#"
+            [a.b.c]
+
+            [a]
+            b.x.y = 1
+            "#
+        ) -> Ok(json!({"a": {"b": {"c": {}, "x": {"y": 1}}}}))
+    }
+
+    test_deserialize! {
+        #[test]
+        fn inline_table_over_implicit_table(
+            r#"
+            [a.b.c]
+
+            [a]
+            b = { x = 1 }
+            "#
+        ) -> Err([
+            ("conflicting table", ((3, 4), (3, 13)))
+        ])
+    }
+
+    test_deserialize! {
+        #[test]
+        fn array_of_tables_kind_does_not_cross_parent_elements(
+            r#"
+            [[a]]
+            [[a.b]]
+            value = 1
+
+            [[a]]
+            [a.b.c]
+            value = 2
+            "#
+        ) -> Ok(
+            json!({
+                "a": [
+                    {"b": [{"value": 1}]},
+                    {"b": {"c": {"value": 2}}}
+                ]
+            }),
+            accessors = vec![
+                vec!["a", "[0]"],
+                vec!["a", "[0]", "b", "[0]"],
+                vec!["a", "[1]"],
+                vec!["a", "[1]", "b", "c"],
+            ]
+        )
+    }
 }

@@ -78,9 +78,9 @@ def test_lane_defaults_to_interactive():
 
 
 def test_site_initialization_runs_interactive_and_full_crawls_bulk():
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     from matrx_scraper.web_crawl import service
 
-    source = inspect.getsource(service)
+    source = stable_source(service)
     assert "lane=LANE_INTERACTIVE if short_homepage_run else LANE_BULK" in source

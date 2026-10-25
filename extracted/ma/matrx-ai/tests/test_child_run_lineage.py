@@ -269,9 +269,9 @@ def test_stop_on_a_child_id_stops_the_tree() -> None:
 def test_the_executor_links_every_run_to_its_tree_at_start() -> None:
     """A run rebuilt from its row in another process (resume, crash re-run) carries
     ``root_request_id``; the executor's entry links it before anything spends or polls."""
-    import inspect
+    from matrx_utils.source_guard import stable_source
 
     from matrx_ai.orchestrator import executor
 
-    src = inspect.getsource(executor.execute_ai_request)
+    src = stable_source(executor.execute_ai_request)
     assert "join_tree(ctx)" in src and "register_request_tree(ctx)" in src

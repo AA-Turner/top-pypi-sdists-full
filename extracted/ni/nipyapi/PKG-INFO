@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nipyapi
-Version: 1.8.0
+Version: 1.8.1
 Summary: A rich Apache NiFi Python Client SDK
 Author-email: NiPyAPI maintainers <chaffelson@gmail.com>
 License-Expression: Apache-2.0

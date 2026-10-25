@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
-import inspect
+from matrx_utils.source_guard import stable_source
 from types import SimpleNamespace
 from typing import Any
 
@@ -158,7 +158,7 @@ def test_the_gate_runs_before_the_turn_barrier_that_stores_the_text():
     """The barrier is the final turn's only write of its text; a gate after it changes nothing durable."""
     from matrx_ai.orchestrator import executor
 
-    src = inspect.getsource(executor)
+    src = stable_source(executor)
     gate = src.index("await visual_map_gate(current_request, response, exec_ctx)")
     barrier = src.index("# ── PER-TURN COMMIT BARRIER")
     final_branch = src.index("# Finish - no more tool calls needed")

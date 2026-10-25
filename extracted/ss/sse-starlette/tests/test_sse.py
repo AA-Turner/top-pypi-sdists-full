@@ -200,6 +200,157 @@ class TestEventSourceResponse:
 
         assert cleanup_executed, "Cleanup should be executed on timeout"
 
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        "interruption", ["disconnect", "shutdown", "cancel", "send_error", "timeout"]
+    )
+    @pytest.mark.parametrize("cleanup_fails", [False, True])
+    async def test_send_whenInterrupted_thenClosesSuspendedGenerator(
+        self, interruption, cleanup_fails, monkeypatch, caplog
+    ):
+        send_started = anyio.Event()
+        cleanup = []
+        send_error = OSError("connection closed")
+        cleanup_error = RuntimeError("generator cleanup failed")
+
+        async def event_publisher():
+            try:
+                yield {"data": "first event"}
+                pytest.fail("The interrupted send must not request another event")
+            finally:
+                # Resource release may itself require asynchronous I/O.
+                await anyio.lowlevel.checkpoint()
+                cleanup.append("closed")
+                if cleanup_fails:
+                    raise cleanup_error
+
+        # Keep a reference so garbage collection cannot hide a missing close.
+        publisher = event_publisher()
+        response = EventSourceResponse(
+            publisher,
+            ping=0,
+            send_timeout=0.01 if interruption == "timeout" else None,
+            background=BackgroundTask(lambda: cleanup.append("background")),
+        )
+        outer_scope = anyio.CancelScope()
+
+        async def send(message):
+            if message["type"] == "http.response.body":
+                send_started.set()
+                if interruption == "send_error":
+                    raise send_error
+                await anyio.sleep_forever()
+
+        async def receive():
+            await send_started.wait()
+            if interruption == "disconnect":
+                return {"type": "http.disconnect"}
+            if interruption == "cancel":
+                outer_scope.cancel()
+            await anyio.sleep_forever()
+
+        async def wait_for_exit():
+            await send_started.wait()
+            if interruption != "shutdown":
+                await anyio.sleep_forever()
+
+        monkeypatch.setattr(response, "_listen_for_exit_signal", wait_for_exit)
+        scope = {"type": "http", "method": "GET", "headers": []}
+
+        try:
+            with anyio.fail_after(1), outer_scope:
+                if interruption == "send_error":
+                    with pytest.raises(OSError) as exc_info:
+                        await response(scope, receive, send)
+                    assert exc_info.value is send_error
+                elif interruption == "timeout":
+                    with pytest.raises(SendTimeoutError):
+                        await response(scope, receive, send)
+                else:
+                    await response(scope, receive, send)
+
+            expected = ["closed"]
+            if interruption in ("disconnect", "shutdown"):
+                expected.append("background")
+            assert cleanup == expected
+            if interruption == "cancel":
+                assert outer_scope.cancelled_caught
+
+            errors = [
+                record
+                for record in caplog.records
+                if record.name == "sse_starlette.sse"
+                and record.levelno == logging.ERROR
+            ]
+            assert len(errors) == int(cleanup_fails)
+            if cleanup_fails:
+                assert errors[0].exc_info[1] is cleanup_error
+        finally:
+            await publisher.aclose()
+
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("buffer_size", [0, 1, 10])
+    async def test_send_whenClientDisconnectsWithMemoryChannel_thenProducerIsCancelledCleanly(
+        self, buffer_size
+    ):
+        """Closing the receive stream on an interrupted send must not break the producer.
+
+        Since #215 an interrupted send calls ``aclose()`` on the body iterator. For a
+        memory channel that closes the receive stream while the producer may still be
+        blocked in ``send_chan.send()``:
+
+            producer --send()--> [channel, buffer N] --> _stream_response --send()--> client
+                                                                |              (blocks)
+                                                       client disconnects
+                                                                v
+                                        task group cancelled -> shielded recv_chan.aclose()
+                                                                ▼
+                         Question: does the producer exit with CancelledError (fine)
+                                   or BrokenResourceError (ExceptionGroup → regression)?
+
+        The producer must exit with the cancellation exception. If it saw
+        ``BrokenResourceError`` instead, that error would escape the response's task
+        group as an ExceptionGroup and break the documented memory-channel pattern.
+        """
+        producer_exits = []
+        send_chan, recv_chan = anyio.create_memory_object_stream(buffer_size)
+
+        async def producer(chan):
+            try:
+                async with chan:
+                    for i in range(100):
+                        await chan.send({"data": str(i)})
+            except BaseException as exc:
+                producer_exits.append(type(exc))
+                raise
+
+        response = EventSourceResponse(
+            recv_chan, ping=0, data_sender_callable=partial(producer, send_chan)
+        )
+        send_started = anyio.Event()
+
+        async def send(message):
+            # Client stops reading: the first body send never completes.
+            if message["type"] == "http.response.body":
+                send_started.set()
+                await anyio.sleep_forever()
+
+        async def receive():
+            # Disconnect only once the producer is blocked on a full channel.
+            await send_started.wait()
+            while send_chan.statistics().tasks_waiting_send == 0:
+                await anyio.lowlevel.checkpoint()
+            return {"type": "http.disconnect"}
+
+        with anyio.fail_after(1):
+            await response(
+                {"type": "http", "method": "GET", "headers": []}, receive, send
+            )
+
+        assert producer_exits == [anyio.get_cancelled_exc_class()]
+        with pytest.raises(anyio.ClosedResourceError):
+            recv_chan.receive_nowait()
+
     def test_headers_whenCustomHeadersProvided_thenMergesCorrectly(self):
         # Arrange
         custom_headers = {

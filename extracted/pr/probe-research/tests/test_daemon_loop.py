@@ -289,6 +289,42 @@ def test_a_bites_tools_get_an_op_seed_the_retry_of_the_same_events_repeats(tmp_p
     assert w.deps(None).op_seed is None, "a held action's Deps (no bite) carry no seed"
 
 
+@pytest.mark.parametrize("offline", [True, False], ids=["no-network", "refused"])
+def test_a_gateway_release_says_when_the_machine_had_no_network_at_all(tmp_path, offline):
+    """The Probe service reports a `gateway` release unless the worker marked it
+    `offline` (a name that did not resolve): the laptop's, not ours."""
+    import socket
+
+    from pydantic_ai.exceptions import ModelAPIError
+
+    def chained(root: BaseException) -> BaseException:
+        # As httpcore's pool raises it: the socket error only as __context__.
+        try:
+            try:
+                raise root
+            except OSError:
+                raise RuntimeError("connect failed") from None
+        except RuntimeError as inner:
+            exc = ModelAPIError("default", "Connection error.")
+            exc.__cause__ = inner
+            return exc
+
+    no_dns = chained(socket.gaierror(8, "nodename nor servname provided"))
+    refused = chained(ConnectionRefusedError(61, "Connection refused"))
+    model, _ = _raising(no_dns if offline else refused)
+    w = _worker(tmp_path, model=model)
+    w.read_new()
+    assert w._renew()
+    asyncio.run(w.run_bite("turn end"))
+    asyncio.run(w.run_bite("turn end"))
+    assert _lease()["reason"] == lease.REASON_GATEWAY and _lease().get("offline", False) is offline
+    if offline:
+        # Back on a network that fails (a proxy, our gateway down): said again, not offline.
+        w._model, _ = _raising(refused)
+        asyncio.run(w.run_bite("turn end"))
+        assert _lease()["reason"] == lease.REASON_GATEWAY and "offline" not in _lease()
+
+
 @pytest.mark.parametrize("error", ["connection", "timeout", "503", "not an outage"])
 def test_model_outages_release_the_lease_after_two_in_a_row(tmp_path, error):
     from pydantic_ai.exceptions import ModelAPIError

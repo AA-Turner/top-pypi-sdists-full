@@ -18,8 +18,6 @@ Default configuration.
 from wsgidav.dir_browser import WsgiDavDirBrowser
 from wsgidav.error_printer import ErrorPrinter
 from wsgidav.http_authenticator import HTTPAuthenticator
-
-# from wsgidav.mw.impersonator import Impersonator
 from wsgidav.mw.cors import Cors
 from wsgidav.request_resolver import RequestResolver
 
@@ -52,6 +50,7 @@ DEFAULT_CONFIG = {
         # "treat_root_options_as_asterisk": False, # Hotfix for WinXP / Vista: accept 'OPTIONS /' for a 'OPTIONS *'
         # "win_accept_anonymous_options": False,
         # "winxp_accept_root_share_login": False,
+        # "digest_skip_uri_check": False,  # True: do not bind the digest `uri` to the request target (unsafe)
     },
     "property_manager": None,  # True: use property_manager.PropertyManager
     "mutable_live_props": [],
@@ -61,7 +60,6 @@ DEFAULT_CONFIG = {
         Cors,
         ErrorPrinter,
         HTTPAuthenticator,
-        # Impersonator,
         WsgiDavDirBrowser,  # configured under dir_browser option (see below)
         RequestResolver,  # this must be the last middleware item
     ],
