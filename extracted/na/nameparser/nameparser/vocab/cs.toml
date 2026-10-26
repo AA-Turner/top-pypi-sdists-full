@@ -1,0 +1,51 @@
+schema = 1
+
+[[word]]
+text = "pan"
+excluded = { salutation = { reason = "Czech and Polish Mr., and the Chinese surname Pan, which leads; the accented paní ships", issue = 606, decided = 2026-10-04 } }
+
+[[word]]
+text = "paní"
+salutation = { issue = 606, gender = "f", note = "keeps its accent, so the name Pani (~76,000 surnames and ~65,000 given names, India and Indonesia) is untouched, and the unaccented pani is not shipped; the lexicon folds no accent (decisions/salutation-titles)", excluded = { after_given = "spelled PANI, a surname (Census 2010), and middle names are drawn from surnames" } }
+family = { us_census_2010 = 403, as_of = 2026-10-24, note = "counted as PANI, the Census writing no diacritics" }
+
+[[word]]
+text = "rodina"
+excluded = { salutation = { reason = "Czech 'family', and a Russian surname, often written surname-first; familie ships", issue = 606, decided = 2026-10-04 } }
+
+[[word]]
+text = "slečna"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "ml"
+[word.excluded.generation]
+reason = "pack-shaped: real and standard, but collides with ML initials in other languages written in Latin script"
+issue = [661, 679, 684]
+
+[[word]]
+text = "mladší"
+generation = { issue = 661 }
+
+[[word]]
+text = "st"
+[word.excluded.generation]
+reason = "pack-shaped: real and standard, but St. is Saint in other languages written in Latin script"
+issue = [661, 679, 684]
+
+[[word]]
+text = "starší"
+generation = { issue = 661 }
+
+[[word]]
+text = "roz"
+[word.excluded.birth_marker]
+reason = "Roz, the English diminutive of Rosalind, stands exactly where a marker acts: with it listed, 'Rosalind Roz Smith' reads maiden 'Smith' and takes the given name Rosalind for the family (measured 2026-10-20), a marker taking every word after it; the full rozená stays"
+decided = 2026-08-26
+
+[[word]]
+text = "rozená"
+[word.birth_marker]
+issue = 274
+gender = "f"
+note = "the masculine rozený awaits its own vetting; the abbreviation roz., shared by both, is refused beside it"

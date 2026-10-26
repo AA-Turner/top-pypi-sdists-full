@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import sympy
 
-from .losses import LossInputs, LossObjective, _input_columns
+from .losses import LossInputs, LossObjective, _input_array, _input_columns
 
 import numpy as np
 import torch
@@ -118,22 +118,12 @@ def encode_custom_loss_batch(
                 handle, dtype=np.uint8
             ).copy()
         for column_index, name in enumerate(names):
-            array = np.asarray(datum["loss_data"][name])
-            if array.dtype.kind in "iu":
-                array = array.astype(np.int64)
-            elif array.dtype.kind == "f":
-                array = array.astype(np.float32)
-            else:
-                raise TypeError(f"loss_data[{name!r}] must contain integers or floats")
             schema = schemas[column_index]
+            array = _input_array(datum["loss_data"][name], schema)
             expected = (length,) + ((schema["width"],) if "width" in schema else ())
             if array.shape != expected or not np.isfinite(array).all():
                 raise ValueError(
                     f"data[{index}].loss_data[{name!r}]: expected finite shape {expected}"
-                )
-            if str(array.dtype) != schema["dtype"]:
-                raise ValueError(
-                    f"data[{index}].loss_data[{name!r}]: dtype does not match declared schema"
                 )
             encoded[COLUMN_PREFIX + str(column_index)] = array
         encoded[POSITION_KEY] = np.ones(length, dtype=np.int64)
@@ -163,8 +153,8 @@ def capture_loss_graph(objective: LossObjective, inputs: LossInputs) -> bytes:
 def _capture_loss_graph(objective: LossObjective, inputs: LossInputs) -> bytes:
 
     version = tuple(int(part) for part in torch.__version__.split(".")[:2])
-    if not (2, 4) <= version < (2, 12):
-        raise ValueError("Custom loss capture requires PyTorch >=2.4,<2.12")
+    if not (2, 4) <= version < (2, 14):
+        raise ValueError("Custom loss capture requires PyTorch >=2.4,<2.14")
     schemas = _input_columns(inputs)
     names = [s["name"] for s in schemas]
     graph = None
@@ -266,12 +256,17 @@ def _capture_graph(objective, schemas, names, dtype, requires_grad, tokens):
     nodes = []
     indices = {}
     logits_nodes = set()
-    logprob_sources = {}
+    normalized_nodes = set()
+    index_columns = set()
     placeholders = iter(
         [{"op": "logits"}] + [{"op": "input", "column": i} for i in range(len(names))]
     )
     binary = {"add", "sub", "mul", "div", "minimum", "maximum"}
-    unary = {"neg", "exp", "expm1", "log", "detach"}
+    unary = {"neg", "exp", "expm1", "log", "sqrt", "detach"}
+    model_nodes = set()
+    scalar_nodes = set()
+    bounded_nodes = set()
+    reductions = {"sum", "mean", "amin", "amax", "logsumexp", "var", "std"}
 
     def argument(arg):
         if isinstance(arg, torch.fx.Node):
@@ -283,6 +278,10 @@ def _capture_graph(objective, schemas, names, dtype, requires_grad, tokens):
     for node in exported.graph.nodes:
         if node.op == "placeholder":
             ir = next(placeholders)
+            if ir["op"] == "input":
+                schema = schemas[ir["column"]]
+                if schema["dtype"] in ("int32", "int64") and "width" in schema:
+                    index_columns.add(node)
         elif node.op == "output":
             result = _pytree.tree_unflatten(
                 list(node.args[0]), exported.call_spec.out_spec
@@ -330,45 +329,80 @@ def _capture_graph(objective, schemas, names, dtype, requires_grad, tokens):
                         "logits casts are unsupported; use the model's native logits dtype"
                     )
                 dtype = node.args[1] if len(node.args) > 1 else node.kwargs.get("dtype")
+                source = node.args[0]
+                source_ir = nodes[indices[source]]
+                if (
+                    dtype == torch.int64
+                    and source_ir["op"] == "input"
+                    and schemas[source_ir["column"]]["dtype"] in ("int32", "int64")
+                    and not (set(node.kwargs) - {"dtype"})
+                    and len(node.args) <= 2
+                    and (
+                        schemas[source_ir["column"]]["dtype"] == "int64"
+                        or all(
+                            (
+                                str(user.target) == "aten.gather.default"
+                                and user.args[2] is node
+                            )
+                            or (
+                                str(user.target) == "aten.cross_entropy_loss.default"
+                                and user.args[1] is node
+                            )
+                            for user in node.users
+                        )
+                    )
+                ):
+                    # Preserve the direct edge for server vocabulary checks.
+                    # Gather accepts int32; CE widens only the active tile.
+                    indices[node] = indices[source]
+                    bounded_nodes.add(node)
+                    if source in index_columns:
+                        index_columns.add(node)
+                    continue
                 if (
                     dtype != torch.float32
                     or set(node.kwargs) - {"dtype"}
                     or len(node.args) > 2
                 ):
-                    raise ValueError("only float32 loss casts are supported")
+                    raise ValueError(
+                        "only float32 loss and int64 input-index casts are supported"
+                    )
                 ir = {"op": "float", "args": [argument(node.args[0])]}
             elif target == "aten.log_softmax.int":
-                if len(node.args) != 2 or node.args[1] not in (-1, 1) or node.kwargs:
-                    raise ValueError(
-                        "selected logprobs require native log_softmax over vocabulary"
-                    )
-                if node.args[0] not in logits_nodes or any(
-                    user.op != "call_function"
-                    or str(user.target) != "aten.gather.default"
-                    or user.args[0] is not node
-                    for user in node.users
+                normalization_dtype = (
+                    node.args[2] if len(node.args) > 2 else node.kwargs.get("dtype")
+                )
+                if (
+                    not 2 <= len(node.args) <= 3
+                    or node.args[1] not in (-1, 1)
+                    or set(node.kwargs) - {"dtype"}
+                    or normalization_dtype not in (None, torch.float32)
                 ):
                     raise ValueError(
-                        "log_softmax is only supported when gathering target logprobs"
+                        "log_softmax requires the vocabulary axis and native or float32 dtype"
                     )
-                logprob_sources[node] = node.args[0]
-                continue
+                if node.args[0] not in logits_nodes:
+                    raise ValueError(
+                        "log_softmax requires logits, temperature scaling, or detach"
+                    )
+                ir = {"op": "log_softmax", "args": [argument(node.args[0])]}
+                if normalization_dtype is not None:
+                    ir["dtype"] = "float32"
+                normalized_nodes.add(node)
             elif target == "aten.gather.default":
                 if (
                     len(node.args) != 3
                     or node.kwargs
                     or node.args[1] not in (-1, 1)
-                    or node.args[0] not in logprob_sources
+                    or node.args[0] not in normalized_nodes
+                    or node.args[2] not in index_columns
                 ):
                     raise ValueError(
-                        "only vocabulary gather following log_softmax is supported"
+                        "gather requires last-axis log_softmax values and a rank-2 int32/int64 index column"
                     )
                 ir = {
-                    "op": "selected_logprobs",
-                    "args": [
-                        argument(logprob_sources[node.args[0]]),
-                        argument(node.args[2]),
-                    ],
+                    "op": "gather",
+                    "args": [argument(node.args[0]), argument(node.args[2])],
                 }
             elif target == "aten.cross_entropy_loss.default":
                 args = node.args
@@ -382,21 +416,74 @@ def _capture_graph(objective, schemas, names, dtype, requires_grad, tokens):
                         "cross_entropy requires reduction='none', default ignore_index, and no class weights"
                     )
                 ir = {"op": "ce", "args": [argument(args[0]), argument(args[1])]}
-            elif (
-                target == "aten.sum.default" and len(node.args) == 1 and not node.kwargs
-            ):
-                ir = {"op": "sum", "args": [argument(node.args[0])]}
-            elif target == "aten.sum.dim_IntList":
+            elif op in reductions:
+                source = node.args[0]
+                rank = source.meta["val"].ndim
+                overload = target.rsplit(".", 1)[1]
+                allowed = {
+                    "sum": {"default", "dim_IntList"},
+                    "mean": {"default", "dim"},
+                    "amin": {"default"},
+                    "amax": {"default"},
+                    "logsumexp": {"default"},
+                    "var": {"default", "dim", "correction"},
+                    "std": {"default", "dim", "correction"},
+                }
                 if (
-                    len(node.args) != 2
-                    or node.kwargs
-                    or list(node.args[1]) not in ([-1], [1])
-                    or node.args[0].meta["val"].ndim != 2
+                    overload not in allowed[op]
+                    or source not in bounded_nodes
+                    or not source.meta["val"].is_floating_point()
                 ):
                     raise ValueError(
-                        "only reduction over the candidate axis is supported"
+                        "per-example reductions require bounded floating selected values"
                     )
-                ir = {"op": "sum_candidates", "args": [argument(node.args[0])]}
+                args = list(node.args[1:])
+                kwargs = dict(node.kwargs)
+                correction = None
+                if op in {"var", "std"} and overload == "default":
+                    unbiased = args.pop(0) if args else True
+                    if type(unbiased) is not bool:
+                        raise ValueError("variance unbiased must be a boolean")
+                    correction = int(unbiased)
+                    dims = None
+                else:
+                    dims = args.pop(0) if args else None
+                    if op in {"var", "std"}:
+                        if overload == "correction":
+                            correction = kwargs.pop("correction", None)
+                            correction = 1 if correction is None else correction
+                        else:
+                            unbiased = args.pop(0) if args else True
+                            if type(unbiased) is not bool:
+                                raise ValueError("variance unbiased must be a boolean")
+                            correction = int(unbiased)
+                keepdim = args.pop(0) if args else kwargs.pop("keepdim", False)
+                if args or kwargs or keepdim is not False:
+                    raise ValueError(
+                        "reductions require keepdim=False and no dtype override"
+                    )
+                if correction is not None and (
+                    type(correction) is not int or correction < 0
+                ):
+                    raise ValueError(
+                        "variance correction must be a nonnegative integer"
+                    )
+                axes = list(range(rank)) if dims is None or dims == [] else list(dims)
+                if any(
+                    type(axis) is not int or not -rank <= axis < rank for axis in axes
+                ):
+                    raise ValueError("unsupported reduction axes")
+                axes = [axis % rank for axis in axes]
+                if sorted(axes) == list(range(rank)) and rank in (1, 2):
+                    ir = {"op": op, "args": [argument(source)]}
+                    if correction is not None:
+                        ir["correction"] = correction
+                elif op == "sum" and rank == 2 and axes == [1]:
+                    ir = {"op": "sum_candidates", "args": [argument(source)]}
+                else:
+                    raise ValueError(
+                        "only per-example reductions or sum over the candidate axis are supported"
+                    )
             elif (
                 op in binary
                 and target in {f"aten.{op}.Tensor", f"aten.{op}.default"}
@@ -469,14 +556,60 @@ def _capture_graph(objective, schemas, names, dtype, requires_grad, tokens):
                 )
         else:
             raise ValueError(f"unsupported loss node {node.op}")
-        if ir["op"] == "logits" or (
-            ir["op"] in ("detach", "div") and node.args[0] in logits_nodes
+        if (
+            ir["op"] == "logits"
+            or (ir["op"] == "detach" and node.args[0] in logits_nodes)
+            or (
+                ir["op"] == "div"
+                and node.args[0] in logits_nodes
+                and type(node.args[1]) in (int, float)
+                and np.isfinite(node.args[1])
+                and node.args[1] > 0
+            )
         ):
             logits_nodes.add(node)
+        if ir["op"] == "detach" and node.args[0] in normalized_nodes:
+            normalized_nodes.add(node)
+        if node in normalized_nodes and any(
+            user.op != "call_function"
+            or str(user.target) not in {"aten.gather.default", "aten.detach.default"}
+            or user.args[0] is not node
+            for user in node.users
+        ):
+            raise ValueError(
+                "log_softmax values only support gather or detach consumers"
+            )
+        # Provenance is independent of autograd: detach must not turn a model
+        # summary into an input scalar that can be broadcast back over tokens.
+        model = ir["op"] == "logits" or any(
+            source in model_nodes for source in node.all_input_nodes
+        )
+        scalar = getattr(node.meta.get("val"), "ndim", None) == 0
+        if not scalar and any(
+            source in scalar_nodes and source in model_nodes
+            for source in node.all_input_nodes
+        ):
+            raise ValueError(
+                "model-dependent scalars cannot feed token or candidate tensors"
+            )
+        if model:
+            model_nodes.add(node)
+        if scalar:
+            scalar_nodes.add(node)
+        if ir["op"] in {"input", "ce", "gather"} or (
+            not scalar
+            and node.all_input_nodes
+            and all(
+                source in bounded_nodes or source in scalar_nodes
+                for source in node.all_input_nodes
+            )
+        ):
+            bounded_nodes.add(node)
         ir["source"] = str(node.meta.get("stack_trace", node.name))[-512:]
         indices[node] = len(nodes)
         nodes.append(ir)
-    graph = {"version": 1, "columns": schemas, "nodes": nodes, **outputs}
+    # Graph v2 fixes reductions/finalization to independent example scope.
+    graph = {"version": 2, "columns": schemas, "nodes": nodes, **outputs}
     payload = json.dumps(
         graph, sort_keys=True, separators=(",", ":"), allow_nan=False
     ).encode()

@@ -10,7 +10,7 @@ JSON says, the terminal wizard's menu must say too, for the same device.
 
 Real boundaries: the coding agents are executables on PATH (shell scripts that
 log every call), the files are the ones each agent and the wizard write. Stood
-in for: the two network calls (`fetch_device_state`, `main._verify`).
+in for: the two network calls (`fetch_device_state`, `main._verify_read`).
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ REAL_AVAILABLE = plugin_cli.available
 #: The real network calls and pi's real sniff, for the tests that use them:
 #: `machine` stands in for the first two, the suite pins the third off.
 REAL_FETCH_DEVICE_STATE = capabilities.fetch_device_state
-REAL_VERIFY = main._verify  # noqa: SLF001
+REAL_VERIFY = main._verify_read  # noqa: SLF001
 REAL_PI_SNIFF = pi_config.pi_binary_available
 
 EMAIL = "researcher@example.test"
@@ -123,7 +123,7 @@ def machine(tmp_path, monkeypatch):
         )
 
     monkeypatch.setattr(capabilities, "fetch_device_state", fetch_device_state)
-    monkeypatch.setattr(main, "_verify", lambda token, base_url: answers["token"])
+    monkeypatch.setattr(main, "_verify_read", lambda token, base_url: answers["token"])
     # A verdict another test recorded in this process is not this device's.
     monkeypatch.setattr(capabilities, "_MCP_TOKEN_VERDICT", None)
     return SimpleNamespace(home=home, bin=bin_dir, calls=calls, answers=answers, tmp=tmp_path)
@@ -234,8 +234,8 @@ def agent(state: dict, source: str) -> dict:
 def menu(machine) -> SimpleNamespace:
     """What the wizard's menu draws for this device, built the way
     `_wizard_session` builds it -- the read-token verdict, one device-state
-    call, `doctor.collect()` per agent found here under both -- and drawn by the
-    menu's own row builders."""
+    call, `doctor.collect()` per agent found here under both, reading plugin
+    records -- and drawn by the menu's own row builders."""
     capabilities.refresh_mcp_token_verdict()
     settings = resolve()
     server = capabilities.start_device_state(
@@ -243,9 +243,13 @@ def menu(machine) -> SimpleNamespace:
     )
     installed = setup.detectable_sources()
     caps = {}
-    for source in installed or ("claude_code",):
-        with capabilities.agent_target(source), doctor.device_state_scope(server):
-            caps[source] = doctor.collect()
+    # The wizard reads the agents' plugin records, not their `plugin list`
+    # (`plugin_records`, around the whole run): the menu must still say what
+    # `status --refresh` says, which asks the CLIs.
+    with capabilities.plugin_records():
+        for source in installed or ("claude_code",):
+            with capabilities.agent_target(source), doctor.device_state_scope(server):
+                caps[source] = doctor.collect()
     header = [str(line) for line in setup.describe_state(caps, installed=installed)]
     return SimpleNamespace(
         caps=caps,
@@ -543,7 +547,7 @@ def test_a_hung_token_check_is_an_error_not_a_hang(machine, monkeypatch):
         time.sleep(5)
         return ("rejected", None)
 
-    monkeypatch.setattr(main, "_verify", stuck)
+    monkeypatch.setattr(main, "_verify_read", stuck)
     state, elapsed, _ = status("--refresh", "--timeout", "1")
     assert elapsed < 10.0
     assert state["checks"]["mcp_token"] == {"state": None, "checked": False, "error": "timed out after 1s"}
@@ -787,7 +791,7 @@ def old_slow_server(machine, monkeypatch):
     base_url = f"http://127.0.0.1:{server.server_address[1]}"
     monkeypatch.setenv("PROBE_BASE_URL", base_url)
     monkeypatch.setattr(capabilities, "fetch_device_state", REAL_FETCH_DEVICE_STATE)
-    monkeypatch.setattr(main, "_verify", REAL_VERIFY)
+    monkeypatch.setattr(main, "_verify_read", REAL_VERIFY)
     for variable in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy", "ALL_PROXY", "all_proxy"):
         monkeypatch.delenv(variable, raising=False)
     try:
@@ -835,7 +839,7 @@ def test_hung_agents_server_and_token_check_all_fit_one_budget(machine, monkeypa
         return call
 
     monkeypatch.setattr(capabilities, "fetch_device_state", slow(5, DeviceState(DeviceStateOutcome.ANSWERED)))
-    monkeypatch.setattr(main, "_verify", slow(5, ("ok", {"email": EMAIL})))
+    monkeypatch.setattr(main, "_verify_read", slow(5, ("ok", {"email": EMAIL})))
     try:
         state, elapsed, _ = status("--refresh", "--timeout", "1")
     finally:

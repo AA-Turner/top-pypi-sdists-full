@@ -9,8 +9,10 @@ import stat
 
 import pytest
 
+from backfill_plan_agent import filing
 from probe.cli import backfill as bf
 from probe.cli import backfill_evidence as evidence_mod
+from probe.cli import backfill_plan as plan_mod
 from probe.cli import backfill_run as runner
 
 
@@ -45,6 +47,10 @@ def inputs(tmp_path, monkeypatch):
     return folder, work, ev
 
 
+def _reviewed():
+    return plan_mod.Plan([plan_mod.ProjectSpec("alpha")], [plan_mod.Assignment("a.py", "beta")])
+
+
 def _classify(inputs, *, agent=bf.Agent.CLAUDE, existing=()):
     folder, work, ev = inputs
     return runner.classify(folder, ev, agent=agent, existing=list(existing), work_dir=work)
@@ -53,7 +59,7 @@ def _classify(inputs, *, agent=bf.Agent.CLAUDE, existing=()):
 def test_completed_classification_survives_a_new_context_and_keeps_session(inputs, monkeypatch):
     calls = []
     progress = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(k) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(k) or (True, _tail(_plan()))))
     with runner.classification_context("same-observed-files"):
         first = _classify(inputs)
     with runner.classification_context(
@@ -75,7 +81,7 @@ def test_completed_classification_survives_a_new_context_and_keeps_session(input
 
 def test_no_context_preserves_uncached_behavior(inputs, monkeypatch):
     calls = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(1) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(1) or (True, _tail(_plan()))))
     for _ in range(2):
         assert _classify(inputs)[0] is not None
     assert len(calls) == 2
@@ -85,7 +91,7 @@ def test_no_context_preserves_uncached_behavior(inputs, monkeypatch):
 @pytest.mark.parametrize("change", ["identity", "evidence", "agent", "existing", "git", "github"])
 def test_changed_classification_inputs_are_not_reused(inputs, monkeypatch, change):
     calls = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(1) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(1) or (True, _tail(_plan()))))
     with runner.classification_context("observed-a"):
         _classify(inputs)
     folder, work, ev = inputs
@@ -103,10 +109,13 @@ def test_changed_classification_inputs_are_not_reused(inputs, monkeypatch, chang
     assert len(calls) == 2
 
 
-@pytest.mark.parametrize("failed", [(False, _tail(_plan())), (True, "not a plan")])
-def test_failed_or_unparsed_classification_is_not_cached(inputs, monkeypatch, failed):
-    results = iter([failed, (True, _tail(_plan()))])
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: next(results))
+@pytest.mark.parametrize("failed", [(False, "connection lost"), (True, _tail({"summary": "done"}))])
+def test_a_classification_that_filed_nothing_is_not_cached(inputs, monkeypatch, failed):
+    """Judged by what the tool recorded, not by the exit code: an agent that
+    exits 0 having filed nothing failed (it could not reach the tool, or never
+    tried), and a crashed one is retried before the call gives up."""
+    results = iter([failed] * runner.PASS_ATTEMPTS + [(True, _tail(_plan()))])
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: next(results)))
     with runner.classification_context("observed"):
         assert _classify(inputs)[0] is None
     assert not list((inputs[1] / "prep-cache").glob("*.json"))
@@ -114,10 +123,18 @@ def test_failed_or_unparsed_classification_is_not_cached(inputs, monkeypatch, fa
         assert _classify(inputs)[0] is not None
 
 
+def test_decisions_filed_before_a_crash_still_count(inputs, monkeypatch):
+    """The log survives the agent: what it validly filed is kept."""
+    calls = []
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(1) or (False, _tail(_plan()))))
+    plan, _, _ = _classify(inputs)
+    assert [a.path for a in plan.assignments] == ["a.py"] and len(calls) == 1
+
+
 @pytest.mark.parametrize("corruption", ["truncated", "wrong_shape", "invalid_plan", "oversized"])
 def test_corrupt_cache_is_recomputed(inputs, monkeypatch, corruption):
     calls = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(1) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(1) or (True, _tail(_plan()))))
     with runner.classification_context("observed"):
         _classify(inputs)
     path, = (inputs[1] / "prep-cache").glob("*.json")
@@ -127,7 +144,7 @@ def test_corrupt_cache_is_recomputed(inputs, monkeypatch, corruption):
         path.write_text("[]")
     elif corruption == "invalid_plan":
         data = json.loads(path.read_text())
-        data["value"]["tail"] = _tail({"projects": 12, "assignments": [{}]})
+        data["value"]["ops"] = [json.dumps({"op": "assign", "project": "ghost", "under": "zzz"})]
         path.write_text(json.dumps(data))
     else:
         monkeypatch.setattr(runner, "_PREP_CACHE_ENTRY_BYTES", 64)
@@ -140,6 +157,11 @@ def test_corrupt_cache_is_recomputed(inputs, monkeypatch, corruption):
 @pytest.mark.parametrize("failed_phase", ["survey", "assign"])
 def test_restart_reuses_completed_slices_after_second_slice_fails(inputs, monkeypatch, failed_phase):
     folder, work, ev = inputs
+    ev = replace(ev, files=[
+        evidence_mod.FileEvidence(path=str(folder / f"{name}.py"), size=10, mtime=0,
+                                  tier=evidence_mod.Tier.EVIDENCE, sample=name)
+        for name in ("a", "b", "c")
+    ])
     rows = [json.dumps({"path": f"{name}.py", "sample": name}) for name in ("a", "b", "c")]
     monkeypatch.setattr(evidence_mod, "chunk_lines", lambda _: [[row] for row in rows])
     calls = Counter()
@@ -159,15 +181,21 @@ def test_restart_reuses_completed_slices_after_second_slice_fails(inputs, monkey
             return True, _tail({"findings": [{"work": f"slice {index}"}]})
         if phase == "name":
             return True, _tail({"projects": _plan()["projects"]})
-        return True, _tail({"assignments": [{"path": f"{index}.py", "project": "alpha"}]})
+        return True, _tail({"assignments": [{"path": "abc"[index - 1] + ".py", "project": "alpha"}]})
 
-    monkeypatch.setattr(bf, "launch_agent", agent)
+    monkeypatch.setattr(bf, "launch_agent", filing(agent))
     with runner.classification_context("observed"):
         plan, detail = runner.classify_chunked(
             folder, ev, agent=bf.Agent.CLAUDE, existing=[], work_dir=work,
         )
-    assert plan is None
-    assert "slice 2 of 3" in detail and "connection lost" in detail
+    if failed_phase == "survey":
+        # An unread slice only narrows what naming sees: its rows are still filed.
+        assert sorted(a.path for a in plan.assignments) == ["a.py", "b.py", "c.py"]
+        assert plan.stats["unread_slices"] == 1 and plan.excluded == []
+    else:
+        # One failed slice costs only its own files.
+        assert sorted(a.path for a in plan.assignments) == ["a.py", "c.py"]
+        assert plan.excluded == ["b.py"] and plan.stats["failed_sessions"] == 1
     failing = False
     with runner.classification_context(
         "observed", lambda message, **fields: progress.append((message, fields)),
@@ -176,12 +204,14 @@ def test_restart_reuses_completed_slices_after_second_slice_fails(inputs, monkey
             folder, ev, agent=bf.Agent.CLAUDE, existing=[], work_dir=work,
         )
     assert plan is not None
-    assert len(plan.assignments) == 3
+    assert len(plan.assignments) == 3 and plan.excluded == []
     assert calls[failed_phase, 2] == runner.PASS_ATTEMPTS + 1
     assert calls["survey", 1] == 1
     assert calls["assign", 1] == 1
     assert calls["assign", 3] == 1
-    assert calls["name", 0] == 1
+    # A slice read on the second run changes what naming sees, so naming (and
+    # filing against its answer) runs again; a failed filing slice changes nothing.
+    assert calls["name", 0] == (2 if failed_phase == "survey" else 1)
     assert all(fields["phase"] == "scanning" and fields["total"] == 7
                for _, fields in progress)
     completed = [fields["completed"] for _, fields in progress]
@@ -206,11 +236,11 @@ def test_unusable_chunk_results_are_not_saved(inputs, monkeypatch, key):
 @pytest.mark.parametrize("change", [None, "feedback", "evidence", "session", "identity", "agent"])
 def test_revision_cache_tracks_correction_inputs_and_returns_session(inputs, monkeypatch, change):
     calls = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(k) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(k) or (True, _tail(_plan()))))
     folder, work, ev = inputs
     with runner.classification_context("observed-a"):
         first = runner.revise(folder, ev, "Use Alpha", agent=bf.Agent.CLAUDE,
-                              session_id="original-session", work_dir=work)
+                              session_id="original-session", work_dir=work, plan=_reviewed())
     if change == "evidence":
         ev = replace(ev, files=[replace(ev.files[0], sample="evaluate()")])
     with runner.classification_context("observed-b" if change == "identity" else "observed-a"):
@@ -218,7 +248,7 @@ def test_revision_cache_tracks_correction_inputs_and_returns_session(inputs, mon
             folder, ev, "Use Beta" if change == "feedback" else "Use Alpha",
             agent=bf.Agent.CODEX if change == "agent" else bf.Agent.CLAUDE,
             session_id="another-session" if change == "session" else "original-session",
-            work_dir=work,
+            work_dir=work, plan=_reviewed(),
         )
     assert len(calls) == (1 if change is None else 2)
     if change is None:
@@ -228,7 +258,7 @@ def test_revision_cache_tracks_correction_inputs_and_returns_session(inputs, mon
 
 def test_nested_context_restores_outer_identity_after_exception(inputs, monkeypatch):
     calls = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(1) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(1) or (True, _tail(_plan()))))
     with runner.classification_context("outer"):
         _classify(inputs)
         with pytest.raises(RuntimeError), runner.classification_context("inner"):
@@ -243,13 +273,13 @@ def test_nested_context_restores_outer_identity_after_exception(inputs, monkeypa
 @pytest.mark.parametrize("agent", [bf.Agent.CLAUDE, bf.Agent.CODEX])
 def test_cold_revision_keeps_its_new_session_when_reused(inputs, monkeypatch, agent):
     calls = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(k) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(k) or (True, _tail(_plan()))))
     folder, work, ev = inputs
     results = []
     for _ in range(2):
         with runner.classification_context("observed"):
             results.append(runner.revise(folder, ev, "Use Alpha", agent=agent,
-                                         session_id=None, work_dir=work))
+                                         session_id=None, work_dir=work, plan=_reviewed()))
     assert len(calls) == 1
     assert results[0] == results[1]
     assert results[1][2] == calls[0]["session_id"]
@@ -257,20 +287,21 @@ def test_cold_revision_keeps_its_new_session_when_reused(inputs, monkeypatch, ag
 
 
 def test_failed_revision_retries_without_reusing_its_failed_output(inputs, monkeypatch):
-    results = iter([(False, _tail(_plan())), (True, _tail(_plan()))])
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: next(results))
+    results = iter([(False, "connection lost"), (True, _tail(_plan()))])
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: next(results)))
     folder, work, ev = inputs
     with runner.classification_context("observed"):
         assert runner.revise(folder, ev, "Use Alpha", agent=bf.Agent.CLAUDE,
-                             session_id="original-session", work_dir=work)[0] is None
+                             session_id="original-session", work_dir=work, plan=_reviewed())[0] is None
     assert not list((work / "prep-cache").glob("*.json"))
     with runner.classification_context("observed"):
-        assert runner.revise(folder, ev, "Use Alpha", agent=bf.Agent.CLAUDE,
-                             session_id="original-session", work_dir=work)[0] is not None
+        revised = runner.revise(folder, ev, "Use Alpha", agent=bf.Agent.CLAUDE,
+                                session_id="original-session", work_dir=work, plan=_reviewed())[0]
+    assert [(a.path, a.project) for a in revised.assignments] == [("a.py", "alpha")]
 
 
 def test_cache_write_failure_does_not_discard_the_agent_result(inputs, monkeypatch):
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: (True, _tail(_plan()))))
     (inputs[1] / "prep-cache").write_text("not a directory")
     with runner.classification_context("observed"):
         assert _classify(inputs)[0] is not None
@@ -278,7 +309,7 @@ def test_cache_write_failure_does_not_discard_the_agent_result(inputs, monkeypat
 
 def test_old_cache_entries_are_evicted_at_the_count_bound(inputs, monkeypatch):
     calls = []
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: calls.append(1) or (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(1) or (True, _tail(_plan()))))
     monkeypatch.setattr(runner, "_PREP_CACHE_ENTRIES", 2)
     for identity in ("first", "second", "third"):
         with runner.classification_context(identity):
@@ -293,7 +324,7 @@ def test_old_cache_entries_are_evicted_at_the_count_bound(inputs, monkeypatch):
 
 
 def test_cache_total_bytes_are_bounded(inputs, monkeypatch):
-    monkeypatch.setattr(bf, "launch_agent", lambda *a, **k: (True, _tail(_plan())))
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: (True, _tail(_plan()))))
     with runner.classification_context("first"):
         _classify(inputs)
     path, = (inputs[1] / "prep-cache").glob("*.json")
@@ -304,3 +335,26 @@ def test_cache_total_bytes_are_bounded(inputs, monkeypatch):
     entries = list((inputs[1] / "prep-cache").glob("*.json"))
     assert sum(path.stat().st_size for path in entries) <= limit
     assert len(entries) == 1
+
+
+def test_a_cached_filing_is_replayed_against_the_current_files_and_never_widens(inputs, monkeypatch):
+    """A cache hit replays the saved decisions through the same checks as a
+    live session, against the files of THIS run: a saved decision naming a file
+    the folder no longer has cannot come back, and a changed file list misses
+    the cache altogether (the key carries the reference)."""
+    calls = []
+    monkeypatch.setattr(bf, "launch_agent", filing(lambda *a, **k: calls.append(1) or (True, _tail(_plan()))))
+    with runner.classification_context("observed"):
+        first, _, _ = _classify(inputs)
+    path, = (inputs[1] / "prep-cache").glob("*.json")
+    data = json.loads(path.read_text())
+    data["value"]["ops"].append(json.dumps({"op": "assign", "project": "alpha", "file": "gone.py"}))
+    path.write_text(json.dumps(data))
+    with runner.classification_context("observed"):
+        again, _, _ = _classify(inputs)
+    assert len(calls) == 1 and [a.path for a in again.assignments] == ["a.py"]
+    folder, work, ev = inputs
+    grown = replace(ev, files=[*ev.files, replace(ev.files[0], path=str(folder / "b.py"))])
+    with runner.classification_context("observed"):
+        _classify((folder, work, grown))
+    assert len(calls) > 1, "a changed file list must miss the cache"

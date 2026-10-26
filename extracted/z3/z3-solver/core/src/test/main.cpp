@@ -131,6 +131,7 @@
     X(seq_profile_abs) \
     X(check_assumptions) \
     X(smt_context) \
+    X(sat_config) \
     X(theory_dl) \
     X(model_retrieval) \
     X(model_based_opt) \
@@ -140,6 +141,8 @@
     X(substitution) \
     X(ff_domain) \
     X(ff_solver) \
+    X(ff_euf) \
+    X(ff_native_proof) \
     X(finite_field) \
     X(polynomial) \
     X(polynomial_factorization) \
@@ -151,6 +154,7 @@
     X(nla_transcendentals) \
     X(nla_intervals) \
     X(lp_bound_propagation) \
+    X(lp_matrix) \
     X(horner) \
     X(prime_generator) \
     X(permutation) \
@@ -202,6 +206,9 @@
     X(theory_pb) \
     X(simplex) \
     X(sat_user_scope) \
+    X(sat_smt_proof_scope) \
+    X(smt_proof_checker) \
+    X(smt_proof_weakening) \
     X_ARGV(ddnf) \
     X(ddnf1) \
     X(model_evaluator) \
@@ -232,6 +239,7 @@
     X(seq_regex_bisim) \
     X(term_enumeration) \
     X(lcube) \
+    X(lp_evidence) \
     X(psmt)
 
 #define FOR_EACH_TEST(X, X_ARGV) \

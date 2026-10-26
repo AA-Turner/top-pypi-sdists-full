@@ -18,7 +18,12 @@ from requests.structures import CaseInsensitiveDict
 
 from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
-from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator, resolve_bundled_ref, schema_with_bundle
+from schemathesis.core.jsonschema import (
+    BUNDLE_STORAGE_KEY,
+    make_validator,
+    resolve_bundled_ref,
+    schema_with_bundle,
+)
 from schemathesis.core.jsonschema.patterns import update_quantifier
 from schemathesis.core.jsonschema.types import JsonSchemaObject, as_object_schema
 from schemathesis.core.media_types import (
@@ -55,7 +60,7 @@ from schemathesis.specs.openapi.coverage._wire import stringify_value
 from schemathesis.specs.openapi.error_feedback import apply_adjustments
 from schemathesis.specs.openapi.utils import parameter_types, sent_text_is_valid
 from schemathesis.transport.prepare import prepare_path
-from schemathesis.transport.serialization import quote_all
+from schemathesis.transport.serialization import Binary, quote_all
 
 if TYPE_CHECKING:
     from hypothesis.strategies import SearchStrategy
@@ -71,6 +76,18 @@ if TYPE_CHECKING:
 
 # Case keyword arguments that describe the request body.
 BODY_KEYS = ("body", "media_type", "multipart_content_types")
+
+
+def _is_content_type_header(location: ParameterLocation, name: str) -> bool:
+    return location == ParameterLocation.HEADER and name.lower() == "content-type"
+
+
+def _without_content_type(headers: dict[str, Any]) -> dict[str, Any]:
+    return {name: value for name, value in headers.items() if name.lower() != "content-type"}
+
+
+def _without_body(kwargs: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in kwargs.items() if key not in BODY_KEYS}
 
 
 def _set_multipart_content_types(kwargs: dict[str, Any], content_types: dict[str, str] | None) -> None:
@@ -226,11 +243,11 @@ class Template:
 
     def without_body(self) -> TemplateValue:
         # A `Content-Type` describing a body that is not there is a different oddity than sending no body at all.
-        raw = {key: value for key, value in self._template.items() if key not in BODY_KEYS}
+        raw = _without_body(self._template)
         components = {**self._components, ParameterLocation.BODY: ComponentInfo(mode=GenerationMode.NEGATIVE)}
         headers = raw.get("headers")
         if isinstance(headers, dict):
-            headers = {name: value for name, value in headers.items() if name.lower() != "content-type"}
+            headers = _without_content_type(headers)
             raw["headers"] = headers
             components[ParameterLocation.HEADER] = ComponentInfo(mode=self._mode_for(ParameterLocation.HEADER, headers))
         kwargs = self._serialize(raw, components)
@@ -589,6 +606,24 @@ def _generate_coverage_values_from_custom_strategy(
         )
 
 
+def _generate_raw_body_coverage_values(body: OpenApiBody) -> list[tuple[str, GeneratedValue]]:
+    """Values from a custom media type strategy, or a file sample when the media type names a file format."""
+    values = list(_generate_coverage_values_from_custom_strategy(body.media_type))
+    if values:
+        return values
+    return [
+        (
+            media_type,
+            GeneratedValue.with_positive(
+                value=Binary(sample),
+                scenario=CoverageScenario.EXAMPLE_VALUE,
+                description=f"File sample: {media_type}",
+            ),
+        )
+        for media_type, sample in body.iter_file_samples(body.media_type)
+    ]
+
+
 def _generate_multipart_body_from_custom_strategies(
     body: OpenApiBody,
 ) -> tuple[dict[str, Any], dict[str, str]] | None:
@@ -599,9 +634,8 @@ def _generate_multipart_body_from_custom_strategies(
     if body.media_type not in FORM_MEDIA_TYPES:
         return None
 
-    schema = as_object_schema(body.definition.get("schema", {}))
-    properties = schema.get("properties", {})
-    required = schema.get("required", [])
+    properties = body.form_properties
+    required = (body.resolved_schema or {}).get("required", [])
 
     result: dict[str, Any] = {}
     content_types: dict[str, str] = {}
@@ -841,7 +875,7 @@ def _seed_parameters(run: CoverageRun) -> None:
         # Pin the template's Content-Type to the body media type when CT is declared as an explicit
         # header parameter — otherwise body cases inherit a fuzzed CT (often empty) and ship bodies
         # that downstream tools can't dispatch. CT-mutation variants still flow through the iterator.
-        if location == ParameterLocation.HEADER and name.lower() == "content-type" and operation.body:
+        if _is_content_type_header(location, name) and operation.body:
             admitted = [
                 alternative.media_type
                 for alternative in operation.body
@@ -962,8 +996,7 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
             ]
         else:
             custom_values = [
-                (media_type, None, value)
-                for media_type, value in _generate_coverage_values_from_custom_strategy(body.media_type)
+                (media_type, None, value) for media_type, value in _generate_raw_body_coverage_values(body)
             ]
 
         if custom_values:
@@ -1119,7 +1152,7 @@ def _parameter_mutations(run: CoverageRun) -> Generator[Case, None, None]:
         iterator = iter(gen)
         # CT-mutation cases test Content-Type validation, not body validation; carrying the
         # template's body would conflate the two sweeps (matches the missing-CT special-case below).
-        is_content_type_mutation = location == ParameterLocation.HEADER and name.lower() == "content-type"
+        is_content_type_mutation = _is_content_type_header(location, name)
         while True:
             instant = Instant()
             try:
@@ -1131,8 +1164,8 @@ def _parameter_mutations(run: CoverageRun) -> Generator[Case, None, None]:
             kwargs = data.kwargs
             raw = data.raw
             if is_content_type_mutation:
-                kwargs = {k: v for k, v in kwargs.items() if k not in BODY_KEYS}
-                raw = {k: v for k, v in raw.items() if k not in BODY_KEYS}
+                kwargs = _without_body(kwargs)
+                raw = _without_body(raw)
 
             if value.generation_mode == GenerationMode.NEGATIVE:
                 if not template.can_emit(GenerationMode.NEGATIVE):
@@ -1264,22 +1297,18 @@ def _content_type_probes(run: CoverageRun) -> Generator[Case, None, None]:
     ):
         if scenario == CoverageScenario.UNSUPPORTED_CONTENT_TYPE and not run.operation.body:
             continue
-        headers = {
-            name: value for name, value in data.kwargs.get("headers", {}).items() if name.lower() != "content-type"
-        }
+        headers = _without_content_type(data.kwargs.get("headers", {}))
         headers["Content-Type"] = content_type
         kwargs = {**data.kwargs, "headers": headers}
-        raw_headers = {
-            name: value for name, value in data.raw.get("headers", {}).items() if name.lower() != "content-type"
-        }
+        raw_headers = _without_content_type(data.raw.get("headers", {}))
         raw_headers["Content-Type"] = content_type
         raw = {**data.raw, "headers": raw_headers}
         if (
             scenario == CoverageScenario.MALFORMED_CONTENT_TYPE
             and data.kwargs.get("media_type") == "multipart/form-data"
         ):
-            kwargs = {key: value for key, value in kwargs.items() if key not in BODY_KEYS}
-            raw = {key: value for key, value in raw.items() if key not in BODY_KEYS}
+            kwargs = _without_body(kwargs)
+            raw = _without_body(raw)
         yield emitter.build(
             data,
             mode=GenerationMode.NEGATIVE,
@@ -1348,9 +1377,9 @@ def _missing_required(run: CoverageRun) -> Generator[Case, None, None]:
             kwargs = data.kwargs
             raw = data.raw
             # For missing Content-Type header test, don't send body
-            if location == ParameterLocation.HEADER and name.lower() == "content-type":
-                kwargs = {k: v for k, v in kwargs.items() if k not in BODY_KEYS}
-                raw = {k: v for k, v in raw.items() if k not in BODY_KEYS}
+            if _is_content_type_header(location, name):
+                kwargs = _without_body(kwargs)
+                raw = _without_body(raw)
 
             case = emitter.emit(
                 data,

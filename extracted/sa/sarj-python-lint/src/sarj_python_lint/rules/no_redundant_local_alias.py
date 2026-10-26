@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ast
-from collections import defaultdict
 from pathlib import PurePosixPath
 import re
 from typing import TYPE_CHECKING, ClassVar, final, override
@@ -78,6 +77,19 @@ _TYPE_COMMENT = re.compile(r"#\s*type\s*:")
 _NAME_PAIR = re.compile(r"\b(?P<target>[A-Za-z_]\w*)[\s)\\]*=[\s(\\]*(?P<source>[A-Za-z_]\w*)\b(?=[\s),;\\]|$)")
 
 
+_SAFE_ALIAS_ORIGINAL = (
+    "def render(item):\n"
+    "    def _record(value):\n"
+    "        payload = value\n"
+    "        return dict(payload=payload)\n"
+    "    return _record(item)\n"
+)
+
+_SAFE_ALIAS_FIXED = (
+    "def render(item):\n    def _record(value):\n        return dict(payload=value)\n    return _record(item)\n"
+)
+
+
 @final
 class NoRedundantLocalAlias(Rule):
     id = "no-redundant-local-alias"
@@ -96,10 +108,12 @@ class NoRedundantLocalAlias(Rule):
             "Loops, try statements, asserts, other Boolean short-circuiting, nested scopes, global/nonlocal declarations and type aliases are excluded. Ordinary and async with bodies require ordered enclosing-suite binding evidence.",
             "A conditional expression is admitted only when its test is a bare name bound once as a parameter, and neither local is read within the expression.",
             "Typed aliases, files with type comments, same-scope quoted references and conditional reads of either local are excluded. Captured bindings and module/class aliases are preserved.",
+            "Aliases read inside template interpolations are preserved because templates expose expression text. This conservatively also excludes reads used only in format specifications.",
             "Files with wildcard imports, Pydantic imports or references to known namespace readers, dynamic attribute getters or reference-count observers are excluded. Wildcard exports cannot establish builtin identity; computed type names can consume caller-local bindings without a Name read in the AST.",
             "Dynamic class construction and class-valued references to type are excluded. Direct, unshadowed unary type(value) queries and standard-library dataclasses remain supported.",
             "Generated source, stubs and malformed input are excluded; files must compile with normal module execution flags. Arbitrary external frame introspection is not modeled.",
-            "Safe fixes are limited to undecorated module functions with one required parameter, an optional existing docstring, a clean single-line alias and a tail return of unshadowed builtin dict with exactly the matching keyword. Recorded dict bindings, visible attribute/subscript writes, setter, mapping-mutator, ior, methodcaller or patch references, unittest imports, `|=` assignments, comments, non-UTF8 encodings, type parameters and visible code-object inspection prevent fixes. Mutation guards also exclude unrelated ordinary mappings, nonmutating methodcaller uses, harmless unittest imports and integer `|=` assignments. Other calls remain diagnostic-only; arbitrary external tracing, reflection and monkeypatching are not modeled.",
+            "Native diagnostic fixes are limited to undecorated module functions with one required parameter, an optional existing docstring, a clean single-line alias and a tail return of unshadowed builtin dict with exactly the matching keyword. Recorded dict bindings, visible attribute/subscript writes, setter, mapping-mutator, ior, methodcaller or patch references, unittest imports, `|=` assignments, comments, non-UTF8 encodings, type parameters and visible function, frame or coroutine code-object inspection prevent fixes. Mutation guards also exclude unrelated ordinary mappings, nonmutating methodcaller uses, harmless unittest imports and integer `|=` assignments. Other calls remain diagnostic-only; arbitrary external tracing, reflection and monkeypatching are not modeled.",
+            "The central fixer also retains its separate closed nested private one-parameter helper profile: the whole body forwards one unannotated alias into a returned canonical builtin dict. Its closed-call, comment, annotation, escape, builtin and metadata-observation guards remain independent of native diagnostic fixes; a finding is edited through only one validated path.",
             "Readability judgments, multiple reads, positional forwarding and more complex control flow remain outside the contract.",
         ),
         examples=(
@@ -179,6 +193,27 @@ class NoRedundantLocalAlias(Rule):
                 expected_count=0,
                 public=True,
             ),
+            RuleExample(
+                example_id="safe-closed-dict-alias",
+                title="A closed private dict wrapper preserves the original value",
+                scenario="closed-dict-identity",
+                outcome=ExampleOutcome.MATCH,
+                files=(ExampleFile.python("case.py", _SAFE_ALIAS_ORIGINAL),),
+                fixed_files=(ExampleFile.python("case.py", _SAFE_ALIAS_FIXED),),
+                focus_path=PurePosixPath("case.py"),
+                expected_count=1,
+                public=True,
+            ),
+            RuleExample(
+                example_id="direct-closed-dict-value",
+                title="The same keyword receives the original parameter",
+                scenario="closed-dict-identity",
+                outcome=ExampleOutcome.NO_MATCH,
+                files=(ExampleFile.python("case.py", _SAFE_ALIAS_FIXED),),
+                focus_path=PurePosixPath("case.py"),
+                expected_count=0,
+                public=True,
+            ),
         ),
     )
     description = documentation.summary
@@ -193,7 +228,6 @@ class NoRedundantLocalAlias(Rule):
             return []
         provenance = context.resource_provenance
         names = {node.targets[0].id for node in candidates if isinstance(node.targets[0], ast.Name)}
-        reads = _scope_reads(provenance, names)
         conditional_sources = _conditional_sources(context)
         quoted = _quoted_references(context, provenance, names)
         positions = {statement: i for owner in context.nodes(*_SUITES) for i, statement in enumerate(owner.body)}
@@ -206,7 +240,7 @@ class NoRedundantLocalAlias(Rule):
                 continue
             if (provenance.scope(assignment), target.id) in quoted:
                 continue
-            use = _single_keyword_read(target, provenance, reads, keywords)
+            use = _single_keyword_read(target, provenance, keywords)
             if use is None:
                 continue
             if not _dominates(assignment, use, context.parents, positions):
@@ -364,14 +398,6 @@ def _parameter_choice(node: ast.IfExp, provenance: ResourceProvenance) -> bool:
     return len(bindings) == 1 and isinstance(bindings[0], ast.arg)
 
 
-def _scope_reads(provenance: ResourceProvenance, names: set[str]) -> dict[tuple[ast.AST | None, str], list[ast.Name]]:
-    reads: dict[tuple[ast.AST | None, str], list[ast.Name]] = defaultdict(list)
-    for name in names:
-        for read in provenance.reads.get(name, ()):
-            reads[provenance.scope(read), name].append(read)
-    return reads
-
-
 def _conditional_sources(context: PythonFileContext) -> set[tuple[ast.AST | None, str]]:
     provenance = context.resource_provenance
     pending: list[ast.AST] = list(context.nodes(ast.IfExp))
@@ -391,12 +417,13 @@ def _conditional_sources(context: PythonFileContext) -> set[tuple[ast.AST | None
 def _single_keyword_read(
     target: ast.Name,
     provenance: ResourceProvenance,
-    reads: Mapping[tuple[ast.AST | None, str], list[ast.Name]],
     keywords: Mapping[ast.Name, str],
 ) -> ast.Name | None:
     scope = provenance.scope(target)
-    uses = reads.get((scope, target.id), ())
-    if provenance.bindings.get(scope, {}).get(target.id) != [target] or len(uses) != 1:
+    if provenance.bindings.get(scope, {}).get(target.id) != [target]:
+        return None
+    uses = provenance.binding_reads(target.id, target)
+    if len(uses) != 1:
         return None
     [use] = uses
     if keywords.get(use) != target.id or _statement(use, provenance.parents) is None:
@@ -481,7 +508,7 @@ def _plain_type_query(node: ast.AST, context: PythonFileContext) -> bool:
 
 def _statement(node: ast.AST, parents: Mapping[ast.AST, ast.AST]) -> ast.stmt | None:
     while not isinstance(node, ast.stmt):
-        if isinstance(node, (ast.IfExp, ast.BoolOp)) or (parent := parents.get(node)) is None:
+        if isinstance(node, (ast.IfExp, ast.BoolOp, ast.Interpolation)) or (parent := parents.get(node)) is None:
             return None
         node = parent
     return node

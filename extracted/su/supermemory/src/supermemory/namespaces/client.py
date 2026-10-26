@@ -37,6 +37,7 @@ class NamespacesClient:
         *,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        q: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
         extra_headers: typing.Optional[typing.Mapping[str, str]] = None,
         extra_query: typing.Optional[typing.Mapping[str, typing.Any]] = None,
@@ -53,6 +54,9 @@ class NamespacesClient:
 
         limit : typing.Optional[int]
             Maximum namespaces to return per page
+
+        q : typing.Optional[str]
+            Case-insensitive substring to match against namespace names
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -71,7 +75,7 @@ class NamespacesClient:
         )
         client.namespaces.list()
         """
-        _response = self._raw_client.list(page=page, limit=limit, request_options=request_options)
+        _response = self._raw_client.list(page=page, limit=limit, q=q, request_options=request_options)
         return _response.data
 
     def get(
@@ -226,6 +230,7 @@ class AsyncNamespacesClient:
         *,
         page: typing.Optional[int] = None,
         limit: typing.Optional[int] = None,
+        q: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
         extra_headers: typing.Optional[typing.Mapping[str, str]] = None,
         extra_query: typing.Optional[typing.Mapping[str, typing.Any]] = None,
@@ -242,6 +247,9 @@ class AsyncNamespacesClient:
 
         limit : typing.Optional[int]
             Maximum namespaces to return per page
+
+        q : typing.Optional[str]
+            Case-insensitive substring to match against namespace names
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -268,7 +276,7 @@ class AsyncNamespacesClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list(page=page, limit=limit, request_options=request_options)
+        _response = await self._raw_client.list(page=page, limit=limit, q=q, request_options=request_options)
         return _response.data
 
     async def get(

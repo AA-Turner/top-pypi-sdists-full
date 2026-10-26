@@ -233,14 +233,9 @@ def generate_sankey(groups: Iterable[Group]) -> str:
         display (e.g., CANONICAL_GROUPS & ALL_ARCHITECTURE_GROUPS).
     :raises ValueError: If no superset group is found among the inputs.
 
-    ```{todo}
-    Label nodes with their trait icons once Mermaid supports emoji in Sankey
-    diagrams, as tracked in
-    [`mermaid-js/mermaid#1995`](https://github.com/mermaid-js/mermaid/issues/1995)
-    and
-    [`mermaid-js/mermaid#5308`](https://github.com/mermaid-js/mermaid/issues/5308).
-    Nodes fall back to bare ``symbol_id`` labels in the meantime.
-    ```
+    Nodes carry their bare ``symbol_id`` as label, because the Mermaid Sankey
+    parser accepts ASCII characters only. The `{todo}` to label them with their
+    icons is in `docs/architectures.md`, where the todo list collects it.
     """
     superset, intermediate_groups, missing_traits = _analyze_group_hierarchy(groups)
 

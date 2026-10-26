@@ -43,8 +43,10 @@
                    bounded, and is reaped meanwhile (`draining`). A service
                    that stops releases nothing: its workers run on, asked to
                    hand over to the next service's (`recorders.close`)
-    the updater    stops workers at a safe point by their pids, as before
-                   (`updater._stop_workers`); this only never starts one while
+    the updater    stops workers at a safe point (`updater._stop_workers`): a
+                   worker process by its pid, as before, a run in the daemon
+                   host through `stop_hosted` (the host runs every session and
+                   is never signalled for one); this only never starts one while
                    it holds starts, and starts the new one once it lets go
 
 `service.status` `workers`: one row per session (`WorkerState`).
@@ -90,6 +92,8 @@ POLL_S = 2.0
 #: A waiting supervisor re-touches the holder's `.handover` ask this often (the
 #: worker trusts one younger than 10 s: `worker.HANDOVER_FRESH_S`).
 HANDOVER_TOUCH_S = 2.0
+#: A hosted run whose loop has not ticked for this long reads `hung` in status (plan H10).
+HUNG_TICK_S = 600.0
 #: Test-only overrides (API v1, "Lifecycle"). Nothing in production sets them.
 POLL_ENV = "PROBE_SERVICE_WORKER_POLL_S"
 BACKOFF_ENV = "PROBE_SERVICE_WORKER_BACKOFF_S"
@@ -289,6 +293,9 @@ class Supervisor:
     reserve: Callable[[str], Launch | None] = lambda sid: Launch(sid)
     #: The service's watch (`watch.Watch.note`): a give-up or a crash loop is a report.
     incident: Callable[..., None] = lambda *args, **kwargs: None
+    #: The daemon host (`daemonhost.DaemonHost`): runs start there while it is
+    #: available, else as a worker process each, as before.
+    host: object = None
     _touched: float = float("-inf")
     #: This supervisor's launch (`_spawn` on a thread of its own), or None.
     _launch: Launch | None = None
@@ -447,6 +454,19 @@ class Supervisor:
             self.log(f"worker: no CLI interpreter (runtime.json) for session {sid}: the agent records")
             self._report("no_cli")
             return
+        host = self.host
+        if host is not None and host.available():
+            if launch.cancelled or not self.may_start() or self.released:
+                return
+            try:
+                hosted = host.start({"sid": sid, "transcript": self.spec.transcript, "cwd": self.spec.cwd,
+                                     "source": self.spec.source, "daemon_dir": str(self.spec.daemon_dir),
+                                     "env": {**self.spec.env, **SUPERVISOR_ENV}})
+            except Exception as exc:  # noqa: BLE001 -- HostUnavailable, or a bug: a process, as before
+                self.log(f"worker: session {sid}: the daemon host is unavailable ({exc}); its own process")
+            else:
+                self._adopt(hosted, launch, now)
+                return
         env = {**self.spec.env, **SUPERVISOR_ENV, ENTER_CWD_ENV: "1", SUPERVISOR_PID_ENV: supervisor_value(sid)}
         # Started in its own state folder (made for its log just below), never
         # the project's: the worker enters that itself (`--cwd`, ENTER_CWD_ENV).
@@ -479,6 +499,13 @@ class Supervisor:
             return
         finally:
             os.close(log_fd)
+        self._adopt(child, launch, now)
+
+    def _adopt(self, child, launch: Launch, now: float) -> None:
+        """The child a launch made (a worker process, or a run in the daemon host)
+        is this session's -- unless the session ended or the service began
+        stopping while it launched."""
+        sid = self.spec.sid
         with self._mutex:
             # Released, or the service stopping, while it launched: no one else
             # will stop this child (`terminate` found none; a stopping service
@@ -497,7 +524,8 @@ class Supervisor:
             self.log(f"worker: session {sid}'s worker started after its session ended or the service stopped "
                      f"(pid {child.pid}): asked to stop")
             return
-        self.log(f"worker: session {sid}'s worker started (pid {child.pid})")
+        where = "in the daemon host" if getattr(child, "run_id", None) else "its own process"
+        self.log(f"worker: session {sid}'s worker started ({where}, pid {child.pid})")
 
     def terminate(self) -> subprocess.Popen | None:
         """Its session ended: SIGTERM, never a wait (the worker's final cycle is
@@ -516,7 +544,7 @@ class Supervisor:
 
     def public(self, now: float) -> dict:
         child = self.child  # once: the host's thread may clear it meanwhile
-        return {
+        row = {
             "sid": self.spec.sid,
             "pid": child.pid if child is not None else None,
             "state": self.state,
@@ -526,6 +554,13 @@ class Supervisor:
             "retry_in": round(self.not_before - now, 1) if self.not_before > now else None,
             "gave_up_in": self.gave_up_in,
         }
+        if getattr(child, "run_id", None) and self.host is not None:
+            info = self.host.run_info(child)
+            row["host"] = True
+            row["cpu_s"] = info.get("cpu_s")
+            age = info.get("tick_age_s")
+            row["hung"] = bool(age is not None and age > HUNG_TICK_S)
+        return row
 
 
 class Link:
@@ -554,12 +589,14 @@ class Link:
 class WorkerHost:
     def __init__(
         self, *, log: Callable[[str], None], clock: Callable[[], float] = time.monotonic,
-        incident: Callable[..., None] = lambda *args, **kwargs: None,
+        incident: Callable[..., None] = lambda *args, **kwargs: None, daemon_host: object = None,
     ) -> None:
         self.log = log
         self.clock = clock
         #: The service's watch (`watch.Watch.note`), handed to each supervisor.
         self.incident = incident
+        #: The daemon host (`daemonhost.DaemonHost`), or None: a worker process per session.
+        self.daemon_host = daemon_host
         self._lock = threading.Lock()
         self._sessions: dict[str, Supervisor] = {}
         #: Released, their child still to be asked to stop (on the thread).
@@ -594,7 +631,7 @@ class WorkerHost:
             else:
                 self._sessions[spec.sid] = Supervisor(
                     spec, link, log=self.log, clock=self.clock, may_start=lambda: not self._closed,
-                    drain=self._drain, reserve=self.reserve, incident=self.incident,
+                    drain=self._drain, reserve=self.reserve, incident=self.incident, host=self.daemon_host,
                 )
                 self.log(f"worker: session {spec.sid}'s daemon worker is supervised here")
             if self._thread is None:
@@ -629,6 +666,22 @@ class WorkerHost:
         with self._lock:
             return isinstance(sid, str) and sid in self._sessions
 
+    def pids(self, sid: object) -> set:
+        """The pids of `sid`'s daemon workers this service started and has not
+        reaped (its running child, and any still finishing their queue): only
+        they post to its mailbox (`mailbox.post`, #3361). An unreaped child's
+        pid names no other process; the caller also checks its parent is this
+        service."""
+        if not isinstance(sid, str):
+            return set()
+        with self._lock:
+            sup = self._sessions.get(sid)
+            child = sup.child if sup is not None else None
+            found = {c.pid for s, c in self._draining if s == sid and c.returncode is None}
+        if child is not None and child.returncode is None:
+            found.add(child.pid)
+        return found
+
     def _drain(self, sid: str, child: subprocess.Popen) -> None:
         with self._lock:
             self._draining.append((sid, child))
@@ -661,6 +714,11 @@ class WorkerHost:
                         self.log(f"worker: session {sup.spec.sid}: supervisor poll failed: {exc!r}")
                 # Released while this pass ran: a worker it started meanwhile is stopped too.
                 self._stop_ending(ending + [sup for sup in sessions if sup.released])
+                if self.daemon_host is not None:
+                    try:
+                        self.daemon_host.poll()
+                    except Exception as exc:  # noqa: BLE001 -- one bug never stops every session's supervision
+                        self.log(f"worker: daemon host poll failed: {exc!r}")
                 with self._lock:
                     self._draining = [(sid, child) for sid, child in self._draining if child.poll() is None]
                     # Done launches of sessions no longer here hold nothing back.
@@ -681,8 +739,46 @@ class WorkerHost:
             ending, self._ending = self._ending, []
             for launch in self._launches.values():
                 launch.cancelled = True
+        if self.daemon_host is not None:
+            with contextlib.suppress(Exception):
+                self.daemon_host.close()  # no host starts, no run moves, from here on
         self._stop_ending(ending)
         self._wake.set()
+
+    def stop_hosted(self, sid: str) -> bool:
+        """Ask `sid`'s run in the daemon host to stop (the update's hand-over, D7):
+        the host is never signalled for one session. False: no such run."""
+        with self._lock:
+            sup = self._sessions.get(sid)
+            children = ([sup.child] if sup is not None and sup.child is not None else [])
+            children += [child for s, child in self._draining if s == sid]
+        stopped = False
+        for child in children:
+            if getattr(child, "run_id", None) and child.returncode is None:
+                with contextlib.suppress(Exception):
+                    child.request_stop()  # a hand-over, not its session's end: never `draining`
+                    stopped = True
+        if not stopped and sup is None and self.daemon_host is not None:
+            # An old tap's run (started through the proxy): no Supervisor here, so
+            # the host is asked to stop that session's runs.
+            with contextlib.suppress(Exception):
+                stopped = bool(self.daemon_host.stop_session(sid))
+        return stopped
+
+    def hosted_draining(self, sid: str) -> bool | None:
+        """Is `sid`'s run in the daemon host finishing an ended session's queue
+        (its last beat), False live, None unknown or no such run."""
+        try:
+            return self.daemon_host.session_draining(sid) if self.daemon_host is not None else None
+        except Exception:  # noqa: BLE001 -- unknown
+            return None
+
+    def host_runs(self) -> int:
+        """Runs going in this service's daemon host (the service stays while there are)."""
+        try:
+            return self.daemon_host.runs() if self.daemon_host is not None else 0
+        except Exception:  # noqa: BLE001 -- unknown: none
+            return 0
 
     def public(self) -> list:
         now = self.clock()
@@ -690,5 +786,6 @@ class WorkerHost:
             sessions = list(self._sessions.values())
             draining = list(self._draining)
         rows = [sup.public(now) for sup in sessions]
-        rows += [{"sid": sid, "pid": child.pid, "state": WorkerState.DRAINING} for sid, child in draining]
+        rows += [{"sid": sid, "pid": child.pid, "state": WorkerState.DRAINING,
+                  **({"host": True} if getattr(child, "run_id", None) else {})} for sid, child in draining]
         return rows

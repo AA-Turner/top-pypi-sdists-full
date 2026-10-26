@@ -56,6 +56,7 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("0123456600", "DE:63"),
         # The sub-account "00" may be omitted, moving the check digit to position 10.
         ("0001234566", "DE:63"),
+        ("0000123456", "DE:76"),
         ("1234567893", "DE:21"),
         ("1234567895", "DE:22"),
         ("8889654328", "DE:68"),
@@ -112,6 +113,18 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("9876543210", "DE:A3"),
         ("1234567890", "DE:A3"),
         ("0123456789", "DE:A3"),
+        # Method C1, variant 1 (method 17) for account codes not starting with 5.
+        ("0446786040", "DE:C1"),
+        ("0478046940", "DE:C1"),
+        ("0701625830", "DE:C1"),
+        ("0701625840", "DE:C1"),
+        ("0882095630", "DE:C1"),
+        # Method C1, variant 2 for account codes starting with 5.
+        ("5432112349", "DE:C1"),
+        ("5543223456", "DE:C1"),
+        ("5654334563", "DE:C1"),
+        ("5765445670", "DE:C1"),
+        ("5876556788", "DE:C1"),
         # Method 99 accepts the whole range 0396000000 to 0499999999 without a check.
         ("0396000001", "DE:99"),
         ("0412345678", "DE:99"),
@@ -151,6 +164,7 @@ def test_german_checksum_success(account_code: str, algorithm_name: str) -> None
         ("0001234567", "DE:63"),
         # Method 76 only accepts leading digits 0, 4, 6, 7, 8 and 9.
         ("1234567890", "DE:76"),
+        ("0000123457", "DE:76"),
         ("1234567890", "DE:A2"),
         ("0123456789", "DE:A2"),
         ("6543217890", "DE:A3"),
@@ -171,6 +185,23 @@ def test_german_checksum_success(account_code: str, algorithm_name: str) -> None
         ("0800000000", "DE:95"),
         ("0909999999", "DE:95"),
         ("0990000001", "DE:95"),
+        # Method C1 test account numbers with a wrong check digit, variant 1.
+        ("0446786240", "DE:C1"),
+        ("0478046340", "DE:C1"),
+        ("0701625730", "DE:C1"),
+        ("0701625440", "DE:C1"),
+        ("0882095130", "DE:C1"),
+        # Method C1 test account numbers with a wrong check digit, variant 2.
+        ("5432112341", "DE:C1"),
+        ("5543223458", "DE:C1"),
+        ("5654334565", "DE:C1"),
+        ("5765445672", "DE:C1"),
+        ("5876556780", "DE:C1"),
+        # The leading digit picks the variant and the other one is never tried:
+        # 5478046940 passes method 17 but starts with 5, 0543223450 passes variant 2
+        # but does not.
+        ("5478046940", "DE:C1"),
+        ("0543223450", "DE:C1"),
     ],
 )
 def test_german_checksum_failure(account_code: str, algorithm_name: str) -> None:
@@ -244,6 +275,56 @@ def test_german_checksum_fallback_variants_compute_and_solve(algorithm_name: str
     algo = algorithms[algorithm_name]
     assert algo.compute(["3456789010"]) == "9"
     assert algo.solve(["3456789010"]) == ["3456789019"]
+
+
+@pytest.mark.parametrize(
+    ("account_code", "check_digit", "solved"),
+    [
+        # Variant 1 (method 17) places the check digit at position 8.
+        ("0446786940", "0", "0446786040"),
+        # Variant 2 places it at position 10.
+        ("5432112340", "9", "5432112349"),
+    ],
+)
+def test_german_checksum_c1_compute_and_solve(
+    account_code: str, check_digit: str, solved: str
+) -> None:
+    algo = algorithms["DE:C1"]
+    assert algo.compute([account_code]) == check_digit
+    assert algo.solve([account_code]) == [solved]
+
+
+@pytest.mark.parametrize(
+    ("bank_code", "account_code", "valid"),
+    [
+        # Variant 1 (method 52) builds the ESER account number from the bank code, and
+        # the Bundesbank examples for it are given with bank code 13051172.
+        ("13051172", "0043001500", True),
+        ("13051172", "0048726458", True),
+        ("13051172", "0029837521", False),
+        # This one fails variant 1 but passes variant 2 (method 20).
+        ("13051172", "0082335729", True),
+        # Variant 2 test account numbers.
+        ("13051172", "0734192657", True),
+        ("13051172", "6932875274", True),
+        ("13051172", "0132572975", False),
+        ("13051172", "3038752371", False),
+        # Variant 1 depends on the bank code, and these fail method 20.
+        ("13051042", "0043001500", False),
+        ("13051042", "0048726458", False),
+    ],
+)
+def test_german_checksum_c0(bank_code: str, account_code: str, valid: bool) -> None:
+    assert algorithms["DE:C0"].validate([bank_code, account_code], "") is valid
+
+
+def test_german_checksum_c0_compute_and_solve() -> None:
+    algo = algorithms["DE:C0"]
+    # The method 52 example: bank code 13051172 and account code 4P001500 give P = 3.
+    assert algo.compute(["13051172", "0040001500"]) == "3"
+    assert algo.compute(["13051172", "1234567890"]) == "6"
+    # The check digit is solved with method 20, which accepts every account code.
+    assert algo.solve(["13051172", "1234567890"]) == ["13051172", "1234567896"]
 
 
 def test_german_checksum_91_solve_exhausted(monkeypatch: pytest.MonkeyPatch) -> None:

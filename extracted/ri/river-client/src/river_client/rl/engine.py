@@ -28,7 +28,7 @@ from river_client.renderers import Renderer
 from river_client.sampling import MAX_SAMPLING_BATCH, SamplingResultCollector
 
 from .config import Budget, GroupCompletion, KVCache, Schedule, _integer
-from .env import Env, InfrastructureError, elide_middle
+from .env import Env, InfrastructureError, TurnResult, elide_middle
 from .progress import Activities
 from .requirements import _validate_top_logprobs
 from .rendering import continuation_chunks, prompt_chunks, sample_stop
@@ -970,6 +970,7 @@ class RolloutEngine:
             traj.messages.append({"role": "assistant", "content": traj.final_text})
             traj.pending_tokens.clear()
             traj.turns += 1
+        traj.active_turn_max_tokens = None
         traj.truncated = cause
         # A reward/verifier is customer code too: it must not hang the trainer.
         score = (
@@ -1106,10 +1107,10 @@ class RolloutEngine:
                                 sample_stop(self.renderer, traj.pending_tokens)
                                 is not None
                             )
+                            turn_cap = self.budget.turn_cap(traj)
                             turn_limit = (
-                                self.budget.max_turn_tokens is not None
-                                and len(traj.pending_tokens)
-                                >= self.budget.max_turn_tokens
+                                turn_cap is not None
+                                and len(traj.pending_tokens) >= turn_cap
                             )
                             if (
                                 stop_reason == "length"
@@ -1136,6 +1137,7 @@ class RolloutEngine:
                                     )
                                     traj.pending_tokens.clear()
                                     traj.turns += 1
+                                    traj.active_turn_max_tokens = None
                                     if traj.turns >= self.budget.max_turns:
                                         await self._finish(member, group.row, "turns")
                                         break
@@ -1179,6 +1181,7 @@ class RolloutEngine:
                             traj.last_stop_reason = stop_reason
                             traj.pending_tokens.clear()
                             traj.turns += 1
+                            traj.active_turn_max_tokens = None
                             traj.phase = "environment"
                     if traj.phase == "environment":
                         async with member.lock:
@@ -1202,6 +1205,12 @@ class RolloutEngine:
                             except _RolloutStopped:
                                 await self._finish(member, group.row, member.cause)
                                 break
+                            turn_max_tokens = None
+                            if isinstance(messages, TurnResult):
+                                messages, turn_max_tokens = (
+                                    messages.messages,
+                                    messages.max_turn_tokens,
+                                )
                             if traj.run == old_run and traj.messages != history:
                                 raise ValueError(
                                     "Env.on_turn rewrote history; return new messages or call traj.rewrite(). Rewriting costs a full prefix-cache miss and a datum split."
@@ -1221,6 +1230,7 @@ class RolloutEngine:
                                     raise ValueError(
                                         "after traj.rewrite, return [] to sample the new prompt directly"
                                     )
+                                traj.active_turn_max_tokens = turn_max_tokens
                                 traj.phase = "sample"
                                 continue
                             if not messages:
@@ -1282,6 +1292,7 @@ class RolloutEngine:
                                 break
                             traj.append_framing(chunks)
                             traj.messages.extend(messages)
+                            traj.active_turn_max_tokens = turn_max_tokens
                             traj.phase = "sample"
                 key = hashlib.sha256(repr(group.row).encode()).hexdigest()
                 self.length_history[key] = traj.generated_tokens

@@ -33,6 +33,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import uuid
 from dataclasses import dataclass, field
 from probe._compat import StrEnum
@@ -237,6 +238,44 @@ def default_dir() -> Path:
     base = os.environ.get("XDG_STATE_HOME")
     root = Path(base) if base else Path.home() / ".local" / "state"
     return root / "probe" / "backfill"
+
+
+#: The scratch dirs the import's agents run in, wherever the state root is:
+#: `<root>/v2/<scope>/<source>/manifests` (classifier and upload agents) and
+#: `<root>/v2/<scope>/<source>/reconstruction/<project>/<input>` (the draft).
+#: Matched by LAYOUT, not by root: a root set by `PROBE_BACKFILL_STATE_DIR` for
+#: one import is not set when its sessions are imported later.
+_IMPORT_AGENT_DIR = re.compile(
+    r"/v2/[0-9a-f]{8,64}/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"/(?:manifests|reconstruction/[0-9a-f-]{8,64}/[0-9a-f]{8,128})$"
+)
+#: The older layout, beside a ledger: `<root>/<ledger stem>-manifests`.
+_LEGACY_AGENT_DIR = re.compile(r"[0-9a-f]{8,64}-manifests$")
+
+
+def is_import_agent_cwd(cwd: object) -> bool:
+    """Whether a session ran in one of the folder import's own scratch dirs.
+
+    Every agent the import starts (classifier, upload, reconstruction) runs in
+    such a dir and nothing else does: it is Probe's own automation, never the
+    researcher's work, so the past-sessions import must not take it as their
+    history (45 were, on 2026-10-25). The exact scratch-dir layout, not "under
+    the state root": a person who opens a session somewhere in Probe's state to
+    look at a failed import is still doing their own work.
+    """
+    if not isinstance(cwd, str) or not cwd:
+        return False
+    path = cwd.replace("\\", "/").rstrip("/")
+    if _IMPORT_AGENT_DIR.search(path):
+        return True
+    if not _LEGACY_AGENT_DIR.search(path):
+        return False
+    try:
+        parent = Path(cwd).expanduser().resolve().parent
+    except (OSError, RuntimeError, ValueError):
+        return False
+    roots = {default_dir(), Path.home() / ".local" / "state" / "probe" / "backfill"}
+    return any(parent == root.expanduser().resolve() for root in roots)
 
 
 def fingerprint(root: Path, *, entries: list[str] | None = None) -> str:

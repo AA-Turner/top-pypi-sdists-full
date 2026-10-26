@@ -27,16 +27,15 @@ mod gguf;
 pub use gguf::gguf;
 
 use std::collections::BTreeMap;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{self, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde_json::{json, Map, Value as Json};
 
 use crate::failure::{fail, Kind, Result};
 use crate::format::{
-    variant_of, Body, Component, Config, ConfigValue, Dtype, Location, ObjectRef, Value,
+    is_header, Body, Component, Config, ConfigValue, Dtype, Location, ObjectRef, Value,
 };
 use crate::import::{FILE_METADATA, PIPELINE_FILE, ROOT_COMPONENT};
 use crate::store::Checkpoint;
@@ -51,7 +50,6 @@ pub(crate) fn cozytensors(
     repo: &BTreeMap<String, PathBuf>,
     repo_objects: &BTreeMap<String, ObjectRef>,
     dir: &Path,
-    variant: &str,
     header: &[u8],
 ) -> Result<Vec<String>> {
     if &ObjectRef::of(header) != ck.id() {
@@ -60,8 +58,7 @@ pub(crate) fn cozytensors(
             "export header differs from the opened checkpoint",
         );
     }
-    let header_path = crate::format::variant_path(variant);
-    crate::format::check_file(&header_path)?;
+    let header_path = crate::format::HEADER_PATH.to_owned();
     let mut sources = BTreeMap::new();
     for object in ck.header().objects() {
         let path = format!("{}/{}", crate::format::CHUNKS_DIR, object.sha256);
@@ -71,7 +68,7 @@ pub(crate) fn cozytensors(
     }
     for (name, path) in repo {
         crate::format::check_file(name)?;
-        if variant_of(name).is_none() {
+        if !is_header(name) {
             sources.insert(
                 name.clone(),
                 (
@@ -83,7 +80,7 @@ pub(crate) fn cozytensors(
     }
     let mut written = Vec::new();
     for (name, (mut source, expected)) in sources {
-        copy_checked(&mut source, &dir.join(&name), expected.as_ref())?;
+        crate::store::copy_checked(&mut source, &dir.join(&name), expected.as_ref())?;
         written.push(name);
     }
     write(&dir.join(&header_path), header)?;
@@ -118,7 +115,7 @@ fn part_name(key: &str, role: &str) -> String {
 }
 
 /// Writes `ck` into `dir` as a Diffusers/Transformers folder, with the repo files `repo` (path →
-/// local file; a tree's files other than its variants); the paths written, relative. `decode`
+/// local file; a commit's files other than its header); the paths written, relative. `decode`
 /// writes each encoded tensor in its logical dtype.
 pub fn safetensors(
     ck: &Checkpoint,
@@ -132,7 +129,7 @@ pub fn safetensors(
         _ => BTreeMap::new(),
     };
     let mut written = Vec::new();
-    for (path, local) in repo.iter().filter(|(p, _)| variant_of(p).is_none()) {
+    for (path, local) in repo.iter().filter(|(p, _)| !is_header(p)) {
         let dest = dir.join(path);
         copy(&mut File::open(local).map_err(|e| io(local, e))?, &dest)?;
         written.push(path.clone());
@@ -300,68 +297,7 @@ fn write(dest: &Path, bytes: &[u8]) -> Result<()> {
 
 /// An asset or repo file, byte-exact.
 fn copy(from: &mut File, dest: &Path) -> Result<()> {
-    copy_checked(from, dest, None)
-}
-
-struct Hashing<'a> {
-    source: &'a mut File,
-    hash: crate::sha256::Sha256,
-}
-
-impl Read for Hashing<'_> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let n = self.source.read(buf)?;
-        self.hash.update(&buf[..n]);
-        Ok(n)
-    }
-}
-
-fn copy_checked(from: &mut File, dest: &Path, expected: Option<&ObjectRef>) -> Result<()> {
-    static NEXT: AtomicU64 = AtomicU64::new(0);
-    let parent = dest.parent().expect("a file has a directory");
-    fs::create_dir_all(parent).map_err(|e| io(parent, e))?;
-    let (temp, mut out) = loop {
-        let temp = parent.join(format!(
-            ".tensorfs-export-{}-{}.tmp",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        match OpenOptions::new().write(true).create_new(true).open(&temp) {
-            Ok(out) => break (temp, out),
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
-            Err(e) => return Err(io(&temp, e)),
-        }
-    };
-    let mut source = Hashing {
-        source: from,
-        hash: crate::sha256::Sha256::new(),
-    };
-    let result = io::copy(&mut source, &mut out)
-        .map_err(|e| io(&temp, e))
-        .and_then(|length| {
-            if let Some(expected) = expected {
-                if length != expected.length
-                    || crate::sha256::hex(&source.hash.finish()) != expected.sha256
-                {
-                    return fail(
-                        Kind::Integrity,
-                        format!(
-                            "{}: copied bytes differ from {}",
-                            dest.display(),
-                            expected.id()
-                        ),
-                    );
-                }
-            }
-            out.sync_all().map_err(|e| io(&temp, e))
-        });
-    drop(out);
-    let result = result.and_then(|()| fs::rename(&temp, dest).map_err(|e| io(dest, e)));
-    if result.is_err() {
-        let _ = fs::remove_file(&temp);
-    }
-    result?;
-    platform::durable::sync_dir(parent).map_err(|e| io(parent, e.into()))
+    Ok(crate::store::copy_checked(from, dest, None)?)
 }
 
 /// A config as the Diffusers and Transformers writers write one, `json.dumps(config, indent=2,

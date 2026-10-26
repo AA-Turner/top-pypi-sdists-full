@@ -17,17 +17,17 @@ class MemoryIncludedRelated(UncheckedBaseModel):
 
     parents: typing.List[MemoryIncludedRelatedParentsItem] = pydantic.Field()
     """
-    Earlier versions this memory updates, nearest first
+    Earlier versions this memory updates
     """
 
     children: typing.List[MemoryIncludedRelatedChildrenItem] = pydantic.Field()
     """
-    Newer versions that update this memory, nearest first
+    Newer versions that update this memory
     """
 
     siblings: typing.List[MemoryIncludedRelatedSiblingsItem] = pydantic.Field()
     """
-    Memories connected by extends or derives, nearest first
+    Memories connected by extends or derives
     """
 
     if IS_PYDANTIC_V2:

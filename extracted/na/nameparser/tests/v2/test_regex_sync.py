@@ -131,7 +131,7 @@ _SOURCES: dict[tuple[str, str], str | None] = {
     ("_vocab", "_PERIOD_ABBREV"): "period_abbreviation",
     ("_group", "_D"): None,
     ("_vocab", "_DOTTED"): None,
-    # #544: the chunked sibling of _DOTTED ('M.Eng.'), S2's period gate
+    # #544: the chunked sibling of _DOTTED ('M.Eng.'), S3's period gate
     # for a member with a lower-case tail; no config key to mirror
     ("_vocab", "_CHUNKED"): None,
     # #563: paired initials ('M.J.'), C5's exception to C4's name-word
@@ -149,6 +149,8 @@ _SOURCES: dict[tuple[str, str], str | None] = {
     ("_post_rules", "_EAST_SLAVIC_CYR"): "east_slavic_patronymic_cyrillic",
     ("_post_rules", "_TURKIC"): "turkic_patronymic_marker",
     ("_post_rules", "_TURKIC_CYR"): "turkic_patronymic_marker_cyrillic",
+    # rules/O6's hyphens (#754): no config counterpart
+    ("_post_rules", "_HYPHENS"): None,
     ("_render", "_SPACES"): "spaces",
     ("_render", "_SPACE_BEFORE_COMMA"): "space_before_comma",
     ("_render", "_MAC"): "mac",

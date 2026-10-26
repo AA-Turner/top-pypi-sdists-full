@@ -1,6 +1,6 @@
 import random
-from collections.abc import Iterable
-from copy import deepcopy
+from collections import OrderedDict
+from collections.abc import Callable, Iterable
 
 import numpy as np
 import torch
@@ -8,6 +8,7 @@ from torch import nn
 from torch.optim import Optimizer
 
 from pytorch_optimizer.base.optimizer import BaseOptimizer
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, State
 
 
 def flatten_grad(grads: list[torch.Tensor]) -> torch.Tensor:
@@ -29,6 +30,9 @@ def un_flatten_grad(grads: torch.Tensor, shapes: list[int]) -> list[torch.Tensor
 class PCGrad(BaseOptimizer):
     """Wrap an optimizer with gradient projection for conflicting task objectives.
 
+    Learning rate schedulers and checkpoints use the wrapped optimizer's parameter groups and state.
+    Checkpoint hooks receive the wrapped optimizer.
+
     Args:
         optimizer: Optimizer instance.
         reduction: Reduction method for gradients.
@@ -41,15 +45,49 @@ class PCGrad(BaseOptimizer):
         self.optimizer = optimizer
         self.reduction = reduction
 
+        self._optimizer_step_pre_hooks: dict[int, Callable] = OrderedDict()
+        self._optimizer_step_post_hooks: dict[int, Callable] = OrderedDict()
+        self.defaults: Defaults = self.optimizer.defaults
+        self._patch_step_function()
+
+    @property
+    def param_groups(self):
+        return self.optimizer.param_groups
+
+    @property
+    def state(self) -> State:
+        return self.optimizer.state
+
+    def add_param_group(self, param_group: ParamGroup) -> None:
+        self.optimizer.add_param_group(param_group)
+
+    def state_dict(self) -> State:
+        return self.optimizer.state_dict()
+
+    def load_state_dict(self, state_dict: State) -> None:
+        self.optimizer.load_state_dict(state_dict)
+
+    def register_state_dict_pre_hook(self, hook: Callable, prepend: bool = False):
+        return self.optimizer.register_state_dict_pre_hook(hook, prepend=prepend)
+
+    def register_state_dict_post_hook(self, hook: Callable, prepend: bool = False):
+        return self.optimizer.register_state_dict_post_hook(hook, prepend=prepend)
+
+    def register_load_state_dict_pre_hook(self, hook: Callable, prepend: bool = False):
+        return self.optimizer.register_load_state_dict_pre_hook(hook, prepend=prepend)
+
+    def register_load_state_dict_post_hook(self, hook: Callable, prepend: bool = False):
+        return self.optimizer.register_load_state_dict_post_hook(hook, prepend=prepend)
+
     @torch.no_grad()
     def init_group(self):
         self.zero_grad()
 
-    def zero_grad(self):
-        return self.optimizer.zero_grad(set_to_none=True)
+    def zero_grad(self, set_to_none: bool = True) -> None:
+        self.optimizer.zero_grad(set_to_none=set_to_none)
 
-    def step(self):
-        return self.optimizer.step()
+    def step(self, closure: Closure = None) -> Loss:
+        return self.optimizer.step(closure)
 
     def set_grad(self, grads: list[torch.Tensor], has_grads: list[torch.Tensor] | None = None) -> None:
         idx: int = 0
@@ -105,23 +143,20 @@ class PCGrad(BaseOptimizer):
         """
         shared: torch.Tensor = torch.stack(has_grads).prod(0).bool()
 
-        pc_grad: list[torch.Tensor] = deepcopy(grads)
-        for i, g_i in enumerate(pc_grad):
+        pc_grad = [grad.clone() for grad in grads]
+
+        for g_i in pc_grad:
             random.shuffle(grads)
             for g_j in grads:
-                g_i_g_j: torch.Tensor = torch.dot(g_i, g_j)
-                if g_i_g_j < 0:
-                    pc_grad[i] -= g_i_g_j * g_j / (g_j.norm() ** 2)
+                coefficient = torch.dot(g_i, g_j).clamp_max_(0.0) / g_j.square().sum().clamp_min_(
+                    torch.finfo(g_j.dtype).tiny
+                )
+                g_i.sub_(coefficient * g_j)
 
-        merged_grad: torch.Tensor = torch.zeros_like(grads[0])
+        merged_grad = torch.stack(pc_grad).sum(dim=0)
 
-        shared_pc_gradients: torch.Tensor = torch.stack([g[shared] for g in pc_grad])
         if self.reduction == 'mean':
-            merged_grad[shared] = shared_pc_gradients.mean(dim=0)
-        else:
-            merged_grad[shared] = shared_pc_gradients.sum(dim=0)
-
-        merged_grad[~shared] = torch.stack([g[~shared] for g in pc_grad]).sum(dim=0)
+            merged_grad = torch.where(shared, merged_grad / len(pc_grad), merged_grad)
 
         return merged_grad
 

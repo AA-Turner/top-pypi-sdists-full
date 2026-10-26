@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import dataclasses
 import contextlib
+import contextvars
 import os
+import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from concurrent.futures import Future
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 
@@ -36,9 +39,10 @@ class UpdateOutcome:
     lines: list[str]
     ok: bool
     #: The plugin or the tap moved and open sessions cannot follow it by
-    #: themselves (`updater.follows_without_restart`: Kimi Code, a
+    #: themselves (`updater.follows_without_restart`: a Kimi Code session that
+    #: loaded an older manifest or started before its hooks handed over, a
     #: project-scope install, a tap before the hand-back, a session on
-    #: protocol 1): they need a restart, as before.
+    #: protocol 1, one still on its own tap watch): they need a restart, as before.
     restart_needed: bool
     #: The plugin or the tap moved and open sessions follow it: an open
     #: session runs the installed plugin's hooks from its next event
@@ -53,14 +57,27 @@ class UpdateOutcome:
 PICKED_UP = "No restart needed: open sessions pick up the new plugin at their next prompt."
 
 
-def after_update_line(outcome: "UpdateOutcome", agent: str) -> str | None:
+def after_update_line(outcome: "UpdateOutcome", agent: str, source: str | None = None) -> str | None:
     """The line `probe update` and the wizard's Update end with: no restart
-    where open sessions follow, the restart line where they cannot, else none."""
+    where open sessions follow, the restart line where they cannot, else none.
+    An agent that reloads its plugins in place (`reloads_plugins`: Kimi Code's
+    and pi's /reload) is told that first: cheaper than a restart."""
     if getattr(outcome, "plugins_moved", False):
         return PICKED_UP
     if getattr(outcome, "restart_needed", False):
+        if source and reloads_plugins(source):
+            return f"Run /reload in {agent} (or restart it) to apply the plugin update."
         return f"Restart {agent} to apply the plugin update."
     return None
+
+
+def reloads_plugins(source: str) -> bool:
+    """Does this agent re-read Probe's plugin or package in place with /reload
+    (a manifest kept from its start: `loaded_records`; an extension: pi)?"""
+    from probe.harness.registry import CAPABILITY_LOADED_RECORDS, FAMILY_EXTENSION
+
+    harness = get_registry().find(source)
+    return harness is not None and (harness.can(CAPABILITY_LOADED_RECORDS) or harness.family == FAMILY_EXTENSION)
 
 
 #: Set by the Probe service (`probe.service.updater.SKIP_CLI_ENV`) when the CLI
@@ -135,6 +152,39 @@ def _service_stopped_on_windows(install):
                 client.ensure()
 
 
+@contextmanager
+def _update_turn(manifest: dict | None, trigger: update_report.Trigger):
+    """The wait and the lock an update takes before it changes anything."""
+    # WAIT FOR THE PROCESS THAT SPAWNED US, if it named itself.
+    #
+    # Only the detached auto-update path sets this; the wizard's interactive
+    # Update action has no parent to outlive and skips the wait. Replacing the
+    # installed tree while the triggering command is still lazily importing from
+    # it is how you get a ModuleNotFoundError out of a command that has worked
+    # for a year (see autoupdate.wait_for_pid_exit).
+    parent = os.environ.get(autoupdate.WAIT_FOR_PID_ENV)
+    if parent:
+        try:
+            autoupdate.wait_for_pid_exit(int(parent))
+        except (TypeError, ValueError):
+            pass
+
+    # ONE SETUP AT A TIME (`wizard_lock`), and only after the wait: the process
+    # that spawned us can be a `probe wizard`, which holds the lock until it
+    # exits. The wizard's own Update action holds it already and goes through.
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(wizard_lock.held())
+        except wizard_lock.Busy:
+            autoupdate.record_skip(
+                autoupdate.SKIP_SETUP_RUNNING,
+                available=updater.cli_latest(manifest) if manifest else None,
+                trigger=trigger.value,
+            )
+            raise
+        yield
+
+
 def perform_update(
     *,
     base_url: str,
@@ -169,36 +219,92 @@ def perform_update(
     """
     trigger = trigger or update_report.trigger_from_env(update_report.Trigger.MANUAL)
 
-    # WAIT FOR THE PROCESS THAT SPAWNED US, if it named itself.
-    #
-    # Only the detached auto-update path sets this; the wizard's interactive
-    # Update action has no parent to outlive and skips the wait. Replacing the
-    # installed tree while the triggering command is still lazily importing from
-    # it is how you get a ModuleNotFoundError out of a command that has worked
-    # for a year (see autoupdate.wait_for_pid_exit).
-    parent = os.environ.get(autoupdate.WAIT_FOR_PID_ENV)
-    if parent:
-        try:
-            autoupdate.wait_for_pid_exit(int(parent))
-        except (TypeError, ValueError):
-            pass
-
-    # ONE SETUP AT A TIME (`wizard_lock`), and only after the wait: the process
-    # that spawned us can be a `probe wizard`, which holds the lock until it
-    # exits. The wizard's own Update action holds it already and goes through.
-    with ExitStack() as stack:
-        try:
-            stack.enter_context(wizard_lock.held())
-        except wizard_lock.Busy:
-            autoupdate.record_skip(
-                autoupdate.SKIP_SETUP_RUNNING,
-                available=updater.cli_latest(manifest) if manifest else None,
-                trigger=trigger.value,
-            )
-            raise
+    with _update_turn(manifest, trigger):
         return _perform_update(
             base_url=base_url, include_plugin=include_plugin, force=force, manifest=manifest, trigger=trigger
         )
+
+
+def perform_updates(
+    sources: "Sequence[str]",
+    *,
+    base_url: str,
+    include_plugin: bool = True,
+    force: bool = False,
+    manifest: dict | None = None,
+    trigger: update_report.Trigger | None = None,
+) -> "dict[str, UpdateOutcome]":
+    """`perform_update` for several coding agents at once, by source, in order.
+
+    The CLI's upgrade, the manifest and pi's package run ONCE (`_Prelude`):
+    one pass per agent used to repeat all three, `pi update` included. Each
+    agent's own plugins (`_plugin_pass`: its marketplace fetch, `plugin update`,
+    its skills) then move on threads of their own, at the same time, and each
+    pass is recorded and reported in `sources` order, as one after another
+    were. The CLI's and pi's lines go to the first agent's answer (pi's to
+    pi's own, when it is one of them); a deferral (a live run) answers for all.
+    """
+    trigger = trigger or update_report.trigger_from_env(update_report.Trigger.MANUAL)
+    with _update_turn(manifest, trigger):
+        prelude = _update_prelude(
+            base_url=base_url, include_plugin=include_plugin, force=force, manifest=manifest, trigger=trigger
+        )
+        if prelude.deferred is not None:
+            return {source: prelude.deferred for source in sources}
+        passes = _plugin_passes(sources, include_plugin=include_plugin, prelude=prelude)
+        package_harness = _package_harness()
+        pi_home = package_harness if package_harness in sources else sources[0] if sources else None
+        # What failed the whole run, on every agent's answer: each pass's
+        # `ok` carries it, and `--json` sends each agent's lines as its reason.
+        res, pi_update = prelude.res, prelude.pi_update
+        cli_failure = [f"  {res.message}"] if res is not None and not res.ok else []
+        pi_failure = [f"  pi package: {pi_update.detail}"] if pi_update is not None and not pi_update.ok else []
+        outcomes: dict[str, UpdateOutcome] = {}
+        failed: BaseException | None = None
+        for index, source in enumerate(sources):
+            agent = passes[source]
+            if isinstance(agent, BaseException):
+                failed = failed or agent
+                _record_crash(source, agent, prelude=prelude, base_url=base_url, trigger=trigger)
+                continue
+            lines = [*prelude.lines] if index == 0 else [*cli_failure]
+            lines.extend(pi_update.lines if pi_update is not None and source == pi_home else pi_failure)
+            outcomes[source] = _finish_pass(
+                agent, [*lines, *agent.lines],
+                prelude=prelude, include_plugin=include_plugin, base_url=base_url, trigger=trigger,
+            )
+        if failed is not None:
+            # Every pass that finished is recorded first (`probe doctor`, the
+            # report): a detached update has no other way to say what it did.
+            raise failed
+        return outcomes
+
+
+def _plugin_passes(
+    sources, *, include_plugin: bool, prelude: "_Prelude"
+) -> "dict[str, _AgentPass | BaseException]":
+    """`_plugin_pass` for every source at once, one thread each (each in a copy
+    of this context): each source's pass, or what it raised. A thread that
+    cannot start runs its pass here instead."""
+    futures: dict[str, Future] = {}
+    for source in sources:
+        future: Future = Future()
+        context = contextvars.copy_context()
+
+        def run(source=source, future=future, context=context) -> None:
+            try:
+                future.set_result(
+                    context.run(_plugin_pass, source, include_plugin=include_plugin, prelude=prelude)
+                )
+            except BaseException as exc:  # noqa: BLE001 - re-raised below, for its source
+                future.set_exception(exc)
+
+        try:
+            threading.Thread(target=run, name=f"probe-update-{source}", daemon=True).start()
+        except RuntimeError:
+            run()
+        futures[source] = future
+    return {source: future.exception() or future.result() for source, future in futures.items()}
 
 
 def _perform_update(
@@ -210,6 +316,61 @@ def _perform_update(
     trigger: update_report.Trigger,
 ) -> UpdateOutcome:
     """`perform_update` once its spawner has exited and the wizard lock is held."""
+    prelude = _update_prelude(
+        base_url=base_url, include_plugin=include_plugin, force=force, manifest=manifest, trigger=trigger
+    )
+    if prelude.deferred is not None:
+        return prelude.deferred
+    if prelude.pi_update is not None:
+        prelude.lines.extend(prelude.pi_update.lines)
+    agent = _plugin_pass(agent_source(), include_plugin=include_plugin, prelude=prelude)
+    return _finish_pass(
+        agent, [*prelude.lines, *agent.lines],
+        prelude=prelude, include_plugin=include_plugin, base_url=base_url, trigger=trigger,
+    )
+
+
+@dataclass
+class _Prelude:
+    """What an Update does ONCE, whatever the agents: the run-lock check, the
+    manifest, the CLI's own upgrade and pi's package (`_update_pi_package`,
+    moved whatever agent runs it). `deferred` is the whole answer when a live
+    run holds the upgrade off."""
+
+    lines: list[str]
+    res: "updater.CliResult | None" = None
+    refused: str = ""
+    plugin_target: str | None = None
+    tap_target: str | None = None
+    cli_target: str | None = None
+    pi_update: "_PiUpdate | None" = None
+    deferred: "UpdateOutcome | None" = None
+
+
+@dataclass
+class _AgentPass:
+    """One coding agent's own plugin update (`_plugin_pass`): what it ran and
+    what it printed. Built from the agent's source alone, so several agents'
+    passes can run at once (`perform_updates`)."""
+
+    source: str
+    lines: list[str]
+    pres: "updater.PluginResult | None" = None
+    plugins_moved: bool = False
+    restart_needed: bool = False
+    tap_behind: str = ""
+    nothing_installed: bool = False
+
+
+def _update_prelude(
+    *,
+    base_url: str,
+    include_plugin: bool,
+    force: bool,
+    manifest: dict | None,
+    trigger: update_report.Trigger,
+) -> _Prelude:
+    """The once-per-run half of `_perform_update` (`_Prelude`)."""
     lines: list[str] = []
 
     # THE RUN-LOCK CHECK IS UNCONDITIONAL, and deliberately outside the wait in
@@ -236,14 +397,14 @@ def _perform_update(
                 # Not a training loop: this is the updater, so the skip it just
                 # recorded can go to the server now.
                 update_report.flush(base_url)
-                return UpdateOutcome(
+                return _Prelude(lines=[], deferred=UpdateOutcome(
                     lines=[
                         "a run is in flight on this machine; upgrade deferred "
                         "(`probe doctor` shows what is holding it)"
                     ],
                     ok=True,
                     restart_needed=False,
-                )
+                ))
         except Exception:  # noqa: BLE001 -- an unreadable lock must not strand the upgrade
             pass
 
@@ -311,24 +472,35 @@ def _perform_update(
         json_events.Status.DONE if res is None or res.ok else json_events.Status.FAILED,
     )
     json_events.step(json_events.Step.UPDATE_INTEGRATIONS, json_events.Status.STARTED)
-    plugins_moved = False
-    restart_needed = False
-    pres: updater.PluginResult | None = None
     pi_update: _PiUpdate | None = None
-    tap_behind = ""
-    # None of Probe's plugins in this agent, before or after: nothing to update,
-    # which is not a failure (`updater.nothing_installed`, the report's rule too).
-    nothing_installed = False
-    source = agent_source()
     if include_plugin:
         # pi's Probe package is updated whatever agent runs this: an Update from
         # a plain terminal (claude_code by default) or Claude Code's auto-update
         # used to skip it, so pi stayed on whatever package it was installed
         # with (2026-10-02: a 0.2.x package under a 0.206 CLI, so pi never
         # switched to the daemon). Its own `pi update <source>`, never a
-        # marketplace.
+        # marketplace. Once per run, however many agents it updates.
         pi_update = _update_pi_package()
-        lines.extend(pi_update.lines)
+    return _Prelude(
+        lines=lines, res=res, refused=refused, plugin_target=plugin_target, tap_target=tap_target,
+        cli_target=cli_target, pi_update=pi_update,
+    )
+
+
+def _plugin_pass(source: str, *, include_plugin: bool, prelude: _Prelude) -> _AgentPass:
+    """One agent's marketplace plugins brought up to the manifest (`_AgentPass`).
+    Reads nothing of the agent but `source`: no `agent_source()`, no
+    process-wide state, so passes for different agents may run at once."""
+    lines: list[str] = []
+    plugin_target, tap_target = prelude.plugin_target, prelude.tap_target
+    plugins_moved = False
+    restart_needed = False
+    pres: updater.PluginResult | None = None
+    tap_behind = ""
+    # None of Probe's plugins in this agent, before or after: nothing to update,
+    # which is not a failure (`updater.nothing_installed`, the report's rule too).
+    nothing_installed = False
+    if include_plugin:
         # pi has no marketplace plugin: for it `pres` stays None, same bucket as
         # `include_plugin=False`.
         if source != "pi":
@@ -387,12 +559,35 @@ def _perform_update(
                     else updater.manual_plugin_commands()
                 )
                 # Followed once updated by hand only with the tap it would get.
-                follows = updater.follows_without_restart(source, pres, tap_after=tap_target or pres.tap_after)
+                follows = updater.follows_without_restart(
+                    source, pres, tap_after=tap_target or pres.tap_after, predicting=True
+                )
                 lines.append(
                     f"  update them manually ({agent} needs no restart):" if follows
                     else f"  update them manually, then restart {agent}:"
                 )
                 lines.extend(f"    {line}" for line in manual.split("\n"))
+    return _AgentPass(
+        source=source, lines=lines, pres=pres, plugins_moved=plugins_moved,
+        restart_needed=restart_needed, tap_behind=tap_behind, nothing_installed=nothing_installed,
+    )
+
+
+def _finish_pass(
+    agent: _AgentPass,
+    lines: list[str],
+    *,
+    prelude: _Prelude,
+    include_plugin: bool,
+    base_url: str,
+    trigger: update_report.Trigger,
+) -> UpdateOutcome:
+    """One agent's pass recorded (`probe doctor`'s attempt, the server's report)
+    and answered, from the run's `prelude` and the agent's own `agent` pass."""
+    source, pres, tap_behind = agent.source, agent.pres, agent.tap_behind
+    nothing_installed = agent.nothing_installed
+    res, refused, pi_update = prelude.res, prelude.refused, prelude.pi_update
+    cli_target, plugin_target, tap_target = prelude.cli_target, prelude.plugin_target, prelude.tap_target
 
     # `attempted` is what separates "the plugin update failed" from "there was no
     # Claude Code to update" -- a CLI-only user has no `claude` on PATH, and
@@ -496,8 +691,47 @@ def _perform_update(
         # Both halves, so `probe update`'s exit code means "the update worked",
         # not "the CLI half worked".
         ok=ok,
-        restart_needed=restart_needed,
-        plugins_moved=plugins_moved,
+        restart_needed=agent.restart_needed,
+        plugins_moved=agent.plugins_moved,
+    )
+
+
+def _record_crash(
+    source: str, exc: BaseException, *, prelude: _Prelude, base_url: str, trigger: update_report.Trigger
+) -> None:
+    """A pass that raised, recorded as the failure it is (`probe doctor`'s
+    attempt, the server's report). The run's one merged record reads only
+    what its passes recorded, so without this an Update whose Codex pass
+    crashed beside a Claude Code pass that worked said ok. Never raises."""
+    res, cli_target = prelude.res, prelude.cli_target
+    detail = f"the update stopped: {type(exc).__name__}: {exc}"
+    at = int(time.time())
+    try:
+        autoupdate.record_attempt(
+            autoupdate.Attempt(
+                at=at,
+                ok=res.ok if res is not None else True,
+                detail="" if res is None or res.ok else res.message,
+                from_version=__version__,
+                to_version=cli_target if res is None else res.after or (cli_target if res.ok else None),
+                plugin_ok=False,
+                plugin_detail=detail,
+            ),
+            agent=_agent_label(source),
+        )
+    except Exception:  # noqa: BLE001 - the error itself still rises
+        pass
+    _report_attempt(
+        lambda: update_report.attempt_report(
+            trigger=trigger,
+            ok=False,
+            at=at,
+            source=source,
+            cli=update_report.cli_component(res, current=__version__, target=cli_target, refused=prelude.refused),
+            plugin=update_report.error_component(detail, target=prelude.plugin_target),
+            tap=None,
+        ),
+        base_url=base_url,
     )
 
 
@@ -642,11 +876,27 @@ def _update_pi_package() -> _PiUpdate:
             code=update_report.PiStep.FAILED,
             **versions_seen,
         )
+    # The copy open sessions' shims switch to (kimi/pi update parity P1): made
+    # from the clone `pi update` just finished; a package from before the shim
+    # makes none.
+    from probe.cli import pi_pins
+
+    pinned = None
+    try:
+        pinned = pi_pins.pin_installed()
+    except Exception:  # noqa: BLE001 -- no pin: open sessions keep what they run
+        pinned = None
     if before != after:
         # One line: the attempt record (`update_owed_pi_package`) and the update
         # report read the last line as what happened.
+        harness = _package_harness()
+        binary = get_registry().get(harness).binary if harness else None
+        if pinned is not None and binary and pi_pins.sessions_follow((binary,)):
+            follow = "open pi sessions switch to it at their next turn, no restart needed"
+        else:
+            follow = "run /reload in open pi sessions (or restart them) to apply"
         return _PiUpdate(
-            ["pi package:", f"  updated {shown(before)} → {shown(after)} (open pi sessions pick it up when restarted)"],
+            ["pi package:", f"  updated {shown(before)} → {shown(after)} ({follow})"],
             ran=True, code=update_report.PiStep.UPDATED, **versions_seen,
         )
     return _PiUpdate(

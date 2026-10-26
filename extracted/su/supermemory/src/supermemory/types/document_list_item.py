@@ -10,7 +10,7 @@ from .document_list_item_system import DocumentListItemSystem
 
 class DocumentListItem(UncheckedBaseModel):
     """
-    A document in this namespace without its content
+    A document in this namespace, optionally including its content
     """
 
     id: str = pydantic.Field()
@@ -28,6 +28,11 @@ class DocumentListItem(UncheckedBaseModel):
     Detected source or content type
     """
 
+    content: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Last published extracted text when include.content is true; null before the first content publication
+    """
+
     summary: typing.Optional[str] = pydantic.Field(default=None)
     """
     Generated summary of the document, when available
@@ -40,7 +45,7 @@ class DocumentListItem(UncheckedBaseModel):
 
     url: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Original source URL, when the document was ingested from the web
+    Source URL or uploaded file URL when available
     """
 
     system: DocumentListItemSystem = pydantic.Field()

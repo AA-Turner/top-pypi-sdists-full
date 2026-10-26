@@ -267,8 +267,8 @@ class TiktokExtractor(Extractor):
         # set cookie values
         domain = self.cookies_domain
         expires = int(time.time()) + 5
-        c["d"] = util.b64encode(str(idx).encode())
-        v = util.b64encode(util.json_dumps(c).encode())
+        c["d"] = util.b64rencode(str(idx).encode()).decode()
+        v = util.b64rencode(util.json_dumps(c).encode()).decode()
         self.cookies.set(wci, v, domain=domain, expires=expires)
         if rs:
             self.cookies.set(rci, rs, domain=domain, expires=expires)

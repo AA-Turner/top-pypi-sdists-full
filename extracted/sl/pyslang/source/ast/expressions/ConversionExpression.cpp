@@ -380,11 +380,15 @@ Expression& ConversionExpression::fromSyntax(Compilation& comp, const CastExpres
             << *operand->type << targetExpr.sourceRange << operand->sourceRange;
     }
 
-    if (type->isAssignmentCompatible(*operand->type)) {
+    // [10.8] says that a static cast is an assignment-like context, as if to a variable of
+    // the target type. That holds for a numeric operand even when it isn't assignment
+    // compatible with the target, which is the case when casting to an enum.
+    const bool isNumericCast = type->isNumeric() && operand->type->isNumeric();
+    if (isNumericCast || type->isAssignmentCompatible(*operand->type)) {
         // The type we propagate should use the sign of the operand, just like it
         // would if we were doing an implicit conversion via an assignment expression.
         auto propagatedType = type;
-        if (type->isNumeric() && operand->type->isNumeric()) {
+        if (isNumericCast) {
             propagatedType = OpInfo::binaryType(comp, type, operand->type, false,
                                                 /* signednessFromRt */ true);
         }
@@ -511,7 +515,11 @@ ConstantValue ConversionExpression::convert(EvalContext& context, const Type& fr
             if (value.isInteger()) {
                 auto& oldInt = value.integer();
                 auto& newInt = result.integer();
-                if (!oldInt.hasUnknown() && !newInt.hasUnknown() && oldInt != newInt) {
+                // SVInt equality zero extends unless both sides are signed, so
+                // also check whether the conversion flipped the numeric sign.
+                auto isNegative = [](const SVInt& v) { return v.isSigned() && v.isNegative(); };
+                if (!oldInt.hasUnknown() && !newInt.hasUnknown() &&
+                    (oldInt != newInt || isNegative(oldInt) != isNegative(newInt))) {
                     if (oldInt.getBitWidth() != newInt.getBitWidth()) {
                         addDiag(diag::ConstantConversion) << from << to << oldInt << newInt;
                     }
@@ -540,10 +548,14 @@ ConstantValue ConversionExpression::convert(EvalContext& context, const Type& fr
     if (to.isFloating()) {
         auto result = to.getBitWidth() == 32 ? value.convertToShortReal() : value.convertToReal();
         if (checkImplicit && value.isInteger()) {
-            const bool differs = result.isReal()
-                                     ? (int64_t)result.real() != value.integer().as<int64_t>()
-                                     : (int32_t)result.shortReal() != value.integer().as<int32_t>();
-            if (differs)
+            // Convert back to the original integer type and see if we get the same value.
+            auto& oldInt = value.integer();
+            auto newInt = result.isReal()
+                              ? SVInt::fromDouble(oldInt.getBitWidth(), result.real(),
+                                                  oldInt.isSigned(), /* round */ false)
+                              : SVInt::fromFloat(oldInt.getBitWidth(), result.shortReal(),
+                                                 oldInt.isSigned(), /* round */ false);
+            if (!exactlyEqual(oldInt, newInt))
                 addDiag(diag::ConstantConversion) << from << to << value << result;
         }
         return result;

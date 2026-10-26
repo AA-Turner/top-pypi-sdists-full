@@ -25,7 +25,11 @@ class Server:
         self.metrics = dict(send=0, recv=0, time=time.time())
         self.pools = [self.pool, self.postfn_pool]
 
-    def bind(self, name, workfn, postfn=None, workers=0):
+    @property
+    def connections(self):
+        return self.socket.connections
+
+    def bind(self, name, workfn, postfn=None, workers=0, addr=False):
         assert not self.running
         assert name not in self.methods, name
         if workers:
@@ -41,6 +45,7 @@ class Server:
             pool=pool,
             requests=requests,
             available=available,
+            addr=addr,
         )
 
     def start(self, block=True):
@@ -123,7 +128,8 @@ class Server:
                 if method.requests and method.available:
                     method.available -= 1
                     addr, reqnum, data = method.requests.popleft()
-                    job = method.pool.submit(method.workfn, *data)
+                    args = (addr, *data) if method.addr else data
+                    job = method.pool.submit(method.workfn, *args)
                     job.method = method
                     job.addr = addr
                     job.reqnum = reqnum

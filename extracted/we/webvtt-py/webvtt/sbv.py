@@ -4,7 +4,7 @@ import typing
 import re
 
 from . import utils
-from .models import Caption
+from .models import Caption, _caption_from_timings
 from .errors import MalformedFileError
 
 
@@ -12,7 +12,7 @@ class SBVCueBlock:
     """Representation of a cue timing block."""
 
     CUE_TIMINGS_PATTERN = re.compile(
-        r'\s*(\d{1,2}:\d{1,2}:\d{1,2}.\d{3}),(\d{1,2}:\d{1,2}:\d{1,2}.\d{3})'
+        r'\s*(\d+:\d{1,2}:\d{1,2}\.\d{3}),(\d+:\d{1,2}:\d{1,2}\.\d{3})'
         )
 
     def __init__(
@@ -74,6 +74,8 @@ def parse(lines: typing.Sequence[str]) -> typing.List[Caption]:
 
     :param lines: lines of text
     :returns: list of `Caption` objects
+
+    :raises MalformedFileError: if the content is not in SBV format
     """
     if not _is_valid_content(lines):
         raise MalformedFileError('Invalid format')
@@ -99,6 +101,9 @@ def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
     """
     Parse captions from the text.
 
+    The cue timings are read as in SRT, so a field over its range carries
+    over, as in ``0:61:00.000``.
+
     :param lines: lines of text
     :returns: list of `Caption` objects
     """
@@ -109,9 +114,11 @@ def _parse_captions(lines: typing.Sequence[str]) -> typing.List[Caption]:
             continue
 
         cue_block = SBVCueBlock.from_lines(block_lines)
-        captions.append(Caption(cue_block.start,
-                                cue_block.end,
-                                cue_block.payload
-                                ))
+        caption = _caption_from_timings(cue_block.start,
+                                        cue_block.end,
+                                        cue_block.payload
+                                        )
+        if caption is not None:
+            captions.append(caption)
 
     return captions

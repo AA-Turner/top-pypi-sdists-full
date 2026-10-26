@@ -242,8 +242,8 @@ class SeriesSmoothing(StrEnum):
 class BrowseMode(StrEnum):
     """What browse lists: `tree` (projects/experiments/runs, the default),
     `runs` (flat, newest first), `workspaces`, `notes` (the notes catalog),
-    `files` (Shared, or one workspace's), or the data catalog's `datasets`,
-    `checkpoints` and `sources`."""
+    `files` (Shared, or one workspace's), the data catalog's `datasets`,
+    `checkpoints` and `sources`, or a workspace's `branches`."""
 
     TREE = "tree"
     RUNS = "runs"
@@ -253,6 +253,9 @@ class BrowseMode(StrEnum):
     DATASETS = "datasets"
     CHECKPOINTS = "checkpoints"
     SOURCES = "sources"
+    #: A workspace's lines of work across its projects, ranked per metric
+    #: (`GET /v1/workspaces/{W}/branches`; swarm visibility D6, A23).
+    BRANCHES = "branches"
 
 
 # -- the data catalog's closed vocabularies, as this server sends them ---------

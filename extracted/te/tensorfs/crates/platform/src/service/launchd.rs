@@ -36,7 +36,7 @@ pub(super) fn current(dir: &Path, spec: &ServiceSpec) -> bool {
 pub(super) fn start(dir: &Path, spec: &ServiceSpec) -> Result<()> {
     // launchd holds a loaded job's next spawn until 10 s after its last (`ThrottleInterval`), and
     // keeps the definition it loaded: a job loaded but not running (it exited, as Calcifer does on
-    // `cozy down`) is booted out, so the bootstrap loads the definition kept here and spawns it at
+    // a restart) is booted out, so the bootstrap loads the definition kept here and spawns it at
     // once. A running one is left as it is.
     if !running(&spec.name) {
         let _ = launchctl(&["bootout", &target(&spec.name)]).output();
@@ -80,14 +80,18 @@ pub(super) fn stop(_: &Path, name: &str) -> Result<()> {
     if loaded { stopped } else { Ok(()) }
 }
 
-pub(super) fn uninstall(dir: &Path, name: &str) -> Result<()> {
+pub(super) fn uninstall(dir: &Path, name: &str) -> Result<bool> {
     let path = plist(dir, name);
-    if let Err(error) = fs::remove_file(&path)
-        && error.kind() != io::ErrorKind::NotFound
-    {
-        return Err(Error::io("remove", path)(error));
+    match fs::remove_file(&path) {
+        Ok(()) => Ok(true),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(Error::io("remove", path)(error)),
     }
-    Ok(())
+}
+
+/// A session of its own is enough: launchd ends a stopped job's process group, not others.
+pub(super) fn scope(_: &ServiceSpec) -> Option<(PathBuf, Vec<std::ffi::OsString>)> {
+    None
 }
 
 fn launchctl(args: &[&str]) -> Command {
@@ -137,9 +141,4 @@ fn escape(text: &str) -> String {
     text.replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
-}
-
-/// Only a manager that restarts services can say one failed to start.
-pub(super) fn failed(_: &str) -> bool {
-    false
 }

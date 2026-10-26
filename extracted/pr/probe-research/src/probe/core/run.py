@@ -88,6 +88,9 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
 
     from probe.sdk import agent_session
 
+    refused = _caller_session_refusal(action)
+    if refused is not None:
+        return _usage_error(refused)
     try:
         if action is requests.ActionName.REPORT:
             # The service's child: the session is the request's `sid`, never one
@@ -113,6 +116,39 @@ def main(argv: list[str] | None = None, stdin: TextIO | None = None) -> int:
 
         telemetry_mod.report_crash(exc, surface="cli")
         raise
+
+
+#: The actions that read rather than change: the caller's session is not
+#: looked up for them (`_caller_session_refusal`).
+READS = frozenset({ActionName.REPORT, ActionName.STATUS, ActionName.VERSION})
+
+
+def _caller_session_refusal(action) -> str | None:
+    """The Probe service names the process that asked for an action
+    (`management.CALLER_PID_ENV`, #3360): when this child's environment names
+    no agent session, the CALLER's own one joins it, resolved from that
+    process as its own `probe` would (`agent_session.session_env_of_process`:
+    its environment, a harness-process marker above it), registered with the
+    service or not. So `_refuse_from_daemon_session` and `probe session
+    default`'s own check hold for a caller whose session's registration was
+    ended or replaced, as `desktop`'s gate does (`_desktop_refusal`). A caller
+    that has exited since cannot be checked: refused. The variables are
+    removed either way (a later child never inherits them)."""
+    import os
+
+    from probe.sdk import agent_session
+    from probe.service import management, procid
+
+    caller = os.environ.pop(management.CALLER_PID_ENV, "")
+    started = os.environ.pop(management.CALLER_START_ENV, "")
+    if action in READS or not caller.isdigit():
+        return None
+    if started and procid.alive(int(caller), started) is False:
+        return "the process that asked has exited, so the session it runs in cannot be checked; ask again"
+    if agent_session.session_id_from_env(os.environ):
+        return None  # the request's context, or the service, named it already
+    os.environ.update(agent_session.session_env_of_process(int(caller)))
+    return None
 
 
 def _report(request) -> int:

@@ -25,7 +25,7 @@ _VOCAB_FIELDS = (
     "titles", "given_name_titles", "suffix_acronyms", "suffix_words",
     "suffix_acronyms_ambiguous", "particles", "particles_ambiguous",
     "conjunctions", "conjunctions_ambiguous", "bound_given_names",
-    "maiden_markers", "surnames", "honorific_tails",
+    "maiden_markers", "surnames", "honorific_tails", "after_given_titles",
 )
 
 #: (marker, base, why) triples. Each marker QUALIFIES how entries of
@@ -55,21 +55,19 @@ _VOCAB_FIELDS = (
 #:   as a tail would peel a period-gated word off a real name), and
 #:   nothing needs the acronym half: the shipped tails are CJK
 #:   honorifics, which are words.
-#:   The same relation is asserted a second time in config/suffixes.py,
-#:   over the raw GLUED_HONORIFICS/SUFFIX_WORDS constants at
-#:   import. The two are not redundant in the way they look: that one
-#:   is an `assert`, stripped under `python -O`, while the check here
-#:   raises unconditionally -- so under -O this is what still holds the
-#:   SHIPPED vocabulary to the invariant, as it is the only thing that
-#:   ever held a caller's own.
+#:   The shipped vocabulary holds the relation by construction: its
+#:   build puts a word in GLUED_HONORIFICS only through an `attached`
+#:   property on a word reading (tools/vocab/build.py). The check here
+#:   is the only thing that holds a caller's own.
 #:
-#: Two fields are deliberately NOT here and have no check of their own.
+#: Three fields are deliberately NOT here and have no check of their own.
 #: given_name_titles -- see the note in __post_init__ for why every
 #: attempt at one rejected working configurations. conjunctions_ambiguous
 #: -- an orphan is never consulted because both the classify fork and
 #: its ambiguity emitter require the base entry as well, so an orphan
 #: decides nothing, and AGENTS.md's invariants rule guards harm, not
-#: no-ops.
+#: no-ops. after_given_titles -- the same: classify tags a word from it
+#: only where the word is in titles too, so an orphan is never read.
 _SUBSET_FIELDS = (
     ("particles_ambiguous", "particles",
      "an orphan emits a spurious particle-or-given ambiguity"),
@@ -692,6 +690,15 @@ class Lexicon:
     #: vocabulary is. Full default list:
     #: :data:`~nameparser.config.suffixes.GLUED_HONORIFICS`.
     honorific_tails: frozenset[str] = frozenset()
+    #: Salutations that read as a title where one ENDS the given part
+    #: after a family comma, written bare: "Doe, Jane Mrs" reads title
+    #: "Mrs" where an office or rank word there stays a middle name
+    #: ("Doe, John King"), rules/H8. A period-marked title word reads as
+    #: a title there whether listed here or not (rules/H5). Entries need
+    #: not also be in ``titles``; one that is not is never consulted.
+    #: Full default list:
+    #: :data:`~nameparser.config.titles.AFTER_GIVEN_TITLES`.
+    after_given_titles: frozenset[str] = frozenset()
     #: Lowercase word -> case mask used by capitalized(): the word's
     #: own letters and digits, each in the case it takes ("phd" ->
     #: "PhD"), laid over the word as written, so the one entry
@@ -739,9 +746,10 @@ class Lexicon:
         # the expensive one -- three working configurations broken
         # across two attempts. Do not add a third.
         #
-        # The v2 form of particles.py's NON_GIVEN_NAME_PARTICLES-disjoint-
-        # from-BOUND_GIVEN_NAMES assertion. That module guards its own
-        # data at import; this guards vocabulary a caller supplies.
+        # The v2 form of the vocabulary build's check that a bound given
+        # name which is also a particle may be given (tools/vocab/build.py,
+        # check 9). The build guards the shipped data; this guards
+        # vocabulary a caller supplies.
         contradictory = (
             self.bound_given_names & self.particles) - self.particles_ambiguous
         if contradictory:
@@ -947,7 +955,8 @@ def _default_lexicon() -> Lexicon:
         SUFFIX_WORDS,
     )
     from nameparser.config.surnames import KOREAN_SURNAMES
-    from nameparser.config.titles import GIVEN_NAME_TITLES, TITLES
+    from nameparser.config.titles import (
+        AFTER_GIVEN_TITLES, GIVEN_NAME_TITLES, TITLES)
 
     # every vocabulary constant is a frozenset since #293, so each one
     # feeds its strictly-typed frozenset[str] field as it stands -- and
@@ -975,6 +984,7 @@ def _default_lexicon() -> Lexicon:
         maiden_markers=MAIDEN_MARKERS,
         surnames=KOREAN_SURNAMES,
         honorific_tails=GLUED_HONORIFICS,
+        after_given_titles=AFTER_GIVEN_TITLES,
         # pass canonical pair-tuples so this strictly-typed call site never
         # feeds a Mapping to the tuple-annotated field; __post_init__
         # still tolerates a Mapping at runtime for interactive use

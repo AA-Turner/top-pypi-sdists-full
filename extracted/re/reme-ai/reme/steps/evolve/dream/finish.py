@@ -33,7 +33,7 @@ class DreamFinishStep(BaseStep):
             f"checkpoint={len(checkpoint)} day_indexes={len(day_index_paths)} "
             f"deleted={len(state.deleted_paths)} persist={self.persist}",
         )
-        upserts = self._nodes(workspace, upsert_paths)
+        upserts = self._nodes(workspace, upsert_paths, state.existing)
         if upserts:
             self.logger.info(f"[{self.name}] catalog upsert start nodes={len(upserts)}")
             await self.file_catalog.upsert(upserts)
@@ -59,11 +59,13 @@ class DreamFinishStep(BaseStep):
         return self.context.response
 
     @staticmethod
-    def _nodes(workspace: Path, paths: list[str]) -> list[FileNode]:
+    def _nodes(workspace: Path, paths: list[str], observed: dict[str, float]) -> list[FileNode]:
+        """Checkpoint scanned versions, leaving later edits eligible for another run."""
         out: list[FileNode] = []
         for rel in paths:
             try:
-                out.append(FileNode(path=rel, st_mtime=(workspace / rel).stat().st_mtime))
+                if rel in observed and (workspace / rel).is_file():
+                    out.append(FileNode(path=rel, st_mtime=observed[rel]))
             except OSError:
                 continue
         return out
@@ -72,8 +74,11 @@ class DreamFinishStep(BaseStep):
 def render_summary(state: DreamState) -> str:
     """Render a concise user-facing summary."""
     dates = ", ".join(state.dates or [state.date])
+    title = "AutoDream failed" if state.errors else "AutoDream completed"
+    if state.warnings and not state.errors:
+        title += " with warnings"
     lines = [
-        ("AutoDream completed with warnings" if state.warnings else "AutoDream completed"),
+        title,
         "",
         f"- Date: {state.date}",
         f"- Scan window: {dates}",

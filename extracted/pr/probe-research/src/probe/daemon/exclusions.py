@@ -296,6 +296,17 @@ class Filter:
         event.text = text
         return read
 
+    def folder_excluded(self, event: Event, *, line_cwd: str | None = None) -> bool:
+        """Whether the folder `event` ran in is `off`: the cached folder verdict
+        `keep` asks first, without a tool call's own reads (no tree walk). For
+        a caller that only counts an event and never shows it (the Probe
+        service's window clock). Never raises: unknown counts as excluded."""
+        try:
+            where = self._where(event, line_cwd)
+            return bool(where) and self._excluded(where, where=None, as_cwd=True)
+        except Exception:  # noqa: BLE001 -- fail closed: not counted
+            return True
+
     def keep(self, events: list[Event], *, stream: str, line_cwd: str | None = None) -> list[Event]:
         """`events` minus what a `.probe.config` keeps from the daemon. Ids are
         assigned BEFORE this (`Worker._parse`), so a kept event's id never moves.

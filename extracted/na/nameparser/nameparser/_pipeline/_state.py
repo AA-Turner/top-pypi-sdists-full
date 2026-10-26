@@ -118,10 +118,10 @@ class Structure(Enum):
 
 
 @dataclass(frozen=True, slots=True)
-# rules/A1: "parsing never fails on any input: where the text's
-# structure or a word's reading is genuinely uncertain, the parse
-# completes on the best reading and carries an ambiguity report
-# naming the doubt"
+# rules/A1: "the parse completes on the best reading and carries an
+# ambiguity report naming the doubt, as parsing never fails on any
+# input" -- its Then clause: this is the report's mid-pipeline record,
+# by token index (decisions/A1)
 class PendingAmbiguity:
     """An ambiguity recorded mid-pipeline by token INDEX; assemble
     materializes real Ambiguity objects over the final tokens.
@@ -134,7 +134,8 @@ class PendingAmbiguity:
     ``field_tail`` is for a report that names the field its word was
     read into. post_rules may still move the word (H1's move behind a
     title, P1's family-first fold, P6's attachment, and under opt-in
-    policies the patronymic rotations and `middle_as_family`'s fold),
+    policies the patronymic rotations, O6's two family names and
+    `middle_as_family`'s fold),
     so the emitter
     writes ``detail`` up to the field and the rest of its sentence
     here -- ``""`` where the field ends the sentence, which is why

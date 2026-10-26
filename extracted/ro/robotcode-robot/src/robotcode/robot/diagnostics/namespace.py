@@ -44,9 +44,10 @@ from .entities import (
     VariableDefinition,
     VariablesEntry,
     VariablesImport,
+    library_entry_key,
 )
 from .errors import DIAGNOSTICS_SOURCE_NAME
-from .import_resolver import ImportResolver
+from .import_resolver import FailedImport, ImportResolver
 from .imports_manager import ImportsManager, RobotFileMeta
 from .keyword_finder import KeywordFinder
 from .library_doc import (
@@ -127,15 +128,10 @@ class NamespaceData:
     keyword_tag_references: Dict[str, Set[Location]] = field(default_factory=dict)
     testcase_tag_references: Dict[str, Set[Location]] = field(default_factory=dict)
     metadata_references: Dict[str, Set[Location]] = field(default_factory=dict)
+    testcase_metadata_references: Dict[str, Set[Location]] = field(default_factory=dict)
 
     # --- ScopeTree (local scopes only, file_scope is reconstructed) ---
     local_scopes: List[LocalScope] = field(default_factory=list)
-
-    # --- Resolved resource import sources ---
-    # Maps (import_name\0source_file) → resolved absolute path for resources.
-    # Used as source hints in from_data() to skip find_resource() filesystem
-    # lookups during import re-resolution.
-    resolved_resource_sources: Dict[str, str] = field(default_factory=dict)
 
     # --- Authoritative variable definitions (stable_id → VariableDefinition) ---
     # Stores the exact VariableDefinition objects that were referenced during
@@ -180,11 +176,15 @@ class Namespace:
         keyword_tag_references: Dict[str, Set[Location]],
         testcase_tag_references: Dict[str, Set[Location]],
         metadata_references: Dict[str, Set[Location]],
+        testcase_metadata_references: Dict[str, Set[Location]],
         scope_tree: ScopeTree,
         finder: KeywordFinder,
         sentinel: object,
         semantic_model: Optional["SemanticModel"] = None,
         dependency_metas: Optional[Dict[str, Optional[Any]]] = None,
+        failed_imports: Optional[List[FailedImport]] = None,
+        environment_set: Optional[Dict[str, bool]] = None,
+        environment_values: Optional[Dict[str, Optional[str]]] = None,
     ) -> None:
         self.imports_manager = imports_manager
         self.source = source
@@ -208,11 +208,15 @@ class Namespace:
         self._keyword_tag_references = keyword_tag_references
         self._testcase_tag_references = testcase_tag_references
         self._metadata_references = metadata_references
+        self._testcase_metadata_references = testcase_metadata_references
         self._scope_tree = scope_tree
         self._finder: KeywordFinder = finder
         self._sentinel = sentinel  # prevent GC — ref-counted by imports_manager
         self._semantic_model = semantic_model
         self._dependency_metas = dependency_metas
+        self._failed_imports = failed_imports or []
+        self._environment_set = environment_set or {}
+        self._environment_values = environment_values or {}
 
         # Lazy-computed caches
         self._namespaces: Optional[Dict[KeywordMatcher, List[LibraryEntry]]] = None
@@ -232,6 +236,21 @@ class Namespace:
         them — such a namespace must never be persisted to the disk cache.
         """
         return self._dependency_metas
+
+    @property
+    def failed_imports(self) -> List[FailedImport]:
+        """The imports whose resolution raised or whose library or variables documentation has errors."""
+        return self._failed_imports
+
+    @property
+    def environment_set(self) -> Dict[str, bool]:
+        """Whether each environment variable the analysis checked without a default value was set."""
+        return self._environment_set
+
+    @property
+    def environment_values(self) -> Dict[str, Optional[str]]:
+        """The hash of each environment variable whose value the analysis used, see `environment_value_hash`."""
+        return self._environment_values
 
     @property
     def document(self) -> Optional[TextDocument]:
@@ -278,6 +297,10 @@ class Namespace:
     @property
     def metadata_references(self) -> Dict[str, Set[Location]]:
         return self._metadata_references
+
+    @property
+    def testcase_metadata_references(self) -> Dict[str, Set[Location]]:
+        return self._testcase_metadata_references
 
     @property
     def import_entries(self) -> Dict[Import, LibraryEntry]:
@@ -425,7 +448,9 @@ class Namespace:
     def invalidated(sender) -> None: ...
 
     def _on_imports_changed(self, sender: Any, uri: Any) -> None:
-        self.invalidated(self)
+        # a created file can only resolve an import that failed
+        if self._failed_imports:
+            self.invalidated(self)
 
     def _on_libraries_changed(self, sender: Any, libraries: Any) -> None:
         for p in libraries:
@@ -481,10 +506,9 @@ class Namespace:
         (diagnostics, tag references, etc.) is copied directly.
         """
         # Build namespace_references key from LibraryEntry identity
-        ns_refs: Dict[str, Set[Location]] = {}
-        for entry, locs in self._namespace_references.items():
-            key = f"{type(entry).__name__}:{entry.import_name}:{entry.args!r}:{entry.alias or ''}"
-            ns_refs[key] = locs
+        ns_refs: Dict[str, Set[Location]] = {
+            library_entry_key(entry): locs for entry, locs in self._namespace_references.items()
+        }
 
         # Collect all referenced variable definitions for stable_id → object lookup
         all_var_defs: Dict[str, VariableDefinition] = {}
@@ -522,12 +546,6 @@ class Namespace:
             else:
                 var_assigns_merged[sid] = set(ranges)
 
-        # Build resolved resource source hints for from_data() optimization
-        resolved_res_sources: Dict[str, str] = {}
-        for imp, entry in self._import_entries.items():
-            if isinstance(entry, ResourceEntry) and entry.library_doc.source:
-                resolved_res_sources[imp.hint_key] = entry.library_doc.source
-
         return NamespaceData(
             source=self.source,
             source_id=str(self.source_id) if self.source_id else None,
@@ -545,8 +563,8 @@ class Namespace:
             keyword_tag_references={k: set(v) for k, v in self._keyword_tag_references.items()},
             testcase_tag_references={k: set(v) for k, v in self._testcase_tag_references.items()},
             metadata_references={k: set(v) for k, v in self._metadata_references.items()},
+            testcase_metadata_references={k: set(v) for k, v in self._testcase_metadata_references.items()},
             local_scopes=list(self._scope_tree.local_scopes),
-            resolved_resource_sources=resolved_res_sources,
             variable_definitions=all_var_defs,
         )
 
@@ -578,7 +596,7 @@ class Namespace:
         )
 
         resolver = ImportResolver(imports_manager, data.source, scope, sentinel=sentinel)
-        resolved = resolver.resolve(data.imports, source_hints=data.resolved_resource_sources)
+        resolved = resolver.resolve(data.imports)
 
         # Add imported variables to scope (needed for variable lookup)
         for resource_entry in resolved.resources.values():
@@ -602,6 +620,11 @@ class Namespace:
 
         for kw in library_doc.keywords:
             kw_by_id[kw.stable_id] = kw
+
+        # the init of a variables file, which the import statement of the semantic model refers to
+        for variables_entry in resolved.variables_imports.values():
+            for kw in variables_entry.library_doc.inits:
+                kw_by_id[kw.stable_id] = kw
 
         # Variables from scope layers (command_line, own, imported, builtin)
         for var in scope.iter_all():
@@ -646,15 +669,19 @@ class Namespace:
             if sid in var_by_id:
                 local_variable_assignments[var_by_id[sid]] = set(ranges)
 
-        # Reconstruct namespace_references: key format "ClassName:import_name:args:alias"
-        all_entries: Dict[str, LibraryEntry] = {}
-        for entry in itertools.chain(
-            resolved.libraries.values(),
-            resolved.resources.values(),
-            resolved.variables_imports.values(),
-        ):
-            key = f"{type(entry).__name__}:{entry.import_name}:{entry.args!r}:{entry.alias or ''}"
-            all_entries[key] = entry
+        # Reconstruct namespace_references. import_entries has the entry of every
+        # import statement, also of one that imports something already imported;
+        # the other maps add the implicit default libraries and the imports of
+        # resource files.
+        all_entries: Dict[str, LibraryEntry] = {
+            library_entry_key(entry): entry
+            for entry in itertools.chain(
+                resolved.libraries.values(),
+                resolved.resources.values(),
+                resolved.variables_imports.values(),
+                resolved.import_entries.values(),
+            )
+        }
 
         namespace_references: Dict[LibraryEntry, Set[Location]] = {}
         for key, locs in data.namespace_references.items():
@@ -709,11 +736,16 @@ class Namespace:
             keyword_tag_references={k: set(v) for k, v in data.keyword_tag_references.items()},
             testcase_tag_references={k: set(v) for k, v in data.testcase_tag_references.items()},
             metadata_references={k: set(v) for k, v in data.metadata_references.items()},
+            # Cache entries pickled before this field existed don't have the attribute.
+            testcase_metadata_references={
+                k: set(v) for k, v in getattr(data, "testcase_metadata_references", {}).items()
+            },
             scope_tree=scope_tree,
             finder=finder,
             sentinel=sentinel,
             semantic_model=semantic_model,
             dependency_metas=resolved.dependency_metas,
+            failed_imports=resolved.failed_imports,
         )
 
 
@@ -855,9 +887,13 @@ class NamespaceBuilder:
                 keyword_tag_references=analyzer_result.keyword_tag_references,
                 testcase_tag_references=analyzer_result.testcase_tag_references,
                 metadata_references=analyzer_result.metadata_references,
+                testcase_metadata_references=analyzer_result.testcase_metadata_references,
                 scope_tree=analyzer_result.scope_tree,
                 finder=finder,
                 sentinel=sentinel,
                 semantic_model=analyzer_result.semantic_model,
                 dependency_metas=resolved.dependency_metas,
+                failed_imports=resolved.failed_imports,
+                environment_set=analyzer_result.environment_set,
+                environment_values=analyzer_result.environment_values,
             )

@@ -38,7 +38,6 @@ from cozy_runtime.author._assets import (
     VideoAsset,
     digest_bytes,
 )
-from cozy_runtime.author._capture import _capture_clock
 from cozy_runtime.author._context import Context
 from cozy_runtime.author._decode import (
     DecodedAudioChunk,
@@ -1239,9 +1238,6 @@ class Telemetry(_Bound):
         attempt._step_device = clock.mark() if clock is not None else None
         if attempt._stall_watch is None:
             attempt._stall_watch = _stalls.watch(lambda: not attempt.closed)
-        capture = _capture_clock.get()
-        if capture is not None:
-            capture.schedule(total)
 
         def on_step(step: int) -> None:
             self._ctx.raise_if_cancelled()
@@ -1272,8 +1268,6 @@ class Telemetry(_Bound):
                 elif valid_total and isinstance(step, int) and not 0 <= step < total:
                     self._diagnose("step must be within the declared total")
                 return
-            if capture is not None:
-                capture.completed(step)
             raw_fraction = (step + 1) / total
             fraction = round(raw_fraction, 6)
             overall = None
@@ -1581,10 +1575,10 @@ class Egress(_Bound):
 
     NOT GRANTABLE YET, and `UNGRANTABLE` is where that is stated: a package declaring
     `net: Egress` refuses at DESCRIBE rather than passing every gate and raising on its
-    first real request. The type, the injection and the capability derivation stand so that
-    cr-012 lands the broker and the control-plane allowlist together and nothing else has
-    to move. `fakes.fake_egress` drives this class directly, which is the only way an
-    `Egress` is reachable today; the refusal below is its fail-closed floor.
+    first real request. The type and the capability derivation stand so that cr-012 lands
+    the broker, its injection and the control-plane allowlist together. `fakes.fake_egress`
+    drives this class directly, which is the only way an `Egress` is reachable today; the
+    refusal below is its fail-closed floor.
     """
 
     __slots__ = ("_broker",)
@@ -1617,7 +1611,8 @@ class Egress(_Bound):
 class Settings[T]:
     """Typed deployment settings. The author declares the strict schema; the VALUES are
     owned by the deployment config plane, validated against it and digest-pinned into the
-    execution spec. No ambient environment variable ever carries configuration (§3.5)."""
+    execution spec. No ambient environment variable ever carries configuration (§3.5).
+    Not grantable until that plane exists (`UNGRANTABLE`)."""
 
     __slots__ = ("value",)
 
@@ -1627,7 +1622,8 @@ class Settings[T]:
 
 class Secrets[S]:
     """Granted secrets against a strict named schema — a bare unbounded bag is invalid.
-    Never raw getenv; injectable only when the capability is declared."""
+    Never raw getenv; injectable only when the capability is declared. Not grantable until a
+    secret grant path exists (`UNGRANTABLE`)."""
 
     __slots__ = ("value",)
 
@@ -1653,4 +1649,8 @@ UNGRANTABLE: Mapping[str, str] = {
     "egress": "outbound HTTP is unavailable: the author broker has no machine-granted "
     "destination allowlist. Package-authored URLs cannot grant network access. This "
     "declaration refuses at build until the machine grant and broker path exist",
+    "settings": "deployment settings are unavailable: no config plane delivers a Settings[T] "
+    "value to a request. This declaration refuses at build until one does",
+    "secrets": "secrets are unavailable: no grant path delivers a Secrets[S] value to a "
+    "request. This declaration refuses at build until one does",
 }

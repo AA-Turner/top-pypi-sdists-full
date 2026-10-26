@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalk-remote-call-python
-Version: 1.10.9
+Version: 1.10.10
 Summary: Chalk remote call Python runtime interface client
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -185,6 +185,18 @@ def handler(event, context):
 
 serve(handler=handler, port=8080)
 ```
+
+### Invocation context
+
+Each Python bridge invocation runs in a fresh `contextvars.Context`. Handler
+changes to context variables stay within that invocation, including across
+awaits and generator iteration, and are discarded on return or error. Incoming
+request metadata still supplies the tracing parent. A coalesced batch has one
+invocation context for the whole batch.
+
+Workers retain their Python thread state for compatibility with native
+extensions. This context boundary does not reset process globals or
+`threading.local()` storage, whose lifetime follows the worker thread.
 
 ## Local Testing
 

@@ -11,8 +11,10 @@ own threads end to end.
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
 import os
+import re
 import sqlite3
 import subprocess
 import sys
@@ -448,7 +450,7 @@ def test_the_machines_token_bucket_spaces_a_burst(tmp_path, state):
         lane.trigger(session, "prompt", f"prompt of {session.sid}")
     assert lane.run_due() == hints.BUCKET_BURST
     with lane._cv:
-        job, wait = lane.take_due()
+        job, wait = lane.take_due(False)
     assert job is None and wait == pytest.approx(60.0 / hints.BUCKET_PER_MIN)
     clock.now += 60.0 / hints.BUCKET_PER_MIN
     assert lane.run_due() == 1
@@ -928,7 +930,7 @@ def test_a_turn_that_ends_makes_its_lookups_stale(tmp_path, state):
     _seen(lane, session)
     lane.trigger(session, "search", "in flight")
     with lane._cv:
-        job, _wait = lane.take_due()
+        job, _wait = lane.take_due(False)
     clock.now += 1
     lane.trigger(session, "search", "waiting out the gap")
     _append(session, _turn_end(session.cwd))
@@ -986,7 +988,7 @@ def test_a_hint_looked_up_before_a_newer_prompt_is_never_posted(tmp_path, state)
     lane, _ = _lane(tmp_path, [session], api)
     lane.trigger(session, "search", "one")
     with lane._cv:
-        job, _wait = lane.take_due()
+        job, _wait = lane.take_due(False)
     lane.trigger(session, "prompt", "a newer prompt")  # arrives while the lookup is in flight
     lane.lookup(job)
     assert _waiting(session) == [] and lane.stats["stale"] == 1
@@ -1189,7 +1191,7 @@ def test_a_lookup_that_outlives_its_session_leaves_no_state(tmp_path, state):
     _seen(lane, session)
     lane.trigger(session, "prompt", "one")
     with lane._cv:
-        job, _wait = lane.take_due()
+        job, _wait = lane.take_due(False)
     sessions.clear()
     lane.read_once()  # the session ended while its lookup was in flight
     lane.lookup(job)
@@ -1250,3 +1252,1021 @@ def test_the_service_builds_its_lane_and_lists_no_session_before_any_recording(t
     assert isinstance(service.hints, hints.HintLane)
     assert service._hint_sessions() == []
     service._hint_posted(SID)  # no loop yet: nothing to tell, nothing raised
+
+
+# ---------------------------------------------------------------------------
+# The window trigger (plan hints-window-trigger W1, W3).
+# ---------------------------------------------------------------------------
+
+T0 = time.time()
+
+
+@pytest.fixture(autouse=True)
+def _window_epoch(monkeypatch):
+    """Each test's window stamps (`_at`) count from its own start: the lane
+    compares them with the wall clock (WINDOW_COVERS_S), and a long run would
+    otherwise age them past it."""
+    monkeypatch.setattr(sys.modules[__name__], "T0", time.time())
+
+
+WINDOW_SHADOW = {"mode": "on", "fire": False, "trigger_class": "window", "reason": "below_cutoff",
+                 "top_score": 0.6, "records": []}
+WINDOW_ERROR = {**WINDOW_SHADOW, "reason": "engine_error", "top_score": None}
+
+
+def _at(seconds: float) -> str:
+    return datetime.fromtimestamp(T0 + seconds, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _said(text: str, cwd: str, at: float) -> dict:
+    return {"type": "assistant", "timestamp": _at(at), "cwd": cwd, "sessionId": SID,
+            "message": {"role": "assistant", "content": [{"type": "text", "text": text}]}}
+
+
+def _called(name: str, tool_input: dict, cwd: str, at: float) -> dict:
+    return {**_tool(name, tool_input, cwd), "timestamp": _at(at)}
+
+
+def _output(text: str, cwd: str, at: float) -> dict:
+    return {"type": "user", "timestamp": _at(at), "cwd": cwd, "sessionId": SID,
+            "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_1",
+                                                      "content": text}]}}
+
+
+def _thought(text: str, cwd: str, at: float) -> dict:
+    return {"type": "assistant", "timestamp": _at(at), "cwd": cwd, "sessionId": SID,
+            "message": {"role": "assistant", "content": [{"type": "thinking", "thinking": text}]}}
+
+
+def _step(cwd: str, at: float) -> dict:
+    return _called("Bash", {"command": "ls"}, cwd, at)
+
+
+@pytest.mark.parametrize("on_clock, messages, due", [
+    (hints.WINDOW_GAP_S - 1, ["a"], False),
+    (hints.WINDOW_GAP_S, [], False),  # tool calls alone
+    (hints.WINDOW_GAP_S, ["a"], True),
+    (3 * hints.WINDOW_GAP_S, ["a", "b"], True),
+])
+def test_a_window_is_due_after_window_gap_s_with_a_new_agent_message(on_clock, messages, due):
+    assert hints.window_due(5000.0 + on_clock, 5000.0, messages) is due
+    assert hints.window_due(5000.0 + on_clock, None, messages) is False, "no clock before the first step"
+
+
+def test_a_windows_segments_are_its_newest_messages_first_each_bounded():
+    segments = hints.window_segments([f"m{i}" for i in range(40)] + ["  ", "x" * 10000])
+    assert len(segments) == hints.WINDOW_MAX_SEGMENTS
+    assert segments[0] == "x" * (hints.WINDOW_SEGMENT_CHARS + hints.SCAN_MARGIN_CHARS)
+    assert segments[1:3] == ["m39", "m38"] and segments[-1] == "m9"
+    assert hints.window_text(["b", "a"]) == "b\n\na"
+    assert len(hints.window_text(["y" * 9000, "z" * 9000])) == hints.MAX_TEXT_CHARS
+
+
+def test_a_window_look_sends_each_agent_message_since_and_never_a_tool_or_reasoning(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    clock = Clock()
+    lane, logs = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    cwd = session.cwd
+    _append(session, _said("first: sweep lr on digits-mlp", cwd, 0),
+            _called("Bash", {"command": "python train.py --lr 0.1"}, cwd, 60),
+            _output("epoch 1 loss 0.9 OUTPUT-ONLY", cwd, 61),
+            _thought("maybe the scaler matters", cwd, 120),
+            _said("second: standardizing inputs next", cwd, 300))
+    lane.read_once()
+    assert lane.run_due() == 0, "under WINDOW_GAP_S on the clock"
+    _append(session, _step(cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == 1
+    [body] = api.bodies
+    assert body["trigger"] == "window" and body["session_id"] == SID
+    assert body["segments"] == ["second: standardizing inputs next", "first: sweep lr on digits-mlp"]
+    assert body["text"] == "second: standardizing inputs next\n\nfirst: sweep lr on digits-mlp"
+    sent = json.dumps(body)
+    assert "train.py" not in sent and "OUTPUT-ONLY" not in sent and "scaler" not in sent
+    assert any(m.startswith(f"hints: session {SID} window (2 messages)") for m in logs)
+    # The clock starts again at the step that made it due.
+    clock.now += hints.SESSION_GAP_S
+    _append(session, _said("third", cwd, hints.WINDOW_GAP_S + 60), _step(cwd, 2 * hints.WINDOW_GAP_S - 1))
+    lane.read_once()
+    assert lane.run_due() == 0
+    _append(session, _step(cwd, 2 * hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == 1 and api.bodies[1]["segments"] == ["third"]
+
+
+def test_a_prompt_starts_the_window_clock_again_and_a_search_does_not(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    cwd = session.cwd
+    _append(session, _said("before the prompt", cwd, 0), {**_user("now try the svm", cwd), "timestamp": _at(400)})
+    lane.read_once()
+    lane.run_due()
+    clock.now += hints.SESSION_GAP_S
+    _append(session, _called("WebSearch", {"query": "svm digits benchmark"}, cwd, 500))
+    lane.read_once()
+    lane.run_due()
+    clock.now += hints.SESSION_GAP_S
+    _append(session, _said("after the prompt", cwd, 700), _step(cwd, 400 + hints.WINDOW_GAP_S - 1))
+    lane.read_once()
+    assert lane.run_due() == 0, "WINDOW_GAP_S from the prompt, not from the first message"
+    _append(session, _step(cwd, 400 + hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == 1
+    assert [b["trigger"] for b in api.bodies] == ["prompt", "search", "window"]
+    assert api.bodies[-1]["segments"] == ["after the prompt"]
+
+
+def test_tool_calls_alone_never_make_a_window_look(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    _append(session, _step(session.cwd, 0), _step(session.cwd, 2 * hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == 0
+    _append(session, _said("now a message", session.cwd, 2 * hints.WINDOW_GAP_S + 1))
+    lane.read_once()
+    assert lane.run_due() == 1 and api.bodies[0]["segments"] == ["now a message"]
+
+
+def test_a_window_waits_behind_another_lookup_and_loses_no_message(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    cwd = session.cwd
+    _append(session, _said("one", cwd, 0))
+    lane.read_once()
+    lane.trigger(session, "search", "first search")
+    lane.run_due()
+    lane.trigger(session, "search", "second search")  # waits out the session's gap
+    _append(session, _said("two", cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == 0
+    clock.now += hints.SESSION_GAP_S
+    assert lane.run_due() == 1 and api.bodies[-1]["text"] == "second search"
+    clock.now += hints.SESSION_GAP_S
+    _append(session, _step(cwd, hints.WINDOW_GAP_S + 10))
+    lane.read_once()
+    assert lane.run_due() == 1 and api.bodies[-1]["segments"] == ["two", "one"]
+
+
+def test_a_turn_that_ends_drops_a_waiting_window_look(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    lane.trigger(session, "search", "a search")
+    lane.run_due()
+    _append(session, _said("one", session.cwd, 0), _said("two", session.cwd, hints.WINDOW_GAP_S),
+            _turn_end(session.cwd))
+    lane.read_once()
+    clock.now += hints.SESSION_GAP_S
+    assert lane.run_due() == 0 and lane.stats["ended"] == 1
+
+
+def test_prompts_go_before_a_window_and_a_window_never_takes_the_last_tokens(tmp_path, state):
+    looking, asking = _session(tmp_path, state), _session(tmp_path, state, sid=OTHER)
+    api = Api()
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [looking, asking], api, clock)
+    _seen(lane, looking)
+    _append(looking, _said("one", looking.cwd, 0), _said("two", looking.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    lane.trigger(asking, "prompt", "the researcher asks")
+    assert lane.run_due() == 2
+    assert [b["trigger"] for b in api.bodies] == ["prompt", "window"], "of the lookups due, a window goes last"
+    clock.now += hints.SESSION_GAP_S
+    with lane._cv:
+        lane._tokens, lane._filled_at = 1.0, clock.now
+    _append(looking, _said("three", looking.cwd, 2 * hints.WINDOW_GAP_S + 20))
+    lane.read_once()
+    with lane._cv:
+        job, wait = lane.take_due(True)
+    assert job is None and wait == pytest.approx((hints.WINDOW_TOKEN_RESERVE - 1.0) * 60.0 / hints.BUCKET_PER_MIN)
+    lane.trigger(asking, "prompt", "a prompt takes the last token")
+    assert lane.run_due() == 1 and api.bodies[-1]["trigger"] == "prompt"
+    clock.now += hints.WINDOW_TOKEN_RESERVE * 60.0 / hints.BUCKET_PER_MIN
+    assert lane.run_due() == 1 and api.bodies[-1]["segments"] == ["three"]
+
+
+def test_a_message_in_a_folder_probe_config_turns_off_never_leaves(tmp_path, state):
+    session = _session(tmp_path, state)
+    secret = Path(session.cwd) / "secret"
+    secret.mkdir()
+    (Path(session.cwd) / ".probe.config").write_text("secret/\n")
+    api = Api()
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    _append(session, _said("work in the secret folder", str(secret), 0), _said("work in the project", session.cwd, 60),
+            _step(str(secret), hints.WINDOW_GAP_S + 60), _step(session.cwd, hints.WINDOW_GAP_S + 61))
+    lane.read_once()
+    assert lane.run_due() == 1, "the clock starts at the first step kept"
+    assert api.bodies[0]["segments"] == ["work in the project"]
+
+
+def test_a_credential_in_a_window_message_never_leaves_the_machine(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    key = "x" * (hints.WINDOW_SEGMENT_CHARS - 10) + " sk-ant-api03-" + "a" * 80
+    _append(session, _said(key, session.cwd, 0), _step(session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    lane.run_due()
+    [segment] = api.bodies[0]["segments"]
+    assert "sk-ant" not in segment and len(segment) <= hints.WINDOW_SEGMENT_CHARS
+    assert "sk-ant" not in api.bodies[0]["text"]
+
+
+def _window_marker(session: hints.Followed) -> Path:
+    with mailbox.rooted(session.state):
+        return mailbox.hints_window_path(session.sid)
+
+
+def _look(lane: hints.HintLane, session: hints.Followed, clock: Clock, sent: bool = True) -> None:
+    """One window look for `session` from its transcript: a message, then a step
+    WINDOW_GAP_S on the window clock; sent now (or held, `sent` False)."""
+    state = lane._state(session.sid)
+    at = state.window_since - T0 + 1 if state.window_since is not None else 0.0
+    lane.stats["test_looks"] += 1
+    _append(session, _said(f"message {lane.stats['test_looks']}", session.cwd, at),
+            _step(session.cwd, at + hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == (1 if sent else 0)
+    clock.now += hints.SESSION_GAP_S
+
+
+NO_WINDOW = {"detail": [{"type": "enum", "loc": ["body", "trigger"], "msg": "Input should be 'prompt', 'peer', "
+                         "'search' or 'command'"}]}
+
+
+@pytest.mark.parametrize("answers, marked", [
+    ([], False),  # no window lookup answered yet
+    ([(200, WINDOW_SHADOW)], True),
+    ([(200, {**WINDOW_SHADOW, "trigger_class": "prompt"})], False),  # answered, but not as a window
+    ([(200, WINDOW_SHADOW), (422, NO_WINDOW)], False),  # an older server
+    ([(200, WINDOW_SHADOW), (404, {"detail": "no route"})], False),
+    ([(200, WINDOW_SHADOW), (200, WINDOW_ERROR)], True),  # one failure
+    ([(200, WINDOW_SHADOW), (429, {"detail": "slow down"})], True),  # one failure, and held a while
+    ([(200, WINDOW_SHADOW), (401, {"detail": "no"})], False),  # a refused key: no marker at all
+    ([(200, WINDOW_SHADOW), (200, WINDOW_ERROR), None], False),  # two in a row
+    ([(200, WINDOW_SHADOW), (500, {}), (200, {**WINDOW_SHADOW, "reason": "rate_limited"})], False),
+    ([(200, WINDOW_SHADOW), (200, WINDOW_ERROR), (200, WINDOW_ERROR), (200, WINDOW_SHADOW)], True),  # works again
+])
+def test_the_window_marker_is_touched_only_while_window_lookups_work(tmp_path, state, answers, marked):
+    """W3: the session's reader stops its check-ins only on proof that window
+    hints work for it; any failure lets the marker go stale and they resume."""
+    session = _session(tmp_path, state)
+    api = Api(default=(200, WINDOW_SHADOW))
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    api.script = [TimeoutError("no answer") if a is None else a for a in answers]
+    for _answer in answers:
+        _look(lane, session, clock)
+    marker = _window_marker(session)
+    with contextlib.suppress(FileNotFoundError):
+        marker.unlink()
+    clock.now += hints.HINTS_LIVE_BEAT_S
+    lane.read_once()
+    assert _live(session).is_file()
+    assert marker.is_file() is marked
+
+
+def test_a_transcript_not_read_lately_stops_the_window_marker(tmp_path, state):
+    session = _session(tmp_path, state)
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], Api(default=(200, WINDOW_SHADOW)), clock)
+    _seen(lane, session)
+    _look(lane, session, clock)
+    clock.now += hints.HINTS_LIVE_BEAT_S
+    lane.read_once()
+    marker = _window_marker(session)
+    assert marker.is_file()
+    marker.unlink()
+    os.unlink(session.transcript)
+    clock.now += hints.WINDOW_READ_FRESH_S + 1
+    lane.read_once()
+    assert not marker.is_file() and _live(session).is_file()
+
+
+@pytest.mark.parametrize("answer", [(404, {"detail": "Not Found"}), (422, NO_WINDOW)])
+def test_a_server_without_window_lookups_holds_them_never_its_prompts(tmp_path, state, answer):
+    session = _session(tmp_path, state)
+    api = Api(default=(200, WINDOW_SHADOW))
+    api.script = [answer]
+    clock = Clock()
+    lane, logs = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    _look(lane, session, clock)
+    lane.trigger(session, "prompt", "the prompt still asks")
+    assert lane.run_due() == 1
+    clock.now += hints.SESSION_GAP_S
+    _look(lane, session, clock, sent=False)
+    clock.now += hints.MISSING_S
+    assert lane.run_due() == 1
+    assert [b["trigger"] for b in api.bodies] == ["window", "prompt", "window"]
+    assert any(f"answered {answer[0]}; window lookups on this server are not asked" in m for m in logs)
+
+
+def test_a_422_about_one_requests_content_holds_no_window_lookup(tmp_path, state):
+    """Only a 422 naming `trigger` says the server has no window lookups."""
+    session = _session(tmp_path, state)
+    api = Api(default=(200, WINDOW_SHADOW))
+    api.script = [(200, WINDOW_SHADOW), (422, {"detail": [{"type": "string_too_long", "loc": ["body", "segments", 0]}]})]
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    _look(lane, session, clock)
+    _look(lane, session, clock)
+    _look(lane, session, clock)  # not held
+    assert lane._window_ok and lane._state(session.sid).window_failures == 0
+
+
+@pytest.mark.parametrize("answer", [(429, {"detail": "slow down"}), (200, {**WINDOW_SHADOW, "reason": "rate_limited"})])
+def test_a_window_past_its_teams_rate_holds_only_that_keys_windows(tmp_path, state, answer):
+    session = _session(tmp_path, state, KEY="pk_a")
+    other_key = _session(tmp_path, state, sid=OTHER, KEY="pk_b")
+    api = Api(default=(200, WINDOW_SHADOW))
+    api.script = [answer]
+    clock = Clock()
+    lane, logs = _lane(tmp_path, [session, other_key], api, clock)
+    lane.endpoint_of = _keyed
+    _seen(lane, session)
+    _seen(lane, other_key)
+    _look(lane, session, clock)
+    lane.trigger(session, "search", "a search still asks")
+    assert lane.run_due() == 1
+    clock.now += hints.SESSION_GAP_S
+    _look(lane, other_key, clock)  # another key's windows on the same server still go
+    _look(lane, session, clock, sent=False)
+    clock.now += hints.LIMITED_S
+    assert lane.run_due() == 1
+    assert api.bodies[-1]["segments"] == ["message 3", "message 1"], "the failed look's messages went into the next"
+    assert any("window lookups of this key on this server are not asked for 60 s" in m for m in logs)
+
+
+def test_a_window_with_no_answer_holds_window_lookups_a_while(tmp_path, state):
+    """A window waits WINDOW_TIMEOUT_S on its thread: a server not answering
+    is not asked another for LIMITED_S, and prompts still go."""
+    session, other = _session(tmp_path, state), _session(tmp_path, state, sid=OTHER)
+    asking = _session(tmp_path, state, sid=PEER)
+    api = Api(default=(200, WINDOW_SHADOW))
+    api.script = [TimeoutError("no answer")]
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session, other, asking], api, clock)
+    _seen(lane, session)
+    _seen(lane, other)
+    _look(lane, session, clock)
+    _look(lane, other, clock, sent=False)
+    lane.trigger(asking, "prompt", "a prompt goes")
+    assert lane.run_due() == 1 and api.bodies[-1]["trigger"] == "prompt"
+    clock.now += hints.LIMITED_S
+    assert lane.run_due() == 1 and api.bodies[-1]["trigger"] == "window"
+
+
+def test_a_window_request_waits_window_timeout_s_and_any_other_timeout_s(monkeypatch):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    class Slow(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *args) -> None:
+            pass
+
+        def handle_error(self, *args) -> None:
+            pass
+
+        def do_POST(self) -> None:
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)))
+            if body.get("text") != "fast":
+                time.sleep(0.6)
+            out = json.dumps(WINDOW_SHADOW).encode()
+            with contextlib.suppress(OSError):
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(out)))
+                self.end_headers()
+                self.wfile.write(out)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Slow)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    monkeypatch.setattr(hints, "TIMEOUT_S", 0.3)
+    monkeypatch.setattr(hints.HintFetcher, "timeout", 0.3)  # as in production: the socket's own, TIMEOUT_S
+    monkeypatch.setattr(hints, "WINDOW_TIMEOUT_S", 3.0)
+    try:
+        fetch = hints.HintFetcher(VERSION)
+        ep = Endpoint(f"http://127.0.0.1:{server.server_address[1]}", "pk_read")
+        prompt = fetch(ep, {"trigger": "prompt", "text": "slow"})
+        window = fetch(ep, {"trigger": "window", "text": "slow", "segments": ["slow"]})
+        fast = fetch(ep, {"trigger": "prompt", "text": "fast"})  # a kept connection, its socket at 0.3 s
+        kept = fetch(ep, {"trigger": "window", "text": "slow", "segments": ["slow"]})
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert prompt == (None, None)
+    assert window == (200, WINDOW_SHADOW)
+    assert fast == (200, WINDOW_SHADOW) and kept == (200, WINDOW_SHADOW)
+
+
+def test_a_window_request_outwaits_the_servers_window_lookup():
+    """The server spends its window budget on the engine, then at most five
+    database statements under its statement timeout, before it answers."""
+    source = AGENT_ROOT.parent / "app" / "hints" / "service.py"
+    if not source.is_file():
+        pytest.skip("the server's code is not beside this package")
+    text = source.read_text(encoding="utf-8")
+    engine = float(re.search(r"^ENGINE_BUDGET_SECONDS = ([\d.]+)", text, re.M).group(1))
+    window = re.search(r"^WINDOW_BUDGET_SECONDS = (.+)$", text, re.M).group(1).strip()
+    budget = engine if window == "ENGINE_BUDGET_SECONDS" else float(window)
+    statement = float(re.search(r"statement_timeout = '(\d+)ms'", text).group(1)) / 1000.0
+    assert hints.WINDOW_TIMEOUT_S >= budget + 5 * statement
+
+
+def test_a_window_request_fits_the_servers_accepted_bounds():
+    """Past one of them the server answers 422, and a 422 naming no `trigger` is
+    one more failure: every window would fail."""
+    source = AGENT_ROOT.parent / "app" / "hints" / "schemas.py"
+    if not source.is_file():
+        pytest.skip("the server's code is not beside this package")
+    text = source.read_text(encoding="utf-8")
+
+    def bound(name: str) -> int:
+        return int(re.search(rf"^{name} = ([\d_]+)", text, re.M).group(1).replace("_", ""))
+
+    assert hints.MAX_EXCLUDE_DOC_IDS <= bound("MAX_EXCLUDED_DOCS")
+    assert hints.WINDOW_MAX_SEGMENTS <= bound("MAX_SEGMENTS_ACCEPTED")
+    assert hints.WINDOW_SEGMENT_CHARS <= bound("MAX_SEGMENT_CHARS_ACCEPTED")
+
+
+def test_only_a_server_that_answered_a_window_is_named_more_than_50_records(tmp_path, state):
+    """A server before window lookups (#3402) refuses more than 50 `exclude_doc_ids`."""
+    session = _session(tmp_path, state)
+    api = Api(default=(200, WINDOW_SHADOW))
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    lane._shown = lambda session, state: [frozenset(f"doc-{i} 10-21" for i in range(150))]
+    _seen(lane, session)
+    lane.trigger(session, "prompt", "before any window")
+    lane.run_due()
+    clock.now += hints.SESSION_GAP_S
+    _look(lane, session, clock)
+    lane.trigger(session, "prompt", "after a window answered as one")
+    lane.run_due()
+    assert [len(b["exclude_doc_ids"]) for b in api.bodies] == [hints.LEGACY_EXCLUDE_DOC_IDS,
+                                                               hints.LEGACY_EXCLUDE_DOC_IDS, hints.MAX_EXCLUDE_DOC_IDS]
+
+
+def test_a_first_look_counts_no_old_agent_message_for_the_window(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    lane, _ = _lane(tmp_path, [session], api)
+    _append(session, {**_said("old work", session.cwd, 0), "timestamp": _stamp(hints.FRESH_S + 60)},
+            {**_said("new work", session.cwd, 0), "timestamp": _stamp(0)})
+    lane.read_once()  # the first look: only lines younger than FRESH_S
+    _append(session, {**_step(session.cwd, 0), "timestamp": _stamp(-(hints.WINDOW_GAP_S + 5))})
+    lane.read_once()
+    assert lane.run_due() == 1 and api.bodies[0]["segments"] == ["new work"]
+
+
+def test_a_window_replaced_by_a_search_while_it_waits_loses_no_message(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    lane.trigger(session, "search", "first")
+    lane.run_due()  # the session's gap runs from now
+    _append(session, _said("one", session.cwd, 0), _said("two", session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane._pending[SID].trigger == "window"
+    _append(session, _said("three", session.cwd, hints.WINDOW_GAP_S + 1))
+    lane.read_once()
+    assert len(lane._pending) == 1, "one window waits; a later step queues no second"
+    lane.trigger(session, "search", "second")  # replaces the waiting window
+    clock.now += hints.SESSION_GAP_S
+    assert lane.run_due() == 1 and api.bodies[-1]["text"] == "second"
+    clock.now += hints.SESSION_GAP_S
+    _append(session, _step(session.cwd, hints.WINDOW_GAP_S + 5))
+    lane.read_once()
+    assert lane.run_due() == 1 and api.bodies[-1]["segments"] == ["three", "two", "one"]
+
+
+def test_a_prompt_drops_a_waiting_window_and_its_messages(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    lane.trigger(session, "search", "first")
+    lane.run_due()
+    _append(session, _said("before", session.cwd, 0), _said("due", session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane._pending[SID].trigger == "window"
+    _append(session, {**_user("now the svm", session.cwd), "timestamp": _at(hints.WINDOW_GAP_S + 2)})
+    lane.read_once()
+    clock.now += hints.SESSION_GAP_S
+    assert lane.run_due() == 1 and [b["trigger"] for b in api.bodies] == ["search", "prompt"]
+    assert not lane._state(SID).window_messages
+
+
+def test_a_turn_end_ends_its_window(tmp_path, state):
+    """The finished turn's messages are not looked at again, and the next turn's
+    window clock starts at its first step, not at the turn end."""
+    session = _session(tmp_path, state)
+    api = Api()
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    _append(session, _said("old turn work", session.cwd, 0), _turn_end(session.cwd))
+    lane.read_once()
+    later = 3 * 3600
+    _append(session, _said("a background job finished", session.cwd, later), _step(session.cwd, later + 60))
+    lane.read_once()
+    assert lane.run_due() == 0, "a new turn's first minute: nothing due"
+    _append(session, _step(session.cwd, later + hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == 1 and api.bodies[0]["segments"] == ["a background job finished"]
+
+
+def _pi(text: str, at: float, *, stop: bool) -> dict:
+    message = {"role": "assistant", "content": [{"type": "text", "text": text}]}
+    if stop:
+        message["stopReason"] = "stop"
+    return {"type": "message", "timestamp": _at(at), "message": message}
+
+
+def test_a_turns_last_message_on_its_end_line_queues_no_window(tmp_path, state):
+    """pi writes a turn's last message and its end on one line: no window is
+    looked up for a turn that is over (its hint would wait for the next prompt)."""
+    session = dataclasses.replace(_session(tmp_path, state), harness="pi")
+    api = Api(default=(200, _on()))
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    _append(session, _pi("working", 0, stop=False))
+    lane.read_once()
+    _append(session, _pi("done", hints.WINDOW_GAP_S + 5, stop=True))
+    lane.read_once()
+    assert lane.run_due() == 0 and _waiting(session) == [] and lane.stats["trigger_window"] == 1
+    assert not lane._state(SID).window_messages
+
+
+def test_a_window_taken_before_its_turn_ended_is_not_sent(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api()
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    _append(session, _said("one", session.cwd, 0), _step(session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    with lane._cv:
+        job, _wait = lane.take_due(True)
+    _append(session, _turn_end(session.cwd))
+    lane.read_once()
+    lane.lookup(job)
+    assert api.bodies == [] and lane.stats["stale"] == 1
+
+
+def test_a_harness_that_shows_hints_only_at_a_prompt_gets_no_window(tmp_path, state):
+    """Kimi Code hands a message over only at the next prompt, after the turn's
+    end has withdrawn it: no window lookup, and no marker to stop its check-ins."""
+    session, other = _session(tmp_path, state), _session(tmp_path, state, sid=OTHER)
+    api = Api(default=(200, WINDOW_SHADOW))
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session, other], api, clock)
+    _seen(lane, other)
+    _look(lane, other, clock)  # the key's window lookups work
+    _seen(lane, session)
+    tail = lane._tails[SID]
+    tail.adapter.capabilities = dataclasses.replace(tail.adapter.capabilities, inject_tool=False)
+    _append(session, _said("one", session.cwd, 0), _step(session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert lane.run_due() == 0
+    clock.now += hints.HINTS_LIVE_BEAT_S
+    lane.read_once()
+    assert _live(session).is_file() and not _window_marker(session).exists()
+    assert hints.shows_mid_turn(tail.adapter) is False
+    for harness in ("claude_code", "codex", "pi"):
+        from probe.daemon import adapters
+
+        assert hints.shows_mid_turn(adapters.for_source(harness)), harness
+
+
+def test_a_key_whose_window_lookups_fail_stops_every_sessions_marker(tmp_path, state):
+    a, b = _session(tmp_path, state), _session(tmp_path, state, sid=OTHER)
+    api = Api(default=(200, WINDOW_SHADOW))
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [a, b], api, clock)
+    _seen(lane, a)
+    _seen(lane, b)
+    _look(lane, a, clock)
+    api.script = [(200, WINDOW_ERROR), (200, WINDOW_ERROR)]
+    _look(lane, a, clock)
+    _look(lane, a, clock)
+    with contextlib.suppress(FileNotFoundError):
+        _window_marker(b).unlink()
+    clock.now += hints.HINTS_LIVE_BEAT_S
+    lane.read_once()
+    assert not _window_marker(b).exists(), "b sent none, but its key's window lookups fail"
+
+
+def test_a_turn_looked_at_by_no_window_for_a_check_ins_length_stops_the_marker(tmp_path, state):
+    """A turn of tool calls only (no message, so no window): the reader's
+    check-in comes back after WINDOW_COVERS_S."""
+    session = _session(tmp_path, state)
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], Api(default=(200, WINDOW_SHADOW)), clock)
+    _seen(lane, session)
+    _look(lane, session, clock)
+    with lane._cv:
+        lane._state(SID).window_since = time.time() - hints.WINDOW_COVERS_S - 1
+    marker = _window_marker(session)
+    with contextlib.suppress(FileNotFoundError):
+        marker.unlink()
+    clock.now += hints.HINTS_LIVE_BEAT_S
+    lane.read_once()
+    assert not marker.exists()
+
+
+def test_a_counted_tool_call_never_runs_the_filters_per_call_reads(tmp_path, state, monkeypatch):
+    """The window only counts a tool call: its folder's verdict, never the
+    filter's reads of what it touches (they walk trees, ~1 s each)."""
+    from probe.daemon import exclusions
+
+    called: list = []
+    monkeypatch.setattr(exclusions.Filter, "_call_excluded", lambda self, event, where: called.append(1) or False)
+    session = _session(tmp_path, state)
+    secret = Path(session.cwd) / "secret"
+    secret.mkdir()
+    (Path(session.cwd) / ".probe.config").write_text("secret/\n")
+    api = Api()
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    _append(session, _said("one", session.cwd, 0), _called("Bash", {"command": "git status"}, session.cwd, 60),
+            _called("Bash", {"command": "ls"}, str(secret), hints.WINDOW_GAP_S))
+    lane.read_once()
+    assert called == [] and lane.run_due() == 0, "a step in an `off` folder is not counted"
+    _append(session, _called("Bash", {"command": "rg x ."}, session.cwd, hints.WINDOW_GAP_S + 1))
+    lane.read_once()
+    assert called == [] and lane.run_due() == 1
+
+
+def test_past_max_pending_a_window_goes_before_any_other_lookup(tmp_path, state, monkeypatch):
+    monkeypatch.setattr(hints, "MAX_PENDING", 3)
+    sessions = [_session(tmp_path, state, sid=f"{i:08d}-0000-0000-0000-000000000000") for i in range(5)]
+    lane, _ = _lane(tmp_path, sessions, Api())
+    looking = sessions[0]
+    state0 = lane._state(looking.sid)
+    with lane._cv:
+        state0.window_messages.append("a message")
+    lane._queue_window(looking, state0, T0)
+    for s in sessions[1:4]:
+        lane.trigger(s, "prompt", f"prompt of {s.sid}")
+    assert [j.trigger for j in lane._pending.values()] == ["prompt"] * 3
+    lane._queue_window(looking, state0, T0)
+    assert [j.trigger for j in lane._pending.values()] == ["prompt"] * 3, "a window never evicts a prompt"
+
+
+def test_a_window_short_of_its_reserve_never_delays_a_lookup_that_needs_one_token(tmp_path, state):
+    looking, asking = _session(tmp_path, state), _session(tmp_path, state, sid=OTHER)
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [looking, asking], Api(), clock)
+    lane.trigger(asking, "search", "first")
+    lane.run_due()
+    clock.now += hints.SESSION_GAP_S - 1
+    lane.trigger(asking, "search", "due in a second")
+    state0 = lane._state(looking.sid)
+    with lane._cv:
+        state0.window_messages.append("a message")
+    lane._queue_window(looking, state0, T0)
+    with lane._cv:
+        lane._tokens, lane._filled_at = 1.0, clock.now
+        window, window_wait = lane.take_due(True)
+        job, wait = lane.take_due(False)
+    assert window is None and window_wait == pytest.approx(
+        (hints.WINDOW_TOKEN_RESERVE - 1.0) * 60.0 / hints.BUCKET_PER_MIN)
+    assert job is None and wait == pytest.approx(1.0), "the search waits only its own gap"
+    clock.now += 1.0
+    with lane._cv:
+        job, _wait = lane.take_due(False)
+    assert job is not None and job.text == "due in a second"
+
+
+def test_a_failed_window_whose_turn_ended_puts_no_message_back(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api(default=(200, WINDOW_SHADOW))
+    api.script = [TimeoutError("no answer")]
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    _append(session, _said("the old turn", session.cwd, 0), _step(session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    with lane._cv:
+        job, _wait = lane.take_due(True)
+    state_ = lane._state(SID)
+    lane.lookup(job)  # sent, no answer: its messages are back
+    assert list(state_.window_messages) == ["the old turn"]
+    with lane._cv:
+        state_.window_messages.clear()
+    lane.turn_ended(session)
+    api.script = [TimeoutError("no answer")]
+    job.epoch = state_.epoch - 1
+    lane._window_answered(job, state_, None, None)
+    assert not state_.window_messages, "its turn is over: nothing back"
+
+
+@pytest.mark.parametrize("answer", [(404, {"detail": "Not Found"}), (422, NO_WINDOW),
+                                    (422, {"detail": [{"loc": ["body", "segments", 0]}]}), (400, {"detail": "bad"})])
+def test_a_window_refused_for_its_content_or_route_puts_no_message_back(tmp_path, state, answer):
+    session = _session(tmp_path, state)
+    api = Api(default=(200, WINDOW_SHADOW))
+    api.script = [answer]
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    _look(lane, session, clock)
+    assert not lane._state(SID).window_messages
+
+
+# ---------------------------------------------------------------------------
+# Latency (plan hints-latency L3, L4, R7, R9).
+# ---------------------------------------------------------------------------
+
+
+def test_a_window_just_sent_never_delays_its_sessions_prompt(tmp_path, state):
+    """Each kind waits SESSION_GAP_S after its own lookup only (R7): a prompt
+    right behind its session's window goes at once; a second prompt still waits."""
+    session = _session(tmp_path, state)
+    api = Api(default=(200, WINDOW_SHADOW))
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [session], api, clock)
+    _seen(lane, session)
+    _append(session, _said("one", session.cwd, 0), _said("two", session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    with lane._cv:
+        window, _wait = lane.take_due(True)
+    assert window is not None and window.trigger == "window"
+    lane.trigger(session, "prompt", "the researcher asks right after")
+    with lane._cv:
+        prompt, wait = lane.take_due(False)
+    assert prompt is not None and prompt.trigger == "prompt" and wait is None
+    lane.trigger(session, "prompt", "and again")
+    with lane._cv:
+        job, wait = lane.take_due(False)
+    assert job is None and wait == pytest.approx(hints.SESSION_GAP_S)
+
+
+def test_each_lookup_thread_takes_only_its_own_kind(tmp_path, state):
+    session, other = _session(tmp_path, state), _session(tmp_path, state, sid=OTHER)
+    lane, _ = _lane(tmp_path, [session, other], Api())
+    _seen(lane, session)
+    _append(session, _said("one", session.cwd, 0), _said("two", session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    lane.trigger(other, "prompt", "a prompt")
+    with lane._cv:
+        windows = [lane.take_due(True)[0] for _ in range(2)]
+        others = [lane.take_due(False)[0] for _ in range(2)]
+    assert [j and j.trigger for j in windows] == ["window", None]
+    assert [j and j.trigger for j in others] == ["prompt", None]
+
+
+class _SlowWindows(Api):
+    """`/v1/hints` answering a window only once released, anything else at once."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.window_in = threading.Event()
+        self.release = threading.Event()
+
+    def __call__(self, ep: Endpoint, body: dict):
+        if body["trigger"] == "window":
+            self.window_in.set()
+            self.release.wait(5)
+            return 200, WINDOW_SHADOW
+        return super().__call__(ep, body)
+
+
+def test_a_prompt_is_never_held_up_by_a_window_in_flight(tmp_path, state):
+    """The lane's own threads (R5): a window waiting on the server holds its own
+    thread only; the prompt that comes meanwhile is asked and answered, and
+    `close` stops all three."""
+    session = _session(tmp_path, state)
+    api = _SlowWindows()
+    lane, _ = _lane(tmp_path, [session], api)
+    _seen(lane, session)
+    _append(session, _said("one", session.cwd, 0), _said("two", session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()  # the window is queued
+    lane.changed()
+    try:
+        assert api.window_in.wait(5), "the window thread asks"
+        lane.trigger(session, "prompt", "the researcher asks meanwhile")
+        deadline = time.monotonic() + 5
+        while not api.bodies and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert [b["trigger"] for b in api.bodies] == ["prompt"] and not api.release.is_set()
+    finally:
+        api.release.set()
+        lane.close()
+    assert sorted(t.name for t in lane._threads) == ["hints-lookup", "hints-tail", "hints-window"]
+    for thread in lane._threads:
+        thread.join(2)
+        assert not thread.is_alive()
+
+
+def test_the_window_thread_asks_on_a_fetcher_of_its_own():
+    """A fetcher's kept connections are not shared across threads."""
+    lane = hints.HintLane(sessions=lambda: [], log=lambda m: None, environ={})
+    assert isinstance(lane.window_transport, hints.HintFetcher) and lane.window_transport is not lane.transport
+
+
+@pytest.mark.parametrize("answer", [(200, SHADOW), (429, {"detail": "slow down"}), (500, {"detail": "boom"})])
+def test_every_answered_lookup_says_how_long_after_its_trigger(tmp_path, state, answer):
+    """R9: the delay from the trigger to the answer, for every answer, not only
+    a hint posted (the latency measure; `posted ... after the trigger` stays)."""
+    session = _session(tmp_path, state)
+    lane, logs = _lane(tmp_path, [session], Api(default=answer), wall=lambda: 5000.0)
+    lane.trigger(session, "prompt", "benchmark RFD4-Proteina", happened=4998.5)
+    lane.run_due()
+    assert any(m.endswith("; answered 1500 ms after the trigger") for m in logs), logs
+
+
+# ---------------------------------------------------------------------------
+# Two lookup threads answering out of order (review of plan hints-latency L4).
+# ---------------------------------------------------------------------------
+
+
+def _window_due(lane: hints.HintLane, session: hints.Followed) -> hints.Lookup:
+    _seen(lane, session)
+    _append(session, _said("one", session.cwd, 0), _step(session.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    with lane._cv:
+        window, _wait = lane.take_due(True)
+    assert window is not None
+    return window
+
+
+def _record(doc: str) -> dict:
+    return {"doc_id": doc, "date": "10-21", "kind": "page"}
+
+
+def test_a_window_answered_after_a_newer_hint_never_replaces_it(tmp_path, state):
+    """The window asked first, a search after it; the search's hint posts
+    first. The window's, from the older trigger, would replace it in the
+    session's one hint slot: it is not posted."""
+    session = _session(tmp_path, state)
+    api = Api()
+    lane, logs = _lane(tmp_path, [session], api)
+    window = _window_due(lane, session)
+    lane.trigger(session, "search", "RFD4-Proteina benchmark", happened=window.happened + 1)
+    with lane._cv:
+        search, _wait = lane.take_due(False)
+    api.default = (200, _on("[Probe] search hint", _record("doc-s")))
+    lane.lookup(search)
+    api.default = (200, {**_on("[Probe] window hint", _record("doc-w")), "trigger_class": "window"})
+    lane.lookup(window)
+    assert [m.text for m in _waiting(session)] == ["[Probe] search hint"]
+    assert lane.stats["superseded"] == 1 and any(f"; {hints.Skip.SUPERSEDED}; answered" in m for m in logs)
+
+
+@pytest.mark.parametrize("delivered", [True, False])
+def test_a_hint_sharing_a_record_with_one_delivered_while_it_was_asked_is_not_posted(tmp_path, state, delivered):
+    """A newer search's request was built before the window's hint posted, so
+    it could not leave that hint's records out. Delivered meanwhile, a shared
+    record would be shown twice: not posted. Still waiting, it is replaced by
+    the search's hint: no record is shown twice, and the newer hint goes."""
+    session = _session(tmp_path, state)
+    claimed: set = set()
+    api = Api(default=(200, {**_on("[Probe] window hint", _record("doc-a"), _record("doc-w")),
+                             "trigger_class": "window"}))
+    lane, _ = _lane(tmp_path, [session], api, delivered=lambda sid, st: set(claimed))
+    window = _window_due(lane, session)
+    lane.trigger(session, "search", "a newer search", happened=window.happened + 1)
+    with lane._cv:
+        search, _wait = lane.take_due(False)
+    search.posted_before = lane._state(SID).posted  # its request built now, before the window posts
+    lane.lookup(window)
+    [window_id] = list(lane._state(SID).ledger)
+    if delivered:
+        claimed.add(window_id)
+    posted, why = lane._deliver(search, lane._state(SID), "[Probe] search hint",
+                                [_record("doc-a"), _record("doc-s")])
+    assert (posted, why) == ((False, hints.Skip.REPEAT) if delivered else (True, "posted"))
+
+
+def test_a_window_leaves_the_tokens_to_the_lookups_due_now(tmp_path, state):
+    """With three tokens, two prompts due and a window due, the window waits:
+    the prompts take theirs first, and the reserve stays."""
+    looking = _session(tmp_path, state)
+    asking = [_session(tmp_path, state, sid=OTHER), _session(tmp_path, state, sid=PEER)]
+    clock = Clock()
+    lane, _ = _lane(tmp_path, [looking, *asking], Api(), clock)
+    _seen(lane, looking)
+    _append(looking, _said("one", looking.cwd, 0), _step(looking.cwd, hints.WINDOW_GAP_S))
+    lane.read_once()
+    for s in asking:
+        lane.trigger(s, "prompt", f"prompt of {s.sid}")
+    with lane._cv:
+        lane._tokens, lane._filled_at = 3.0, clock.now
+        window, wait = lane.take_due(True)
+        assert window is None and wait > 0
+        taken = [lane.take_due(False)[0] for _ in range(2)]
+        window, _wait = lane.take_due(True)
+    assert [j.trigger for j in taken] == ["prompt", "prompt"]
+    assert window is None, "one token left, under the reserve"
+
+
+def test_a_hint_whose_teams_hints_went_off_meanwhile_is_not_posted(tmp_path, state):
+    session = _session(tmp_path, state)
+    api = Api(default=(200, _on()))
+    lane, logs = _lane(tmp_path, [session], api)
+    lane.trigger(session, "prompt", "benchmark RFD4-Proteina")
+    with lane._cv:
+        job, _wait = lane.take_due(False)
+        lane._off[(job.ep.base_url, job.ep.key)] = lane.clock() + hints.OFF_RECHECK_S  # the other thread's answer
+    lane.lookup(job)
+    assert _waiting(session) == [] and lane.stats["off"] == 1
+    assert any(f"; {hints.Skip.OFF}; answered" in m for m in logs)
+
+
+def test_a_lane_that_closed_while_asking_posts_nothing(tmp_path, state):
+    session = _session(tmp_path, state)
+    lane, _ = _lane(tmp_path, [session], Api(default=(200, _on())))
+    lane.trigger(session, "prompt", "benchmark RFD4-Proteina")
+    with lane._cv:
+        job, _wait = lane.take_due(False)
+    lane.close()
+    lane.lookup(job)
+    assert _waiting(session) == []
+
+
+def test_close_aborts_both_fetchers_and_a_request_in_flight_is_never_sent_again(monkeypatch):
+    """`close` ends the window thread's request too, and the shut socket is
+    no kept connection the server closed: no second try (it would ask again
+    and wait on it while the service shuts down)."""
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    seen: list = []
+    release = threading.Event()
+
+    class Slow(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *args) -> None:
+            pass
+
+        def do_POST(self) -> None:
+            self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            seen.append(self.path)
+            release.wait(5)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Slow)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    lane = hints.HintLane(sessions=lambda: [], log=lambda m: None, version=VERSION, environ={})
+    ep = Endpoint(f"http://127.0.0.1:{server.server_address[1]}", "pk_read")
+    answers: list = []
+    asking = threading.Thread(target=lambda: answers.append(lane.window_transport(ep, {"trigger": "window"})))
+    try:
+        asking.start()
+        deadline = time.monotonic() + 5
+        while not seen and time.monotonic() < deadline:
+            time.sleep(0.01)
+        started = time.monotonic()
+        lane.close()
+        asking.join(3)
+        took = time.monotonic() - started
+    finally:
+        release.set()
+        server.shutdown()
+        server.server_close()
+    assert answers == [(None, None)] and seen == ["/v1/hints"] and took < 2
+    assert lane.transport.closing and lane.window_transport.closing
+
+
+def test_an_unfinished_last_line_is_not_read_again_until_the_file_grows(tmp_path, state, monkeypatch):
+    session = _session(tmp_path, state)
+    lane, _ = _lane(tmp_path, [session], Api())
+    _seen(lane, session)
+    with open(session.transcript, "a", encoding="utf-8") as out:
+        out.write('{"type": "assistant", "partial": "')
+    reads: list = []
+    real_fdopen = os.fdopen
+
+    def counted(fd, *args, **kwargs):
+        handle = real_fdopen(fd, *args, **kwargs)
+        real_read = handle.read
+        handle.read = lambda *a: reads.append(1) or real_read(*a)
+        return handle
+
+    monkeypatch.setattr(hints.os, "fdopen", counted)
+    for _ in range(4):
+        lane.read_once()
+    assert len(reads) == 1, "read once, then left until it grows"
+    _append(session, _user("benchmark RFD4-Proteina", session.cwd))
+    lane.read_once()
+    assert len(reads) == 2

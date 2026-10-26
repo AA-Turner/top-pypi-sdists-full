@@ -9,16 +9,20 @@ was being refused and nobody noticed, because a refusal is only visible to whoev
 reads the exit code of the one command that hit it. A number that only appears at
 the moment it is too late to act on is not a budget, it is a cliff.
 
-THE CAPS ARE TOKENS (o200k_base), and every number here is the server's. A
-document (project, experiment, team note, and their sub-notes) is capped at
-30,000 tokens; a run's note (and a run's sub-notes) at 2,000. The server
-publishes the cap, the stored count and the room left on every response that
-carries the document (`notes_limit_tokens` / `notes_tokens` /
-`notes_remaining_tokens`; `limit_tokens` / `tokens` / `remaining_tokens` on a
-sub-note and the team note). The `*_chars` fields it still publishes measure a
-looser CHARACTER backstop (150,000 / 10,000) and are never read for advice
+THE CAPS ARE TOKENS (o200k_base), and every number here is the server's. The
+team note is capped at 30,000 tokens; every other note -- a project's, an
+experiment's, a run's, and every sub-note of those -- at 1,000 since research-os
+2026-10-25 (a server setting, `notes_max_tokens`, so it can move without a
+client release). The server publishes the cap, the stored count and the room
+left on every response that carries the document (`notes_limit_tokens` /
+`notes_tokens` / `notes_remaining_tokens`; `limit_tokens` / `tokens` /
+`remaining_tokens` on a sub-note and the team note), and nothing here hardcodes
+it. The `*_chars` fields it still publishes measure a looser CHARACTER backstop
+(150,000 for the team note, 5,000 for the rest) and are never read for advice
 here: a fullness computed from them describes a limit that is not the one that
-refuses first.
+refuses first. A note written before the cap was lowered can sit above it: the
+server keeps it readable and refuses only a write that changes it and leaves it
+over, with a 422 saying it must be rewritten under the limit.
 
 THE THRESHOLD IS A FRACTION, and the first figure was not a fresh guess: the
 notes-first-class design settled on 20% for the team note ("skills instruct
@@ -27,23 +31,22 @@ agents to compact when `remaining_chars` drops below 20,000" -- 20% of the
 note say "getting full" at the same point on the same scale. It has since been
 raised to 40% (see `NOTES_WARN_FRACTION`).
 
-WHY A FRACTION AND NOT AN ABSOLUTE. The caps differ by 15x, and so does the right
-response to hearing this:
+WHY A FRACTION AND NOT AN ABSOLUTE. The caps differ by 30x (the team note's
+30,000 against everyone else's 1,000), the server can move them, and the right
+response to hearing this differs by KIND:
 
-  * At 30,000 tokens (project, experiment, team note) the answer is COMPACTION
-    -- check the document out, fold the paragraphs at the bottom up into the
-    head sections, and push it back. That is ongoing work, and it needs runway
-    to keep working while it happens: 12,000 tokens is dozens more paragraphs
-    of it.
-  * At 2,000 tokens (a run) the answer is usually not compaction at all.
-    A run's notes is an annotation that rides on a row, so a run note approaching
-    2,000 tokens is prose that belongs one level up, on the experiment or the
-    project. That is a one-time move, and it needs less runway -- 800 tokens
-    is one or two more short notes, which is enough to finish the thought you are
-    in the middle of and then move the document.
+  * For a document someone maintains (project, experiment, team note) the
+    answer is COMPACTION -- check the document out, fold the paragraphs at the
+    bottom up into the head sections, and push it back. That is ongoing work,
+    and it needs runway to keep working while it happens.
+  * For a run the answer is usually not compaction at all. A run's notes is an
+    annotation that rides on a row, so a run note approaching its cap is prose
+    that belongs one level up, on the experiment or the project. That is a
+    one-time move, and it needs less runway -- one or two more short notes,
+    which is enough to finish the thought you are in the middle of and then
+    move the document.
 
-An absolute budget cannot express both. 2,000 tokens of headroom is "plenty"
-on a document cap and "the entire field" on an annotation cap.
+An absolute budget cannot express both, nor follow a cap the server moves.
 
 ONE tier, not two. A second "critical" threshold would have to pick a second
 number to defend, and the message already carries the exact figures, so the
@@ -64,8 +67,8 @@ from . import safe_warn
 #: limit and nothing else -- there is no compaction advice at the wall, because
 #: the write raises before the success path that carries it. So the warning is
 #: the ONLY place the advice appears, and it has to start early enough that a
-#: reader has room to act in: 60% of a 2,000-token run note leaves 800 tokens,
-#: which is several more appends of runway rather than one.
+#: reader has room to act in: 60% of a 1,000-token note leaves 400 tokens,
+#: which is a few more paragraphs of runway rather than one.
 NOTES_WARN_FRACTION = 0.40
 
 #: Keys the server publishes on every notes-carrying response. Named here so the

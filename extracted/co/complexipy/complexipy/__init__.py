@@ -56,6 +56,7 @@ def file_complexity(
     file_path: str,
     check_script: bool = False,
     no_ignore: bool = False,
+    with_plans: bool = True,
 ) -> FileComplexity:
     """Analyze the cognitive complexity of a single Python source file.
 
@@ -66,15 +67,16 @@ def file_complexity(
             module-level (script) code as a '<module>' entry.
         no_ignore: If True, disregard all '# complexipy: ignore' and
             '# noqa: complexipy' comments, analyzing every function.
+        with_plans: If False, skip building refactor plans and leave every
+            'refactor_plans' list empty.
 
     Returns:
         FileComplexity object containing complete analysis results for the
         file, including all functions found and their complexity scores.
 
     Raises:
-        FileNotFoundError: If the specified file does not exist.
-        PermissionError: If the file cannot be read due to permissions.
-        SyntaxError: If the Python file contains syntax errors.
+        ValueError: If the file cannot be read, is not UTF-8 text, or
+            does not parse.
     """
     path = Path(file_path).resolve()
     cwd = Path.cwd().resolve()
@@ -89,4 +91,5 @@ def file_complexity(
         base_path.as_posix(),
         check_script,
         no_ignore,
+        with_plans,
     )

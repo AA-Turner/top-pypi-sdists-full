@@ -1120,8 +1120,9 @@ class Run:
         return info
 
     def make_sessions(self) -> None:
+        daemons = max(1, min(self.args.daemon_sessions, self.args.sessions))
         for i in range(1, self.args.sessions + 1):
-            self.new_session(f"s{i}", self.args.daemon_session != "none" and i == self.args.sessions)
+            self.new_session(f"s{i}", self.args.daemon_session != "none" and i > self.args.sessions - daemons)
 
     def start_late_session(self, k: int) -> None:
         """A NEW session once release k landed: it must start on the new plugins
@@ -1261,6 +1262,7 @@ class Run:
         entry = {
             "t": now,
             "min": round(self.minutes(), 2),
+            "processes": self.daemon_processes(status),
             "service": {k: status.get(k) for k in ("service_version", "pid", "state", "sessions")} if status else None,
             "update": (status or {}).get("update"),
             "recorders": len(recorders),
@@ -1423,14 +1425,38 @@ class Run:
         self.event("final_uploads_incomplete", missing=missing)
 
     def wait_service_exit(self) -> float | None:
+        """Seconds until the service exited after the last session ended (None: it
+        did not within 90 s). `held_by_host_runs`: how many daemon host runs it still
+        counted at the end -- an ended session's queue finishing in the host keeps
+        the service up (plan daemon-in-service S5), which is not a missed idle exit."""
+        self.held_by_host_runs = 0
         if not self.service_ok:
             return None
         started = time.time()
         while time.time() - started < 90:
-            if self.service_call("STATUS") is None:
+            status = self.service_call("STATUS")
+            if status is None:
                 return time.time() - started
+            self.held_by_host_runs = int(((status.get("daemon_host") or {}).get("runs")) or 0)
             time.sleep(2)
         return None
+
+    def daemon_processes(self, status: dict | None) -> dict:
+        """The run's daemon processes now (plan daemon-in-service, acceptance 1):
+        daemon hosts (`daemon-host` in the command line) -- each a child of the
+        service or not -- and `probe daemon worker` processes."""
+        hosts, workers = [], []
+        service_pid = (status or {}).get("pid")
+        for pid, command in self.our_pids():
+            words = command.split()
+            if "daemon-host" in words:
+                ppid = None
+                with contextlib.suppress(OSError, ValueError, IndexError):
+                    ppid = int(Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[1])
+                hosts.append({"pid": pid, "child_of_service": ppid is not None and ppid == service_pid})
+            elif " daemon worker " in f" {command} ":
+                workers.append(pid)
+        return {"hosts": hosts, "workers": workers}
 
     def our_pids(self) -> list[tuple[int, str]]:
         """Processes the run started: whose command line names one of this run's
@@ -1782,8 +1808,11 @@ class Run:
             final = (last or {}).get("service_version")
             add("service.final_version", Check.PASS if final == self.versions.cli[2] else Check.FAIL,
                 f"the service last ran {final}, expected {self.versions.cli[2]}")
-            add("service.idle_exit", Check.PASS if service_exit_s is not None else Check.FAIL,
+            held = getattr(self, "held_by_host_runs", 0)
+            add("service.idle_exit", Check.PASS if service_exit_s is not None or held else Check.FAIL,
                 f"the service exited {service_exit_s:.0f} s after the last session ended" if service_exit_s is not None
+                else f"the service was still running 90 s after the last session ended, held by {held} daemon host "
+                f"run(s) finishing an ended session's queue (plan S5)" if held
                 else "the service was still running 90 s after the last session ended")
 
         # installed versions, the channel, the updates themselves
@@ -1848,23 +1877,48 @@ class Run:
         elif WINDOWS:
             add("daemon.worker", Check.SKIP, "skipped (Windows: no fcntl lock to observe)")
         else:
-            info = daemon[0]
-            running = [s for s in self.samples if (s["sessions"].get(info.label) or {}).get("phase") == "running"]
-            held = [s for s in running if (s["sessions"].get(info.label) or {}).get("worker_lock")]
             last_landed = max((p.landed_at for p in self.publications if p.landed_at), default=None)
-            after = [s for s in held if last_landed and s["t"] > last_landed]
-            ok = bool(held) and (last_landed is None or bool(after))
-            add("daemon.worker", Check.PASS if ok else Check.FAIL,
-                f"a worker held {info.label}'s session lock in {len(held)} of {len(running)} running samples"
-                + (f"; {len(after)} of them after the last update landed" if last_landed else
-                   "; no update landed, so no restart on new code could be seen"),
+            lines, failed = [], False
+            for info in daemon:
+                running = [s for s in self.samples if (s["sessions"].get(info.label) or {}).get("phase") == "running"]
+                held = [s for s in running if (s["sessions"].get(info.label) or {}).get("worker_lock")]
+                after = [s for s in held if last_landed and s["t"] > last_landed]
+                ok = bool(held) and (last_landed is None or bool(after))
+                failed = failed or not ok
+                lines.append(f"{info.label}: held in {len(held)} of {len(running)} running samples"
+                             + (f", {len(after)} after the last update landed" if last_landed else ""))
+            add("daemon.worker", Check.FAIL if failed else Check.PASS,
+                "a worker held each daemon session's lock: " + "; ".join(lines)
+                + ("" if last_landed else "; no update landed, so no restart on new code could be seen"),
                 mode=self.args.daemon_session, model_calls=self.state.model_calls)
+            self.one_host_check(add, daemon)
 
         if self.state.unhandled:
             self.findings.append({"id": "stub-unhandled-routes",
                                   "what": "API routes the stub answered generically (not part of any check)",
                                   "evidence": dict(sorted(self.state.unhandled.items())[:30])})
         return results
+
+    def one_host_check(self, add, daemon: list) -> None:
+        """Acceptance 1 (plan daemon-in-service, T1 = A): every sample shows at most
+        one daemon host that is the service's child, plus at most one previous
+        host still finishing its runs after a swap, and no `probe daemon worker`
+        process doing the work."""
+        if self.args.daemon_session != "real":
+            add("daemon.one_host", Check.SKIP, f"--daemon-session {self.args.daemon_session}: no daemon host")
+            return
+        samples = [s for s in self.samples if s.get("processes") is not None]
+        too_many = [s for s in samples if len(s["processes"]["hosts"]) > 2
+                    or sum(1 for h in s["processes"]["hosts"] if h["child_of_service"]) > 1]
+        workers = [s for s in samples if s["processes"]["workers"]]
+        hosted = [s for s in samples if s["processes"]["hosts"]]
+        draining = [s for s in samples if len(s["processes"]["hosts"]) == 2]
+        ok = bool(hosted) and not too_many and not workers
+        add("daemon.one_host", Check.PASS if ok else Check.FAIL,
+            f"{len(daemon)} daemon sessions: a daemon host in {len(hosted)} of {len(samples)} samples, "
+            f"a second (previous, draining) host in {len(draining)}, more than allowed in {len(too_many)}, "
+            f"`probe daemon worker` processes in {len(workers)}",
+            evidence=[{"min": s["min"], **s["processes"]} for s in (too_many or workers)[:5]])
 
     def handover_check(self, add) -> None:
         """After each plugin update, an open session's prompt hooks must run the
@@ -2178,6 +2232,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--expect-side-by-side", action="store_true",
                         help="R2: fail unless each update installed beside the running CLI, guarded (D5, D6)")
     parser.add_argument("--sessions", type=int, default=3, help="stand-in sessions (default 3)")
+    parser.add_argument("--daemon-sessions", type=int, default=1,
+                        help="how many of them are daemon sessions (the last N; default 1)")
     parser.add_argument("--daemon-session", choices=("real", "standin", "none"), default="real",
                         help="run the last session in daemon mode with the real worker (default), a lock-holding "
                              "stand-in worker, or not at all")

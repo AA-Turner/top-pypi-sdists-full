@@ -1821,7 +1821,7 @@ class Model:
         ):
             raise RiverError(
                 "custom loss exceeds the 1 GiB upload limit; automatic request splitting "
-                "would change global reductions. Batch explicitly with a shared normalization."
+                "is not implemented. Submit smaller batches of complete examples."
             )
         return request, plan
 

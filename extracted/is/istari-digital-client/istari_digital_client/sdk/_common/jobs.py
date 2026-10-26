@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import uuid
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,7 @@ from istari_digital_client.sdk._common.job_types import Job
 from istari_digital_client.sdk._exceptions import NotFoundError, PermissionDeniedError
 from istari_digital_client.sdk._generated.v2.models.archive_status import ArchiveStatus
 from istari_digital_client.sdk._generated.v2.models.job_status_name import JobStatusName
+from istari_digital_client.sdk._generated.v2.models.new_credential_binding import NewCredentialBinding
 from istari_digital_client.sdk._generated.v2.models.new_job import NewJob
 from istari_digital_client.sdk._generated.v2.models.os import OS
 
@@ -26,6 +29,32 @@ from istari_digital_client.sdk._generated.v2.models.os import OS
 _TERMINAL_STATUSES = frozenset(
     {JobStatusName.COMPLETED, JobStatusName.FAILED, JobStatusName.CANCELED}
 )
+# The registry's 403 for a credential the caller may not use names the resource
+# as ``stored_credential:<id>``.
+_CREDENTIAL_DENIAL = "stored_credential:"
+
+
+def _credential_bindings(
+    auth_bindings: Mapping[str, Any] | None,
+) -> list[NewCredentialBinding] | None:
+    """Turn ``{input_name: credential}`` into the API's binding list; ``None`` when empty.
+
+    A value may be a credential id (``str`` or ``UUID``) or a ``Credential``.
+    """
+    if not auth_bindings:
+        return None
+    bindings: list[NewCredentialBinding] = []
+    for name, credential in auth_bindings.items():
+        credential_id = getattr(credential, "id", credential)
+        if isinstance(credential_id, uuid.UUID):
+            credential_id = str(credential_id)
+        if not (isinstance(name, str) and name and isinstance(credential_id, str) and credential_id):
+            raise ValueError(
+                "auth_bindings maps an auth_info input name to a credential id or Credential;"
+                f" got {name!r}: {credential!r}"
+            )
+        bindings.append(NewCredentialBinding(input_name=name, credential_id=credential_id))
+    return bindings
 
 
 class Jobs(_SupportsAccess):
@@ -84,6 +113,7 @@ class Jobs(_SupportsAccess):
         operating_system: Any | None = None,
         assigned_agent_id: str | None = None,
         assigned_agent_pool_id: str | None = None,
+        auth_bindings: Mapping[str, Any] | None = None,
     ) -> Job:
         """Submit a new job against a resource and return the created Job.
 
@@ -104,6 +134,20 @@ class Jobs(_SupportsAccess):
         ``assigned_agent_id``, and ``assigned_agent_pool_id`` are optional and forwarded
         unchanged to the API.
 
+        ``auth_bindings`` maps a function ``auth_info`` input name to the id of one
+        of the caller's stored credentials — a Linked Account or shared service
+        account from ``istari.credentials.list()`` — e.g. ``{"auth": credential.id}``
+        for the Microsoft 365 module. A function that declares an ``auth_info``
+        input (connected files from SharePoint, Teamwork Cloud, Windchill, ...)
+        fails at validation with "Function inputs ['<name>'] not provided" unless
+        that input is bound. Find the input name with
+        ``integrations.functions.get_schema(function_id)``: the ``key`` of the
+        input whose ``type`` is ``auth_info``. A value may be the credential id or
+        the ``Credential`` itself. No secret travels with the submission; the
+        registry mints a short-lived token for the agent that claims the job, and
+        only an agent advertising the ``inline_auth`` capability claims such a
+        job — on an older agent fleet it stays Pending.
+
         Returns a Job with fields: id, resource_id (str | None), created (datetime),
         created_by_id (str), function (FunctionVersion), file (File — the parameters
         file), assigned_agent_id (str | None), assigned_agent_pool_id (str | None),
@@ -117,8 +161,16 @@ class Jobs(_SupportsAccess):
         403, which is the real cause of the "weird permissions bug"), it is
         transparently resolved to its resource and the submission is retried once.
 
-        Raises NotFoundError if resource_id does not exist.
+        Raises NotFoundError if resource_id does not exist. With ``auth_bindings``,
+        raises ConflictError (409) when a bound credential is missing, revoked or
+        expired — the user must re-link the account under Linked Accounts and the
+        job must be resubmitted with the new credential id — and BadRequestError
+        (400) when a binding names an input the function does not declare, binds
+        one input twice, or binds a credential from a different provider than the
+        input expects. Raises ValueError before anything is uploaded when a
+        binding is not a name-to-credential pair.
         """
+        bindings = _credential_bindings(auth_bindings)
         if parameters_file is not None:
             file_rev = self._engine.storage.upload(str(parameters_file))
         else:
@@ -147,7 +199,7 @@ class Jobs(_SupportsAccess):
             )
         job_kwargs: dict[str, Any] = dict(
             function_name=function,
-            new_job=NewJob(revision=file_rev),
+            new_job=NewJob(revision=file_rev, auth_bindings=bindings),
             function_version=function_version,
             tool_name=tool_name,
             tool_version=tool_version,
@@ -161,9 +213,12 @@ class Jobs(_SupportsAccess):
                 model_id=resource_id,
                 **job_kwargs,
             )
-        except (PermissionDeniedError, NotFoundError):
+        except (PermissionDeniedError, NotFoundError) as exc:
             # A wrong-kind id (e.g. a file id) is answered with a misleading
-            # 403/404; resolve it to its owning resource id and retry once.
+            # 403/404; resolve it to its owning resource id and retry once. A 403
+            # naming a bound credential is about the credential, not the id.
+            if _CREDENTIAL_DENIAL in str(exc.detail or ""):
+                raise
             resolved = self._resource_id_from_file_id(resource_id)
             if resolved is None:
                 raise

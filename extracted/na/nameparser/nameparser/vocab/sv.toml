@@ -1,0 +1,38 @@
+schema = 1
+
+[[word]]
+text = "fru"
+salutation = { gender = "f", note = "Fru is also a Cameroonian surname (~10,800, often written surname-first), so 'Fru Anna' reads title Fru; a collision older than #606, recorded in decisions/salutation-titles rather than argued", excluded = { after_given = "a Cameroonian surname (~10,800, the note above), and middle names are drawn from surnames" } }
+family = { us_census_2010 = 132, as_of = 2026-10-24 }
+
+[[word]]
+text = "fröken"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "frk"
+salutation = { gender = "f", same_as = "fröken", after_given = true }
+
+[[word]]
+text = "herr"
+salutation = { gender = "m" }
+
+[[word]]
+text = "hr"
+salutation = { gender = "m", same_as = "herr" }
+
+[[word]]
+text = "greve"
+nobility = { gender = "m", expands = "count", issue = 606, note = "borne, so 'Greve Anna' reads title Greve; one of the three words #606 proposed the graf class for" }
+
+[[word]]
+text = "af"
+preposition = { may_be_given = false, expands = "of, nobiliary" }
+
+[[word]]
+text = "av"
+preposition = { may_be_given = false, expands = "of" }
+
+[[word]]
+text = "född"
+birth_marker = { issue = 274 }

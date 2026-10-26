@@ -8,7 +8,7 @@ build-backend = "hatchling.build"
 # plugin, the `probe-research-mcp` binaries, and mcp.research.prbe.ai. The import
 # name (`probe`) and the CLI binary (`probe`) are unchanged.
 name = "probe-research"
-version = "0.311.0"
+version = "0.322.0"
 description = "CLI + SDK + read-only MCP client for Probe Research (experiment tracking)."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -221,6 +221,10 @@ markers = [
     # PyPI. Skipped unless PROBE_RELEASE_SMOKE=1, which only agent-ci's
     # `release-smoke` job sets.
     "release_smoke: installs released CLIs from PyPI; agent-ci's release-smoke job only (PROBE_RELEASE_SMOKE=1)",
+    # Owner, 2026-10-25: per-push CI runs fast logic tests; a test that takes many
+    # seconds of real processes (a spawned service, a real tap, a packaged build)
+    # runs in the nightly full-regression only.
+    "heavy: a slow end-to-end test (real processes, many seconds each); agent-ci skips it, nightly full-regression runs it",
 ]
 # Puts the repo root on sys.path so `from tests.conftest import ...` resolves under a
 # bare `pytest` (CI, editors, `make test`) and not only under `python -m pytest`, which

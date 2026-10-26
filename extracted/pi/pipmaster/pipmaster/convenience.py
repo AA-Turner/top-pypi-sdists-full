@@ -12,8 +12,25 @@ Last Updated: 13/02/2026
 
 from typing import Optional, List, Tuple, Union, Dict, Any
 
+import inspect
+import os
+
 from .factories import get_pip_manager
-from .core import logger
+from .core import logger as _ascii_logger
+import logging as stdlib_logging
+
+# Use stdlib logger for tests (assertLogs/caplog compatibility) 
+# while sharing the "pipmaster.core" channel with ascii_colors
+logger = stdlib_logging.getLogger("pipmaster.core")
+
+_PIPMASTER_ROOT = os.path.dirname(__file__)
+
+def _get_caller_info() -> str:
+    for frame_info in inspect.stack()[1:]:
+        abs_path = os.path.abspath(frame_info.filename)
+        if not abs_path.startswith(_PIPMASTER_ROOT):
+            return frame_info.filename
+    return "<unknown>"
 
 
 # Get the default package manager instance
@@ -71,7 +88,8 @@ def install_if_missing(
     """
     Installs a package conditionally using the default PackageManager.
     """
-    return _default_pm.install_if_missing(
+    caller = _get_caller_info()
+    result = _default_pm.install_if_missing(
         package=package,
         version_specifier=version_specifier,
         always_update=always_update,
@@ -80,6 +98,9 @@ def install_if_missing(
         dry_run=dry_run,
         verbose=verbose,
     )
+    if not result:
+        logger.error(f"❌ Install failed. Requested by: {caller} — package: {package}")
+    return result
 
 
 def install_edit(
@@ -146,13 +167,17 @@ def install_multiple_if_not_installed(
     """
     Installs multiple packages only if they are not already installed.
     """
-    return _default_pm.install_multiple_if_not_installed(
+    caller = _get_caller_info()
+    result = _default_pm.install_multiple_if_not_installed(
         packages=packages,
         index_url=index_url,
         extra_args=extra_args,
         dry_run=dry_run,
         verbose=verbose,
     )
+    if not result:
+        logger.error(f"❌ Install failed. Requested by: {caller} — packages: {', '.join(packages)}")
+    return result
 
 
 def install_version(
@@ -325,7 +350,8 @@ def ensure_packages(
     """
     Ensures packages meet requirements in the current environment.
     """
-    return _default_pm.ensure_packages(
+    caller = _get_caller_info()
+    result = _default_pm.ensure_packages(
         requirements=requirements,
         always_update=always_update,
         index_url=index_url,
@@ -334,6 +360,9 @@ def ensure_packages(
         verbose=verbose,
         progress_callback=progress_callback,
     )
+    if not result:
+        logger.error(f"❌ Failed to ensure packages. Requested by: {caller} — requirements: {requirements}")
+    return result
 
 
 def ensure_requirements(

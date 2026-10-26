@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ..language import (
     ListValueNode,
@@ -18,6 +18,8 @@ from ..pyutils import (
     is_iterable,
 )
 from ..type import (
+    GraphQLArgument,
+    GraphQLInputField,
     GraphQLInputType,
     assert_leaf_type,
     is_input_object_type,
@@ -30,7 +32,8 @@ from .replace_variables import replace_variables
 if TYPE_CHECKING:
     from ..execution.get_variable_signature import GraphQLVariableSignature
     from ..execution.values import FragmentVariableValues, VariableValues
-    from ..type import GraphQLArgument, GraphQLInputField
+    from ..language import ConstValueNode
+    from ..type import GraphQLDefaultInput
 
 __all__ = ["coerce_default_value", "coerce_input_literal", "coerce_input_value"]
 
@@ -320,9 +323,14 @@ def coerce_input_literal(
     leaf_type = assert_leaf_type(type_)
     try:
         if leaf_type.coerce_input_literal is not None:
-            return leaf_type.coerce_input_literal(
+            # A bare variable was handled above, so only list and object literals
+            # can still contain variables; other literals are already constant.
+            const_node = (
                 replace_variables(value_node, variable_values, fragment_variable_values)
+                if isinstance(value_node, (ListValueNode, ObjectValueNode))
+                else cast("ConstValueNode", value_node)
             )
+            return leaf_type.coerce_input_literal(const_node)
         return leaf_type.parse_literal(
             value_node, variable_values.coerced if variable_values else None
         )
@@ -345,13 +353,19 @@ def coerce_default_value(
 
     :meta private:
     """
-    # The external default value is coerced; the result is memoized in a hidden
-    # field on the GraphQLDefaultInput object. (Contrary to GraphQL.js, which
-    # memoizes on the input value itself, this also works for the immutable
-    # variable signatures that reuse this function for fragment arguments.)
+    # The external default value is coerced; like in GraphQL.js, the result is
+    # memoized in a hidden field on the input value itself, since the same default
+    # can be used with different types, e.g. after extend_schema() replaced the
+    # type. The immutable variable signatures that reuse this function for fragment
+    # arguments memoize it on their default instead, which is not shared.
     default_input = input_value.default
     if default_input is not None:
-        coerced_value = default_input._memoized_coerced_value  # noqa: SLF001
+        memo: GraphQLArgument | GraphQLInputField | GraphQLDefaultInput = (
+            input_value
+            if isinstance(input_value, (GraphQLArgument, GraphQLInputField))
+            else default_input
+        )
+        coerced_value = memo._memoized_coerced_value  # noqa: SLF001
         if coerced_value is Undefined:
             coerced_value = (
                 coerce_input_literal(default_input.literal, input_value.type)
@@ -369,7 +383,7 @@ def coerce_default_value(
                     f" to be valid, found: {found}."
                 )
                 raise TypeError(msg)
-            default_input._memoized_coerced_value = coerced_value  # noqa: SLF001
+            memo._memoized_coerced_value = coerced_value  # noqa: SLF001
         return coerced_value
 
     # The deprecated internal default value is used as is.

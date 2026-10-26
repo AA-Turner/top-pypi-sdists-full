@@ -625,8 +625,29 @@ def _rel(root: Path, path: str) -> str:
         return path
 
 
+@dataclass(frozen=True)
+class EvidenceRow:
+    """One line of the classification prompt and the walked files it stands for.
+
+    The prompt shows ROWS (a sampled file, or a directory's rolled-up tail); the
+    plan is made of FILES. Recording the mapping here, where the rows are built,
+    is what lets `probe-backfill-plan` select by file and directory instead of
+    asking the model to copy row keys back -- and what keeps one slice's rollup
+    from claiming a file another slice owns.
+    """
+
+    key: str
+    line: str
+    files: tuple[str, ...]
+
+
 def to_jsonl(evidence: Evidence) -> str:
-    """Evidence as JSONL for the classification prompt. TWO row shapes.
+    """Evidence as JSONL for the classification prompt. See `rows`."""
+    return "\n".join(row.line for row in rows(evidence))
+
+
+def rows(evidence: Evidence) -> list[EvidenceRow]:
+    """Evidence as JSONL rows for the classification prompt. TWO row shapes.
 
     Evidence files get a row each, because their contents are the whole point.
     TAIL files are ROLLED UP per directory, one row for the lot.
@@ -668,7 +689,7 @@ def to_jsonl(evidence: Evidence) -> str:
     #:
     #: Sorting both kinds on the rollup key puts a directory's readable files
     #: next to the count of what else is in it, in one slice.
-    rows: list[tuple[tuple[str, str], str]] = []
+    out: list[tuple[tuple[str, str], EvidenceRow]] = []
     tail: dict[str, list[FileEvidence]] = {}
 
     def rollup_key(rel: str) -> str:
@@ -692,7 +713,8 @@ def to_jsonl(evidence: Evidence) -> str:
             row["sample"] = f.sample
             if f.truncated:
                 row["sample_truncated"] = True
-        rows.append(((rollup_key(rel), rel), json.dumps(row, ensure_ascii=False)))
+        out.append(((rollup_key(rel), rel),
+                    EvidenceRow(rel, json.dumps(row, ensure_ascii=False), (rel,))))
 
     tail = _split_wide_rollups(tail, root)
 
@@ -723,10 +745,13 @@ def to_jsonl(evidence: Evidence) -> str:
         # "￿" sorts after any real filename, so the rollup closes its
         # directory's group: the files that could be read, then the count of
         # what else is in there.
-        rows.append(((directory, "￿"), json.dumps(row, ensure_ascii=False)))
+        out.append(((directory, "\uffff"), EvidenceRow(
+            row["dir"], json.dumps(row, ensure_ascii=False),
+            tuple(_rel(root, f.path) for f in group),
+        )))
 
-    rows.sort(key=lambda pair: pair[0])
-    return "\n".join(line for _, line in rows)
+    out.sort(key=lambda pair: pair[0])
+    return [row for _, row in out]
 
 
 # -- fitting the evidence into a context window ------------------------------

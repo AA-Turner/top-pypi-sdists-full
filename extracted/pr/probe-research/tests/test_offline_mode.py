@@ -164,6 +164,7 @@ def test_offline_refuses_a_conflict_policy_it_cannot_honour(outbox, policy):
 
 
 # -- syncing ----------------------------------------------------------------------
+@pytest.mark.heavy
 def test_a_thousand_logs_sync_as_one_run_with_client_times(outbox, no_network, lab, monkeypatch):
     run = _record(n=1000)
     local_start = offline.read_manifest(offline.find_offline_dirs()[0])["recorded_at"]

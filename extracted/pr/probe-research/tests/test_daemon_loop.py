@@ -9,6 +9,7 @@ Same seams as test_daemon_worker.py: the model is Pydantic AI's FunctionModel,
 from __future__ import annotations
 
 import asyncio
+import calendar
 import dataclasses
 import fcntl
 import json
@@ -1974,7 +1975,7 @@ def test_what_read_only_left_unread_is_marked_by_its_stamps(tmp_path):
                             "message": {"content": "SECRET while read only"}, "cwd": str(w.session.cwd)}))
     _set_state("daemon")
     state = lease.sessions_dir() / f"{SID}.state"
-    moved_back = time.mktime(time.strptime("2026-09-29 06:00:00", "%Y-%m-%d %H:%M:%S")) - time.timezone
+    moved_back = calendar.timegm(time.strptime("2026-09-29 06:00:00", "%Y-%m-%d %H:%M:%S"))  # UTC, whatever the zone
     os.utime(state, (moved_back, moved_back))
     with w.session.transcript.open("a") as handle:  # written after the switch moved back
         handle.write(_line({"type": "user", "timestamp": "2026-09-29T07:00:00.000Z",

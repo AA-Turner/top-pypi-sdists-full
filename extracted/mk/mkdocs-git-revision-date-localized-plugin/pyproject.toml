@@ -22,18 +22,18 @@ classifiers=[
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "License :: OSI Approved :: MIT License",
 ]
 
 dynamic = ["version"]
 dependencies = [
     "babel>=2.7.0",
-    "gitpython>=3.1.59",
+    "gitpython>=3.2.1",
     # MkDocsConfig and the on_startup event both require mkdocs 1.4
     "mkdocs>=1.4,<2",
     # Imported directly in plugin.py; do not rely on mkdocs pulling it in
@@ -133,6 +133,10 @@ dev = [
 # patched 10.21.3 (an API-compatible patch release) so the dev/CI environment
 # is not resolved to the vulnerable version.
 override-dependencies = ["pymdown-extensions>=10.21.3"]
+# Python 3.10 is EOL and no longer tested, but requires-python stays at 3.10 so
+# existing users can still install. Lock only for 3.11+ so dev dependencies
+# (such as filelock, whose patched releases need 3.11) are not held back.
+environments = ["python_version >= '3.11'"]
 
 [tool.ty.environment]
 python-version = "3.10"

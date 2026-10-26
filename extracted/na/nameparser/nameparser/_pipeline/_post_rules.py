@@ -11,12 +11,14 @@ ambiguity P6's attachment reports at the end of a name read
 family-first (#467) and after a comma with nothing before it -- after a
 family comma that names a family, that attachment is assign's since
 #613.
-Reads: Policy.patronymic_rules, Policy.middle_as_family,
+Reads: Policy.patronymic_rules, Policy.two_family_names,
+Policy.name_order (O6 stands down where the script's order differs
+from the declared one), Policy.middle_as_family,
 Policy.extra_suffix_delimiters (R1's entry pass, for the delimiter
 cores group drops); Lexicon.given_name_titles.
 
 Implements rules H1, M4, P1, P6 (its no-comma site, and after a comma
-naming no family), O1, O2, O3 and R1 of docs/design/rules/;
+naming no family), O1, O2, O6, O3 and R1 of docs/design/rules/;
 each is cited at its code below, and H1/P1/O1/O2's history lives in
 docs/design/decisions/. `suffix_entries` is the R1 entry pass as a
 state-in/state-out function, for Parser.revise to run over a
@@ -86,106 +88,34 @@ def _rotations_apply(state: ParseState) -> bool:
 
 
 def _mark_suffix_entries(tokens: list[WorkToken], state: ParseState) -> None:
-    # In place over the caller's token list, the way every other rule
-    # in post_rules writes: a state-in/state-out spelling here cost
-    # three calls per parse for the second ParseState build, against
-    # the call-count band tests/v2/test_benchmark.py holds (measured
-    # 2026-09-06 with tools/perf/call_count.py, py3.11: 450 calls/name
-    # before the move, 451 with this worker, 454 with the state-wrapper
-    # draft; the facade band tops at 455.9 and parse, the tighter row,
-    # sits at 414 in a 402-418 band). suffix_entries() below is the
-    # state wrapper; its docstring says for whom.
+    # In place over the caller's token list, as every other post rule
+    # writes; suffix_entries() below is the state wrapper, and
+    # decisions/R1 (#511) records why the pass has two spellings.
     # Reads dropped, comma_offsets and the policy off `state`, which
     # post_rules does not change, so the un-rebuilt state is current.
     #
     # rules/R1: "a run of post-nominals written with spaces renders
     # with spaces, and one written with commas keeps them"
     #
-    # The entry boundary, read off the text the writer typed rather
-    # than off the shape of the segments (#436/#437). Two consecutive
-    # SUFFIX tokens are one entry iff they sit in the same comma
-    # bucket AND nothing between them parts the run -- what parts it
-    # and what does not is spelled out below. The
-    # comma is the separator the rule names -- comma_bucket is the
-    # function segment BUILDS segments with and classify asks about
-    # boundaries, so "same part" here is an identity with segment's
-    # answer rather than a resemblance to it
-    # (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
+    # Two consecutive SUFFIX tokens are one entry iff they share a
+    # comma bucket and nothing between them parts the run: a name word
+    # or a dropped delimiter core parts it; a token whose role is in
+    # _RENDERS_ELSEWHERE, or a dropped token that is not a core (the
+    # marker of a bracketed maiden clause, 'Smith, MD (nee Jones)
+    # PhD'), does not. comma_bucket and delimiter_cores
+    # are segment's and group's own answers, called rather than copied
+    # (mechanisms.md#ONE-PREDICATE-PER-QUESTION). decisions/R1
+    # (#436/#437).
     #
-    # What parts a run: a name word between the two post-nominals
-    # (GIVEN/MIDDLE/FAMILY), or a dropped delimiter core (#206). What
-    # does NOT part it: a token whose role is in _RENDERS_ELSEWHERE,
-    # because it renders into another field entirely and so is not
-    # standing in the run at all -- 'Smith, MD Dr. PhD',
-    # 'Smith, MD "Doc" PhD' and 'Smith, MD (nee Jones) PhD' are each
-    # one entry; and a dropped token that is not a core, which is the
-    # maiden MARKER of 'Smith, MD nee Jones PhD' (the marker is
-    # dropped with no role at all, so the role test cannot see it).
-    # That is why the dropped arm reads the core set instead of
-    # treating every dropped index as a boundary: a core is the one
-    # dropped token the writer typed AS a separator, and the set is
-    # `delimiter_cores` -- group's own derivation off
-    # Policy.extra_suffix_delimiters, imported rather than repeated
-    # (mechanisms.md#ONE-PREDICATE-PER-QUESTION). The two sites read
-    # ONE derivation and differ only in a gate: group drops a core
-    # only on a `tail` segment, cutting the segment there, while this arm
-    # reads `delimiter_cores` whole and asks by TEXT alone. So a
-    # dropped token whose text the policy names as a delimiter parts
-    # the run whatever dropped it. The gate is not needed here: a core
-    # dropped BY GROUP was on a tail segment by construction, and the
-    # only case the ungated read adds is a maiden marker the policy
-    # ALSO lists -- under
-    # `Policy(extra_suffix_delimiters=frozenset({" nee "}))`,
-    # 'John Doe, MD nee Jones PhD' renders 'MD, PhD' where the default
-    # policy renders 'MD PhD' (measured 2026-09-06). That is the
-    # policy's own declaration deciding it: the writer's configuration
-    # named that text a separator, so the run parts there.
-    #
-    # Four shapes were declined, recorded in decisions/R1 by the
-    # bundle that landed this pass: marking the boundary at the
-    # core-drop site (`dropped` already holds the fact with its
-    # span, so a second recording of it is the duplication
-    # MARK-DONT-STRIP exists to prevent); making the "joined" tag
-    # role-aware (within a piece it is role-blind and right for every
-    # role -- 'Smith, Ph. D. Smith' gives first_list ['Ph. D.']);
-    # scanning spans at render time instead of reading the tag; and
-    # adding a third shape-derived branch inside group's block.
-    #
-    # AFTER assign, and THAT is the load-bearing constraint: this keys
-    # on Role.SUFFIX, and the same span rule run role-blind would join
-    # the A and B of 'John A B Smith' into one middle_list element
-    # (test_the_pass_runs_after_roles_are_settled pins it).
-    #
-    # Within post_rules the pass runs last by convention, not by
-    # necessity. It reads SUFFIX and _RENDERS_ELSEWHERE, and no rule
-    # in post_rules writes either: every retag in post_rules targets a
-    # NAME role and nothing else -- `_retag` is called with
-    # Role.FAMILY, Role.GIVEN, Role.MIDDLE, and with
-    # `_name_positions`' return, which is those same three; the
-    # `role=Role.FAMILY` replaces (P6's no-comma attachment, O3's
-    # fold) are FAMILY as well. So no rule here
-    # moves a token into or out of SUFFIX, or into or out of
-    # {TITLE, NICKNAME, MAIDEN}, and this predicate reads the same
-    # answer wherever in the stage it stands (measured 2026-09-06 by
-    # reading the stage's retag targets).
-    #
-    # RECORDED as a tag rather than recomputed by the render, because
-    # the render cannot see a span: _facade.__setstate__ and
-    # ParsedName.replace() build span-less tokens AFTER the pipeline,
-    # so an unpickled name has nothing to scan and the tag IS the
-    # entry structure the pickle carries
-    # (mechanisms.md#MARK-DONT-STRIP). Every token here has a span --
-    # tokenize is the sole producer of a WorkToken, and WorkToken.span
-    # is not Optional -- so `span.start` is read unguarded.
-    #
-    # The `i not in dropped` filter is belt-and-braces: a dropped token
-    # never carries a SUFFIX role. Cores leave `pieces` before assign
-    # runs, so assign gives them no role at all; the one class of
-    # dropped token that arrives already roled is the MAIDEN one that
-    # tokenize roles from an extracted clause ('Smith, MD (nee Jones)
-    # PhD' drops index 2, the marker, and it is Role.MAIDEN). The
-    # filter is here so that `suffixes` and the `parted` scan below
-    # cannot disagree about what a dropped index is.
+    # After assign, because it keys on Role.SUFFIX; last in post_rules
+    # by convention only, since no rule here writes SUFFIX or a
+    # _RENDERS_ELSEWHERE role. Recorded as a tag because a span-less
+    # token (unpickled, or built by replace()) leaves the render
+    # nothing to scan (mechanisms.md#MARK-DONT-STRIP). Every WorkToken
+    # has a span, so `span.start` is read unguarded, and the
+    # `i not in dropped` filter is belt-and-braces: a dropped token
+    # never holds SUFFIX, and the filter keeps `suffixes` and the
+    # `parted` scan agreeing on what a dropped index is.
     dropped = set(state.dropped)
     cores = delimiter_cores(state.policy.extra_suffix_delimiters)
     suffixes = [i for i, tok in enumerate(tokens)
@@ -307,6 +237,89 @@ def _fold_reach(tokens: list[WorkToken], name_idx: list[int]) -> int:
     if i == len(name_idx):
         return i
     return i + len(_units(tokens, name_idx[i:])[0])
+
+
+#: The hyphens and the dashes that join two family names in one written
+#: word (rules/O6): hyphen-minus, hyphen, non-breaking hyphen, figure
+#: dash, en dash, minus sign (a word processor's substitute), and the
+#: small and fullwidth hyphen-minus. The em dashes are punctuation
+#: between words, not joiners, and are left out.
+_HYPHENS = re.compile("[-\u2010\u2011\u2012\u2013\u2212\ufe63\uff0d]")
+
+
+def _family_word_count(tokens: list[WorkToken], family: list[int]) -> int:
+    """The family's name words as rules/O6 counts them: a particle run
+    counts with the word it attaches to, a connective counts as
+    nothing and a hyphen joins words without making them one, so "de
+    la Vega" is one word and "Ortega y Gasset" and "García-López" two.
+    A family of nothing but particles counts each of them, R2 reading
+    them as ordinary name words."""
+    words = sum(len([part for part in _HYPHENS.split(tokens[i].text)
+                     if part])
+                for i in family
+                if "particle" not in tokens[i].tags
+                and "conjunction" not in tokens[i].tags)
+    return words or len(family)
+
+
+def _take_second_family_name(state: ParseState,
+                             tokens: list[WorkToken]) -> None:
+    # rules/O6: "the family name takes the name word beside it, so
+    # the last two name words are the family" -- the first two under
+    # a family-first order. In place, as every post rule writes.
+    # History: decisions/O6 (#754).
+    # An order a name's script set (W4) other than the declared one is
+    # not the caller's declaration, and no script it keys writes two
+    # family names as separate words. Where the two agree nothing here
+    # tells them apart, and the rule reads the name (rules/O6 Accepted).
+    if (state.structure is Structure.FAMILY_COMMA or state.order is None
+            or state.order != state.policy.name_order):
+        return
+    family = _idx(tokens, Role.FAMILY)
+    others = sorted(_idx(tokens, Role.GIVEN) + _idx(tokens, Role.MIDDLE))
+    if not family or _family_word_count(tokens, family) != 1:
+        return
+    # The rest in the units assign read them as, so a particle chain
+    # (P2) or a bound given-name pair (P5) moves whole or not at all.
+    units = _units(tokens, others)
+    if len(units) < 2:
+        return
+    take = units[-1] if state.order[0] is Role.GIVEN else units[0]
+    # What is taken must be ONE name word, counted as the family is, so
+    # a hyphenated given name or a bound given-name pair (P5) stays put;
+    # and a word a family name could be: not an initial, which writes a
+    # given name (one written alone; "J.R." is taken), nor a lone dash
+    # or other mark with no letter in it.
+    if _family_word_count(tokens, take) != 1:
+        return
+    if len(take) == 1 and "initial" in tokens[take[0]].tags:
+        return
+    if not any(ch.isalpha() for i in take for ch in tokens[i].text):
+        return
+    if state.order[0] is Role.GIVEN:
+        # given, middles..., family: the middle unit standing right
+        # before the family joins it, and text order already renders
+        # it first, so no role around it moves. A rotation that left
+        # the name in another shape fails this test.
+        if take[-1] > family[0] or any(
+                tokens[i].role is not Role.MIDDLE for i in take):
+            return
+        for i in take:
+            _retag(tokens, i, Role.FAMILY)
+        return
+    # family first: the unit after the family joins it, and what is
+    # left is a shorter name of the same order, laid out as the P1
+    # fold above lays its remainder -- one family already placed. A
+    # particle P6 attached at the far end is family already and keeps
+    # its place.
+    if family[0] > units[0][0]:
+        return
+    for i in units[0]:
+        _retag(tokens, i, Role.FAMILY)
+    for unit, role in zip(units[1:], _name_positions(
+            state.order, len(units))[1:]):
+        for i in unit:
+            _retag(tokens, i, role)
 
 
 def _addressing_run(titles: list[int], name_word: int) -> list[int]:
@@ -460,10 +473,11 @@ def post_rules(state: ParseState) -> ParseState:
         middles = _idx(tokens, Role.MIDDLE)
         families = _idx(tokens, Role.FAMILY)
 
-    # rules/P1: "A never-given particle opening the name marks the
-    # name as surname-only: the particle run and the name words it
-    # attaches to are the family." (v1 handle_non_first_name_prefix;
-    # history: decisions/P1)
+    # rules/P1: "the particle run and the name words it takes are
+    # family, under every name order" -- its Then clause, for a
+    # never-given particle opening the name; how many words the run
+    # takes is set by the order or a family comma, in P1's bullets and
+    # below (v1 handle_non_first_name_prefix; decisions/P1)
     # How far the fold reaches depends on the order the name was READ
     # under (#395; decisions/P1, 2026-08-17): declaring a
     # family-first order asserts that what follows the family is not
@@ -689,6 +703,9 @@ def post_rules(state: ParseState) -> ParseState:
         if given_at is not None:
             _attach_particle_tail(seg, tokens, given_at, k, end,
                                   ambiguities)
+
+    if state.policy.two_family_names:
+        _take_second_family_name(state, tokens)
 
     # rules/O3: "every middle word joins the family name and is
     # rendered before it" (v1 handle_middle_name_as_last). v1

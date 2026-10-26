@@ -957,3 +957,32 @@ def test_daemon_key_from_install_code_is_saved_and_reused_without_another_approv
     assert len(calls) == 1
     assert calls[0]["install_code"] == "ABCD234567"
     assert "ABCD234567" not in str(stored)
+
+
+def test_a_refused_browser_approval_adds_no_marketplace(entry, monkeypatch):
+    """Every install refused its credential, so the marketplace step is skipped
+    too: adding it writes the agent's own config (every installing agent's, in
+    a batch), and a refused approval leaves the machine as it was."""
+    from probe.cli import tui
+
+    monkeypatch.setattr(tui, "Progress", type("Quiet", (tui.Progress,), {"note": lambda self, *lines: None}))
+    monkeypatch.setattr(setup, "authorize", lambda *a, **kw: ({}, ["browser approval failed: denied"]))
+    for name in ("apply_tracking", "apply_capture", "refresh_marketplace"):
+        monkeypatch.setattr(setup, name, lambda *a, **kw: pytest.fail("nothing installed after a refusal"))
+    monkeypatch.setattr(setup, "apply_auto_update", lambda *a, **kw: [])
+    monkeypatch.setattr(setup, "apply_agent_rules", lambda *a, **kw: [])
+    monkeypatch.setattr(doctor, "collect", lambda: Capabilities(claude_available=True, plugins_verified=True))
+    with pytest.raises(main.typer.Exit):
+        apply_wizard_action(
+            Action.CONFIGURE,
+            caps=Capabilities(claude_available=True),
+            base_now="https://api.test",
+            yes=True,
+            tracking=True,
+            capture=True,
+            auto_update=True,
+            agent_rules=True,
+            uninstall=False,
+            configured=False,
+            authorization_needs=["api", "mcp", "capture"],
+        )

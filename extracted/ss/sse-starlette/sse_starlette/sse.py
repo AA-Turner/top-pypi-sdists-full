@@ -24,6 +24,13 @@ are deliberate divergences — DO NOT "fix" them without reading the rationale:
 
 3. ``collapse_excgroups()`` is vendored in ``sse_starlette._utils`` rather
    than imported from ``starlette._utils`` (private module).
+
+4. HEAD is answered with headers and an empty body; the stream never starts
+   (Issue #218). Upstream ``StreamingResponse`` streams on HEAD too, which is
+   harmless for finite bodies but never completes for an endless SSE
+   generator, wedging keep-alive connections. Same contract as Starlette's
+   ``FileResponse``: headers match GET, the background task still runs, and
+   neither the iterator nor ``data_sender_callable`` is touched.
 """
 
 import asyncio
@@ -224,7 +231,7 @@ try:
     from uvicorn.main import Server
 
     AppStatus.original_handler = Server.handle_exit
-    Server.handle_exit = AppStatus.handle_exit  # type: ignore
+    Server.handle_exit = AppStatus.handle_exit
 except ImportError:
     logger.debug(
         "Uvicorn not installed. Graceful shutdown on server termination disabled."
@@ -510,6 +517,35 @@ class EventSourceResponse(Response):
         # types become ``websocket.http.response.*``.
         if scope["type"] == "websocket":
             send = _wrap_websocket_denial_send(send)
+
+        # HEAD must not open a stream (Issue #218, divergence #4 in the
+        # module docstring).
+        #
+        # Starlette adds HEAD to every GET route, so an SSE endpoint also
+        # answers HEAD. Streaming on HEAD never completes: the ASGI server
+        # discards the body bytes but still waits for ``more_body=False``,
+        # which the stream only sends once the generator ends. The response
+        # therefore hangs for the client, and the handler, its session and
+        # its socket leak.
+        #
+        # Starlette's FileResponse answers HEAD the same way -- headers and
+        # an empty body -- and both Response and FileResponse still run the
+        # background task, so this follows the same contract.
+        if scope["type"] == "http" and scope["method"].upper() == "HEAD":
+            await self._send_with_timeout(
+                send,
+                {
+                    "type": "http.response.start",
+                    "status": self.status_code,
+                    "headers": self.raw_headers,
+                },
+            )
+            await self._send_with_timeout(
+                send, {"type": "http.response.body", "body": b"", "more_body": False}
+            )
+            if self.background is not None:
+                await self.background()
+            return
 
         # collapse_excgroups parity with Starlette's StreamingResponse: anyio
         # v4 wraps task-group failures in ExceptionGroup; user middleware

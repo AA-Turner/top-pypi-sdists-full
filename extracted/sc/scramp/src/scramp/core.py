@@ -6,8 +6,10 @@ from hmac import compare_digest
 from itertools import groupby
 from operator import attrgetter
 from secrets import token_bytes, token_hex
+from ssl import SSLObject, SSLSocket
 from types import MappingProxyType, NoneType
 
+from asn1crypto import pem
 from asn1crypto.x509 import Certificate
 
 from scramp.utils import (
@@ -69,6 +71,11 @@ class IterationCount:
                     "The iteration count can only contain ASCII digits",
                     ServerError.OTHER_ERROR,
                 )
+        if len(value_str) == 0:
+            raise ScramException(
+                "The iteration count must not be empty", ServerError.OTHER_ERROR
+            )
+
         if value_str[0] == "0":
             raise ScramException(
                 "The iteration count must not begin with a zero",
@@ -128,7 +135,12 @@ class Nonce:
             )
         if not all(0x21 <= ord(c) <= 0x7E and c != "," for c in nonce):
             raise ScramException(
-                "Nonce contains invalid characters.", ServerError.OTHER_ERROR
+                "Nonce contains invalid characters", ServerError.OTHER_ERROR
+            )
+
+        if len(nonce) == 0:
+            raise ScramException(
+                "An empty string isn't allowed", ServerError.OTHER_ERROR
             )
 
         self.nonce = nonce
@@ -158,11 +170,11 @@ class Nonce:
 
 
 class CbName:
-    TYPES = (
-        "tls-server-end-point",
-        "tls-unique",
-        "tls-unique-for-telnet",
+    SUPPORTED_TYPES = frozenset(
+        {"tls-server-end-point", "tls-unique", "tls-unique-for-telnet"}
     )
+
+    UNSUPPORTED_TYPES = frozenset({"tls-exporter"})
 
     def __init__(self, cb_name):
         if not isinstance(cb_name, str):
@@ -177,10 +189,18 @@ class CbName:
                     "are alphabetic or a digit or '.' or '-'",
                     ServerError.OTHER_ERROR,
                 )
-        if cb_name not in self.TYPES:
+        if cb_name in self.UNSUPPORTED_TYPES:
             raise ScramException(
-                f"The channel binding type must be one of {self.TYPES}",
-                ServerError.OTHER_ERROR,
+                f"The channel binding types {sorted(self.UNSUPPORTED_TYPES)} are not "
+                f"supported by Scramp. Please see the README for details",
+                ServerError.UNSUPPORTED_CHANNEL_BINDING_TYPE,
+            )
+        elif cb_name not in self.SUPPORTED_TYPES:
+            raise ScramException(
+                f"The channel binding type is not recognised by Scramp. The "
+                f"recognised types are "
+                f"{sorted(self.SUPPORTED_TYPES | self.UNSUPPORTED_TYPES)}",
+                ServerError.UNSUPPORTED_CHANNEL_BINDING_TYPE,
             )
         self.cb_name = cb_name
 
@@ -211,6 +231,40 @@ class CBindData:
 
     def __bytes__(self):
         return self.data
+
+    def __eq__(self, other):
+        return isinstance(other, CBindData) and self.data == other.data
+
+    @classmethod
+    def from_der(cls, der):
+        try:
+            cert = Certificate.load(der, strict=True)
+        except ValueError as e:
+            raise ScramException(
+                "Problem loading certificate from DER",
+                ServerError.OTHER_ERROR,
+            ) from e
+
+        try:
+            hash_algo = cert.hash_algo
+        except ValueError as e:
+            raise ScramException(
+                "Problem getting certificate algorithm",
+                ServerError.OTHER_ERROR,
+            ) from e
+
+        if hash_algo in ("md5", "sha1"):
+            hash_algo = "sha256"
+
+        try:
+            hash_obj = hashlib.new(hash_algo, der)
+        except ValueError:
+            raise ScramException(
+                f"Hash algorithm {hash_algo} not supported by hashlib",
+                ServerError.OTHER_ERROR,
+            )
+        cb_data = hash_obj.digest()
+        return cls(cb_data)
 
 
 @unique
@@ -268,64 +322,19 @@ class ChannelBinding:
             raise ScramException("The channel binding data must be a CBindData object.")
         self.data = data
 
-    @classmethod
-    def from_ssl_socket(cls, name, ssl_socket):
-        if name == CbName("tls-unique"):
-            data = ssl_socket.get_channel_binding(str(name))
-
-        elif name == CbName("tls-server-end-point"):
-            cert_bin = ssl_socket.getpeercert(binary_form=True)
-            cert = Certificate.load(cert_bin)
-
-            # Find the hash algorithm to use according to
-            # https://tools.ietf.org/html/rfc5929#section-4
-            hash_algo = cert.hash_algo
-            if hash_algo in ("md5", "sha1"):
-                hash_algo = "sha256"
-
-            try:
-                hash_obj = hashlib.new(hash_algo, cert_bin)
-            except ValueError:
-                raise ScramException(
-                    f"Hash algorithm {hash_algo} not supported by hashlib",
-                    ServerError.OTHER_ERROR,
-                )
-            data = hash_obj.digest()
-
-        else:
-            raise ScramException(
-                "Channel binding name not recognized", ServerError.OTHER_ERROR
-            )
-
-        return cls(name, CBindData(data))
-
-    @classmethod
-    def from_tuple(cls, channel_binding):
-        if channel_binding is None:
-            return
-
-        if not isinstance(channel_binding, tuple):
-            raise ScramException(
-                "The channel_binding parameter must either be None or a tuple"
-            )
-
-        if len(channel_binding) != 2:
-            raise ScramException(
-                "The channel_binding parameter must either be None or a tuple of two "
-                "elements (name, data)"
-            )
-
-        name, data = channel_binding
-        return cls(CbName(name), CBindData(data))
-
-
-def make_channel_binding(name, ssl_socket):
-    cb = ChannelBinding.from_ssl_socket(CbName(name), ssl_socket)
-    return str(cb.name), bytes(cb.data)
+    def __eq__(self, other):
+        return (
+            isinstance(other, ChannelBinding)
+            and self.name == other.name
+            and self.data == other.data
+        )
 
 
 class ScramMechanism:
     def __init__(self, mechanism="SCRAM-SHA-256"):
+        if not isinstance(mechanism, str):
+            raise ScramException("The mechanism name must be a str")
+
         try:
             mech = MECHS[mechanism]
         except KeyError:
@@ -362,7 +371,77 @@ class ScramMechanism:
         if s_nonce is not None:
             s_nonce = Nonce(s_nonce)
 
-        cb = ChannelBinding.from_tuple(channel_binding)
+        if channel_binding is None:
+            cb = None
+        else:
+            try:
+                cb_name_str, d_so_st = channel_binding
+            except ValueError:
+                raise ScramException(
+                    "Channel binding must be a tuple with two items",
+                    ServerError.OTHER_ERROR,
+                )
+
+            cb_name = CbName(cb_name_str)
+            cb_data = None
+            if isinstance(d_so_st, bytes):
+                cb_data = CBindData(d_so_st)
+            elif cb_name == CbName("tls-unique"):
+                if not isinstance(d_so_st, (SSLSocket, SSLObject)):
+                    raise ScramException(
+                        "If the channel type is 'tls-unique', the type of the second "
+                        "item of the channel_binding tuple must be bytes or "
+                        "ssl.SSLSocket",
+                        ServerError.OTHER_ERROR,
+                    )
+                ssl_socket = d_so_st
+                cb_data = CBindData(ssl_socket.get_channel_binding(str(cb_name)))
+
+            elif cb_name == CbName("tls-server-end-point"):
+                if not isinstance(d_so_st, str):
+                    raise ScramException(
+                        "If the channel type is 'tls-server-end-point', the type of "
+                        "the second item of the channel_binding tuple must be bytes "
+                        "or a str of the PEM certificate file",
+                        ServerError.OTHER_ERROR,
+                    )
+                try:
+                    pem_bin = d_so_st.encode("ascii")
+                except UnicodeError:
+                    raise ScramException(
+                        "The PEM encoded certificate str must only contain ASCII "
+                        "characters",
+                        ServerError.OTHER_ERROR,
+                    )
+                der = None
+                try:
+                    for type_name, _headers, cand_der in pem.unarmor(  # pyright: ignore[reportGeneralTypeIssues]
+                        pem_bin, multiple=True
+                    ):
+                        if type_name == "CERTIFICATE":
+                            der = cand_der
+                            break
+                except ValueError as e:
+                    raise ScramException(
+                        "The PEM encoded certificate str doesn't seem to be valid",
+                        ServerError.OTHER_ERROR,
+                    ) from e
+
+                if der is None:
+                    raise ScramException(
+                        "No CERTIFICATE block found in PEM data",
+                        ServerError.OTHER_ERROR,
+                    )
+
+                cb_data = CBindData.from_der(der)
+
+            else:
+                raise ScramException(
+                    "Channel binding name not recognized", ServerError.OTHER_ERROR
+                )
+
+            cb = ChannelBinding(cb_name, cb_data)
+
         return ScramServer(self, AuthFn(auth_fn), cb=cb, s_nonce=s_nonce)
 
 
@@ -381,16 +460,62 @@ class ScramClient:
     ):
         if not isinstance(mechanisms, (list, tuple)):
             raise ScramException(
-                "The 'mechanisms' parameter must be a list or tuple of mechanism names."
+                f"'{mechanisms}' The 'mechanisms' parameter must be a list or tuple of "
+                f"mechanism names."
+            )
+        if not len(mechanisms) > 0:
+            raise ScramException(
+                "The 'mechanisms' parameter must contain at least one mechanism name"
             )
 
-        cb = ChannelBinding.from_tuple(channel_binding)
+        if channel_binding is None:
+            cb = None
+        else:
+            try:
+                cb_name_str, d_s = channel_binding
+            except ValueError:
+                raise ScramException(
+                    "Channel binding must be a tuple with two items",
+                    ServerError.OTHER_ERROR,
+                )
+
+            cb_name = CbName(cb_name_str)
+            cb_data = None
+            if isinstance(d_s, bytes):
+                cb_data = CBindData(d_s)
+            elif isinstance(d_s, (SSLSocket, SSLObject)):
+                ssl_socket = d_s
+                if cb_name == CbName("tls-unique"):
+                    cb_data = CBindData(ssl_socket.get_channel_binding(str(cb_name)))
+
+                elif cb_name == CbName("tls-server-end-point"):
+                    der = ssl_socket.getpeercert(binary_form=True)
+                    if der is None:
+                        raise ScramException(
+                            "There is no peer certificate for the SSL socket",
+                            ServerError.OTHER_ERROR,
+                        )
+                    cb_data = CBindData.from_der(der)
+
+                else:
+                    raise ScramException(
+                        "Channel binding name not recognized", ServerError.OTHER_ERROR
+                    )
+            else:
+                raise ScramException(
+                    "The second item of the channel_binding tuple must be of type "
+                    "bytes or ssl.SSLSocket",
+                    ServerError.OTHER_ERROR,
+                )
+
+            cb = ChannelBinding(cb_name, cb_data)
 
         ms = (ScramMechanism(m) for m in mechanisms)
         mechs = [m for m in ms if not (cb is None and m.use_binding)]
         if len(mechs) == 0:
             raise ScramException(
-                "There are no suitable mechanisms in the list provided"
+                "The mechanisms in the 'mechanisms' parameter all require channel "
+                "binding but a 'channel_binding' parameter hasn't been provided"
             )
 
         mech = max(mechs, key=attrgetter("strength"))
@@ -419,7 +544,7 @@ class ScramClient:
         self._set_stage(ClientStage.set_server_first)
         self.server_first = message
         self.nonce, self.salt, self.iterations = _set_server_first(
-            message, self.c_nonce
+            ServerFirst(message), self.c_nonce
         )
 
     def get_client_final(self):
@@ -439,7 +564,7 @@ class ScramClient:
 
     def set_server_final(self, message):
         self._set_stage(ClientStage.set_server_final)
-        _set_server_final(message, self.server_signature)
+        _set_server_final(ServerFinal(message), self.server_signature)
 
 
 def set_error(f):
@@ -482,6 +607,12 @@ class ScramServer:
 
     @set_error
     def set_client_first(self, client_first):
+
+        if not isinstance(client_first, str):
+            raise ScramException(
+                "The client_first message must be a str",
+                ServerError.OTHER_ERROR,
+            )
         self._set_stage(ServerStage.set_client_first)
         (
             self.nonce,
@@ -519,7 +650,7 @@ class ScramServer:
         self._set_stage(ServerStage.set_client_final)
         self.server_signature = _set_client_final(
             self.m.hf,
-            client_final,
+            ClientFinal(client_final),
             self.nonce,
             self.stored_key,
             self.server_key,
@@ -551,7 +682,7 @@ def _c_key_stored_key_s_key(hf, salted_password):
 def _check_client_key(hf, stored_key, auth_msg, proof):
     client_signature = hmac(hf, stored_key, auth_msg)
     try:
-        client_key = xor(client_signature, b64dec(proof))
+        client_key = xor(client_signature, proof)
     except ValueError as e:
         raise ScramException(
             "Can't create client key.", ServerError.INVALID_PROOF
@@ -601,8 +732,13 @@ class Gs2Header:
 
     @classmethod
     def from_str(cls, s):
-        gs2_header = s.split(",")
-        gs2_cbind_flag = gs2_header[0]
+        try:
+            gs2_cbind_flag, authzid, trail = s.split(",")
+        except ValueError:
+            raise ScramException(
+                "The gs2-header must contain exactly two commas",
+                ServerError.OTHER_ERROR,
+            )
 
         if gs2_cbind_flag == "y":
             gs2_char, cb_name = "y", None
@@ -620,16 +756,15 @@ class Gs2Header:
                 "GS2 flag must be one of ('y', 'n', 'p=')", ServerError.OTHER_ERROR
             )
 
-        try:
-            authzid = gs2_header[1]
-        except IndexError:
-            raise ScramException(
-                "The client sent malformed gs2 data", ServerError.OTHER_ERROR
-            )
-
         if authzid != "":
             raise ScramException(
                 "The GS2 authzid must be empty", ServerError.OTHER_ERROR
+            )
+
+        if trail != "":
+            raise ScramException(
+                "The gs2-header can't have characters after the last comma",
+                ServerError.OTHER_ERROR,
             )
         return cls(gs2_char, cb_name)
 
@@ -645,73 +780,139 @@ class Gs2Header:
         return cls(gs2_char, cb_name)
 
 
-PROTO_ATTRS = {"a", "n", "m", "r", "c", "s", "i", "p", "v", "e"}
+class Message:
+    PROTO_ATTRS = frozenset({"a", "n", "m", "r", "c", "s", "i", "p", "v", "e"})
 
-
-def _parse_message(msg, desc, *expected_attr_strs):
-    m = OrderedDict()
-    for p in msg.split(","):
-        if len(p) < 2 or p[1] != "=":
+    def __init__(self, msg, desc, *expected_attr_strs):
+        if not isinstance(msg, str):
             raise ScramException(
-                f"Malformed {desc} message. Attributes must be separated by a ',' and "
-                f"each attribute must start with a letter followed by a '='",
+                "A message must be of type str", ServerError.OTHER_ERROR
+            )
+        m = OrderedDict()
+        for p in msg.split(","):
+            if len(p) < 2 or p[1] != "=":
+                raise ScramException(
+                    f"Malformed {desc} message. Attributes must be separated by a ',' "
+                    f"and each attribute must start with a letter followed by a '='",
+                    ServerError.OTHER_ERROR,
+                )
+            k = p[0]
+            if not (k.isalpha() and k.isascii()):
+                raise ScramException(
+                    f"Malformed {desc} message. Attributes must be US-ASCII alpha "
+                    f"characters.",
+                    ServerError.OTHER_ERROR,
+                )
+            elif k == "m":
+                raise ScramException(
+                    "The 'm' attribute isn't supported by this version of the "
+                    "protocol.",
+                    ServerError.EXTENSIONS_NOT_SUPPORTED,
+                )
+            elif k in m:
+                raise ScramException(
+                    "Duplicate attributes not allowed in message",
+                    ServerError.OTHER_ERROR,
+                )
+
+            v = p[2:]
+            if v == "":
+                raise ScramException(
+                    f"Malformed {desc} message. Attribute values must at "
+                    f"least one character long",
+                    ServerError.OTHER_ERROR,
+                )
+            elif "\x00" in v:
+                raise ScramException(
+                    f"Malformed {desc} message. Attribute values can't "
+                    f"contain the NUL character",
+                    ServerError.OTHER_ERROR,
+                )
+            elif "," in v:
+                raise ScramException(
+                    f"Malformed {desc} message. Attribute values can't "
+                    f"contain the ',' character",
+                    ServerError.OTHER_ERROR,
+                )
+
+            m[k] = v
+
+        attr_list = [k if k in Message.PROTO_ATTRS else "*" for k in m]
+        attr_str = "".join(k for k, _ in groupby(attr_list))
+        if "*" in attr_str:
+            exp_strs = list(expected_attr_strs)
+        else:
+            exp_strs = [s.replace("*", "") for s in expected_attr_strs]
+
+        if attr_str not in exp_strs:
+            star_exp = (
+                " (where '*' is unrecognised attributes)" if "*" in attr_str else ""
+            )
+            raise ScramException(
+                f"Malformed {desc} message. Expected the attribute str to be one of "
+                f"{exp_strs} but found '{attr_str}'{star_exp}",
                 ServerError.OTHER_ERROR,
             )
-        k = p[0]
-        if not (k.isalpha() and k.isascii()):
-            raise ScramException(
-                f"Malformed {desc} message. Attributes must be US-ASCII alpha "
-                f"characters.",
-                ServerError.OTHER_ERROR,
-            )
-        elif k == "m":
-            raise ScramException(
-                "The 'm' attribute isn't supported by this version of the protocol.",
-                ServerError.EXTENSIONS_NOT_SUPPORTED,
-            )
-        elif k in m:
-            raise ScramException(
-                "Duplicate attributes not allowed in message", ServerError.OTHER_ERROR
-            )
 
-        v = p[2:]
-        if v == "":
-            raise ScramException(
-                f"Malformed {desc} message. Attribute values must at "
-                f"least one character long",
-                ServerError.OTHER_ERROR,
-            )
-        elif "\x00" in v:
-            raise ScramException(
-                f"Malformed {desc} message. Attribute values can't "
-                f"contain the NUL character",
-                ServerError.OTHER_ERROR,
-            )
-        elif "," in v:
-            raise ScramException(
-                f"Malformed {desc} message. Attribute values can't "
-                f"contain the ',' character",
-                ServerError.OTHER_ERROR,
-            )
+        self._msg = OrderedDict()
+        for k, v_str in m.items():
+            match k:
+                case "n":
+                    v = Username.from_escaped(v_str)
+                case "r":
+                    v = Nonce(v_str)
+                case "s":
+                    v = Salt.from_str(v_str)
+                case "i":
+                    v = IterationCount.from_str(v_str)
+                case "p":
+                    v = b64dec(v_str)
+                case "v":
+                    v = b64dec(v_str)
+                case "e":
+                    try:
+                        v = ServerError(v_str)
+                    except ValueError:
+                        raise ScramException("The server returned an invalid error")
+                case _:
+                    v = v_str
 
-        m[k] = v
+            self._msg[k] = v
 
-    attr_list = [k if k in PROTO_ATTRS else "*" for k in m]
-    attr_str = "".join(k for k, _ in groupby(attr_list))
-    if "*" in attr_str:
-        exp_strs = list(expected_attr_strs)
-    else:
-        exp_strs = [s.replace("*", "") for s in expected_attr_strs]
+    def __getitem__(self, key):
+        return self._msg[key]
 
-    if attr_str in exp_strs:
-        return m
+    def items(self):
+        return self._msg.items()
 
-    star_exp = " (where '*' is unrecognised attributes)" if "*" in attr_str else ""
-    raise ScramException(
-        f"Malformed {desc} message. Expected the attribute str to be one of "
-        f"{exp_strs} but found '{attr_str}'{star_exp}",
-        ServerError.OTHER_ERROR,
-    )
+    def __contains__(self, key):
+        return key in self._msg
+
+    def __len__(self):
+        return len(self._msg)
+
+    def _iter__(self):
+        return iter(self._msg)
+
+
+class ClientFirstBare(Message):
+    def __init__(self, message):
+        super().__init__(message, "client_first_bare", "nr*")
+
+
+class ServerFirst(Message):
+    def __init__(self, message):
+        super().__init__(message, "server first", "rsi*", "e*")
+
+
+class ClientFinal(Message):
+    def __init__(self, message):
+        super().__init__(message, "client final", "cr*p")
+
+
+class ServerFinal(Message):
+    def __init__(self, message):
+        super().__init__(message, "server final", "v*", "e*")
 
 
 class Username:
@@ -780,6 +981,12 @@ class AuthFn:
                 "auth_fun must return None or a tuple", ServerError.OTHER_ERROR
             )
 
+        if len(result) != 4:
+            raise ScramException(
+                "auth_fun must return a tuple with exactly four items",
+                ServerError.OTHER_ERROR,
+            )
+
         salt, stored_key, server_key, i = result
 
         if not isinstance(stored_key, bytes):
@@ -832,7 +1039,7 @@ def _set_client_first(client_first, s_nonce, cb, use_binding, auth_fn):
         raise ScramException(
             "The client sent a malformed first message", ServerError.OTHER_ERROR
         )
-    gs2_header = Gs2Header.from_str(client_first[:second_comma])
+    gs2_header = Gs2Header.from_str(client_first[: second_comma + 1])
     upgrade_mechanism = False
 
     if gs2_header.gs2_char == "y":
@@ -871,11 +1078,11 @@ def _set_client_first(client_first, s_nonce, cb, use_binding, auth_fn):
             )
 
     client_first_bare = client_first[second_comma + 1 :]
-    msg = _parse_message(client_first_bare, "client first bare", "nr*")
+    msg = ClientFirstBare(client_first_bare)
 
-    c_nonce = Nonce(msg["r"])
+    c_nonce = msg["r"]
     nonce = c_nonce + s_nonce
-    user = Username.from_escaped(msg["n"])
+    user = msg["n"]
 
     salt, stored_key, server_key, i = auth_fn(user)
 
@@ -895,23 +1102,13 @@ def _get_server_first(nonce, salt, iterations):
     return _make_message(r=nonce, s=salt, i=iterations)
 
 
-def _raise_server_error(msg):
-    try:
-        server_error = ServerError(msg["e"])
-    except ValueError:
-        raise ScramException("The server returned an invalid error")
-
-    raise ScramException("The server returned an error", server_error)
-
-
-def _set_server_first(server_first, c_nonce):
-    msg = _parse_message(server_first, "server first", "rsi*", "e*")
+def _set_server_first(msg, c_nonce):
     if "e" in msg:
-        _raise_server_error(msg)
+        raise ScramException("The server returned an error", msg["e"])
 
-    nonce = Nonce(msg["r"])
-    salt = Salt.from_str(msg["s"])
-    i = IterationCount.from_str(msg["i"])
+    nonce = msg["r"]
+    salt = msg["s"]
+    i = msg["i"]
 
     if not nonce.startswith(c_nonce):
         raise ScramException("Client nonce doesn't match.", ServerError.OTHER_ERROR)
@@ -953,7 +1150,7 @@ def _get_client_final(
 
 def _set_client_final(
     hf,
-    client_final,
+    msg,
     nonce,
     stored_key,
     server_key,
@@ -962,7 +1159,6 @@ def _set_client_final(
     channel_binding,
     gs2_header,
 ):
-    msg = _parse_message(client_final, "client final", "cr*p")
     chan_binding = msg["c"]
     try:
         chan_binding_bin = b64dec(chan_binding)
@@ -971,7 +1167,7 @@ def _set_client_final(
             f"The channel binding isn't correctly encoded: {e}",
             ServerError.INVALID_ENCODING,
         ) from e
-    msg_nonce = Nonce(msg["r"])
+    msg_nonce = msg["r"]
     proof = msg["p"]
     if not compare_digest(
         chan_binding_bin,
@@ -1003,12 +1199,11 @@ def _get_server_final(server_signature, error):
         return _make_message(e=error.value)
 
 
-def _set_server_final(message, server_signature):
-    msg = _parse_message(message, "server final", "v*", "e*")
+def _set_server_final(msg, server_signature):
     if "e" in msg:
-        _raise_server_error(msg)
+        raise ScramException("The server returned an error", msg["e"])
 
-    if not compare_digest(server_signature, b64dec(msg["v"])):
+    if not compare_digest(server_signature, msg["v"]):
         raise ScramException(
             "The server signature doesn't match.", ServerError.OTHER_ERROR
         )

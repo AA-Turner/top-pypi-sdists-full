@@ -205,9 +205,10 @@ void served_geometry(const PortalDeck &deck) {
         if (!one_of(m, {"GW", "GA", "GH", "GS", "GM", "GX", "GE"})) unmeasured("the " + m + " geometry card");
         if (m == "GS" && (!card.i(0).is_zero() || !card.i(1).is_zero()))
             unmeasured("GS scaling a range of tags");
-        if ((m == "GS" || m == "GM") && saw(m.c_str())) unmeasured("a second " + m + " card");
-        if (one_of(m, {"GW", "GA", "GH"}) && (saw("GS") || saw("GM")))
-            unmeasured("a " + m + " card after a GS or GM card");
+        // several GM cards, and wire cards between them, are measured (p92-p96,
+        // momwire#1694); GS stays at most one, and last
+        if (m == "GS" && saw("GS")) unmeasured("a second GS card");
+        if (one_of(m, {"GW", "GA", "GH"}) && saw("GS")) unmeasured("a " + m + " card after a GS card");
         if (m == "GM" && saw("GS")) unmeasured("a GM card after a GS card");
         if (m == "GX" && saw("GS")) unmeasured("a GX card after a GS card");
         seen.push_back(m);
@@ -222,7 +223,8 @@ bool a_new_frequency(const std::vector<Card> &cards, ll previous, ll number) {
     for (ll k = lo; k < hi; k++) {
         const std::string &m = cards[static_cast<std::size_t>(k)].mnemonic;
         fr = fr || m == "FR";
-        all = all && one_of(m, {"EX", "RP", "NE", "NH", "PQ", "XQ", "FR"});
+        // `_serve._LATER_SEQUENCE_CARDS`: PT between the runs is print control (momwire#1696)
+        all = all && one_of(m, {"EX", "RP", "NE", "NH", "PQ", "XQ", "FR", "PT"});
     }
     return fr && all;
 }

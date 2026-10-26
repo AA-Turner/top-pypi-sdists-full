@@ -9,8 +9,9 @@ import json
 from pathlib import Path
 import sys
 from types import MappingProxyType
-from typing import Annotated, NamedTuple
+from typing import TYPE_CHECKING, Annotated, NamedTuple
 
+from sarj_rule_contracts import RuleId
 import typer
 
 from sarj_python_lint import __version__
@@ -24,6 +25,10 @@ from sarj_python_lint.rules import REGISTRY
 from sarj_python_lint.rules._paths import clear_path_caches
 from sarj_python_lint.rules._project_index import ProjectIndexSet
 from sarj_python_lint.suppression_policy import PROTECTED_SUPPRESSION_CODES
+
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 
 SKIP_DIR_NAMES = frozenset(
@@ -86,18 +91,18 @@ def _python_files(p: Path) -> list[Path]:
     return sorted(out)
 
 
-def _canonical_rule_ids(rule_ids: list[str]) -> list[str]:
+def _canonical_rule_ids(rule_names: Sequence[str]) -> list[RuleId]:
     aliases = {
         alias: rule_id
         for rule_id, cls in REGISTRY.items()
         if (documentation := cls.documentation) is not None
         for alias in documentation.aliases
     }
-    return list(dict.fromkeys(rid if rid in REGISTRY else aliases.get(rid, rid) for rid in rule_ids))
+    return list(dict.fromkeys(RuleId(name if name in REGISTRY else aliases.get(name, name)) for name in rule_names))
 
 
-def _check(rule_ids: list[str], paths: list[Path], *, jobs: int = 1) -> list[Diagnostic]:
-    rule_ids = _canonical_rule_ids(rule_ids)
+def _check(rule_names: Sequence[str], paths: list[Path], *, jobs: int = 1) -> list[Diagnostic]:
+    rule_ids = _canonical_rule_ids(rule_names)
     unknown = [rid for rid in rule_ids if rid not in REGISTRY]
     if unknown:
         sys.stderr.write(f"unknown rule(s): {', '.join(unknown)}\n")
@@ -145,7 +150,7 @@ def check_source(
 
 
 def analyze(
-    rule_ids: list[str],
+    rule_ids: Sequence[str],  # sarj-noqa: SARJ093 -- Public parsing boundary accepts raw names.
     paths: list[Path],
     *,
     baseline: Path | None = None,
@@ -573,8 +578,25 @@ def _check_command(
     update_baseline: Annotated[
         Path | None, typer.Option(help="Write current per-file diagnostic counts to JSON and exit 0.")
     ] = None,
+    fix: Annotated[
+        bool, typer.Option("--fix", help="Apply proven safe fixes before checking the remaining diagnostics.")
+    ] = False,
     jobs: Annotated[int, typer.Option(min=1, help="Analysis worker budget (up to 2); default is serial.")] = 1,
 ) -> None:
+    if fix:
+        from sarj_python_lint.autofix import fix_paths  # ruff: ignore[import-outside-top-level] -- load mutation support only for an explicit fix request.
+
+        canonical = _canonical_rule_ids(rule)
+        unknown = [rule_id for rule_id in canonical if rule_id not in REGISTRY]
+        if unknown:
+            context.ensure_object(_Result).code = _run_check(rule, files, baseline, update_baseline, jobs=jobs)
+            return
+        try:
+            fix_paths(files, rule_ids=canonical)
+        except (OSError, ValueError, SyntaxError, UnicodeError) as exc:
+            sys.stderr.write(f"error: {exc}\n")
+            context.ensure_object(_Result).code = 2
+            return
     context.ensure_object(_Result).code = _run_check(rule, files, baseline, update_baseline, jobs=jobs)
 
 

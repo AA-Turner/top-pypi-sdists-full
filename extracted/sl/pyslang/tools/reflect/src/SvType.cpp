@@ -13,7 +13,8 @@ using namespace slang::ast;
 SvType::SvType(const Type& type) {
     size = type.getBitstreamWidth();
     name = type.name;
-    if (type.isScalar() || type.isArray())
+    // Anonymous types have no C++ name to refer to, so map them by width like scalars
+    if (type.isScalar() || type.isArray() || name.empty())
         cppType = CppType::fromSize(size);
     else if (type.isEnum())
         cppType = CppType::ENUM;
@@ -67,5 +68,9 @@ Type fromSize(const size_t size) {
         if (size <= 64) return U64;
         return SC_BV;
     // clang-format on
+}
+
+bool isScalar(const Type& cppType) {
+    return cppType == BOOL || cppType == U32 || cppType == U64;
 }
 } // namespace CppType

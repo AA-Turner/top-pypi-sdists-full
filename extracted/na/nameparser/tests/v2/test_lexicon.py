@@ -31,7 +31,7 @@ def test_default_sources_v1_vocabulary() -> None:
     # flipped model: 'dos' is never-given in v1, so NOT ambiguous here
     assert "dos" in lex.particles and "dos" not in lex.particles_ambiguous
     assert "van" in lex.particles_ambiguous
-    # the policy is 'e' and not 'y' (decisions/P3): a bare E initial is
+    # the policy is 'e' and not 'y' (decisions/P8): a bare E initial is
     # common, where 'y' between two surnames is the commonest Hispanic compound
     assert "e" in lex.conjunctions_ambiguous and "y" not in lex.conjunctions_ambiguous
     # CAPITALIZATION_EXCEPTIONS maps 'phd' -> 'PhD', a case mask since
@@ -419,8 +419,10 @@ def test_suffix_ambiguous_must_be_subset_of_acronyms() -> None:
 
 
 def test_the_shipped_suffix_sets_are_disjoint() -> None:
-    # suffixes.py asserts this at import; the assert is stripped under
-    # `python -O`, so the invariant gets a named test as well. The two
+    # the vocabulary build refuses the overlap (tools/vocab/build.py,
+    # run over the shipped files by tests/v2/test_vocab.py), but over the
+    # TOML, not over the constants a running process holds, so the
+    # invariant over the shipped constants gets a named test as well. The two
     # sets normalize differently -- the word test strips only edge
     # periods, the acronym test strips all of them -- so a word in both
     # is matched by two rules and which one fired is unreadable from
@@ -562,7 +564,7 @@ def test_subset_error_names_the_fix(
 
 
 def test_bound_given_name_that_is_a_particle_must_be_ambiguous() -> None:
-    # nameparser/config/particles.py asserts this on its own data:
+    # the vocabulary build checks this on the shipped data (check 9):
     # NON_GIVEN_NAME_PARTICLES stays disjoint from BOUND_GIVEN_NAMES. In
     # 2.0's complement model that reads as bound_given_names & particles
     # <= particles_ambiguous. A particle declared never-to-start-a-given-
@@ -604,7 +606,7 @@ def test_removing_a_conjunction_leaves_its_ambiguous_marker_alone() -> None:
     # conjunctions_ambiguous is the same shape as given_name_titles: not
     # in _SUBSET_FIELDS, so an orphan is inert rather than rejected --
     # the marker is never consulted once its base entry is gone
-    # (decisions/P3).
+    # (decisions/P8).
     lean = Lexicon.default().remove(conjunctions={"e"})
     assert "e" not in lean.conjunctions
     assert "e" in lean.conjunctions_ambiguous
@@ -675,7 +677,8 @@ def test_an_nfd_authored_entry_is_stored_composed() -> None:
     # the storage fold composes NFC (#322), so a caller who authors a
     # surname in NFD gets the NFC entry -- and raw NFD input, which
     # segmentation matches without folding, then finds no entry and
-    # goes unsplit (rules/W1's accepted degradation). Pinned
+    # goes unsplit (decisions/W1's 2026-07-29 NFD bullet, ja amendment 1a: NFD
+    # degrades to no-split, never to a wrong split). Pinned
     # because the surname site's comment relies on it.
     nfd = unicodedata.normalize("NFD", "김")
     lex = Lexicon(surnames=frozenset({nfd}))
@@ -973,6 +976,66 @@ def test_removing_a_honorific_tail_is_the_peels_off_switch() -> None:
     # the peel being broken outright
     on = Parser().parse("田中さん")
     assert (on.family, on.suffix) == ("田中", "さん")
+
+
+def test_after_given_titles_is_a_vocab_field() -> None:
+    # #835: add, remove and | reach it, and it is normalized like every
+    # other field, so the period-marked entry matches the bare word
+    lex = Lexicon.empty().add(after_given_titles={"Mrs.", "mr"})
+    assert lex.after_given_titles == frozenset({"mrs", "mr"})
+    respelled = (Lexicon.default().remove(after_given_titles={"mrs"})
+                 .add(after_given_titles={"Mrs."}))
+    assert Parser(lexicon=respelled).parse("Doe, Jane Mrs").title == "Mrs"
+    assert lex.remove(after_given_titles={"mr"}).after_given_titles == \
+        frozenset({"mrs"})
+    merged = (Lexicon(after_given_titles=frozenset({"mrs"}))
+              | Lexicon(after_given_titles=frozenset({"miss"})))
+    assert merged.after_given_titles == frozenset({"mrs", "miss"})
+    with pytest.raises(TypeError):
+        Lexicon(after_given_titles="mrs")  # type: ignore[arg-type]
+    edited = Lexicon.default().add(after_given_titles={"zzq"})
+    assert pickle.loads(pickle.dumps(edited)) == edited
+    assert "after_given_titles: +1" in repr(edited)
+
+
+def test_removing_an_after_given_title_is_rule_h8s_off_switch() -> None:
+    # Dropping the marker leaves the bare salutation a middle name after
+    # a family comma, while the period-marked spelling still reads as
+    # the title by H5's shape, which never consults the marker
+    lex = Lexicon.default().remove(after_given_titles={"mrs"})
+    p = Parser(lexicon=lex)
+    assert (p.parse("Doe, Jane Mrs").title,
+            p.parse("Doe, Jane Mrs").middle) == ("", "Mrs")
+    assert p.parse("Doe, Jane Mrs.").title == "Mrs."
+    # the baseline the removal is against
+    assert Parser().parse("Doe, Jane Mrs").title == "Mrs"
+
+
+def test_every_shipped_after_given_title_is_reachable() -> None:
+    # a property of the set, not its contents: each entry must reach
+    # rules/H8 at the slot it is listed for, so a member that another
+    # reading claims first (a suffix dual, a particle, a bound given
+    # name) shows up here as silently inert
+    p = Parser()
+    unreached = [w for w in sorted(p.lexicon.after_given_titles)
+                 if p.parse(f"Doe, Jane {w.title()}").title != w.title()]
+    assert not unreached, unreached
+
+
+@pytest.mark.parametrize(("lexicon", "text", "word"), [
+    # in the marker, removed from the titles
+    (Lexicon.default().remove(titles={"mrs"}), "Doe, Jane Mrs", "Mrs"),
+    # added to the marker only
+    (Lexicon.default().add(after_given_titles={"zzq"}), "Doe, Jane Zzq",
+     "Zzq"),
+], ids=["removed-from-titles", "marker-only"])
+def test_an_after_given_title_that_is_no_title_is_never_read(
+        lexicon: Lexicon, text: str, word: str) -> None:
+    # the orphan contract docs/customize.rst states: an entry is read
+    # only for a word that is a title, so an orphan is inert rather than
+    # an error (classify tags the marker only where the word is a title)
+    name = Parser(lexicon=lexicon).parse(text)
+    assert (name.title, name.middle) == ("", word)
 
 
 @pytest.mark.parametrize("field", _PHRASE_FIELDS)

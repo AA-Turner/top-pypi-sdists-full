@@ -17,7 +17,11 @@ honorific_tails, which script_segment consumes upstream; and, since
 which decide whether an UNLISTED dotted or all-caps token joins the
 ambiguous credential class by SHAPE (#516) -- the all-caps half here
 only under CapsSuffixes.EVERYWHERE, the default's part after a comma
-being tagged by `_comma.decide` when group binds it (#613). is_initial also consults
+being tagged by `_comma.decide` when group binds it (#613); and
+Policy.extra_suffix_delimiters, with the built-in semicolon
+(_vocab.delimiter_cores), so a word after the first comma with a
+delimiter glued to it is tagged as the word without it (rules/C10).
+is_initial also consults
 the _policy module's _NO_INITIALS constant. It is named apart from the
 fields above because it is not CONFIGURATION -- no Lexicon or Policy
 carries it and no caller can change it -- and not because it decides
@@ -26,6 +30,7 @@ nothing: the tags this stage writes do vary by it ('씨.' is not tagged
 
 Tags emitted -- stable (API): "particle", "conjunction", "initial";
 namespaced (unstable): "vocab:title", "vocab:given-title",
+"vocab:after-given-title",
 "vocab:suffix", "vocab:suffix-word", "vocab:suffix-ambiguous",
 "vocab:particle-ambiguous", "vocab:bound-given", "vocab:maiden-marker",
 "vocab:maiden-marker-cont"; and, in a namespace of its own,
@@ -62,7 +67,8 @@ from nameparser._pipeline._state import (
 )
 from nameparser._types import AmbiguityKind, Role
 from nameparser._pipeline._vocab import (
-    _INITIAL, caps_shape_candidate, composed_len, is_initial, is_one_case,
+    BUILTIN_SUFFIX_DELIMITERS, _INITIAL, caps_shape_candidate, composed_len,
+    delimiter_cores, glued_stem, is_initial, is_one_case, is_paired_initials,
     period_joined_vocab, suffix_as_written, tag_marker_runs,
 )
 from nameparser._pipeline._pieces import own_words
@@ -71,11 +77,11 @@ from nameparser._pipeline._pieces import own_words
 
 
 # rules/S2: "a trailing word of the suffix vocabulary reads as a
-# suffix — generational forms and credential acronyms alike, and an
-# ambiguous acronym written with its periods, one after each
-# letter or one after each of two or more letter chunks, counts
+# suffix — generational forms and credential acronyms alike" -- and
+# rules/S3: "an ambiguous acronym written with its periods, one after
+# each letter or one after each of two or more letter chunks, counts
 # unambiguously; a single trailing period is the abbreviation shape
-# any word can wear and does not" -- and: "a
+# any word can wear and does not" -- and rules/S4: "a
 # bare ambiguous acronym is consumed only when the name has words to
 # spare"
 def _tags_for(token: WorkToken, n: str, state: ParseState,
@@ -123,6 +129,10 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         tags.add("vocab:title")
     if n in lex.given_name_titles:
         tags.add("vocab:given-title")
+    # rules/H8: "the word joins the title field" -- tagged only where the
+    # word is a title too, so an entry outside `titles` is inert
+    if n in lex.after_given_titles and n in lex.titles:
+        tags.add("vocab:after-given-title")
     if suffix_as_written(n, token.text, lex):
         tags.add("vocab:suffix")
     if n in lex.suffix_words:
@@ -136,12 +146,12 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         tags.add("particle")
         if n in lex.particles_ambiguous:
             tags.add("vocab:particle-ambiguous")
-    # rules/P3: "a single-letter connective reads as an initial
+    # rules/P8: "a single-letter connective reads as an initial
     # where the writing says so: written as a bare Latin capital in a
     # name that is not written wholly in one case, or — in a name
     # written wholly in one case, where nothing says so — where the
     # letter is one the vocabulary marks as reading both ways"
-    # (#383/#479; history: decisions/P3)
+    # (#383/#479; history: decisions/P8)
     # one letter as the writer sees it: a decomposed 'й' is two code
     # points (#665), so non-ASCII text is counted composed, after the
     # C-level tests have declined everything else
@@ -204,8 +214,8 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
     # title as a whole ('Lt.Gov.', and by the ANY rule 'Mr.Smith');
     # else ANY suffix chunk makes it a suffix ('JD.CPA'). Title wins
     # (v1's continue). The third and fourth are 2.4's by-shape halves
-    # (#516; rules/S9: "An unlisted word joins the ambiguous class
-    # (S4) by SHAPE where the caller asks for it") and reach only a
+    # (#516; rules/S9: "joins the ambiguous class (S4) by SHAPE, in
+    # the positions each shape is admitted") and reach only a
     # token NO vocabulary claimed: a dotted token of two or more
     # alphabetic chunks, and -- where its switch is on -- an unlisted
     # all-caps word. They are an `elif` chain
@@ -255,7 +265,16 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
             # shipped ambiguous vocabulary carries no periods, so
             # nothing default changes.
             tags.add(SHAPE_ACRONYM_TAG)
-            if state.policy.unlisted_dotted_suffixes:
+            # rules/S3: "Paired initials are the exception, as C5 defines
+            # them, in a script that writes capitals" -- the shape
+            # tag alone, as with the switch off, so the trailing slots
+            # read them as a name word and report the fork; the comma
+            # restores the class tag where C5 reads them
+            # (decisions/S3 (#864)). Cased: a text with no case mapping
+            # is in a script without capitals ('พ.บ.').
+            if (state.policy.unlisted_dotted_suffixes
+                    and not (is_paired_initials(token.text)
+                             and token.text.upper() != token.text.lower())):
                 tags.add(AMBIGUOUS_ACRONYM_TAG)
         elif (state.policy.unlisted_caps_suffixes is CapsSuffixes.EVERYWHERE
                 and token.role is None
@@ -287,6 +306,16 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
             tags.add(SHAPE_ACRONYM_TAG)
             tags.add(AMBIGUOUS_ACRONYM_TAG)
     return frozenset(tags)
+
+
+#: The tags of a word that joins the word after it, which a delimiter
+#: glued to the word stands between (rules/C10). A particle's are among
+#: them though it also attaches backward (rules/P6): kept, it chained
+#: forward across the delimiter ('Berg, de; Smith' read family 'Berg de;
+#: Smith'), and blocking the forward joins alone would guard every site
+#: that reads the tag (decisions/C10).
+_JOINING_TAGS = frozenset({"particle", "conjunction",
+                           "vocab:particle-ambiguous", "vocab:bound-given"})
 
 
 def classify(state: ParseState) -> ParseState:
@@ -325,15 +354,47 @@ def classify(state: ParseState) -> ParseState:
     whole_one_case = one_case and (
         len(own) == len(state.tokens)
         or is_one_case([t.text for t in state.tokens]))
+    # rules/C10: "the word keeps the delimiter in its text and reads as
+    # it would without it" -- tagged as the word without it ('MD;' as
+    # 'MD'), so every reading that asks a word's vocabulary asks the
+    # stem's; only where the delimiter "stands after the first comma",
+    # a semicolon before it being a word (decisions/C10, D15)
+    readers = list(state.tokens)
+    stemmed: set[int] = set()
+    if state.comma_offsets:
+        policy_cores = state.policy.extra_suffix_delimiters
+        cores = (BUILTIN_SUFFIX_DELIMITERS if not policy_cores
+                 else delimiter_cores(policy_cores))
+        first = state.comma_offsets[0]
+        for i, t in enumerate(state.tokens):
+            text = t.text
+            if t.span.start < first:
+                continue
+            for core in cores:
+                if core in text:
+                    stem = glued_stem(text, cores)
+                    if stem is not None:
+                        readers[i] = copy_with(t, text=stem)
+                        folded[i] = _normalize(stem)
+                        stemmed.add(i)
+                    break
     tokens = tuple(
         copy_with(
-            t, tags=_tags_for(t, folded[i], state, marker_tags.get(i),
+            t, tags=_tags_for(readers[i], folded[i], state, marker_tags.get(i),
                               one_case_own=one_case and i < clause_at
                               and t.role is None, one_case=one_case,
                               letter_one_case=whole_one_case or (
                                   one_case and i < clause_at
                                   and t.role is None)))
         for i, t in enumerate(state.tokens))
+    # A word with a delimiter glued to it joins no neighbour across the
+    # delimiter, so the stem's joining tags stay off it: 'y;' is no
+    # connective to the word after it (rules/C10: "no join, maiden
+    # clause or connective reaches across it")
+    if stemmed:
+        tokens = tuple(
+            copy_with(t, tags=t.tags - _JOINING_TAGS) if i in stemmed else t
+            for i, t in enumerate(tokens))
     # Delimited content whose vocabulary cannot settle it: extract's
     # escape sends an UNambiguous suffix straight through ("(MBA)" ->
     # suffix) and keeps everything else as a nickname, so an AMBIGUOUS
@@ -372,14 +433,14 @@ def classify(state: ParseState) -> ParseState:
         # hands classify tokens it did not build; no such path exists
         # today. `conjunctions` is the clause doing real work: it keeps
         # an orphan marker (a conjunctions_ambiguous entry no longer in
-        # conjunctions) inert rather than reported (decisions/P3).
+        # conjunctions) inert rather than reported (decisions/P8).
         # `i < clause_at and token.role is None` mirrors the fork's own
         # "own words" test above, for the same reason (rules/P3): a
         # clause's words were never eligible for the fork, so they must
         # never be eligible to report either. Emitted at the decision
         # site (mechanisms.md#AMBIGUITY-AT-THE-DECISION-SITE), per
         # token -- 'e and e e' emits twice; assemble withdraws the
-        # report on a letter no name word follows (rules/P3, #721).
+        # report on a letter no name word follows (rules/P8, #721).
         if (one_case and "initial" in token.tags
                 and folded[i] in state.lexicon.conjunctions_ambiguous
                 and folded[i] in state.lexicon.conjunctions

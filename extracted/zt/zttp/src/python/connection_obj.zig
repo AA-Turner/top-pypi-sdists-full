@@ -698,8 +698,9 @@ const H2Engine = struct {
     /// Drain parked DATA that a freshly-parsed WINDOW_UPDATE / SETTINGS credit now
     /// permits. Called from next_event after such an event is produced.
     /// Auto-handle the connection-management frames RFC 9113 expects a peer to
-    /// answer without app involvement: ACK the peer's SETTINGS and PING, and
-    /// advertise consumed receive window via WINDOW_UPDATE. The serialized frames
+    /// answer without app involvement: ACK the peer's SETTINGS and PING, send the
+    /// RST_STREAM for a stream zttp rejected, and advertise consumed receive window
+    /// via WINDOW_UPDATE. The serialized frames
     /// land in the writer buffer for the next data_to_send.
     fn autoRespond(self: *H2Engine, ev: events.H2Event) core.h2.writer.WriteError!void {
         // Our own preface must be the first frame WE send (RFC 9113 3.4), so emit
@@ -711,6 +712,7 @@ const H2Engine = struct {
         switch (ev) {
             .settings => try self.writer.sendSettingsAck(),
             .ping => |p| if (!p.ack) try self.writer.sendPingAck(p.opaque_data),
+            .rst_stream => |r| if (r.local) try self.writer.sendRstStream(r.stream_id, @enumFromInt(r.error_code)),
             else => {},
         }
         // Advertise consumed receive window. Not gated on the .data event: a DATA
@@ -1887,10 +1889,11 @@ fn stream_pending_bytes_get(self_obj: ?*c.PyObject, _: ?*anyopaque) callconv(.c)
 fn stream_send_data(self_obj: ?*c.PyObject, arg: ?*c.PyObject) callconv(.c) py.Object {
     const self: *StreamObject = @ptrCast(self_obj.?);
     const e = self.engine() orelse return null;
-    const data = py.asBytes(arg) orelse return null;
+    var data = py.BorrowedBuffer.init(arg) orelse return null;
+    defer data.deinit();
     return switch (e) {
-        .h2 => |x| x.sendData(@intCast(self.stream_id), data),
-        .h3 => |x| x.sendData(self.stream_id, data),
+        .h2 => |x| x.sendData(@intCast(self.stream_id), data.bytes),
+        .h3 => |x| x.sendData(self.stream_id, data.bytes),
     };
 }
 
@@ -3005,9 +3008,10 @@ fn send_informational(self_obj: ?*c.PyObject, args: ?*c.PyObject) callconv(.c) p
 fn send_data(self_obj: ?*c.PyObject, arg: ?*c.PyObject) callconv(.c) py.Object {
     const self: *ConnectionObject = @ptrCast(self_obj.?);
     const e = h1(self) orelse return null; // HTTP/2 sends body via a Stream
-    const data = py.asBytes(arg) orelse return null;
+    var data = py.BorrowedBuffer.init(arg) orelse return null;
+    defer data.deinit();
     const w = e.ensureWriter() orelse return null;
-    w.sendData(data) catch |err| return raiseWrite(err);
+    w.sendData(data.bytes) catch |err| return raiseWrite(err);
     return py.none();
 }
 

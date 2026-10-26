@@ -17,12 +17,31 @@
 #include "slang/ast/types/NetType.h"
 #include "slang/syntax/AllSyntax.h"
 
+// A tag type that only serves as the source of the implicit conversion to Scope.
+// Its caster matches any symbol that is also a scope, which lets the conversion
+// be skipped (instead of attempted and failed) for all other symbols.
+struct ScopeSymbol {};
+
+namespace nanobind::detail {
+
+template<>
+struct type_caster<ScopeSymbol> {
+    static constexpr auto Name = const_name("Symbol");
+
+    bool from_python(handle src, uint8_t, cleanup_list*) noexcept {
+        const Symbol* symbol = nullptr;
+        return nb::try_cast(src, symbol, false) && symbol && symbol->isScope();
+    }
+};
+
+} // namespace nanobind::detail
+
 void registerSymbols(nb::module_& m) {
     EXPOSE_ENUM(m, SymbolKind);
     EXPOSE_ENUM(m, PulseStyleKind);
     EXPOSE_ENUM(m, SystemTimingCheckKind);
 
-    nb::enum_<LookupFlags>(m, "LookupFlags", nb::is_arithmetic())
+    nb::enum_<LookupFlags>(m, "LookupFlags", nb::is_arithmetic(), nb::is_flag())
         .value("None_", LookupFlags::None)
         .value("Type", LookupFlags::Type)
         .value("AllowDeclaredAfter", LookupFlags::AllowDeclaredAfter)
@@ -41,7 +60,7 @@ void registerSymbols(nb::module_& m) {
         .value("DisallowUnitReferences", LookupFlags::DisallowUnitReferences)
         .value("AllowUnnamedGenerate", LookupFlags::AllowUnnamedGenerate);
 
-    nb::enum_<LookupResultFlags>(m, "LookupResultFlags", nb::is_arithmetic())
+    nb::enum_<LookupResultFlags>(m, "LookupResultFlags", nb::is_arithmetic(), nb::is_flag())
         .value("None_", LookupResultFlags::None)
         .value("WasImported", LookupResultFlags::WasImported)
         .value("IsHierarchical", LookupResultFlags::IsHierarchical)
@@ -155,6 +174,16 @@ void registerSymbols(nb::module_& m) {
         });
 
     nb::class_<Scope>(m, "Scope")
+        .def(nb::new_([](const Symbol& symbol) {
+                 // Scope-derived symbols don't inherit from Scope on the Python side
+                 // (see the multiple-inheritance notes in pyslang.h), so this provides
+                 // the way to get at their Scope base: a non-owning view that keeps
+                 // the symbol it came from alive.
+                 if (!symbol.isScope())
+                     throw nb::type_error("Symbol is not a Scope");
+                 return nb::cast(&symbol.as<Scope>(), byrefint, nb::cast(&symbol));
+             }),
+             "symbol"_a)
         .def_prop_ro("compilation", &Scope::getCompilation)
         .def_prop_ro("defaultNetType", &Scope::getDefaultNetType)
         .def_prop_ro("timeScale", &Scope::getTimeScale)
@@ -198,6 +227,10 @@ void registerSymbols(nb::module_& m) {
                                                                    members.end());
             },
             nb::keep_alive<0, 1>());
+
+    // Allow any symbol that is also a scope to be passed directly to functions
+    // expecting a Scope argument; the conversion goes through Scope.__new__ above.
+    nb::implicitly_convertible<ScopeSymbol, Scope>();
 
     nb::class_<AttributeSymbol, Symbol>(m, "AttributeSymbol")
         .def_prop_ro("value", &AttributeSymbol::getValue);
@@ -270,7 +303,7 @@ void registerSymbols(nb::module_& m) {
         .def_prop_ro("pathSource", &SpecparamSymbol::getPathSource)
         .def_prop_ro("pathDest", &SpecparamSymbol::getPathDest);
 
-    nb::enum_<VariableFlags>(m, "VariableFlags", nb::is_arithmetic())
+    nb::enum_<VariableFlags>(m, "VariableFlags", nb::is_arithmetic(), nb::is_flag())
         .value("None_", VariableFlags::None)
         .value("Const", VariableFlags::Const)
         .value("CompilerGenerated", VariableFlags::CompilerGenerated)
@@ -325,7 +358,7 @@ void registerSymbols(nb::module_& m) {
         .def_ro("visibility", &ClassPropertySymbol::visibility)
         .def_ro("randMode", &ClassPropertySymbol::randMode);
 
-    nb::enum_<MethodFlags>(m, "MethodFlags", nb::is_arithmetic())
+    nb::enum_<MethodFlags>(m, "MethodFlags", nb::is_arithmetic(), nb::is_flag())
         .value("None_", MethodFlags::None)
         .value("Virtual", MethodFlags::Virtual)
         .value("Pure", MethodFlags::Pure)

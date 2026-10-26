@@ -24,6 +24,7 @@ from schemathesis.core.error_feedback.store import (
 )
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, ContentTypeServerError, FailureGroup
+from schemathesis.core.file_samples import file_extension
 from schemathesis.core.parameters import LOCATION_TO_CONTAINER, ParameterLocation
 from schemathesis.generation.coverage import GenerationSession
 from schemathesis.generation.meta import CONTENT_TYPE_PROBES, REQUEST_SHAPE_PROBES, CoverageScenario, TestPhase
@@ -3130,61 +3131,39 @@ def test_unexpected_methods_respect_disabled_operations(ctx, cli):
 
 
 @pytest.mark.parametrize(
-    ("uid_type", "rule", "probed"),
+    ("uid_type", "probed"),
     [
-        ("string", "/items/<uid>", {"DELETE", "OPTIONS", "POST", "PUT", "TRACE", "QUERY"}),
-        ("integer", "/items/<int:uid>", {"DELETE", "OPTIONS", "PATCH", "POST", "PUT", "TRACE", "QUERY"}),
+        ("string", {"DELETE", "OPTIONS", "POST", "PUT", "TRACE", "QUERY"}),
+        ("integer", {"DELETE", "OPTIONS", "PATCH", "POST", "PUT", "TRACE", "QUERY"}),
     ],
     ids=["segment-fits-parameter", "segment-violates-parameter"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_unexpected_methods_skip_methods_declared_by_templated_sibling(ctx, cli, snapshot_cli, uid_type, rule, probed):
-    item = {
-        "get": {"responses": {"200": {"description": "OK"}}},
-        "patch": {"responses": {"200": {"description": "OK"}}},
-    }
-    app, _ = ctx.openapi.make_flask_app(
+def test_unexpected_methods_skip_methods_declared_by_templated_sibling(ctx, uid_type, probed):
+    schema = ctx.openapi.load_schema(
         {
             "/items/headers": {"get": {"responses": {"200": {"description": "OK"}}}},
             "/items/{uid}": {
                 "parameters": [{"name": "uid", "in": "path", "required": True, "schema": {"type": uid_type}}],
-                **item,
+                "get": {"responses": {"200": {"description": "OK"}}},
+                "patch": {"responses": {"200": {"description": "OK"}}},
             },
         }
     )
-
-    @app.route("/items/headers", methods=["GET"])
-    def headers():
-        return "", 200
-
-    @app.route(rule, methods=["GET", "PATCH"])
-    def item_by_uid(uid):
-        return "", 404
-
-    assert (
-        cli.run_openapi_app(app, "--phases=coverage", "--checks=unsupported_method", "--max-examples=5") == snapshot_cli
-    )
-    assert {request.method for request in app.config["captured_requests"] if request.path == "/items/headers"} == {
-        "GET",
-        *probed,
-    }
+    assert {case.method for case in _unspecified_method_cases(schema["/items/headers"]["GET"])} == probed
 
 
 @pytest.mark.parametrize(
-    ("sub_type", "rule", "probed"),
+    ("sub_type", "probed"),
     [
-        ("string", "/items/<id>/<sub>", {"DELETE", "OPTIONS", "POST", "PUT", "TRACE", "QUERY"}),
-        ("integer", "/items/<id>/<int:sub>", {"DELETE", "OPTIONS", "PATCH", "POST", "PUT", "TRACE", "QUERY"}),
+        ("string", {"DELETE", "OPTIONS", "POST", "PUT", "TRACE", "QUERY"}),
+        ("integer", {"DELETE", "OPTIONS", "PATCH", "POST", "PUT", "TRACE", "QUERY"}),
     ],
     ids=["segment-fits-parameter", "segment-violates-parameter"],
 )
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_unexpected_methods_skip_methods_declared_by_partly_templated_sibling(
-    ctx, cli, snapshot_cli, sub_type, rule, probed
-):
+def test_unexpected_methods_skip_methods_declared_by_partly_templated_sibling(ctx, sub_type, probed):
     id_parameter = {"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}
     sub_parameter = {"name": "sub", "in": "path", "required": True, "schema": {"type": sub_type}}
-    app, _ = ctx.openapi.make_flask_app(
+    schema = ctx.openapi.load_schema(
         {
             "/items/{id}/headers": {
                 "parameters": [id_parameter],
@@ -3197,22 +3176,8 @@ def test_unexpected_methods_skip_methods_declared_by_partly_templated_sibling(
             },
         }
     )
-
-    @app.route("/items/<id>/headers", methods=["GET"])
-    def headers(id):
-        return "", 200
-
-    @app.route(rule, methods=["GET", "PATCH"])
-    def item_part(id, sub):
-        return "", 404
-
-    assert (
-        cli.run_openapi_app(app, "--phases=coverage", "--checks=unsupported_method", "--max-examples=5") == snapshot_cli
-    )
-    assert {request.method for request in app.config["captured_requests"] if request.path.endswith("/headers")} == {
-        "GET",
-        *probed,
-    }
+    operation = schema["/items/{id}/headers"]["GET"]
+    assert {case.method for case in _unspecified_method_cases(operation)} == probed
 
 
 def test_unexpected_methods_ignore_invalid_operation_on_templated_sibling(ctx):
@@ -3490,8 +3455,13 @@ def test_urlencoded_payloads_are_valid(ctx):
     run_test(operation, test)
 
 
-def test_malformed_content_type(ctx):
-    operation = body_operation(ctx, {"type": "object"}, media_type="invalid")
+@pytest.mark.parametrize(
+    "schema",
+    [{"type": "object"}, {"type": "string", "format": "binary"}],
+    ids=["object", "binary"],
+)
+def test_malformed_content_type(ctx, schema):
+    operation = body_operation(ctx, schema, media_type="invalid")
 
     def test(case):
         if case.meta.phase != TestPhase.COVERAGE:
@@ -8118,10 +8088,22 @@ def test_body_example_is_dropped_when_an_inferred_bound_contradicts_it(ctx, mini
     assert ({"name": "ab"} in bodies) is keeps_example
 
 
-def test_multipart_template_body_built_from_custom_property_encodings(ctx):
+@pytest.mark.parametrize("declared", ["inline", "ref"])
+def test_multipart_template_body_built_from_custom_property_encodings(ctx, declared):
     # A property with a registered `encoding.contentType` draws from that strategy; other required
     # properties get plain fillers so the multipart template stays complete.
     schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
+    upload = {
+        "type": "object",
+        "properties": {
+            "file": {"type": "string", "format": "binary"},
+            # Keeps a referenced body bundled with a `$ref` at its root
+            "note": {"$ref": "#/components/schemas/Note"},
+            "name": {"type": "string"},
+            "avatar": {"$ref": "#/components/schemas/Bin"},
+        },
+        "required": ["file", "name", "avatar"],
+    }
     operation = load_schema(
         ctx,
         parameters=[{"name": "q", "in": "query", "schema": {"type": "string", "enum": ["a", "b"]}}],
@@ -8129,22 +8111,17 @@ def test_multipart_template_body_built_from_custom_property_encodings(ctx):
             "required": True,
             "content": {
                 "multipart/form-data": {
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "file": {"type": "string", "format": "binary"},
-                            "note": {"type": "string"},
-                            "name": {"type": "string"},
-                        },
-                        "required": ["file", "name"],
-                    },
+                    "schema": upload if declared == "inline" else {"$ref": "#/components/schemas/Upload"},
                     "encoding": {"file": {"contentType": "image/png"}},
                 }
             },
         },
+        components={
+            "schemas": {"Upload": upload, "Note": {"type": "string"}, "Bin": {"type": "string", "format": "binary"}}
+        },
     )["/foo"]["post"]
     bodies = [case.body for case in iter_cases(operation, GenerationMode.POSITIVE)]
-    assert {"file": b"\x89PNG", "name": ""} in bodies, bodies[:5]
+    assert {"file": b"\x89PNG", "name": "", "avatar": b""} in bodies, bodies[:5]
 
 
 def test_body_examples_mismatching_schema_do_not_suppress_positive_generation(ctx):
@@ -8176,6 +8153,32 @@ def test_body_examples_mismatching_schema_do_not_suppress_positive_generation(ct
     scenarios = {c.meta.phase.data.scenario for c in cases}
     assert CoverageScenario.VALID_OBJECT in scenarios, scenarios
     assert CoverageScenario.INVALID_ENUM_VALUE in scenarios, scenarios
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        {"type": "object"},
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+            "additionalProperties": False,
+        },
+    ],
+    ids=["loose", "strict"],
+)
+def test_body_list_examples_are_unwrapped(ctx, schema):
+    operation = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {"application/json": {"schema": schema, "examples": [{"value": {"name": "marker"}}]}},
+        },
+    )["/foo"]["post"]
+    bodies = [case.body for case in iter_cases(operation, GenerationMode.POSITIVE)]
+    assert {"name": "marker"} in bodies, bodies
+    assert not any(isinstance(body, list) or (isinstance(body, dict) and "value" in body) for body in bodies), bodies
 
 
 def test_object_parameter_example_out_of_range_as_float32_is_not_a_positive_value(ctx):
@@ -8260,6 +8263,27 @@ def test_wildcard_custom_media_type_alternatives_yield_matching_bodies(ctx):
         ("image/png", b"\x89PNG"),
         ("image/jpeg", b"\xff\xd8jpeg"),
     ]
+
+
+@pytest.mark.parametrize(
+    ("declared", "expected"),
+    [
+        ("image/jpeg", [("image/jpeg", "jpg")]),
+        ("image/*", [("image/gif", "gif"), ("image/jpeg", "jpg"), ("image/png", "png"), ("image/webp", "webp")]),
+    ],
+    ids=["jpeg", "wildcard"],
+)
+def test_built_in_image_media_types_yield_matching_files(ctx, declared, expected):
+    operation = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {declared: {"schema": {"type": "string", "format": "binary"}}},
+        },
+    )["/foo"]["post"]
+    assert [
+        (case.media_type, file_extension(case.body.data)) for case in iter_cases(operation, GenerationMode.POSITIVE)
+    ] == expected
 
 
 def test_custom_media_type_body_emits_no_positive_case_in_negative_mode(ctx):

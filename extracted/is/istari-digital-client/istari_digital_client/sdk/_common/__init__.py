@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from istari_digital_client.sdk._common.branches import Branches
 from istari_digital_client.sdk._common.change_requests import ChangeRequests
+from istari_digital_client.sdk._common.credential_types import Credential
+from istari_digital_client.sdk._common.credentials import Credentials
 from istari_digital_client.sdk._common.job_types import Job
 from istari_digital_client.sdk._common.jobs import Jobs
 from istari_digital_client.sdk._common.resources import Resources
@@ -17,6 +19,8 @@ __all__ = [
     "Branches",
     "ChangeRequest",
     "ChangeRequests",
+    "Credential",
+    "Credentials",
     "Job",
     "Jobs",
     "Resources",

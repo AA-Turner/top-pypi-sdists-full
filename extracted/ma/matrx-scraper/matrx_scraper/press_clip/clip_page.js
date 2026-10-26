@@ -520,7 +520,7 @@
   const isAdSlotSize = (r) => photoRules.adSlotSizes.some(([w, h]) =>
     Math.abs(r.width - w) <= photoRules.adSlotTolerancePx && Math.abs(r.height - h) <= photoRules.adSlotTolerancePx);
 
-  // --- is the client's name in the text as whole words? ("Coach" is not in "Coaching") ---
+  // --- is the brand's name in the text as whole words? ("Coach" is not in "Coaching") ---
   function textHasWholeName(text, name) {
     const want = norm(name).toLowerCase();
     if (!want) return false;
@@ -534,7 +534,7 @@
     const outlet = outletName();
     const rootOverrideMatched = !!(o.root && document.querySelector(o.root));
     const articleRoot = pickContainer(o.root);
-    const clientFound = textHasWholeName(articleRoot.innerText, o.clientName);
+    const brandFound = textHasWholeName(articleRoot.innerText, o.brandName);
 
     const protectedEls = new Set();
     (o.keep || []).forEach((sel) => {
@@ -650,7 +650,7 @@
       root_override_matched: o.root ? rootOverrideMatched : null,
       removed_placeholders: removed,
       section_applied: sectionApplied,
-      client_found_in_text: clientFound,
+      brand_found_in_text: brandFound,
       invalid_selectors: invalidDrop,
       article_text_length: txtLen(articleRoot),
     };

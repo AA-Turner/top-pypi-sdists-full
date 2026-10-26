@@ -454,7 +454,10 @@ class RemovableIgnore:
     """The function's cognitive complexity measured without the ignore comment."""
 
 def code_complexity(
-    code: str, check_script: bool = False, no_ignore: bool = False
+    code: str,
+    check_script: bool = False,
+    no_ignore: bool = False,
+    with_plans: bool = True,
 ) -> CodeComplexity:
     """
     Analyze cognitive complexity of Python code provided as a string.
@@ -472,13 +475,17 @@ def code_complexity(
         code: A string containing valid Python source code. The code should
               be properly formatted and syntactically correct. Syntax errors
               will cause the analysis to fail.
+        check_script: Also report module-level code as a '<module>' entry.
+        no_ignore: Disregard inline ignore comments.
+        with_plans: Build refactor plans. When False, every
+                    'refactor_plans' list is empty.
 
     Returns:
         CodeComplexity object containing the analysis results, including
         individual function complexity scores and total complexity.
 
     Raises:
-        SyntaxError: If the provided code string contains invalid Python syntax.
+        ValueError: If the code does not parse, or on an internal error.
 
     Example:
         >>> code_sample = '''
@@ -511,6 +518,7 @@ def file_complexity(
     base_path: str,
     check_script: bool = False,
     no_ignore: bool = False,
+    with_plans: bool = True,
 ) -> FileComplexity:
     """
     Analyze cognitive complexity of a single Python source file.
@@ -531,16 +539,18 @@ def file_complexity(
                    in the analysis results. This is typically the project
                    root directory and affects the 'path' field in the
                    returned FileComplexity object.
+        check_script: Also report module-level code as a '<module>' entry.
+        no_ignore: Disregard inline ignore comments.
+        with_plans: Build refactor plans. When False, every
+                    'refactor_plans' list is empty.
 
     Returns:
         FileComplexity object containing complete analysis results for the
         file, including all functions found and their complexity scores.
 
     Raises:
-        FileNotFoundError: If the specified file_path does not exist.
-        PermissionError: If the file cannot be read due to permissions.
-        SyntaxError: If the Python file contains syntax errors.
-        UnicodeDecodeError: If the file cannot be decoded as text.
+        ValueError: If the file cannot be read, is not UTF-8 text, or does
+            not parse, or on an internal error.
 
     Example:
         >>> # Analyze a specific file
@@ -568,12 +578,18 @@ def run_cli(argv: List[str], invocation_path: Optional[str] = None) -> int:
 
     Args:
         argv: Command-line arguments, excluding the program name.
-        invocation_path: Working directory for the run; defaults to the
-            current working directory.
+        invocation_path: Directory whose configuration file the run reads,
+            and under which it writes the cache, the snapshot, and the
+            reports; defaults to the current working directory. Relative
+            paths to analyze resolve against the process working
+            directory.
 
     Returns:
         Process exit code: 0 on success, 1 on gate failure, 2 on usage
         errors.
+
+    Raises:
+        RuntimeError: On an internal error.
     """
     ...
 
@@ -589,6 +605,9 @@ def run_lsp() -> int:
 
     Returns:
         Process exit code: 0 after a clean shutdown, 1 otherwise.
+
+    Raises:
+        RuntimeError: On an internal error.
     """
     ...
 
@@ -600,9 +619,11 @@ def compute_diff(
     """
     Compare the current complexity results against *git_ref*.
 
-    For each file in *current_files*, retrieves the file's content at
-    *git_ref* using ``git show`` and re-analyses it. Functions that
-    appear only in one version are marked NEW / REMOVED.
+    For each file in *current_files* that is a regular file at
+    *git_ref*, retrieves its content there using ``git cat-file`` and
+    re-analyses it. A file that is not, such as a symbolic link at
+    *git_ref*, has no old version. Functions that appear only in one
+    version are marked NEW / REMOVED.
 
     Args:
         current_files: Complexity results of the current analysis.
@@ -614,6 +635,9 @@ def compute_diff(
         List of DiffEntry objects, one per function that changed or is
         new/removed. Unchanged functions are included so callers can
         choose how to filter.
+
+    Raises:
+        ValueError: On an internal error.
     """
     ...
 
@@ -649,19 +673,25 @@ def collect_all_ignored_locations(
     This is the backend for the --report-ignored CLI flag.
 
     Args:
-        paths: List of file paths, directory paths, or Git repository URLs.
+        paths: List of file and directory paths.
         exclude: List of file/directory paths or globs to exclude from scanning.
-        invocation_path: Working directory for resolving relative paths.
+        invocation_path: Directory that returned paths inside it are
+            relative to, and that exclude patterns also match against.
+            Relative paths to scan resolve against the process working
+            directory.
 
     Returns:
         A tuple of (ignored_locations, failed_paths) where:
         - ignored_locations: List of IgnoredLocation objects, sorted by (path, line).
         - failed_paths: List of paths that could not be processed.
 
+    Raises:
+        ValueError: On an internal error.
+
     Example:
         >>> locations, failed = collect_all_ignored_locations(
         ...     paths=["/project/src"],
-        ...     exclude=["tests/"],
+        ...     exclude=["tests/**"],
         ... )
         >>> for loc in locations:
         ...     print(f"{loc.path}:{loc.line}  {loc.comment}")
@@ -687,21 +717,27 @@ def collect_removable_ignored_locations(
     equal to `max_complexity_allowed`.
 
     Args:
-        paths: List of file paths, directory paths, or Git repository URLs.
+        paths: List of file and directory paths.
         exclude: List of file/directory paths or globs to exclude from scanning.
         max_complexity_allowed: Complexity threshold; markers suppressing
             functions at or below this value are reported as removable.
-        invocation_path: Working directory for resolving relative paths.
+        invocation_path: Directory that returned paths inside it are
+            relative to, and that exclude patterns also match against.
+            Relative paths to scan resolve against the process working
+            directory.
 
     Returns:
         A tuple of (removable_ignores, failed_paths) where:
         - removable_ignores: List of RemovableIgnore objects, sorted by (path, line).
         - failed_paths: List of paths that could not be processed.
 
+    Raises:
+        ValueError: On an internal error.
+
     Example:
         >>> removable, failed = collect_removable_ignored_locations(
         ...     paths=["/project/src"],
-        ...     exclude=["tests/"],
+        ...     exclude=["tests/**"],
         ...     max_complexity_allowed=15,
         ... )
         >>> for rem in removable:

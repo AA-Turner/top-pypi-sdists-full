@@ -10,13 +10,14 @@ request (`machine_kernels`).
 
 The builder is `python -m cozy_runtime.internal.kernel_compile` under the caller's own
 interpreter and import path, so an extension builds against the torch that will import it. It
-inherits the key's lock, runs at nice 19, and is ended only on a PROVEN wedge (`liveness`):
-every compiler on the machine stopped burning CPU and writing output, against its own
-observed pace. Each of its compiler jobs is admitted by the machine's compile ledger
-(`compiler_job`), within the CPUs and the memory each job is measured to take.
-A failure is recorded in the machine run's scratch scope (`TMPDIR`), which the next run starts
-without, and under this Runtime's build: another Runtime, which may have fixed the builder, tries
-the key again.
+inherits the key's lock, runs at nice 19, and ends only by its own exit: nothing kills a build
+for going quiet. A wait shows the builder's word (phase, share done, CPU) and wakes at its
+exit (the key's lock frees) or the waiter's cancel, never on a clock. Each of its compiler jobs
+is admitted by the machine's compile ledger (`compiler_job`), within the CPUs and the memory
+each job is measured to take, and a job waiting there wakes at an admitted one's exit. Only
+the builder records a failure, in the machine run's scratch scope (`TMPDIR`), which the next
+run starts without, and under this Runtime's build: another Runtime, which may have fixed the
+builder, tries the key again.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ import contextlib
 import json
 import os
 import re
+import selectors
 import signal
 import subprocess
 import sys
@@ -44,8 +46,7 @@ from cozy_runtime import __version__
 from cozy_runtime._build_provenance import COMMIT
 from cozy_runtime._cpus import cpus
 from cozy_runtime.author import _request_path as request_path
-from cozy_runtime.author import _work as work
-from cozy_runtime.internal import config, filelock, kernel_cache, liveness, proctree
+from cozy_runtime.internal import config, filelock, kernel_cache, proctree
 
 #: kind -> the `module:function` a builder runs: `build(spec, staging, report) -> facts`. The
 #: function fills `staging` (an `object` file, a `site/` tree, or nothing when the artifact
@@ -55,6 +56,7 @@ BUILDERS = {
     "python": "cozy_runtime.internal.kernel_sources:build_python",
     "sol": "cozy_runtime.internal.attention_sol:build",
     "triton": "cozy_runtime.internal.triton_kernels:build",
+    "triton-warm": "cozy_runtime.internal.triton_kernels:build_warm",
 }
 _BOOT = (
     "import json, sys; boot = json.loads(sys.argv.pop(1)); sys.path[:] = boot['path']; "
@@ -121,8 +123,8 @@ class State:
 #: clock, and a dead one's failure is on record before its key is read again.
 _STARTED: dict[str, tuple[subprocess.Popen[bytes], threading.Thread]] = {}
 _GUARD = threading.Lock()
-#: How often a wait reads the state it waits on: resolution, never a verdict.
-POLL_SECONDS = 0.5
+#: How often a wait tells its waiter the builder's word.
+TELL_SECONDS = 5.0
 #: How often a builder tells the CPU it used, while it moves.
 REPORT_SECONDS = 1.0
 #: Told the state a wait reads, each sample, named for its waiter: an executor reports it to
@@ -131,16 +133,13 @@ waiting: Callable[[State], None] | None = None
 told: ContextVar[bool] = ContextVar("cozy_compile_told", default=True)
 
 
-def _sleep(seconds: float) -> bool:
-    time.sleep(seconds)
-    return False
-
-
-#: How a request's executor holds each compile wait it makes, named for its waiter: around the
-#: wait, giving the sleep its polls take, which wakes at the request's cancel and says whether
-#: it came. The wait then ends `Canceled`, and its build goes on for later requests.
-held: ContextVar[Callable[[str], AbstractContextManager[Callable[[float], bool]]]] = ContextVar(
-    "cozy_compile_held", default=lambda waiter: contextlib.nullcontext(_sleep)
+#: How a request's executor holds each compile wait it makes, named for its waiter and given its
+#: wake: around the wait, giving what says whether the request was canceled, and calling the wake
+#: at its cancel. The wait then ends `Canceled`, and its build goes on for later requests.
+held: ContextVar[
+    Callable[[str, Callable[[], None]], AbstractContextManager[Callable[[], bool]]]
+] = ContextVar(
+    "cozy_compile_held", default=lambda waiter, wake: contextlib.nullcontext(lambda: False)
 )
 
 
@@ -193,65 +192,44 @@ def submit(store: kernel_cache.Store, job: Job) -> State:
 
 
 def wait(store: kernel_cache.Store, job: Job, waiter: str = "") -> State:
-    """`submit`, then its build's end: `ready`, or `failed` and why. Judged by measured progress
-    alone (`liveness`): while any build on this machine moves, the wait goes on; when they have
-    all stopped, against their own pace, it ends `failed` for this machine run, and the
-    builder's owner ends the builder by the same rule. `waiting` hears each sample under
-    `waiter`'s name (the kernel a request asked for), else the artifact's; `held` holds it."""
+    """`submit`, then its build's end: `ready`, or `failed` and why, as only the builder records
+    it. It wakes when the key's lock frees (`Store.released`: the builder's exit; one that exits
+    without a result lets `submit` start another) or the waiter's cancel ends it. The wait never
+    judges the build: `waiting` hears the builder's word each `TELL_SECONDS` under `waiter`'s
+    name (the kernel a request asked for), else the artifact's; `held` holds it."""
     state = submit(store, job)
     if state.state != "compiling":
         return state
     name = waiter or state.kernel
-    pace, sampled, reported = liveness.Pace(), float("-inf"), None
-    with request_path.forbid(f"kernel build wait: {name}"), held.get()(name) as sleep:
+    woke = threading.Event()
+    freed: threading.Event | None = None
+    with request_path.forbid(f"kernel build wait: {name}"), held.get()(name, woke.set) as canceled:
         while state.state == "compiling":
-            now = time.monotonic()
-            if now - sampled >= liveness.SAMPLE_SECONDS:
-                sampled = now
-                if waiting is not None and told.get():
-                    waiting(replace(state, kernel=name))
-                # The call waiting moves as its builder says it moves (cl-648): its share done
-                # and its own CPU, which a sandboxed executor cannot read from its processes.
-                words = _words(store)
-                if words != reported:
-                    reported = words
-                    work.done += 1
-                pace.observe(_activity(words), now)
-                if pace.wedged(liveness.noise_floor(), now):
-                    verdict = pace.verdict(liveness.noise_floor(), now)
-                    _record_failure(job.key, "compile_stalled", verdict)
-                    return status(store, job)
-            if sleep(POLL_SECONDS):
+            if waiting is not None and told.get():
+                waiting(replace(state, kernel=name))
+            if freed is None or freed.is_set():
+                freed = _released(store, job.key, woke.set)
+            woke.wait(TELL_SECONDS)
+            woke.clear()
+            if canceled():
                 raise Canceled(f"canceled waiting for {name} to compile; the compile goes on")
             state = submit(store, job)
     return state
 
 
-def _words(store: kernel_cache.Store) -> tuple[str, ...]:
-    """Every live build's word in this machine's store: its phase, share done and own CPU."""
-    words: list[str] = []
-    for namespace in (store.own, store.trusted):
-        for path in sorted(namespace.glob("*/*.state.json")) if namespace is not None else ():
-            with contextlib.suppress(OSError):
-                words.append(path.read_text())
-    return tuple(words)
+def _released(
+    store: kernel_cache.Store, key: kernel_cache.Key, wake: Callable[[], None]
+) -> threading.Event:
+    """Set, and `wake` called, once no builder holds `key`'s lock: its builder's exit."""
+    freed = threading.Event()
 
+    def watch() -> None:
+        store.released(key)
+        freed.set()
+        wake()
 
-def _activity(words: tuple[str, ...]) -> object:
-    """The meter a wait is judged by: the builders' words, and the CPU and bytes their process
-    trees have burned. None when no builder's burn is readable."""
-    pids: set[int] = set()
-    for word in words:
-        with contextlib.suppress(ValueError, AttributeError):
-            pid = json.loads(word).get("pid")
-            if type(pid) is int:
-                pids.add(pid)
-    try:
-        tree = {member for pid in pids for member in (pid, *proctree.descendants(pid))}
-    except proctree.ProcessTreeUnsupported:
-        return None
-    burns = [burned for member in tree if (burned := liveness.burn(member)) is not None]
-    return (words, sum(burns)) if burns else None
+    threading.Thread(target=watch, name=f"kernel-wait-{key.kernel}", daemon=True).start()
+    return freed
 
 
 def learn(store: kernel_cache.Store, scope: str, job: Job) -> None:
@@ -458,8 +436,9 @@ def _admits(book: dict[str, Any], job_bytes: int) -> bool:
 
 
 def compiler_job(path: str, key: str, job_bytes: int, compiler: str) -> None:
-    """A build's compiler, through the ledger at `path`: it waits until admitted, then this
-    process becomes the compiler, on record until it exits. `sys.argv[1:]` are its arguments."""
+    """A build's compiler, through the ledger at `path`: it waits until admitted, woken by an
+    admitted job's exit (its pidfd), then this process becomes the compiler, on record until it
+    exits. `sys.argv[1:]` are its arguments."""
     pid = str(os.getpid())
     with contextlib.suppress(OSError):  # an unwritable ledger admits every job
         while True:
@@ -467,16 +446,22 @@ def compiler_job(path: str, key: str, job_bytes: int, compiler: str) -> None:
                 if _admits(book, job_bytes):
                     book["jobs"][pid] = {"key": key, "bytes": job_bytes}
                     break
-            time.sleep(POLL_SECONDS)
+                exits = []
+                for job in book["jobs"]:
+                    with contextlib.suppress(ProcessLookupError):  # ended since: look again
+                        exits.append(
+                            proctree.observe_process_exit(proctree.process_identity(int(job)))
+                        )
+            try:
+                with selectors.DefaultSelector() as selector:
+                    for observer in exits:
+                        selector.register(observer.descriptor, selectors.EVENT_READ)
+                    if exits:
+                        selector.select()
+            finally:
+                for observer in exits:
+                    observer.close()
     os.execv(compiler, [compiler, *sys.argv[1:]])
-
-
-def compilers(path: Path) -> set[int]:
-    """The machine's admitted compiler jobs: a build waiting its turn is judged by theirs."""
-    try:
-        return {int(pid) for pid in json.loads(path.read_text()).get("jobs", {})}
-    except (OSError, ValueError, AttributeError):
-        return set()
 
 
 @request_path.forbid("kernel build: compiler")
@@ -486,13 +471,11 @@ def run(
     cwd: Path,
     env: Mapping[str, str],
     report: Callable[[float], None],
-    alongside: Callable[[], set[int]] = set,
 ) -> str:
-    """Run one compiler command to completion; return its output's tail.
+    """Run one compiler command to its exit; return its output's tail.
 
-    Progress is ninja's `[done/total]`. The command runs in its own session so a proven wedge
-    ends its whole tree: the meter is the tree's CPU and bytes moved plus the output it wrote,
-    judged against its own longest pause (`liveness.Pace`), never against a clock."""
+    Progress is ninja's `[done/total]`. The command runs in its own session, and whatever of its
+    tree outlives it is ended with it, so its output reaches its end."""
     process = subprocess.Popen(
         list(argv),
         cwd=cwd,
@@ -528,21 +511,9 @@ def run(
 
     reader = threading.Thread(target=drain, daemon=True)
     reader.start()
-    pace = liveness.Pace()
-    while True:
-        try:
-            process.wait(timeout=liveness.SAMPLE_SECONDS)
-            break
-        except subprocess.TimeoutExpired:
-            pass
-        tree = {process.pid, *proctree.descendants(process.pid), *alongside()}
-        burns = [liveness.burn(pid) for pid in tree]
-        pace.observe((sum(b for b in burns if b is not None), written[0]))
-        if pace.wedged(liveness.noise_floor()):
-            with contextlib.suppress(ProcessLookupError):
-                os.killpg(process.pid, signal.SIGKILL)
-            process.wait()
-            raise CompileFailed("compile_stalled", pace.verdict(liveness.noise_floor()))
+    process.wait()
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(process.pid, signal.SIGKILL)
     reader.join()
     output = b"".join(tail).decode(errors="replace")
     if process.returncode:
@@ -558,7 +529,9 @@ class Word:
     moves as the word does, so one long entry (a Triton GEMM) still says it builds, to a
     sandboxed executor that cannot read the builder's processes (cl-648)."""
 
-    def __init__(self, store: kernel_cache.Store, key: kernel_cache.Key, started_unix_ms: int) -> None:
+    def __init__(
+        self, store: kernel_cache.Store, key: kernel_cache.Key, started_unix_ms: int
+    ) -> None:
         self.store, self.key = store, key
         self.word: dict[str, object] = {"pid": os.getpid(), "started_unix_ms": started_unix_ms}
         self.last, self.lock, self.built = (-1.0, ""), threading.Lock(), threading.Event()

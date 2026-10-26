@@ -130,6 +130,17 @@ def test_bic_prefers_exact_institution_entry(monkeypatch: pytest.MonkeyPatch) ->
     assert bic.bank_short_names == []
 
 
+@pytest.mark.parametrize(
+    ("code", "bank_codes"), [("REVOFRP2XXX", ["28233"]), ("TRWIGB22XXX", ["TRWI"])]
+)
+def test_bic_domestic_bank_codes_not_shadowed_by_foreign_registry(
+    code: str, bank_codes: list[str]
+) -> None:
+    # Both are also listed in the Lithuanian registry under a Lithuanian bank code (#242).
+    assert BIC(code).domestic_bank_codes == bank_codes
+    assert BIC(code[:8]).domestic_bank_codes == bank_codes
+
+
 @pytest.mark.parametrize("code", ["MARKDEF1", "ABNAJPJT", "COBADEF"])
 def test_bic_without_institution_or_xxx_record(code: str) -> None:
     bic = BIC(code, allow_invalid=True)
@@ -225,13 +236,17 @@ def test_bic_structure_is_validated_over_full_string() -> None:
         ("FR", "18719", "BFCORERXXXX"),  # head office, not the Mayotte branch
         ("FR", "30077", "SMCTFR2A"),
         ("FR", "13489", "NORDFRPP"),
+        ("GE", "BG", "BAGAGE22"),
         ("HU", "107", "CIBHHUHB"),
         ("HR", "2485003", "CROAHR2X"),
         ("IT", "01015", "SARDIT31"),  # generated
         ("IT", "01030", "PASCITMM"),  # curated
         ("LV", "RIKO", "RIKOLV2XXXX"),
         ("MC", "30003", "SOGEMCM1"),
+        ("ME", "907", "CBCGMEPG"),
+        ("MT", "CFTE", "CFTEMTM1"),
         ("NL", "ADYB", "ADYBNL2A"),
+        ("PK", "UNIL", "UNILPKKA"),
         ("PL", "10100055", "NBPLPLPWXXX"),
         ("PL", "10900004", "WBKPPLPPXXX"),
         ("RO", "BPOS", "BPOSROBU"),
@@ -362,6 +377,12 @@ def test_pydantic_protocol() -> None:
 
     dumped = model.model_dump_json()
     assert dumped == '{"bic":"GENODEM1GLS"}'
+
+    from schwifty import bic as bic_module
+
+    schema = Model.model_json_schema()
+    pattern = schema["properties"]["bic"]["pattern"]
+    assert pattern == bic_module._bic_iso9362_re.pattern
 
     loaded = Model.model_validate_json(dumped)
     assert loaded == model

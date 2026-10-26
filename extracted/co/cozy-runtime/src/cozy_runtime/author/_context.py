@@ -44,6 +44,21 @@ class Device:
         return self.type if self.index is None else f"{self.type}:{self.index}"
 
 
+_PLACED: list[Device] = [Device()]
+
+
+def device() -> Device:
+    """This process's device, the one every model, call and placement here uses: its GPU (a
+    group rank's own), MPS, or the CPU where none is present. A package never picks one; reading
+    it is not a door. The CPU until an executor names it."""
+    return _PLACED[0]
+
+
+def place(placed: Device) -> None:
+    """The executor names its device once its accelerator is up (`device()`)."""
+    _PLACED[0] = placed
+
+
 @dataclass(frozen=True, slots=True)
 class AdapterRef:
     """One entry of the applied stack. Gates read `kind`, NEVER `ref` (§1.4 hard rule)."""
@@ -68,9 +83,8 @@ class RequestView:
     `view.generator` and fresh schedulers explicitly. It cannot be subclassed: a wider view
     would be that deleted proxy under another name.
 
-    `generator` is a `random.Random` while the runtime is weightless; it becomes a
-    `torch.Generator` with the first real fills (cr-005). Author code passes it through and
-    never inspects it, so the swap is source-compatible.
+    `generator` is a `random.Random` seeded from the request. Noise for a model is drawn with
+    `cozy_runtime.rng`, on the CPU, so a seed makes the same output on any device.
     """
 
     generator: random.Random
@@ -128,7 +142,6 @@ class Context:
     """Monotonic-clock instant the attempt must not outlive."""
     device: Device = field(default_factory=Device)
     _cancel: Callable[[], bool] = field(default=lambda: False, repr=False)
-    _adapters: tuple[AdapterRef, ...] = field(default=(), repr=False)
     _tensorfs_source: Callable[[Weights[Any]], Checkpoint] | None = field(default=None, repr=False)
     _tensorfs_output: Callable[[str, Derivation], Output] | None = field(default=None, repr=False)
     _tensorfs_adopt: Callable[[Output], ModelArtifact] | None = field(default=None, repr=False)
@@ -159,8 +172,8 @@ class Context:
         return self._tensorfs_output(slot, derivation)
 
     def adopt_model(self, output: Output) -> ModelArtifact:
-        """Commit `output` (a committed one replays), upload it to the run's destination when
-        it names one, and keep it as this attempt's model."""
+        """Commit `output` and keep it as this attempt's model. A committed output replays;
+        TensorD uploads it when the run names a destination."""
         self.raise_if_cancelled()
         if self._tensorfs_adopt is None:
             raise CapabilityError(

@@ -1,0 +1,194 @@
+schema = 1
+
+[[word]]
+text = "sig"
+excluded = { salutation = { reason = "Sig is borne as a given name (US SSA 50+ male, Wikidata 11+ given, Norway and the United States; the FEC contributors write 'SMITH, SIG' 16 times), measured 2026-10-22 with tools/name_usage.py; with its period, 'Sig.' already reads as a title by its shape (rules/H2)", issue = 840 } }
+
+[[word]]
+text = "signora"
+salutation = { gender = "f", after_given = true }
+given = { us_ssa = 90, as_of = 2026-10-24, note = "kept for after_given (decisions/H8)" }
+
+[[word]]
+text = "sig.ra"
+salutation = { gender = "f", same_as = "signora", cased = "Sig.ra", issue = 840, after_given = true }
+
+[[word]]
+text = "signore"
+salutation = { gender = "m", excluded = { after_given = "a surname (Census 2010 SIGNORE), and middle names are drawn from surnames" } }
+family = { us_census_2010 = 895, wikidata = 17, as_of = 2026-10-24 }
+
+[[word]]
+text = "signor"
+salutation = { gender = "m", same_as = "signore", excluded = { after_given = "a surname (Census 2010 SIGNOR), and middle names are drawn from surnames" } }
+family = { us_census_2010 = 999, wikidata = 4, as_of = 2026-10-24 }
+
+[[word]]
+text = "signorina"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "sig.na"
+salutation = { gender = "f", same_as = "signorina", cased = "Sig.na", issue = 840, after_given = true }
+
+[[word]]
+text = "ch.ma"
+style = { gender = "f", expands = "chiarissima, as a letter addresses a university professor", cased = "Ch.ma", issue = 840 }
+
+[[word]]
+text = "ch.mo"
+style = { gender = "m", expands = "chiarissimo, as a letter addresses a university professor", cased = "Ch.mo", issue = 840 }
+
+[[word]]
+text = "gent.le"
+style = { expands = "gentile, the commonest heading of a letter", cased = "Gent.le", issue = 840 }
+
+[[word]]
+text = "gent.ma"
+style = { gender = "f", expands = "gentilissima, as a letter is headed", cased = "Gent.ma", issue = 840 }
+
+[[word]]
+text = "gent.mo"
+style = { gender = "m", expands = "gentilissimo, as a letter is headed", cased = "Gent.mo", issue = 840 }
+
+[[word]]
+text = "ill.ma"
+style = { gender = "f", expands = "illustrissima", cased = "Ill.ma", issue = 840 }
+
+[[word]]
+text = "ill.mo"
+style = { gender = "m", expands = "illustrissimo", cased = "Ill.mo", issue = 840 }
+
+[[word]]
+text = "preg.ma"
+style = { gender = "f", expands = "pregiatissima, as a letter is headed", cased = "Preg.ma", issue = 840 }
+
+[[word]]
+text = "preg.mo"
+style = { gender = "m", expands = "pregiatissimo, as a letter is headed", cased = "Preg.mo", issue = 840 }
+
+[[word]]
+text = "dott.ssa"
+academic = { gender = "f", expands = "dottoressa", cased = "Dott.ssa", issue = 840 }
+
+[[word]]
+text = "prof.ssa"
+academic = { gender = "f", expands = "professoressa", cased = "Prof.ssa", issue = 840 }
+
+[[word]]
+text = "gentiluomo"
+nobility = { gender = "m", expands = "gentleman" }
+
+[[word]]
+text = "d'"
+preposition = { may_be_given = false, issue = 700, expands = "of, elided di" }
+
+[[word]]
+text = "d’"
+[word.preposition]
+may_be_given = false
+issue = 700
+expands = "the same, typographic apostrophe"
+same_as = "d'"
+
+[[word]]
+text = "da"
+preposition = { may_be_given = true, expands = "from, of" }
+
+[[word]]
+text = "dal"
+preposition = { may_be_given = true, expands = "from the" }
+
+[[word]]
+text = "de"
+preposition = { may_be_given = false, expands = "of" }
+
+[[word]]
+text = "de'"
+preposition = { may_be_given = false, expands = "of the, elided dei: \"de' Medici\"" }
+
+[[word]]
+text = "de’"
+[word.preposition]
+may_be_given = false
+issue = 700
+expands = "the same, typographic apostrophe"
+same_as = "de'"
+
+[[word]]
+text = "degli"
+preposition = { may_be_given = false, expands = "of the, masc. pl." }
+
+[[word]]
+text = "dei"
+preposition = { may_be_given = false, expands = "of the, masc. pl." }
+
+[[word]]
+text = "del"
+preposition = { may_be_given = true, expands = "of the" }
+
+[[word]]
+text = "dell'"
+preposition = { may_be_given = false, expands = "of the, elided dello/della: \"dell'Acqua\"" }
+
+[[word]]
+text = "dell’"
+[word.preposition]
+may_be_given = false
+issue = 700
+expands = "the same, typographic apostrophe"
+same_as = "dell'"
+
+[[word]]
+text = "della"
+[word.preposition]
+may_be_given = true
+expands = "of the, fem. sg."
+note = "Della Reese: an ordinary given name"
+
+[[word]]
+text = "delle"
+preposition = { may_be_given = false, expands = "of the, fem. pl." }
+
+[[word]]
+text = "delli"
+preposition = { may_be_given = false, expands = "of the, regional variant of dei" }
+
+[[word]]
+text = "dello"
+preposition = { may_be_given = false, expands = "of the, masc. sg." }
+
+[[word]]
+text = "di"
+[word.preposition]
+may_be_given = true
+expands = "of"
+note = "BOTH: Di as a short form of Diana, and the Italian particle (DiCaprio)"
+
+[[word]]
+text = "l'"
+article = { may_be_given = false, expands = "the, elided" }
+
+[[word]]
+text = "l’"
+[word.article]
+may_be_given = false
+issue = 700
+expands = "the same, typographic apostrophe"
+same_as = "l'"
+
+[[word]]
+text = "la"
+article = { may_be_given = true, expands = "the, fem. sg." }
+
+[[word]]
+text = "san"
+saint = { may_be_given = true, expands = "Saint" }
+
+[[word]]
+text = "santa"
+saint = { may_be_given = true, expands = "Saint, fem." }
+
+[[word]]
+text = "e"
+conjunction = { may_be_initial = true }

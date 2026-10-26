@@ -1,0 +1,61 @@
+import typing
+from _typeshed import Incomplete
+from strongtyping.cached_set import CachedSet as CachedSet
+from strongtyping.config import SEVERITY_LEVEL as SEVERITY_LEVEL
+from strongtyping.exceptions import TypeMismatch as TypeMismatch
+from strongtyping.utils import (
+    action as action,
+    get_severity_level as get_severity_level,
+    remove_subclass as remove_subclass,
+)
+from typing import Any
+
+TYPE_EXTRACTION_PATTERN: str
+PATTERN_1: str
+EXTRACT_PARAM_NAME_PATTERN: str
+TUPLE_PATTERN: str
+PATTERN: str
+OR_PATTERN: str
+COMMA_PATTERN: str
+REMOVE_PATTERN: str
+FM_PATTERN: str
+
+def separate_param_type(docstring_type_part: str) -> tuple[str, str]: ...
+
+possible_types: Incomplete
+
+def param_attr(attr: str) -> Any: ...
+def get_container_types(ttype_of: str) -> tuple[Any, ...] | None: ...
+def get_or_types(ttype: str) -> list[str]: ...
+def is_tuple(arg: Any, type_of: str) -> bool: ...
+def is_list(arg: Any, type_of: str) -> bool: ...
+def is_dict(arg: Any, type_of: str) -> bool: ...
+def is_set(arg: Any, type_of: str) -> bool: ...
+def is_function_or_method_type(arg: Any, type_of: str) -> bool: ...
+
+options: Incomplete
+
+def check_doc_str_type(arg: Any, type_of: str | None) -> Any: ...
+def is_type_info(docstring_line: str) -> bool: ...
+def is_param_info(docstring_line: str) -> bool: ...
+def extract_docstring_param_types(func: typing.Callable[..., Any]) -> dict[str, Any]: ...
+def match_docstring(
+    _func: typing.Callable[..., Any] | None = None,
+    *,
+    excep_raise: type[Exception] | None = ...,
+    cache_size: int = 0,
+    subclass: bool = False,
+    severity: str = "env",
+    **kwargs_: Any,
+) -> Any: ...
+def match_class_docstring(
+    _cls: type[Any] | None = None,
+    *,
+    excep_raise: type[Exception] = ...,
+    cache_size: int = 0,
+    severity: str = "env",
+    **kwargs: Any,
+) -> Any: ...
+def getter(func: Any) -> Any: ...
+def setter(func: Any) -> Any: ...
+def getter_setter(func: Any) -> Any: ...

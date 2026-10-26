@@ -1,56 +1,51 @@
-Metadata-Version: 1.0
+Metadata-Version: 2.4
 Name: asciitree
-Version: 0.3.3
+Version: 1.0.0
 Summary: Draws ASCII trees.
-Home-page: http://github.com/mbr/asciitree
-Author: Marc Brinkmann
-Author-email: git@marcbrinkmann.de
-License: MIT
-Description: ASCII Trees
-        ===========
-        
-        .. code:: console
-        
-          asciitree
-           +-- sometimes
-           |   +-- you
-           +-- just
-           |   +-- want
-           |       +-- to
-           |       +-- draw
-           +-- trees
-           +-- in
-               +-- your
-                   +-- terminal
-        
-        
-        .. code:: python
-        
-          from asciitree import LeftAligned
-          from collections import OrderedDict as OD
-        
-          tree = {
-              'asciitree': OD([
-                  ('sometimes',
-                      {'you': {}}),
-                  ('just',
-                      {'want': OD([
-                          ('to', {}),
-                          ('draw', {}),
-                      ])}),
-                  ('trees', {}),
-                  ('in', {
-                      'your': {
-                          'terminal': {}
-                      }
-                  })
-              ])
-          }
-        
-          tr = LeftAligned()
-          print(tr(tree))
-        
-        
-        Read the documentation at http://pythonhosted.org/asciitree
-        
-Platform: UNKNOWN
+Author-email: Marc Brinkmann <git@marcbrinkmann.de>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/mbr/asciitree
+Project-URL: Documentation, https://asciitree.readthedocs.io/en/stable/
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# ASCII Trees
+
+```text
+asciitree
+ +-- sometimes
+ |   +-- you
+ +-- just
+ |   +-- want
+ |       +-- to
+ |       +-- draw
+ +-- trees
+ +-- in
+     +-- your
+         +-- terminal
+```
+
+```python
+from asciitree import LeftAligned
+
+tree = {
+    "asciitree": {
+        "sometimes": {"you": {}},
+        "just": {"want": {"to": {}, "draw": {}}},
+        "trees": {},
+        "in": {"your": {"terminal": {}}},
+    }
+}
+
+tr = LeftAligned()
+print(tr(tree))
+```
+
+Since Python 3.7, dictionaries preserve insertion order. On older versions, use
+`collections.OrderedDict` to preserve the tree's display order.
+
+For Python 2, use `asciitree<0.4`. Version 0.4.0 preserves the API and rendering
+behavior but supports Python 3 only.
+
+Read the documentation at <https://asciitree.readthedocs.io/en/stable/>.

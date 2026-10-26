@@ -15,6 +15,7 @@ top-level forward is a pass: the plan's cursor, and its arena's peak.
 from __future__ import annotations
 
 import ctypes
+import hashlib
 import json
 import os
 import sys
@@ -33,7 +34,7 @@ import torch
 from torch import Tensor, nn
 from torch.utils._pytree import tree_leaves, tree_map
 
-from . import Exhausted, Fill, GpuId, Level, Pass, Pin, Stats, VarenaError, Window
+from . import Ended, Exhausted, Fill, GpuId, Level, Pass, Pin, Stats, VarenaError, Window, host_limit
 from . import Memory as Native
 from .. import _ext
 from . import Request as NativeRequest
@@ -84,13 +85,15 @@ class NotRegistered(VarenaError):
 class Weights:
     """A module's stored weights: a component of a TensorFS checkpoint. `release` names the
     package release (the fill code's identity), `shard` the rank's slice, `keys` the stored
-    tensors the module builds (all by default)."""
+    tensors the module builds (all by default), `bound` the module path a stored key binds to
+    where the two differ (a checkpoint stored under another naming): blocks are module paths."""
 
     ck: tensorfs.Checkpoint
     component: str
     release: str = ""
     shard: str = "0/1"
     keys: Collection[str] | None = None
+    bound: Mapping[str, str] | None = None
 
 
 class Filling(Protocol):
@@ -526,7 +529,9 @@ class Memory:
                 elif device.type == "cuda":
                     native = Native.cuda(device.index or 0)
                 else:
-                    ram = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+                    ram = host_limit()  # past it the kernel kills: a cgroup's limit, not physical memory
+                    if ram is None:
+                        raise VarenaError("this process's memory limit is unreadable: the host table has no size")
                     native = Native.host(GpuId("host", device.type, ram))
                 memory = cls(native, device)
                 if device.type == "cuda":
@@ -565,9 +570,14 @@ class Memory:
         owned: dict[str, list[str]] = {}
         for key in w.ck.components[w.component].tensors:
             if w.keys is None or key in w.keys:
-                owned.setdefault(_block_of(key, paths), []).append(f"{w.component}/{key}")
+                path = w.bound.get(key, key) if w.bound else key
+                owned.setdefault(_block_of(path, paths), []).append(f"{w.component}/{key}")
         order = [p for p in ("", *paths) if p in owned]
-        name = f"{w.release or w.ck.id}/{w.component}"
+        # A set is one checkpoint's component as one module builds it: two models of a release that share a
+        # component name (two DiTs' `transformer`, two LoRAs' `model`) are two sets, and so are two modules
+        # building other keys of one checkpoint (a text encoder without the head beside the whole LM).
+        built = "" if w.keys is None else "#" + hashlib.sha256("\n".join(sorted(w.keys)).encode()).hexdigest()[:12]
+        name = f"{w.release}/{w.ck.id}/{w.component}{built}" if w.release else f"{w.ck.id}/{w.component}{built}"
         set = Set(name, w.ck, [owned[p] for p in order], fill=_fill(declared.fill), release=w.release, shard=w.shard, gpu=self.gpu.uuid)
         model = Model(self, module, declared, name, set, self.native.load(set, level))
         for region, path in enumerate(order):
@@ -704,12 +714,22 @@ class Memory:
             self.native.fill(model.id, _fill(model.fill))
 
     def _current(self) -> Request:
-        r = _request.get()
-        if r is None and len(self.requests) == 1:
-            r = next(iter(self.requests))
+        r = self._open_request()
         if r is None:
             raise Unbound("a loaded model's forward runs inside `mem.request(...)`")
         return r
+
+    def _open_request(self) -> Request | None:
+        """This thread's request, else the only one open."""
+        r = _request.get()
+        if r is None and len(self.requests) == 1:
+            r = next(iter(self.requests))
+        return r
+
+    def _for(self) -> NativeRequest | None:
+        """The native request a bind's fill and trace go to: a hold binds before its pass opens."""
+        r = self._open_request()
+        return r.native if r is not None and r.ended is None else None
 
     # -- passes
 
@@ -818,7 +838,7 @@ class Memory:
         owns the pin, so the page stays bound while it lives (the escaped-view rule). Counted as
         an off-forward read."""
         model = block.model
-        pin = self.native.bind(model.id, block.region, self._stream() or 0)
+        pin = self.native.bind(model.id, block.region, self._stream() or 0, request=self._for())
         if self.device.type in ("cpu", "cuda"):
             window = pin.window()
             window.keep(pin)
@@ -849,7 +869,7 @@ class Memory:
     def _bind(self, block: _Block, stream: int | None, pin: Pin | None = None, evict: bool = True) -> None:
         model = block.model
         if pin is None:
-            pin = self.native.bind(model.id, block.region, stream or 0, evict)
+            pin = self.native.bind(model.id, block.region, stream or 0, evict, self._for())
         if self.device.type in ("cpu", "cuda"):
             if block.views is None or block.at != pin.ptr:  # a new mapping: its views once
                 window = pin.window()
@@ -970,11 +990,9 @@ class Region:
         """The plan step of its next use; None: none declared."""
         self.native.next_use(step)
 
-    def close(self) -> dict[str, object]:
-        """Its arena ends; its record: allocated and peak bytes, and its blocks still live (ptr,
-        bytes, stream)."""
-        allocated, peak, outlived = self.native.close()
-        return {"allocated": allocated, "peak": peak, "outlived": outlived}
+    def close(self) -> Ended:
+        """Its arena ends; its record (allocated and peak bytes, its blocks still live)."""
+        return self.native.close()
 
 
 class GraphRegion:

@@ -911,6 +911,9 @@ class GroupDMChannel(PrivateChannel):
     If the group DM was not created by a bot, this will be [`None`][].
     """
 
+    is_managed: bool = attrs.field(eq=False, hash=False, repr=False)
+    """Whether the group DM is managed by an application via the `gdm.join` OAuth2 scope."""
+
     @typing_extensions.override
     def __str__(self) -> str:
         if self.name is None:
@@ -1583,7 +1586,7 @@ class GuildForumChannel(PermissibleGuildChannel):
     """
 
 
-WebhookChannelT = typing.Union[GuildTextChannel, GuildNewsChannel]
+WebhookChannelT = GuildTextChannel | GuildNewsChannel
 """Union of the channel types which incoming and follower webhooks can be attached to.
 
 The following types are in this:

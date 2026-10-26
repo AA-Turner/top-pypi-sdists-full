@@ -3,7 +3,7 @@
 R1 — an explicit ``template_message_count`` of 0 authors no message: a leading history system
      message is never lifted into the system instruction or filled. Only a missing count (an
      older client) lifts the leading system prompt.
-R2 — the escape strips ``{{!`` only for a DECLARED variable or block name; ``{{!todo}}`` stays.
+R2 — the escape strips ``{{!`` for ANY space-free name (Arman, 2026-10-25); ``{{! comment }}`` and ``{{!}}`` stay.
 R3 — a second ``replace_variables`` restarts from the authored template: never fills braces a value brought in.
 R4 — a boolean renders as ``true`` / ``false`` (JSON), never Python's ``True`` / ``False``.
 """
@@ -65,9 +65,18 @@ def test_r1_a_stored_definition_still_lifts_every_system_message() -> None:
 
 
 @pytest.mark.parametrize(
-    "literal", ["{{!todo}}", "{{! comment }}", "{{!#todo}}", "{{!/todo}}", "{{!^todo}}", "{{!<todo>}}", "{{!}}"]
+    ("escaped", "token"),
+    [("{{!todo}}", "{{todo}}"), ("{{!#todo}}", "{{#todo}}"), ("{{!/todo}}", "{{/todo}}"), ("{{!^todo}}", "{{^todo}}"), ("{{!<todo>}}", "{{<todo>}}")],
 )
-def test_r2_an_undeclared_escape_is_left_as_written(literal: str) -> None:
+def test_r2_an_undeclared_escape_becomes_its_token(escaped: str, token: str) -> None:
+    # Rule 6 (Arman, 2026-10-25): any name, declared or not.
+    template = f"keep {escaped} and {{{{!x}}}} {{{{x}}}}"
+    out = substitute_authored(template, template, {"x": "V"}, prompt_safe_value, unescape=True)
+    assert out == f"keep {token} and {{{{x}}}} V"
+
+
+@pytest.mark.parametrize("literal", ["{{! comment }}", "{{!}}", "{{!-- note --}}", "{{!--note--}}", "{{!first name}}"])
+def test_r2_what_is_not_an_escape_is_left_as_written(literal: str) -> None:
     template = f"keep {literal} and {{{{!x}}}} {{{{x}}}}"
     out = substitute_authored(template, template, {"x": "V"}, prompt_safe_value, unescape=True)
     assert out == f"keep {literal} and {{{{x}}}} V"
@@ -76,7 +85,7 @@ def test_r2_an_undeclared_escape_is_left_as_written(literal: str) -> None:
 def test_r2_a_declared_block_name_is_escaped() -> None:
     template = "{{!<rules>}} {{!todo}}"
     out = substitute_authored(template, template, {}, prompt_safe_value, unescape=True, blocks={"rules": "R"})
-    assert out == "{{<rules>}} {{!todo}}"
+    assert out == "{{<rules>}} {{todo}}"
 
 
 def test_r3_a_second_fill_restarts_from_the_template() -> None:

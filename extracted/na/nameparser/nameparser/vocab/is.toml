@@ -1,0 +1,25 @@
+schema = 1
+
+[[word]]
+text = "frú"
+salutation = { issue = 606, gender = "f", excluded = { after_given = "spelled FRU, a Cameroonian surname, as fru is (sv.toml), and middle names are drawn from surnames" } }
+
+[[word]]
+text = "herra"
+salutation = { issue = 606, gender = "m" }
+
+[[word]]
+text = "ungfrú"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "greifi"
+nobility = { gender = "m", expands = "count", issue = 606 }
+
+[[word]]
+text = "eldri"
+generation = { issue = 679 }
+
+[[word]]
+text = "yngri"
+generation = { issue = 679 }

@@ -1080,8 +1080,8 @@ def test_every_method_has_a_class_and_work_is_refused_to_a_confined_caller(servi
         def __getattr__(self, name):
             return lambda *a, **k: None
 
-    assert set(server.METHOD_POLICY) == set(protocol.METHODS), "every method has a class"
-    assert set(server.Service._handlers(_Anything())) == set(protocol.METHODS), "and a handler"
+    assert set(server.METHOD_POLICY) == set(protocol.METHODS) | server.LOCAL_METHODS, "every method has a class"
+    assert set(server.Service._handlers(_Anything())) == set(protocol.METHODS) | server.LOCAL_METHODS, "and a handler"
     assert set(server.CONFINED_ANSWERS) <= {m for m, p in server.METHOD_POLICY.items() if p == server.Policy.WORK}
     if not sys.platform.startswith("linux"):
         pytest.skip("no-new-privs is Linux's")

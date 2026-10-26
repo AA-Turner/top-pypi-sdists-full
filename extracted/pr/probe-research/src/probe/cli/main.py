@@ -39,22 +39,34 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from probe.cli import telemetry as probe_telemetry
+    from ..sdk.client import Client
+else:
+    #: The SDK client class: a module global so the CLI package can monkeypatch
+    #: it in tests, and None until then. The SDK client imports every wire model,
+    #: so a command imports it when it builds one (`_client_class`), not at start.
+    Client = None
 
 import typer
 from pydantic import ValidationError
 
 from .. import __version__, errors
 from ..client_headers import client_version_headers
-from ..models import (
+# The option enums only, from `_generated.enums` rather than `probe.models`: that
+# seam builds every wire model, ~0.5 s that every command paid at startup -- the
+# wizard, the hooks and the status line included -- whether or not it sent one.
+# `tests/test_cli_startup_imports.py` holds the CLI to this.
+from .._generated.enums import (
     AnchorLevel,
-    CitationDirection,
+    AppPapersCitationStoreDirection as CitationDirection,
     LineageEntityType,
     LineageRelation,
+    MetricGoal,
+    MetricReduce,
     PaperExpansion,
     PaperMode,
     Scope,
 )
-from ..sdk.client import _FILE_ANCHORS, Anchor, Client, Rewind
+from ..sdk.anchors import FILE_ANCHORS as _FILE_ANCHORS, Anchor
 from ..sdk.config import (
     DEFAULT_BASE_URL,
     WORKSPACE_HANDOVER,
@@ -447,6 +459,15 @@ def _show_device_prompt(prompt: DevicePrompt) -> None:
     print(f"  code:  {prompt.user_code}", flush=True)
 
 
+def _client_class():
+    """`Client`: a stand-in a test put there, else the SDK's."""
+    if Client is not None:
+        return Client
+    from ..sdk.client import Client as sdk_client
+
+    return sdk_client
+
+
 def _new_client(**kwargs: Any) -> Client:
     """Construct a CLI-owned SDK client with bounded version telemetry."""
 
@@ -471,7 +492,7 @@ def _new_client(**kwargs: Any) -> Client:
     # Set after construction, not passed in: a stand-in `Client` factory that
     # drops keyword arguments must not quietly drop this rule with them.
     raise_permanent = kwargs.pop("raise_permanent", True)
-    client = Client(
+    client = _client_class()(
         surface=Surface.CLI.value,
         client_headers=client_version_headers("cli", __version__),
         **kwargs,
@@ -901,6 +922,31 @@ def _retry_owed_pi_update() -> None:
 
     if autoupdate.pi_update_due():
         _spawn_session_start_update()
+        return
+    _ensure_pi_pin()
+
+
+def _ensure_pi_pin() -> None:
+    """pi's session start, with no pin of the installed package yet (an install
+    or `pi update` by hand, or a package before the shim's first update): pin it
+    in a detached child, so this session's shim can switch to it at a later turn
+    and the next session starts on it (kimi/pi update parity P1). Never fails."""
+    try:
+        from . import pi_pins
+
+        if not pi_pins.pin_due():
+            return
+        import subprocess
+
+        from probe._shared import oscompat
+
+        subprocess.Popen(  # noqa: S603 -- this interpreter, our own module
+            [sys.executable, "-m", "probe.cli.pi_pins"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            close_fds=True, **oscompat.DETACHED,  # off pi's console: no shared Ctrl-C on Windows
+        )
+    except Exception:  # noqa: BLE001 -- a pin is never worth a failed session start
+        return
 
 
 def _extension_session_start() -> bool:
@@ -1414,15 +1460,42 @@ def _apply_deferred_update() -> None:
         pass
 
 
-def _outbox_notice() -> None:
+def _utc_minute(stamp: str) -> str:
+    """`2026-10-27T00:17:48.1+00:00` -> `2026-10-27 00:17 UTC` (stamps here are UTC)."""
+    return f"{stamp[:16].replace('T', ' ')} UTC"
+
+
+def _lift_stale_pause(status: dict) -> bool:
+    """`outbox_worker.lift_stale_pause` on this command's outbox, reported to
+    the backend this command uses. Never raises."""
+    try:
+        from ..sdk import outbox_worker
+        from ..sdk.config import resolve
+        from ..sdk.journal import Journal
+
+        journal = Journal(_conn.spool_dir)
+        if not os.path.lexists(journal.paused_file):
+            return False  # the every-command path: one stat, no config read
+        base_url = resolve(base_url=_conn.base_url).base_url
+        return outbox_worker.lift_stale_pause(journal, status, base_url=base_url)
+    except Exception:  # noqa: BLE001 -- the banner must never break a command
+        return False
+
+
+def _outbox_notice(*, lift: bool = True) -> None:
     """The every-command outbox banner (2B) + drainer re-kick (3A) + the
-    automatic rescue of writes stranded under a dead credential.
+    automatic rescue of writes stranded under a dead credential + lifting a
+    pause that no longer holds.
 
     One stat/read of status.json, no locks, never raises: this runs before
     every command, including `probe log` inside training loops. The rescue
     check is one more stat; once per 10 minutes at most it claims its interval
     under a lock, reads the queues' status files and may start a process
-    (`outbox_worker.maybe_rescue`).
+    (`outbox_worker.maybe_rescue`). The lift is one more stat; only a marker
+    that no longer holds costs the append lock and a report. ``lift`` False
+    for `probe outbox ...`, which owns the marker and delivery itself: the
+    banner only, no lift, rescue or kick (`pause` over an ended pause must
+    not first start the drainer it is about to stop).
     """
     try:
         from ..sdk.journal import Journal, auth_blocked_since
@@ -1433,6 +1506,11 @@ def _outbox_notice() -> None:
         failed = status.get("failed") or 0
         pending = status.get("pending") or 0
         blocked = auth_blocked_since(status)
+        lifted = lift and not status.get("paused") and _lift_stale_pause(status)
+        if lifted and pending and not blocked:
+            # An older CLI's endless pause, or one whose end passed: said once,
+            # since nothing else will say why uploads started again.
+            typer.echo(f"outbox: an earlier `probe outbox pause` has ended — sending {pending} queued write(s)", err=True)
         parts: list[str] = []
         if blocked:
             parts.append(f"auth-blocked since {blocked} — sign in again ({session_marker.WIZARD_HINT})")
@@ -1443,8 +1521,12 @@ def _outbox_notice() -> None:
             if pending:
                 parts.append(f"{pending} pending")
             if status.get("paused"):
-                parts.append("paused")
-            typer.echo(f"outbox: {'; '.join(parts)} — see `probe outbox status`", err=True)
+                until = status.get("paused_until")
+                parts.append(f"paused until {_utc_minute(until)}" if until else "paused")
+                hint = "`probe outbox resume` sends them now"
+            else:
+                hint = "see `probe outbox status`"
+            typer.echo(f"outbox: {'; '.join(parts)} — {hint}", err=True)
         if banner or status.get("blocked_oldest_pending"):
             # The banner's condition, plus writes one queue holds for a
             # credential nothing here has (no banner: a fresh hold clears
@@ -1478,6 +1560,10 @@ def _outbox_notice() -> None:
                 )
             except Exception:  # noqa: BLE001 -- never let a report block the kick
                 pass
+        if not lift:
+            # `probe outbox ...` delivers (or holds) on its own: `pause` over an
+            # ended pause must not start a drainer first, nor a rescue.
+            return
         if not status.get("paused"):
             # Writes stranded under a dead credential of this account are
             # rescued by themselves (`outbox_worker.maybe_rescue`: one stat,
@@ -1487,7 +1573,7 @@ def _outbox_notice() -> None:
             from ..sdk import outbox_worker
 
             outbox_worker.maybe_rescue(Journal(_conn.spool_dir), status)
-        if pending and not status.get("paused") and not blocked:
+        if (pending or lifted) and not status.get("paused") and not blocked:
             _kick_drainer()
     except Exception:  # noqa: BLE001 -- a broken banner must never break a command
         pass
@@ -1804,7 +1890,7 @@ def _root(
         # each of those can start a process or a request, and `probe status`
         # promises neither (the desktop app asks it on every focus).
         return
-    _outbox_notice()
+    _outbox_notice(lift=ctx.invoked_subcommand != "outbox")
     # The CLI's own auto-update trigger. Before this existed, auto-update fired
     # from exactly one place -- the Claude Code plugin's SessionStart hook -- so a
     # user who never started a session never updated, and a headless box never
@@ -2227,9 +2313,12 @@ def update_compat(
         outcome = perform_update(base_url=base, include_plugin=plugin, trigger=trigger)
     for line in outcome.lines:
         print(line)
+    from probe.cli import setup as wizard
+    from probe.cli.capabilities import agent_source
     from probe.cli.upgrading import after_update_line
 
-    closing = after_update_line(outcome, "Claude Code")
+    source = agent_source()
+    closing = after_update_line(outcome, wizard.agent_label(source), source)
     if closing:
         print(f"\n{closing}")
     raise typer.Exit(0 if outcome.ok else 1)
@@ -2722,6 +2811,7 @@ def wizard(
     someone's capture pairing.
     """
     from probe.cli import actions as actions_mod
+    from probe.cli import capabilities as capabilities_mod
     from probe.cli import capture as capture_mod
     from probe.cli import json_events, tui
 
@@ -2832,6 +2922,10 @@ def wizard(
                 update_trigger=_update_action_trigger(yes) if action == actions_mod.Action.UPDATE else None,
             ),
             tui.window(enabled=not yes),
+            # Every state read in the run reads the agents' plugin records, not
+            # their `plugin list`: the wizard checks on entry and after every
+            # change, and each listing is a Node start.
+            capabilities_mod.plugin_records(),
         ):
             # D4: a sign-in from before D3 may have left pi's capture off for
             # good. Under the lock, so a run turned away changes nothing.
@@ -2877,6 +2971,30 @@ def _wizard_on_service(*, action, yes, json_output, agent, reinstall, **flags) -
     if not isinstance(routed, wizard_service.Routed):
         return None
     return wizard_service.run(routed)
+
+
+def _start_device_state(*, warm_manifest: bool = False):
+    """The wizard's one server call (`POST /v1/device-state`), sent now on a
+    daemon thread: its resolver, at once. Never raises: the menu must render
+    without it, so a request that cannot be built answers UNREACHABLE."""
+    from probe.cli import capabilities as capabilities_mod
+    from probe.cli import setup as wizard
+
+    try:
+        # `resolve()`, exactly as `doctor.collect()` resolves the API it
+        # reports on: the answer is graded against that server, and its
+        # bearer is only ever sent to it.
+        settings = resolve()
+        request = capabilities_mod.device_state_request(
+            settings.base_url, settings.token, wizard.INSTALLABLE_AGENT_SOURCES
+        )
+    except Exception as exc:  # noqa: BLE001 - the menu must render without it
+        return capabilities_mod.answered_already(
+            capabilities_mod.DeviceState(
+                capabilities_mod.DeviceStateOutcome.UNREACHABLE, error=str(exc)
+            )
+        )
+    return capabilities_mod.start_device_state(request, warm_manifest_on_fallback=warm_manifest)
 
 
 @contextlib.contextmanager
@@ -2982,30 +3100,13 @@ def _wizard_session(
     from probe.cli import capabilities as capabilities_mod
 
     def _ask_server() -> capabilities_mod.DeviceStateResolver:
-        try:
-            # `resolve()`, exactly as `doctor.collect()` resolves the API it
-            # reports on: the answer is graded against that server, and its
-            # bearer is only ever sent to it.
-            settings = resolve()
-            request = capabilities_mod.device_state_request(
-                settings.base_url, settings.token, wizard.INSTALLABLE_AGENT_SOURCES
-            )
-        except Exception as exc:  # noqa: BLE001 - the menu must render without it
-            return capabilities_mod.answered_already(
-                capabilities_mod.DeviceState(
-                    capabilities_mod.DeviceStateOutcome.UNREACHABLE, error=str(exc)
-                )
-            )
         # An older server's answer carries no manifest, and the wizard spawns
         # no detached refresher: fetch it when someone will read the Versions
         # row, or when auto-update will act on it.
         from probe import version_policy
 
-        return capabilities_mod.start_device_state(
-            request,
-            warm_manifest_on_fallback=(
-                wizard.interactive() or version_policy.autoupdate_enabled()
-            ),
+        return _start_device_state(
+            warm_manifest=wizard.interactive() or version_policy.autoupdate_enabled()
         )
 
     device_state = _ask_server()
@@ -3630,6 +3731,9 @@ def _wizard_session(
             # is old or was not an answer at all (one call, for every agent).
             if device_state.stale(_DIAGNOSE_MAX_AGE_S):
                 device_state = _ask_server()
+            # Each agent's own CLI, not its record: a `claude` that cannot start
+            # is what Diagnose is there to show, and the menu read the records.
+            with capabilities_mod.plugin_records(False):
                 caps_by_source = {source: _collect_agent(source) for source in agent_sources}
             # It also shows the unfiled-runs count, which the one call does not
             # carry: ask once, when the server answered (the old way already
@@ -3744,48 +3848,61 @@ def _wizard_session(
                 ]
             )
             lines = []
-            for index, source in enumerate(agent_sources):
-                current = _collect_agent(source, fresh=index > 0)
-                # A guided run resolved every selected source together. The
-                # first apply raises if approval failed; later agents reuse
-                # its result even if their identity lookup is unavailable.
-                authorization_needs = shared_needs if index == 0 else None
-                if index > 0 and install_needs is not None:
-                    authorization_needs = []
-                with _agent_target(source):
-                    result = _run_wizard_action(
-                        chosen_action,
-                        caps=current,
-                        base_now=base_now,
-                        yes=True,
-                        tracking=tracking,
-                        capture=capture,
-                        auto_update=auto_update,
-                        agent_rules=agent_rules,
-                        uninstall=uninstall,
-                        configured=configured,
-                        folder=folder,
-                        selection_override=shared_selection,
-                        authorization_needs=authorization_needs,
-                        capture_sources=missing_capture_sources,
-                        authorization_context=install_context,
-                        progress_header=(
-                            wizard.install_apply_header(
-                                agent_screen_shown=agent_screen_shown,
-                                agent_index=index,
-                                agent_count=len(agent_sources),
-                                agent_source=source,
-                            )
-                            if install_context is not None
-                            else None
-                        ),
-                        install_code=install_code if index == 0 else None,
-                        installation_completion=installation_completion,
-                        telemetry=tel,
-                    )
-                if result:
-                    label = wizard.agent_label(source)
-                    lines.extend([f"{label}:", *result, ""])
+            install_plan = _install_plan(caps_by_source, shared_selection)
+            with wizard.marketplace_refreshes(_installing(caps_by_source, shared_selection), install_plan):
+                for index, source in enumerate(agent_sources):
+                    current = _collect_agent(source, fresh=index > 0)
+                    if install_plan.get(source):
+                        # The batch may have installed this agent's plugins with
+                        # the first refresh: its own install steps still run,
+                        # take those answers and do what they do beside the
+                        # install (Claude Code's skills, the killswitch).
+                        before = caps_by_source[source]
+                        current = dataclasses.replace(
+                            current,
+                            tracking_plugin_installed=before.tracking_plugin_installed,
+                            capture_plugin_installed=before.capture_plugin_installed,
+                        )
+                    # A guided run resolved every selected source together. The
+                    # first apply raises if approval failed; later agents reuse
+                    # its result even if their identity lookup is unavailable.
+                    authorization_needs = shared_needs if index == 0 else None
+                    if index > 0 and install_needs is not None:
+                        authorization_needs = []
+                    with _agent_target(source):
+                        result = _run_wizard_action(
+                            chosen_action,
+                            caps=current,
+                            base_now=base_now,
+                            yes=True,
+                            tracking=tracking,
+                            capture=capture,
+                            auto_update=auto_update,
+                            agent_rules=agent_rules,
+                            uninstall=uninstall,
+                            configured=configured,
+                            folder=folder,
+                            selection_override=shared_selection,
+                            authorization_needs=authorization_needs,
+                            capture_sources=missing_capture_sources,
+                            authorization_context=install_context,
+                            progress_header=(
+                                wizard.install_apply_header(
+                                    agent_screen_shown=agent_screen_shown,
+                                    agent_index=index,
+                                    agent_count=len(agent_sources),
+                                    agent_source=source,
+                                )
+                                if install_context is not None
+                                else None
+                            ),
+                            install_code=install_code if index == 0 else None,
+                            installation_completion=installation_completion,
+                            telemetry=tel,
+                        )
+                    if result:
+                        label = wizard.agent_label(source)
+                        lines.extend([f"{label}:", *result, ""])
             # Configure streams its own progress; successful calls return no lines.
         else:
             # Diagnostics/removal are source-local. Manual instructions and
@@ -3830,14 +3947,27 @@ def _wizard_session(
                 if updating
                 else contextlib.nullcontext([]) as registration_warnings,
             ):
+                # Several agents' updates at once: the CLI and pi's package once,
+                # each agent's own plugins on a thread of its own.
+                updated = (
+                    _update_agents(targets, base_now=base_now, yes=action_yes)
+                    if updating and len(targets) > 1
+                    else {}
+                )
                 for index, source in enumerate(targets):
                     # Uninstall revokes each agent's capture key as it goes, and
                     # the next agent's answer can change under it (the server
                     # state it reads moves). Diagnose and update change nothing
                     # the server reports.
-                    current = _collect_agent(
-                        source,
-                        fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
+                    # Diagnose's snapshot is the one just taken from the agents'
+                    # own CLIs (above); it changes nothing to read again.
+                    current = (
+                        caps_by_source[source]
+                        if chosen_action is actions_mod.Action.DIAGNOSE
+                        else _collect_agent(
+                            source,
+                            fresh=index > 0 and chosen_action is actions_mod.Action.UNINSTALL,
+                        )
                     )
                     if diagnose_unfiled is not None and current.unfiled_runs is None:
                         current = dataclasses.replace(current, unfiled_runs=diagnose_unfiled)
@@ -3856,6 +3986,7 @@ def _wizard_session(
                             folder=folder,
                             selected_agents=agent_sources,
                             telemetry=tel,
+                            update_outcome=updated.get(source),
                         )
                     if result is not None:
                         all_backed_out = False
@@ -4086,6 +4217,73 @@ def _wizard_session(
         if picked is None or picked is tui.BACK:
             _exit_wizard()
         chosen_action = picked
+
+
+def _update_agents(sources, *, base_now: str, yes: bool) -> dict:
+    """The Update action for several agents (`upgrading.perform_updates`):
+    each agent's answer, which its own pass then reports (`_run_wizard_action`)."""
+    from probe.cli import tui
+    from probe.cli.upgrading import perform_updates
+
+    with tui.working("Updating the CLI and plugins"):
+        return perform_updates(
+            list(sources), base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
+        )
+
+
+def _old_way_unless_answered(resolver):
+    """`resolver` (a device-state answer), with an answer that did not come
+    (`UNREACHABLE`) read as a server without the call: `doctor.collect()` then
+    asks the old way, as it did before the one call existed."""
+    from probe.cli import capabilities as capabilities_mod
+
+    def resolve_state():
+        state = resolver()
+        if state.outcome is capabilities_mod.DeviceStateOutcome.UNREACHABLE:
+            return capabilities_mod.DeviceState(capabilities_mod.DeviceStateOutcome.UNSUPPORTED)
+        return state
+
+    return resolve_state
+
+
+def _installing(caps_by_source, selection) -> list[str]:
+    """The agents an install with `selection` gets a marketplace plugin for,
+    their CLI on this machine: each refreshes its marketplace first, all of
+    them at once (`setup.marketplace_refreshes`)."""
+    from probe.cli import setup as wizard
+
+    return [
+        source
+        for source, caps in caps_by_source.items()
+        if source in wizard.MARKETPLACE_AGENT_SOURCES
+        and plugin_cli.available(source)
+        and (
+            (selection.tracking and not caps.tracking_plugin_installed)
+            or (selection.capture and not caps.capture_plugin_installed)
+        )
+    ]
+
+
+def _install_plan(caps_by_source, selection) -> dict:
+    """Each `_installing` agent's marketplace plugins, (capability, name), in
+    the order its own steps install them: installed with its marketplace's
+    refresh, all agents at once (`setup.marketplace_refreshes`). An agent with
+    the legacy Codex capture plugin installs its tap at its own step, after
+    that plugin is removed."""
+    from probe.cli import capabilities
+    from probe.cli import setup as wizard
+    from probe.cli.capabilities import Capability
+
+    plan = {}
+    for source in _installing(caps_by_source, selection):
+        caps = caps_by_source[source]
+        wanted = []
+        if selection.tracking and not caps.tracking_plugin_installed:
+            wanted.append((Capability.TRACKING, capabilities.tracking_plugin_name(source)))
+        if selection.capture and not caps.capture_plugin_installed and not caps.legacy_capture_plugin_installed:
+            wanted.append((Capability.CAPTURE, wizard.CAPTURE_PLUGIN_LABEL[source]))
+        plan[source] = wanted
+    return plan
 
 
 def _install_grants_held(caps_by_source, selection, *, base_url: str) -> bool:
@@ -4384,6 +4582,7 @@ def _run_wizard_action(
     back_to_selection: bool = False,
     default_state: str | None = None,
     recorder: str | None = None,
+    update_outcome=None,
 ) -> list[str] | None:
     """Perform ONE action and RETURN its output.
 
@@ -4469,15 +4668,19 @@ def _run_wizard_action(
         # perform_update returns its lines rather than streaming, so without
         # the spinner this sits silent for the whole `uv tool upgrade` +
         # plugin update -- the longest unexplained wait the wizard had.
-        with tui.working("Updating the CLI and plugins"):
-            outcome = perform_update(
-                base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
-            )
+        if update_outcome is not None:
+            # Already done with the run's other agents (`_update_agents`).
+            outcome = update_outcome
+        else:
+            with tui.working("Updating the CLI and plugins"):
+                outcome = perform_update(
+                    base_url=base_now, include_plugin=True, trigger=_update_action_trigger(yes)
+                )
         _record_update(caps.agent_source, outcome)
         lines = list(outcome.lines)
         from probe.cli.upgrading import after_update_line
 
-        closing = after_update_line(outcome, wizard.agent_label(caps.agent_source))
+        closing = after_update_line(outcome, wizard.agent_label(caps.agent_source), caps.agent_source)
         if closing:
             lines += ["", closing]
         # The pointer block lives in the researcher's home directory, so no
@@ -4497,9 +4700,13 @@ def _run_wizard_action(
             # Kimi Code's footer shipped after its rules: one catch-up.
             lines += wizard.catch_up_statusline(caps.agent_source)
         # An update cannot have removed anything: what it does not see stays
-        # as the server last heard (`client_installation.snapshot`).
+        # as the server last heard (`client_installation.snapshot`). Its server
+        # half from one `POST /v1/device-state` (the old way when that does
+        # not answer), not `/v1/me` and the capture key's status in a row.
+        with doctor_impl.device_state_scope(_old_way_unless_answered(_start_device_state())):
+            snapshot = doctor_impl.collect()
         lines += _register_local_capabilities(
-            doctor_impl.collect(),
+            snapshot,
             settings=resolve(base_url=base_now),
             reports_removals=False,
         )
@@ -5129,6 +5336,23 @@ def _run_wizard_action(
             if gate is not None
             else []
         )
+        if step_name is Step.REFRESH_MARKETPLACE and not any(
+            not (
+                other_gate is not None
+                and wizard.blocked_by_missing_grants(other_gate, needed=needs, granted=granted)
+            )
+            for other_label, other_action, other_gate, _ in work
+            if other_action is not None and other_label.startswith("install")
+        ):
+            # Every install it is for was refused a credential: adding the
+            # marketplace (which writes the agent's own config, every agent's
+            # in a batch) would change a machine whose approval was refused.
+            progress.finish(position, ok=False)
+            json_events.step(
+                step_name, json_events.Status.SKIPPED,
+                f"skipped {label} — nothing to install without a credential.", agent=caps.agent_source,
+            )
+            continue
         if blocked:
             ungranted.append(label)
             progress.finish(position, ok=False)
@@ -5138,7 +5362,20 @@ def _run_wizard_action(
                 f"skipped {label} — no credential for {', '.join(blocked)}.", agent=caps.agent_source,
             )
             continue
+        if step_name is Step.REFRESH_MARKETPLACE:
+            # A batch (several agents) installs their plugins with the refresh:
+            # only those whose credential this run's sign-in got.
+            wizard.allow_batch_installs(
+                capability
+                for capability in (Capability.TRACKING, Capability.CAPTURE)
+                if not wizard.blocked_by_missing_grants(capability, needed=needs, granted=granted)
+            )
+        started = time.monotonic()
         _run_step(position, label, action, step_name)
+        if step_name is Step.REFRESH_MARKETPLACE:
+            # The network's time (git, bounded on its own) and, in a batch,
+            # every agent's: not this agent's budget for its own steps.
+            deadline += time.monotonic() - started
 
     if skipped:
         progress.note(
@@ -5153,8 +5390,10 @@ def _run_wizard_action(
     # and never a browser (`follow_machine_recorder` needs the daemon set up).
     first_setup = not caps.tracking_plugin_installed and not caps.capture_plugin_installed
     if first_setup and selection.tracking and selection.capture and not skipped and not ungranted:
+        # A snapshot only when the agent moves: it rarely does, and taking one
+        # costs a call to the server.
         joined = wizard.follow_machine_recorder(
-            caps.agent_source, doctor_impl.collect(), base_url=base_now, rules=selection.agent_rules
+            caps.agent_source, doctor_impl.collect, base_url=base_now, rules=selection.agent_rules
         )
         if joined:
             progress.note(*joined)
@@ -5165,14 +5404,33 @@ def _run_wizard_action(
     # would have cried wolf. `plugins.missing()` answers only when it actually
     # managed to look -- an absent `claude` is normal on a GPU pod and must
     # never be reported as a failed install.
-    # ONE re-collect, reused. collect() already runs `claude plugin list`, so
-    # asking installed_plugins() again would pay for the same subprocess twice.
-    after = doctor_impl.collect()
-    wanted_plugins = []
-    if selection.tracking and not after.tracking_plugin_installed:
-        wanted_plugins.append(capabilities.tracking_plugin_name(caps.agent_source))
-    if selection.capture and not after.capture_plugin_installed:
-        wanted_plugins.append(capabilities.TAP_PLUGIN_NAME)
+    # ONE re-collect, reused. In the wizard collect() reads the agent's plugin
+    # record (`capabilities.plugin_records`), the file its `plugin list` reads.
+    # Its server half from one fresh `POST /v1/device-state`; when that does
+    # not answer, collect() asks the old way (`/v1/me` and the capture key's
+    # status), so a refused key is still reported.
+    server = _old_way_unless_answered(_start_device_state())
+
+    def _wanted(snapshot) -> list[str]:
+        names = []
+        if selection.tracking and not snapshot.tracking_plugin_installed:
+            names.append(capabilities.tracking_plugin_name(caps.agent_source))
+        if selection.capture and not snapshot.capture_plugin_installed:
+            names.append(capabilities.TAP_PLUGIN_NAME)
+        return names
+
+    with doctor_impl.device_state_scope(server):
+        after = doctor_impl.collect()
+        if _wanted(after) and after.plugins_verified:
+            # The record says a plugin is absent: ask the agent's own CLI
+            # before calling the install failed (a wrapper that points the
+            # agent at another config folder, a release that moves the file).
+            # A CLI that cannot answer leaves the record's answer standing.
+            with capabilities.plugin_records(False):
+                listed = doctor_impl.collect()
+            if listed.plugins_verified:
+                after = listed
+    wanted_plugins = _wanted(after)
     # Only names we VERIFIED absent. An unanswerable question is not a negative
     # answer: `claude` missing is normal on a GPU pod and must never read as a
     # failed install.
@@ -6293,6 +6551,26 @@ def _verify(token: str, base_url: str) -> tuple[str, dict | None]:
         return "unreachable", None
 
 
+def _verify_read(token: str, base_url: str) -> tuple[str, dict | None]:
+    """`_verify` through the SDK's transport alone, with the same answers: a
+    `Client` imports every wire model (~0.5 s), and the wizard asks this under
+    its first spinner (`capabilities.ask_mcp_token_verdict`)."""
+    from ..sdk.transport import Transport
+
+    settings = resolve(base_url=base_url, token=token)
+    try:
+        with Transport(
+            settings,
+            surface=Surface.CLI.value,
+            client_headers=client_version_headers("cli", __version__),
+        ) as transport:
+            return "ok", transport.get("/v1/me")
+    except (errors.AuthError, errors.ScopeError):  # 401, 403 — both definitive
+        return "rejected", None
+    except (errors.TransportError, errors.ServerError):
+        return "unreachable", None
+
+
 @mcp_token_app.command("set")
 def mcp_token_set(
     token: str = typer.Option(None, "--token", help="paste a read-only token (air-gap path)"),
@@ -6670,6 +6948,106 @@ def context_delete(name: str = typer.Argument(..., help="context to remove")) ->
     print(f"deleted context {name} (active: {current_context_name()})")
 
 
+# -- the declared headline metric and the best pick ---------------------------
+#
+# Declarations, never computed: which metric ranks the work, and which
+# experiment is best. Who made one comes from the credential, and every CLI key
+# is an AGENT's (a person and their agents share it). An agent never writes
+# over a person's: the server answers 409 naming theirs, and there is no
+# override flag -- the person changes it from the dashboard.
+
+
+class PersonsDeclaration(str, Enum):
+    """The 409 codes of a write over a person's metric or pick (app/metrics/router.py)."""
+
+    METRIC = "METRIC_IS_A_PERSONS"
+    PICK = "PICK_IS_A_PERSONS"
+
+
+def metric_opt() -> Any:
+    return typer.Option(None, "--metric", help='headline metric key (`test/acc`); "" clears')
+
+
+def goal_opt() -> Any:
+    return typer.Option(None, "--goal", help="with --metric: which way is better")
+
+
+def reduce_opt() -> Any:
+    return typer.Option(None, "--reduce", help="with --metric: run value used (default final)")
+
+
+def best_opt() -> Any:
+    return typer.Option(None, "--best", help='best experiment (slug or id:<uuid>); "" clears')
+
+
+def pick_reason_opt() -> Any:
+    return typer.Option(None, "--reason", help="with --best: why, 1-2 sentences")
+
+
+def _metric_args(metric: str, goal: "MetricGoal | None", reduce: "MetricReduce | None") -> bool:
+    """Check `--metric`'s companions; True when it CLEARS (`--metric ""`)."""
+    if not metric.strip():
+        if goal is not None or reduce is not None:
+            raise typer.BadParameter('--metric "" takes no --goal or --reduce')
+        return True
+    if goal is None:
+        raise typer.BadParameter("--metric needs --goal max|min")
+    return False
+
+
+def _pick_args(best: str, reason: str | None) -> bool:
+    """Check `--best`'s reason; True when it CLEARS (`--best ""`)."""
+    if not best.strip():
+        return True
+    if not (reason and reason.strip()):
+        raise typer.BadParameter("--best needs --reason")
+    return False
+
+
+def _persons_declaration(detail: Any) -> list[str] | None:
+    """What a 409 over a person's metric or pick names, as lines to print; None
+    for any other conflict."""
+    if not isinstance(detail, dict):
+        return None
+    code = detail.get("code")
+    if code == PersonsDeclaration.METRIC.value:
+        held = detail.get("metric") if isinstance(detail.get("metric"), dict) else {}
+        what = (
+            "cleared here"
+            if held.get("cleared")
+            else f"{held.get('key')} ({held.get('goal')}, {held.get('reduce')})"
+        )
+        return [f"their metric: {what}, by {held.get('set_by')} at {held.get('set_at')}"]
+    if code == PersonsDeclaration.PICK.value:
+        pick = detail.get("pick") if isinstance(detail.get("pick"), dict) else {}
+        experiment = pick.get("experiment") if isinstance(pick.get("experiment"), dict) else None
+        if experiment is not None:
+            what = f"{experiment.get('name')} ({experiment.get('slug')}, id:{experiment.get('id')})"
+        elif pick.get("gone"):
+            what = "an experiment no longer here"
+        else:
+            what = "an experiment you cannot read"
+        return [f"their pick: {what}, by {pick.get('by')} at {pick.get('at')}"]
+    return None
+
+
+def _declare(write: Callable[[], Any]) -> None:
+    """Run a metric or pick write and print what it answers. A 409 over a
+    person's declaration is said plainly -- the server's message, then whose
+    and what -- and exits 1; any other error goes to the CLI's own handler."""
+    try:
+        result = write()
+    except errors.ConflictError as exc:
+        lines = _persons_declaration(exc.detail)
+        if lines is None:
+            raise
+        print(f"error: {exc}", file=sys.stderr)
+        for line in lines:
+            print(f"       {line}", file=sys.stderr)
+        raise typer.Exit(1) from exc
+    _print_json(result)
+
+
 # -- workspaces -------------------------------------------------------------
 workspace_app = typer.Typer(
     no_args_is_help=True, help="workspaces — folders for projects and files"
@@ -6729,6 +7107,23 @@ def workspace_rename(
     """
     with _client() as c:
         _print_json(c.rename_workspace(_ref(c, "workspace", workspace_id).id, name))
+
+
+@workspace_app.command("set")
+def workspace_set(
+    workspace_id: str = typer.Argument(..., help="workspace slug (or id:<uuid>)"),
+    best: str = typer.Option(..., "--best", help='best experiment (slug or id:<uuid>); "" clears'),
+    reason: str = pick_reason_opt(),
+) -> None:
+    """Set the workspace's best experiment. A person's pick can't be replaced."""
+    clears = _pick_args(best, reason)
+    with _client() as c:
+        wid = _ref(c, "workspace", workspace_id).id
+        if clears:
+            _declare(lambda: c.clear_workspace_best(wid, reason=reason))
+        else:
+            experiment = _ref(c, "experiment", best).id
+            _declare(lambda: c.pick_workspace_best(wid, experiment, reason=reason))
 
 
 @workspace_app.command("create")
@@ -7584,6 +7979,13 @@ def project_lineage(project_id: str = slug_ref("project")) -> None:
         _print_json(c.project_lineage(_project_id(c, project_id)))
 
 
+@project_app.command("branches")
+def project_branches(project_id: str = slug_ref("project")) -> None:
+    """Print the project's lines of work: best value, rank, effort, state."""
+    with _client() as c:
+        _print_json(c.project_branches(_project_id(c, project_id)))
+
+
 @project_app.command("contributors")
 def project_contributors(
     project_id: str = slug_ref("project"),
@@ -7678,9 +8080,18 @@ def project_set(
     add_tag: list[str] = add_tag_opt(),
     remove_tag: list[str] = remove_tag_opt(),
     set_tags: list[str] = set_tags_opt(),
+    metric: str = metric_opt(),
+    goal: MetricGoal = goal_opt(),
+    reduce: MetricReduce = reduce_opt(),
+    best: str = best_opt(),
+    reason: str = pick_reason_opt(),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Update a project's display fields and tags, in one write."""
+    """Update a project's display fields and tags, in one write.
+
+    Or set its headline metric or best experiment, each alone. A person's
+    metric or pick can't be replaced.
+    """
     if workspace is not None:
         # Refused on purpose. Re-filing fans out a reindex across every descendant, so
         # it must be the thing you asked for, not a flag that rode along on an edit.
@@ -7692,9 +8103,42 @@ def project_set(
         raise typer.Exit(1)
     fields = {"name": name, "description": description, "document": _text_value(summary)}
     retagging = _tag_flags_given(add_tag, remove_tag, set_tags)
-    if not retagging and all(value is None for value in fields.values()):
+    editing = retagging or any(value is not None for value in fields.values())
+    if (goal is not None or reduce is not None) and metric is None:
+        raise typer.BadParameter("--goal and --reduce need --metric")
+    if reason is not None and best is None:
+        raise typer.BadParameter("--reason needs --best")
+    if sum((editing, metric is not None, best is not None)) > 1:
+        raise typer.BadParameter("--metric, --best and field edits go in separate commands")
+    if (metric is not None or best is not None) and authored_by is not None:
+        raise typer.BadParameter("--authored-by does not apply to --metric or --best")
+    if metric is not None:
+        clears = _metric_args(metric, goal, reduce)
+        with _client() as c:
+            pid = _project_id(c, project_id)
+            if clears:
+                _declare(lambda: c.clear_project_metric(pid))
+            else:
+                _declare(
+                    lambda: c.set_project_metric(
+                        pid, metric, goal=goal.value, reduce=reduce.value if reduce else None
+                    )
+                )
+        return
+    if best is not None:
+        clears = _pick_args(best, reason)
+        with _client() as c:
+            pid = _project_id(c, project_id)
+            if clears:
+                _declare(lambda: c.clear_project_best(pid, reason=reason))
+            else:
+                experiment = _ref(c, "experiment", best).id
+                _declare(lambda: c.pick_project_best(pid, experiment, reason=reason))
+        return
+    if not editing:
         raise typer.BadParameter(
             "pass at least one of --name/--description/--summary/--add-tag/--remove-tag/--set-tags"
+            "/--metric/--best"
         )
     with _client() as c:
         pid = _project_id(c, project_id)
@@ -9028,6 +9472,8 @@ def run_start(
         "       This command is refused in the next release.",
         err=True,
     )
+    from ..sdk.client import Rewind
+
     with _client() as c:
         run = c.run(
             experiment=experiment,
@@ -10917,7 +11363,8 @@ def session_state_cmd(
 
     \b
     on      reads and writes. Records the work as it happens.
-    read    reads allowed, records nothing new. Cleanup still works.
+    read    reads allowed, files nothing new in Probe (the transcript is
+            still captured). Cleanup still works.
     off     no Probe calls, no session-start injections, and the
             transcript is not captured (a capture process still
             running an older tap uploads it until it ends).
@@ -11268,6 +11715,24 @@ def session_export(
         return
     out.write_text(json.dumps(document, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     typer.echo(f"wrote {out} ({len(document.get('steps') or [])} steps)")
+
+
+@session_app.command("send")
+def session_send(
+    session_id: str = typer.Argument(..., help="the session to message: one of your own, its id"),
+    text: str = typer.Argument(..., help="the message, at most 2,000 characters"),
+) -> None:
+    """Send a message to one of your own running agent sessions.
+
+    Its Probe daemon puts it in the agent's mailbox within about 30 s; the
+    agent reads it at its next prompt or tool call (an idle Claude Code or pi
+    is woken). Sent from here it reads as from one of your agent sessions,
+    never as from you: only the dashboard speaks as you. A session with no
+    Probe daemon (Probe off, inline, headless `-p`) cannot be reached; `state`
+    then says `unreachable`.
+    """
+    with _client() as c:
+        _print_json(c.send_session_message(session_id, text))
 
 
 @session_app.command("status")
@@ -12074,7 +12539,7 @@ def _ping_presign(
             surface=Surface.CLI.value,
             client_headers=client_version_headers("cli", __version__),
         )
-        with Client(settings=settings, transport=transport) as ping:
+        with _client_class()(settings=settings, transport=transport) as ping:
             presign = ping.presign_upload(
                 anchor,
                 anchor_id,
@@ -14878,7 +15343,9 @@ def outbox_status(
         # once the worker (or `probe run end`) has scanned them.
         "waiting": len(journal.waiting(run_ref=run)),
         "failed": len(failed),
-        "paused": journal.paused,
+        "paused": status.get("paused", journal.paused),
+        # When the pause ends by itself; null while paused means until `resume`.
+        "paused_until": status.get("paused_until"),
         # The queue-wide block, or a credential the drain set aside (#2041).
         "auth_blocked_since": _auth_blocked_since(status),
         "oldest_pending": pending[0][1].get("enqueued_at") if pending else None,
@@ -15241,11 +15708,31 @@ def outbox_adopt(
 
 
 @outbox_app.command("pause")
-def outbox_pause() -> None:
-    """Suspend background delivery (the outbox's own switch, not the capture
-    killswitch). Enqueues still work; nothing drains until `resume`."""
-    _journal().pause()
-    print("outbox paused")
+def outbox_pause(
+    hours: Optional[float] = typer.Option(
+        None, "--hours", help="how long to hold uploads (24 by default); they start again by themselves after"
+    ),
+    until_resume: bool = typer.Option(
+        False, "--until-resume", help="hold uploads until `probe outbox resume`, however long that is"
+    ),
+) -> None:
+    """Suspend background delivery from this machine (the outbox's own switch,
+    not the capture killswitch) for --hours, 24 by default. Enqueues still work:
+    every write made meanwhile, runs included, waits for the pause to end."""
+    from ..sdk.journal import DEFAULT_PAUSE_HOURS, MAX_PAUSE_HOURS
+
+    if hours is not None and not 0 < hours <= MAX_PAUSE_HOURS:
+        raise typer.BadParameter(
+            f"must be more than 0 and at most {MAX_PAUSE_HOURS:g}; --until-resume holds longer",
+            param_hint="--hours",
+        )
+    if hours is not None and until_resume:
+        raise typer.BadParameter("pass --hours or --until-resume, not both")
+    marker = _journal().pause(None if until_resume else hours or DEFAULT_PAUSE_HOURS)
+    if marker["until"]:
+        print(f"outbox paused until {_utc_minute(marker['until'])} — `probe outbox resume` sends sooner")
+    else:
+        print("outbox paused until `probe outbox resume`")
 
 
 @outbox_app.command("resume")
@@ -15570,6 +16057,42 @@ def notes_show(
     advisory = read_advisory(document, version=document.get("notes_version"))
     if advisory is not None:
         print(f"{label}: {advisory}", file=sys.stderr)
+
+
+@notes_app.command("find")
+def notes_find(
+    words: list[str] = typer.Argument(..., help="words to look for (any of them, case-insensitive)"),
+    project: str = typer.Option(None, "--project", help="project slug (or id:<uuid>)"),
+    experiment: str = typer.Option(None, "--experiment", help="experiment slug or id"),
+    run: str = typer.Option(None, "--run", help="run slug or id"),
+    note: str = typer.Option(
+        None, "--note", help="look in this titled SUB-NOTE instead (title, or id:<uuid>)"
+    ),
+) -> None:
+    """Print the paragraphs of an entity's note that mention any of WORDS.
+
+    Each one verbatim under its section heading, with its line numbers, those
+    mentioning more of the words first: what an edit quotes as its old text,
+    without reading the whole note. Reads the current version, like `show`.
+    """
+    from . import notes_find as finder
+
+    with _client() as c:
+        kind, entity_id, label = _note_target(
+            c, project=project, experiment=experiment, run=run
+        )
+        if note is not None:
+            found = _resolve_sub_note_by_title(c, kind, entity_id, note)
+            document = c.get_sub_note(found["id"])
+            text = document.get("body") or ""
+            label = f"{label} › {note}"
+        else:
+            document = _entity_notes_row(c, kind, entity_id)
+            text = document.get("notes") or ""
+    if not text:
+        print(f"{label} has no notes yet", file=sys.stderr)
+        return
+    print(finder.report(label, document.get("notes_version"), text, words))
 
 
 @notes_app.command("checkout")
@@ -15970,8 +16493,9 @@ _CAP_REFUSALS = ("notes limit", "sub-note body exceeds the")
 def _notes_write(kind: str, label: str, write):
     """Run a notes write; on a CAP REFUSAL, add the advice the 422 cannot carry.
 
-    The 422 says "this run note would exceed the 2,000-token notes limit" and
-    stops. That is the moment a writer most needs to know what to do, and it is
+    The 422 says "this run note would exceed the 1,000-token notes limit" (or,
+    for a note already over a lowered cap, "this note is over the 1,000-token
+    notes limit and must be rewritten under it ...") and stops. That is the moment a writer most needs to know what to do, and it is
     the one path that never reaches `_report_notes_headroom` -- the advice rides
     the SUCCESS response, and there is no success. So the wall used to be the
     least informative state in the whole feature.
@@ -15980,9 +16504,9 @@ def _notes_write(kind: str, label: str, write):
     `Client.write` raises RosError for every 4xx and only this one means "the
     document is closed until you compact it". `_CAP_REFUSALS` holds the
     phrases, which every server says whatever the unit: "notes limit" in the
-    entity 422 (older servers: "the 4000-character notes limit"; current ones:
-    "the 30,000-token notes limit", or the character backstop's) and the
-    sub-note body 422's own sentence.
+    entity 422 (older servers: "the 4000-character notes limit" or "the
+    30,000-token notes limit"; current ones: "the 1,000-token notes limit", or
+    the character backstop's) and the sub-note body 422's own sentence.
     """
     from ..sdk.notes import full_note_message
 
@@ -17063,6 +17587,14 @@ _EXPERIMENT_TAGS_READ_ONLY = (
     "an experiment's tags are read-only since experiments moved to their own record; "
     "tag the project instead (`probe project tag`), or say it in the question or notes"
 )
+#: 0231: an experiment's description is its question. Refused before any call,
+#: as a usage error: the SDK's ValueError reached `experiment create` as a crash
+#: (Tokenless 2026-10-26: 14 of them in one import, whose prompt asked for it).
+_EXPERIMENT_DESCRIPTION_RETIRED = (
+    "an experiment's description was replaced by its QUESTION (0231). Use "
+    "--question for what the experiment is testing, or --summary for prose "
+    "about it -- which is where existing descriptions were moved."
+)
 
 
 @experiment_app.command("create")
@@ -17075,10 +17607,15 @@ def experiment_create(
     project: str = typer.Option(
         None, "--project", help="project slug; defaults to the active one (`probe project use`)"
     ),
-    description: str = description_opt(),
     summary: str = entity_markdown_opt(),
-    #: RETIRED with the light experiments: declared so it can be REFUSED with
-    #: the reason (Typer's "no such option" reads as a typo).
+    #: RETIRED, both declared so they can be REFUSED with the reason (Typer's
+    #: "no such option" reads as a typo).
+    description: str = typer.Option(
+        None,
+        "--description",
+        help="RETIRED: an experiment's description is now its --question",
+        hidden=True,
+    ),
     tag: list[str] = typer.Option(
         None, "--tag", help="RETIRED: an experiment's tags are read-only", hidden=True
     ),
@@ -17094,6 +17631,8 @@ def experiment_create(
     `--question` is required here for that reason — this is the moment you know
     what you are testing, and nothing later goes back to fill it in.
     """
+    if description is not None:
+        raise typer.BadParameter(_EXPERIMENT_DESCRIPTION_RETIRED, param_hint="--description")
     if tag:
         raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY, param_hint="--tag")
     resolved_project = _ambient_project(project)
@@ -17111,7 +17650,6 @@ def experiment_create(
             name,
             question=question,
             project_id=project_id,
-            description=description,
             document=_text_value(summary),
             authored_by=_authored_by_value(authored_by),
         )
@@ -17245,20 +17783,45 @@ def experiment_set(
     add_tag: list[str] = typer.Option(None, "--add-tag", hidden=True),
     remove_tag: list[str] = typer.Option(None, "--remove-tag", hidden=True),
     set_tags: list[str] = typer.Option(None, "--set-tags", hidden=True),
+    metric: str = metric_opt(),
+    goal: MetricGoal = goal_opt(),
+    reduce: MetricReduce = reduce_opt(),
     authored_by: AuthoredBy = authored_by_opt(),
 ) -> None:
-    """Amend an experiment's question, conclusion, name or visible Markdown, in one command."""
+    """Amend an experiment's question, conclusion, name or visible Markdown, in one command.
+
+    Or, alone, override its project's headline metric. A person's metric
+    can't be replaced.
+    """
     if description is not None:
-        raise typer.BadParameter(
-            "an experiment's description was replaced by its QUESTION (0231). Use "
-            "--question for what the experiment is testing, or --summary for prose "
-            "about it -- which is where existing descriptions were moved."
-        )
+        raise typer.BadParameter(_EXPERIMENT_DESCRIPTION_RETIRED, param_hint="--description")
     if _tag_flags_given(add_tag, remove_tag, set_tags):
         raise typer.BadParameter(_EXPERIMENT_TAGS_READ_ONLY)
     if conclusion == "-" and summary == "-":
         # The second would read an emptied stdin as "" and clear its field.
         raise typer.BadParameter("only one of --conclusion and --summary can read stdin (-)")
+    if (goal is not None or reduce is not None) and metric is None:
+        raise typer.BadParameter("--goal and --reduce need --metric")
+    if metric is not None:
+        if any(v is not None for v in (question, conclusion, name, summary, authored_by)):
+            raise typer.BadParameter("--metric goes alone")
+        clears = _metric_args(metric, goal, reduce)
+        with _client() as c:
+            target = _ref(c, "experiment", experiment_id)
+            home = _filed_under(target)
+            if clears:
+                _declare(lambda: c.clear_experiment_metric(target.id, project_id=home))
+            else:
+                _declare(
+                    lambda: c.set_experiment_metric(
+                        target.id,
+                        metric,
+                        goal=goal.value,
+                        reduce=reduce.value if reduce else None,
+                        project_id=home,
+                    )
+                )
+        return
     fields = {
         "question": question,
         "conclusion": _text_value(conclusion),
@@ -17266,7 +17829,9 @@ def experiment_set(
         "document": _text_value(summary),
     }
     if all(value is None for value in fields.values()):
-        raise typer.BadParameter("pass at least one of --question/--conclusion/--name/--summary")
+        raise typer.BadParameter(
+            "pass at least one of --question/--conclusion/--name/--summary/--metric"
+        )
     with _client() as c:
         target = _ref(c, "experiment", experiment_id)
         result = c.update_experiment(
@@ -17384,6 +17949,14 @@ def experiment_lineage(experiment_id: str = slug_ref("experiment")) -> None:
     with _client() as c:
         target = _ref(c, "experiment", experiment_id)
         _print_json(c.experiment_lineage(target.id, project_id=_filed_under(target)))
+
+
+@experiment_app.command("branch")
+def experiment_branch(experiment_id: str = slug_ref("experiment")) -> None:
+    """Print the experiment's line of work and the ones it split from."""
+    with _client() as c:
+        target = _ref(c, "experiment", experiment_id)
+        _print_json(c.experiment_branch(target.id, project_id=_filed_under(target)))
 
 
 # -- run groups (sweeps / ensembles) ----------------------------------------

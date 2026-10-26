@@ -233,6 +233,11 @@ def _component(
     }
 
 
+def error_component(detail: str, *, target: str | None) -> dict:
+    """A half that raised before it could say where it ended."""
+    return _component(None, None, target, Result.ERROR, detail)
+
+
 def cli_component(
     res: updater.CliResult | None,
     *,

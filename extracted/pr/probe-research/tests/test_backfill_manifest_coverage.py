@@ -39,9 +39,13 @@ def test_conflicting_duplicate_is_not_resolved_by_row_order(tmp_path):
     assert "duplicate" in checked.describe()
 
 
-def test_unit_success_requires_every_assigned_path(tmp_path, monkeypatch):
+def test_an_agent_cannot_shorten_its_unit(tmp_path, monkeypatch):
+    """Every assigned path is on the upload list whatever the agent writes:
+    the list is code's, so a model that lists one file of two loses nothing."""
     folder = tmp_path / "folder"
     folder.mkdir()
+    (folder / "a.py").write_text("a")
+    (folder / "b.py").write_text("b")
     work = tmp_path / "work"
     work.mkdir()
     unit = backfill_ledger.Unit("unit", "project", ("a.py", "b.py"))
@@ -49,16 +53,14 @@ def test_unit_success_requires_every_assigned_path(tmp_path, monkeypatch):
     ledger.record_plan([unit], ["project"])
 
     def launch(*args, **kwargs):
-        (work / "unit.jsonl").write_text('{"path":"a.py"}\n')
+        (work / "unit.jsonl").write_text('{"path":"a.py"}\n')  # what the old contract let it do
         return True, "Imported both files"
 
     monkeypatch.setattr(backfill, "launch_agent", launch)
     outcome = backfill_run.run_unit(folder, unit, agent=backfill.Agent.CODEX,
                                    ledger=ledger, work_dir=work)
-    assert not outcome.ok
-    assert outcome.rows == 1
-    assert "b.py" in outcome.detail
-    assert ledger.read().outstanding()[0].unit == unit
+    assert outcome.ok and outcome.rows == 2
+    assert not ledger.read().outstanding()
 
 
 def test_external_symlink_cannot_be_manifested(tmp_path):

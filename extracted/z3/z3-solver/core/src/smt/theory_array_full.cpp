@@ -203,24 +203,27 @@ namespace smt {
             return true;
         };
 
-        auto add_indices = [&](reach const* path, ptr_vector<enode>& indices) {
+        auto add_eq = [&](enode* n1, enode* n2, enode_pair_vector& eqs) {
+            if (n1 != n2) {
+                SASSERT(n1->get_root() == n2->get_root());
+                eqs.push_back({ n1, n2 });
+            }
+        };
+
+        auto add_indices = [&](reach const* path, ptr_vector<enode>& indices, enode_pair_vector& eqs) {
             for (; path->m_store; path = path->m_parent) {
                 enode* store = path->m_store;
                 bool found = false;
                 for (enode* old : indices)
                     if (same_index(store, old)) {
+                        // The reduced index count depends on these equalities in the current branch.
+                        for (unsigned k = 1; k + 1 < store->get_num_args(); ++k)
+                            add_eq(store->get_arg(k), old->get_arg(k), eqs);
                         found = true;
                         break;
                     }
                 if (!found)
                     indices.push_back(store);
-            }
-        };
-
-        auto add_eq = [&](enode* n1, enode* n2, enode_pair_vector& eqs) {
-            if (n1 != n2) {
-                SASSERT(n1->get_root() == n2->get_root());
-                eqs.push_back({ n1, n2 });
             }
         };
 
@@ -281,8 +284,9 @@ namespace smt {
                     continue;
 
                 ptr_vector<enode> indices;
-                add_indices(path1, indices);
-                add_indices(path2, indices);
+                enode_pair_vector eqs;
+                add_indices(path1, indices, eqs);
+                add_indices(path2, indices, eqs);
 
                 sort* array_sort = const_arrays[i]->get_sort();
                 bool domain_exceeds_indices = false;
@@ -306,7 +310,6 @@ namespace smt {
                     domain_exceeds_indices || domain_size > indices.size();
 
                 if (has_common_uncovered_index) {
-                    enode_pair_vector eqs;
                     add_path_eqs(const_arrays[i], path1, eqs);
                     add_path_eqs(const_arrays[j], path2, eqs);
                     justification* js =
@@ -1021,10 +1024,36 @@ namespace smt {
             case l_undef: r = FC_GIVEUP; break;
             }
         }
+        if (r == FC_DONE && assert_lambda_congruence())
+            r = FC_CONTINUE;
         bool should_giveup = m_found_unsupported_op || has_propagate_up_trail() || has_non_beta_as_array();
         if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;
         return r;
+    }
+
+    bool theory_array_full::assert_lambda_congruence() {
+        ptr_vector<enode> todo;
+        obj_hashtable<enode> visited;
+        todo.append(m_lambdas);
+        for (unsigned i = 0; i < todo.size(); ++i) {
+            enode* n = todo[i];
+            enode* root = n->get_root();
+            if (visited.contains(root))
+                continue;
+            visited.insert(root);
+            for (enode* other = root->get_next(); other != root; other = other->get_next())
+                assert_congruent(root, other);
+            // Stores and maps over lambdas need congruence even when the
+            // lambda itself is not an operand of the array equality.
+            for (enode* p : root->get_parents()) {
+                if (!ctx.is_relevant(p))
+                    continue;
+                if ((is_store(p) && p->get_arg(0)->get_root() == root) || is_map(p))
+                    todo.push_back(p);
+            }
+        }
+        return can_propagate();
     }
 
     bool theory_array_full::has_non_beta_as_array() {

@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import io
 import json
+from dataclasses import replace
 import threading
 from pathlib import Path
 
 import pytest
+
+from backfill_plan_agent import filing
 
 from probe.cli import backfill as bf
 from probe.cli import backfill_evidence as evidence
@@ -137,9 +140,14 @@ def test_parallel_surveys_are_bounded_and_naming_waits_for_every_ordered_result(
         index = int(heading.split('slice ')[1].split()[0])
         return True, _answer({'assignments': [{'path': f'{index}.py', 'project': 'alpha'}]})
 
-    monkeypatch.setattr(bf, 'launch_agent', launch)
+    monkeypatch.setattr(bf, 'launch_agent', filing(launch))
+    walked = replace(_inputs(tmp_path), files=[
+        evidence.FileEvidence(path=str(tmp_path / f'{i}.py'), size=10, mtime=0,
+                              tier=evidence.Tier.EVIDENCE, sample=str(i))
+        for i in range(1, 5)
+    ])
     plan, _ = runner.classify_chunked(
-        tmp_path, _inputs(tmp_path), agent=bf.Agent.CLAUDE,
+        tmp_path, walked, agent=bf.Agent.CLAUDE,
         existing=[], work_dir=tmp_path / 'work', stream=_Terminal(),
     )
     assert plan is not None and len(plan.assignments) == 4
@@ -161,12 +169,14 @@ def test_single_classification_progress_does_not_claim_prompt_evidence_is_tool_r
     def launch(folder, prompt, **kwargs):
         assert kwargs['total'] == 0
         kwargs['paint_to']('0:05 · identifying projects')
-        return success, _answer({
+        if not success:
+            return False, 'connection lost'  # died before filing anything
+        return True, _answer({
             'projects': [{'slug': 'alpha'}],
             'assignments': [{'path': 'a.py', 'project': 'alpha'}],
         })
 
-    monkeypatch.setattr(bf, 'launch_agent', launch)
+    monkeypatch.setattr(bf, 'launch_agent', filing(launch))
     plan, _, _ = runner.classify(
         tmp_path, _inputs(tmp_path), agent=bf.Agent.CLAUDE,
         existing=[], work_dir=tmp_path / 'work', stream=_Terminal(),
@@ -293,7 +303,7 @@ def test_pool_cancellation_is_carried_to_the_actual_agent_launch(tmp_path, monke
             progress.cancelled.set()
             return False, 'cancelled while launching'
 
-        monkeypatch.setattr(bf, 'launch_agent', launch)
+        monkeypatch.setattr(bf, 'launch_agent', filing(launch))
         result, detail = runner._run_pass(
             tmp_path, 'prompt', agent=bf.Agent.CLAUDE, heading='Reading slice 1 of 1',
             work_dir=tmp_path, total=1, key='findings',

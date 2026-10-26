@@ -17,7 +17,7 @@ LossInputs = Mapping[str, str | Mapping[str, object]]
 
 def _input_columns(inputs: LossInputs) -> list[dict]:
     if not isinstance(inputs, Mapping) or not 1 <= len(inputs) <= 16:
-        raise ValueError("inputs must declare 1..16 named int64/float32 columns")
+        raise ValueError("inputs must declare 1..16 named int32/int64/float32 columns")
     if any(not isinstance(name, str) or not 1 <= len(name) <= 64 for name in inputs):
         raise ValueError("input columns must have names containing 1..64 characters")
     columns = []
@@ -42,10 +42,34 @@ def _input_columns(inputs: LossInputs) -> list[dict]:
             raise ValueError(
                 "input declarations require a dtype or a dtype and token shape"
             )
-        if dtype not in ("int64", "float32"):
-            raise ValueError("inputs require int64/float32 columns")
+        if dtype not in ("int32", "int64", "float32"):
+            raise ValueError("inputs require int32/int64/float32 columns")
         columns.append(column | {"dtype": dtype})
     return columns
+
+
+def _input_array(values, schema):
+    """Normalize wire and snapshot storage without unchecked integer narrowing."""
+    import numpy as np
+
+    name = schema["name"]
+    array = np.asarray(values)
+    if array.dtype.kind in "iu":
+        dtype = np.dtype(schema["dtype"])
+        if dtype.kind != "i":
+            raise ValueError(f"loss_data[{name!r}] requires floating values")
+        if array.size and not np.can_cast(array.dtype, dtype, casting="safe"):
+            limits = np.iinfo(dtype)
+            if int(array.min()) < limits.min or int(array.max()) > limits.max:
+                raise ValueError(f"loss_data[{name!r}] exceeds {dtype} range")
+        array = array.astype(dtype, copy=False)
+    elif array.dtype.kind == "f":
+        array = array.astype(np.float32, copy=False)
+    else:
+        raise TypeError(f"loss_data[{name!r}] must contain integers or floats")
+    if str(array.dtype) != schema["dtype"]:
+        raise ValueError(f"loss_data[{name!r}]: dtype does not match declared schema")
+    return array
 
 
 class LossObjective(Protocol):
@@ -82,10 +106,11 @@ class BuiltinLoss(Loss):
 class CustomLoss(Loss):
     """A tensor objective with declared inputs; call model.prepare_loss before use.
 
-    Return a scalar or (scalar, dict of scalar metrics). The result's loss
-    preserves the objective's reduction without additional averaging. Named
-    metrics use the custom/ prefix. Built-in loss diagnostics and per-token
-    logprobs are not returned.
+    Return a scalar or (scalar, dict of scalar metrics) for one example.
+    Reductions and scalar operations apply within that example; finalized losses
+    and metrics are summed across examples without additional averaging.
+    Cross-example operations are unsupported. Named metrics use the custom/
+    prefix. Built-in loss diagnostics and per-token logprobs are not returned.
 
     The CPU-captured graph defines the formula executed on the server. Device
     branching is unsupported and may be frozen during capture; CUDA is not
@@ -100,10 +125,11 @@ class CustomLoss(Loss):
     targets explicitly. AsyncTrainer supplies that mask and next-text targets.
 
     For screenshots, use session.upload_image() handles to avoid repeating image
-    bytes in uploads. Custom requests have a 1 GiB upload limit and cannot split
-    automatically without changing global reductions. Handles still count toward
-    server limits after resolution: 128 MiB per datum and 2 GiB total image bytes
-    per request, including repeated images.
+    bytes in uploads. Custom requests have a 1 GiB upload limit; automatic
+    upload splitting is not implemented. Handles still count toward
+    server limits after resolution: 128 MiB per datum, including repeated image
+    occurrences, and 2 GiB of image bytes per request. The request budget counts
+    each distinct handle once and each inline image occurrence separately.
     """
 
     objective: LossObjective

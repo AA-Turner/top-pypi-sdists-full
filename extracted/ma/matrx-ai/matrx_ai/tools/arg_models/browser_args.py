@@ -234,7 +234,7 @@ class BrowserRenderClipArgs(BaseModel):
 
     action: Literal["render_clip"]
     url: str = Field(min_length=8, max_length=4_000)
-    client_name: str = Field(default="", max_length=200)
+    brand_name: str = Field(default="", max_length=200)
     scope: Literal["whole", "section"] = "whole"
     section_heading: str = Field(default="", max_length=300)
     drop: list[str] = Field(default_factory=list, max_length=50)
@@ -255,7 +255,7 @@ class BrowserSavePageArgs(BaseModel):
 
     action: Literal["save_page"]
     session_id: str
-    client_name: str = Field(default="", max_length=200)
+    brand_name: str = Field(default="", max_length=200)
     coverage_mention_id: str = Field(default="", max_length=64)
     profile_id: str = _PROFILE_FIELD_DEFAULT
 

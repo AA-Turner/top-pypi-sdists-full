@@ -1,0 +1,29 @@
+schema = 1
+
+[[word]]
+text = "gospodin"
+salutation = { issue = 606, gender = "m", after_given = true }
+
+[[word]]
+text = "gospođa"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "gospođica"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "mlađa"
+generation = { issue = 661 }
+
+[[word]]
+text = "mlađi"
+generation = { issue = 661 }
+
+[[word]]
+text = "starija"
+generation = { issue = 661 }
+
+[[word]]
+text = "stariji"
+generation = { issue = 661 }

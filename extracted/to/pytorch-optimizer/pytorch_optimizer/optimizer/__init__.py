@@ -9,6 +9,7 @@ import torch
 from torch import nn
 from torch.optim import LBFGS, SGD, Adam, AdamW, NAdam, Optimizer, RMSprop
 
+from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import OptimizerType, ParamsT
 from pytorch_optimizer.optimizer.a2grad import A2Grad
 from pytorch_optimizer.optimizer.adabelief import AdaBelief
@@ -46,12 +47,12 @@ from pytorch_optimizer.optimizer.bcos import BCOS
 from pytorch_optimizer.optimizer.came import CAME
 from pytorch_optimizer.optimizer.conda import Conda
 from pytorch_optimizer.optimizer.dadapt import DAdaptAdaGrad, DAdaptAdam, DAdaptAdan, DAdaptLion, DAdaptSGD
+from pytorch_optimizer.optimizer.dash import DASH
 from pytorch_optimizer.optimizer.demo import DeMo
 from pytorch_optimizer.optimizer.diffgrad import DiffGrad
 from pytorch_optimizer.optimizer.dual_adam import DualAdam
 from pytorch_optimizer.optimizer.emonavi import EmoFact, EmoLynx, EmoNavi
 from pytorch_optimizer.optimizer.exadam import EXAdam
-from pytorch_optimizer.optimizer.experimental.ranger25 import Ranger25
 from pytorch_optimizer.optimizer.fadam import FAdam
 from pytorch_optimizer.optimizer.fira import Fira
 from pytorch_optimizer.optimizer.flash_adamw import FlashAdamW
@@ -76,7 +77,15 @@ from pytorch_optimizer.optimizer.madgrad import MADGRAD
 from pytorch_optimizer.optimizer.magma import Magma
 from pytorch_optimizer.optimizer.mars import MARS
 from pytorch_optimizer.optimizer.msvag import MSVAG
-from pytorch_optimizer.optimizer.muon import AdaGO, AdaMuon, DistributedMuon, Muon, NorMuon, prepare_muon_parameters
+from pytorch_optimizer.optimizer.muon import (
+    AdaGO,
+    AdaMuon,
+    DistributedMuon,
+    Muon,
+    MuonClip,
+    NorMuon,
+    prepare_muon_parameters,
+)
 from pytorch_optimizer.optimizer.nero import Nero
 from pytorch_optimizer.optimizer.novograd import NovoGrad
 from pytorch_optimizer.optimizer.orthograd import OrthoGrad
@@ -126,6 +135,7 @@ __all__ = [
     'BCOS',
     'BSAM',
     'CAME',
+    'DASH',
     'FOCUS',
     'FTRL',
     'GSAM',
@@ -226,6 +236,7 @@ __all__ = [
     'Lookahead',
     'Magma',
     'Muon',
+    'MuonClip',
     'NAdam',
     'Nero',
     'NorMuon',
@@ -239,7 +250,6 @@ __all__ = [
     'RMSprop',
     'Ranger',
     'Ranger21',
-    'Ranger25',
     'RotoGrad',
     'SCIONLight',
     'SGDSaI',
@@ -325,6 +335,7 @@ OPTIMIZER_LIST: list[OptimizerType] = [
     BSAM,
     CAME,
     Conda,
+    DASH,
     DAdaptAdaGrad,
     DAdaptAdam,
     DAdaptAdan,
@@ -361,6 +372,7 @@ OPTIMIZER_LIST: list[OptimizerType] = [
     MARS,
     MSVAG,
     Muon,
+    MuonClip,
     Nero,
     NorMuon,
     NovoGrad,
@@ -374,7 +386,6 @@ OPTIMIZER_LIST: list[OptimizerType] = [
     RAdam,
     Ranger,
     Ranger21,
-    Ranger25,
     ROSE,
     SCION,
     SCIONLight,
@@ -559,12 +570,12 @@ def create_optimizer(
     Args:
         model: Model whose parameters to optimize.
         optimizer_name: Case insensitive name accepted by `load_optimizer()`.
-        lr: Learning rate. Compilation converts a float to a tensor on the model's device.
+        lr: Learning rate. Compiled updates use scalar tensors on the parameter device.
         weight_decay: Weight decay coefficient.
         wd_ban_list: Name patterns to exclude from weight decay. Matches parameter names and module class names.
         use_lookahead: Wrap the optimizer with Lookahead, unless it already includes Lookahead.
         use_orthograd: Project gradients with OrthoGrad before each update.
-        compile: Compile the optimizer step with `torch.compile`.
+        compile: Compile optimizer updates with `torch.compile`. Supported foreach paths keep scalar bookkeeping eager.
         compile_kwargs: Options for `torch.compile`. Dynamic tracing defaults to `True`.
         **kwargs (dict): Optimizer and wrapper options.
 
@@ -573,8 +584,21 @@ def create_optimizer(
 
     """
     optimizer_name = optimizer_name.lower()
+    optimizer_type = load_optimizer(optimizer_name)
 
-    if compile and not isinstance(lr, torch.Tensor):
+    use_compiled_foreach = (
+        compile
+        and issubclass(optimizer_type, BaseOptimizer)
+        and optimizer_type._supports_compiled_foreach
+        and kwargs.get('foreach') is not False
+        and not use_orthograd
+        and not use_lookahead
+    )
+
+    if use_compiled_foreach:
+        kwargs.setdefault('foreach', True)
+
+    if compile and not use_compiled_foreach and not isinstance(lr, torch.Tensor):
         lr = torch.tensor(lr, device=next(model.parameters()).device)
 
     if optimizer_name != 'lbfgs':
@@ -586,13 +610,13 @@ def create_optimizer(
         else [{'params': model.parameters(), 'weight_decay': weight_decay}]
     )
 
-    optimizer_class = cast(Callable[..., Optimizer], load_optimizer(optimizer_name))
+    optimizer_class = cast(Callable[..., Optimizer], optimizer_type)
 
     if optimizer_name == 'alig':
         optimizer = optimizer_class(parameters, max_lr=lr, **kwargs)
     elif optimizer_name in ('lomo', 'adalomo', 'adammini'):
         optimizer = optimizer_class(model, lr=lr, **kwargs)
-    elif optimizer_name in ('muon', 'adamuon', 'adago', 'normuon'):
+    elif optimizer_name in ('muon', 'muonclip', 'adamuon', 'adago', 'normuon'):
         warn(f'highly recommend you to manually create the {optimizer_name} manually.', UserWarning, stacklevel=1)
 
         optimizer = prepare_muon_parameters(model, optimizer_name, lr=lr, **kwargs)
@@ -603,7 +627,7 @@ def create_optimizer(
         optimizer = OrthoGrad(optimizer, **kwargs)
 
     if use_lookahead:
-        if optimizer_name in ('ranger', 'ranger21', 'ranger25'):
+        if optimizer_name in ('ranger', 'ranger21'):
             warn(f'{optimizer} already has a Lookahead variant.', UserWarning, stacklevel=1)
         else:
             optimizer = Lookahead(
@@ -613,7 +637,9 @@ def create_optimizer(
                 pullback_momentum=kwargs.get('pullback_momentum', 'none'),
             )
 
-    if compile:
+    if use_compiled_foreach and isinstance(optimizer, BaseOptimizer):
+        optimizer._compile_foreach(compile_kwargs)
+    elif compile:
         optimizer.step = MethodType(  # ty: ignore[invalid-assignment]
             torch.compile(optimizer.step.__func__, **{'dynamic': True, **(compile_kwargs or {})}),
             optimizer,
@@ -642,29 +668,31 @@ def get_optimizer_parameters(
         ParamsT: Nonempty parameter groups with the requested weight decay or zero weight decay.
 
     """
-    banned_parameter_patterns: set[str] = set()
+    banned_parameter_ids: set[int] = set()
 
     if isinstance(model_or_parameter, nn.Module):
         for module_name, module in model_or_parameter.named_modules():
-            for param_name, _ in module.named_parameters(recurse=False):
+            for param_name, param in module.named_parameters(recurse=False):
                 full_param_name: str = f'{module_name}.{param_name}' if module_name else param_name
                 if any(
                     banned in pattern
                     for banned in wd_ban_list
                     for pattern in (full_param_name, module._get_name(), f'{module._get_name()}.{param_name}')
                 ):
-                    banned_parameter_patterns.add(full_param_name)
+                    banned_parameter_ids.add(id(param))
 
         model_or_parameter = list(model_or_parameter.named_parameters())
     else:
-        banned_parameter_patterns.update(wd_ban_list)
+        banned_parameter_ids.update(
+            id(p) for n, p in model_or_parameter if any(pattern in n for pattern in wd_ban_list)
+        )
 
     groups = [
         {
             'params': [
                 p
                 for n, p in model_or_parameter
-                if p.requires_grad and not any(nd in n for nd in banned_parameter_patterns)
+                if p.requires_grad and id(p) not in banned_parameter_ids
             ],
             'weight_decay': weight_decay,
         },
@@ -672,7 +700,7 @@ def get_optimizer_parameters(
             'params': [
                 p
                 for n, p in model_or_parameter
-                if p.requires_grad and any(nd in n for nd in banned_parameter_patterns)
+                if p.requires_grad and id(p) in banned_parameter_ids
             ],
             'weight_decay': 0.0,
         },

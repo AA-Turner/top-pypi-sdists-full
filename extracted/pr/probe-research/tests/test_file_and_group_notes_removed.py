@@ -199,7 +199,11 @@ _COPIES = (
 @pytest.mark.parametrize("root", _COPIES, ids=lambda p: str(p.relative_to(AGENT)))
 def test_every_skill_copy_says_files_and_groups_carry_no_notes(root):
     reference = (root / "track-work" / "reference.md").read_text(encoding="utf-8")
-    edit_notes = (root / "edit-notes" / "SKILL.md").read_text(encoding="utf-8")
+    from probe import skill_versions
+
+    # The main agent's render: the source tree's edit-notes has versions (the
+    # plugins' copies are that render already, which `render` returns as is).
+    edit_notes = skill_versions.render(root / "edit-notes", skill_versions.MAIN_AGENT)
     # Never a description on the file itself, nor in its name (0095). Only the
     # RETIRED forms are refused: a run's `--notes` is still a legitimate flag.
     retired = re.compile(

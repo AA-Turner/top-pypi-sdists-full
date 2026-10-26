@@ -44,7 +44,7 @@ class ConnectorParams(typing_extensions.TypedDict):
 
     selection: typing.Optional[typing.Dict[str, typing.Optional[typing.Sequence[ConnectorSelectionItemParams]]]]
     """
-    What syncs, grouped by kind, in the same shape PATCH takes. Null for connectors that sync everything.
+    What syncs, grouped by kind (repos, labels, files or folders), each a list of { id, name }. Null for connectors that sync everything.
     """
 
     document_limit: typing_extensions.Annotated[float, FieldMetadata(alias="documentLimit")]

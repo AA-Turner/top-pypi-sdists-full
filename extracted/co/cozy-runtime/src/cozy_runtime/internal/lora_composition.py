@@ -1,8 +1,8 @@
-"""Bind a prepared LoRA view (TensorD composes it: `derive/adapter.rs`) to a construction.
+"""Bind a prepared LoRA view (TensorD composes it: `adapter.rs`) to a construction.
 
 The view's base weights are `<path>.base_layer.*` and its factors `<path>.lora_{A,B}.<adapter>`;
-its `model_adapters.json` graph names the PEFT layers this module builds before the ordinary
-census, fill and residency own them.
+its `model_adapters.json` graph names, by stored names, the PEFT layers (linear and 2-D
+convolution) this module builds before the ordinary census, fill and residency own them.
 """
 
 from __future__ import annotations
@@ -10,13 +10,15 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 
+import msgspec
+
 from cozy_runtime.author import Artifact, CapabilityError, Config as ModelConfig, Model
 from cozy_runtime.internal.lora_contract import (
     CAPABILITY as CAPABILITY,
     FORMAT as FORMAT,
     GRAPH_CONFIG as GRAPH_CONFIG,
     Graph as Graph,
-    Linear,
+    Layer,
     read as read,
 )
 
@@ -38,8 +40,10 @@ def composer(graph: Graph) -> Callable[[object], None]:
     try:
         import torch
         from peft import LoraConfig
-        from peft.tuners.lora.layer import Linear as PeftLinear
+        from peft.tuners.lora.layer import Conv2d as PeftConv2d, Linear as PeftLinear
         from torch import nn
+
+        from cozy_runtime import lora
     except ImportError as exc:
         raise _refuse(
             "backend_unavailable",
@@ -55,25 +59,35 @@ def composer(graph: Graph) -> Callable[[object], None]:
         _cozy_baked = False
 
         def forward(self, x: torch.Tensor, *args: object, **kwargs: object) -> torch.Tensor:
-            # Base hooks (Turbo's overlay) run inside `base_layer`. Extra memory: [rows, rank].
+            # Base hooks (Turbo's overlay) run inside `base_layer`.
             result = self.base_layer(x, *args, **kwargs).contiguous()
+            if not self._cozy_baked:
+                for name in self.active_adapters:
+                    lora.accumulate(
+                        x, result, self.lora_A[name].weight, self.lora_B[name].weight,
+                        self.scaling[name],
+                    )
+            return result
+
+    class _Conv2d(PeftConv2d):  # type: ignore[misc]
+        _cozy_baked = False
+
+        def forward(self, x: torch.Tensor, *args: object, **kwargs: object) -> torch.Tensor:
+            # Extra memory: a rank-channel activation and one update.
+            result = self.base_layer(x, *args, **kwargs)
             if self._cozy_baked:
                 return result
-            flat, rows = result.view(-1, result.shape[-1]), x.reshape(-1, x.shape[-1])
             for name in self.active_adapters:
-                low = nn.functional.linear(rows, self.lora_A[name].weight.to(rows.dtype))
-                flat.addmm_(
-                    low.to(flat.dtype),
-                    self.lora_B[name].weight.to(flat.dtype).t(),
-                    alpha=self.scaling[name],
-                )
+                down, up = self.lora_A[name], self.lora_B[name]
+                low = up(down(x.to(down.weight.dtype)))
+                result.add_(low.to(result.dtype), alpha=self.scaling[name])
             return result
 
     def apply(obj: object) -> None:
         members = getattr(obj, "components", None)
         if not isinstance(members, Mapping):
             raise _refuse("component", "model construction exposes no component mapping")
-        groups: dict[tuple[str, str], list[Linear]] = {}
+        groups: dict[tuple[str, str], list[Layer]] = {}
         for row in graph.layers:
             groups.setdefault((row.component, row.target), []).append(row)
         seen: set[int] = set()
@@ -89,17 +103,18 @@ def composer(graph: Graph) -> Callable[[object], None]:
                 raise _refuse(
                     "target", f"constructed model has no target {component}.{path}"
                 ) from exc
-            if not isinstance(base, nn.Linear):
-                raise _refuse("target_type", f"{component}.{path} is not an ordinary linear layer")
+            if not isinstance(base, (nn.Linear, nn.Conv2d)):
+                raise _refuse(
+                    "target_type", f"{component}.{path} is neither a linear nor a 2-D convolution"
+                )
             if id(base) in seen:
                 raise _refuse("alias", f"{component}.{path} aliases another adapted layer")
             seen.add(id(base))
             if len({row.adapter for row in rows}) != len(rows):
                 raise _refuse("graph", f"{component}.{path} repeats one adapter term")
             first, *others = rows
-            layer = _Linear(
-                base, first.adapter, config=config, r=first.rank, lora_alpha=first.alpha
-            )
+            kind = _Linear if isinstance(base, nn.Linear) else _Conv2d
+            layer = kind(base, first.adapter, config=config, r=first.rank, lora_alpha=first.alpha)
             for row in others:
                 layer.update_layer(row.adapter, row.rank, lora_alpha=row.alpha, config=config)
             for row in rows:
@@ -120,13 +135,23 @@ def bind(
     artifact: Artifact,
     model: type[Model[object]],
     data: bytes,
+    binding: Callable[[str, str], str],
     *,
     prepared_snapshot: str = "",
 ) -> Artifact:
-    """Bind one prepared view to a model's opt-in before weightless construction."""
+    """Bind one prepared view to a model's opt-in before weightless construction. `binding`
+    is a component's stored name -> the name its module tree uses (`fill.Checkpoint.binding`):
+    the graph's targets are stored names (SDXL's `text_model.` that `CLIPTextModel` drops)."""
     if not data:
         return artifact
     graph = read(data)
+    layers = tuple(
+        msgspec.structs.replace(
+            row, target=binding(row.component, row.target + ".weight").removesuffix(".weight")
+        )
+        for row in graph.layers
+    )
+    graph = msgspec.structs.replace(graph, layers=layers)
     model.validate_adapter_stack(graph.adapters)
     given = artifact.config._tensor_dtypes
     dtypes = (

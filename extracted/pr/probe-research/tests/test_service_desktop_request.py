@@ -416,6 +416,7 @@ def test_a_request_being_answered_holds_the_service(service_home, core, monkeypa
     assert service_home.status()["pid"] == started["pid"]
 
 
+@pytest.mark.heavy
 def test_the_real_child_answers_byte_for_byte_what_probe_desktop_request_prints(service_home):
     """No stand-in: `runtime.json` names this interpreter, so the service's
     child is the real `probe.core.run desktop`."""

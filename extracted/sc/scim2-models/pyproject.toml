@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "scim2-models"
-version = "0.12.2"
+version = "0.12.3"
 description = "SCIM2 models serialization and validation with pydantic"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -19,11 +19,12 @@ keywords = [
 ]
 classifiers = [
     "Intended Audience :: Developers",
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Environment :: Web Environment",
     "Programming Language :: Python",
@@ -116,9 +117,6 @@ docstring-code-format = true
 addopts = "--doctest-modules --doctest-glob='*.rst'"
 doctest_optionflags = "ALLOW_UNICODE ELLIPSIS"
 
-[tool.codespell]
-ignore-words-list = "selectin"
-
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 python_version = "3.14"
@@ -138,6 +136,7 @@ env_list = [
     "py312",
     "py313",
     "py314",
+    "py315",
     "minversions",
     "doc",
     "coverage",
@@ -209,16 +208,10 @@ commands = [
 
 [dependency-groups]
 dev = [
-    "django>=5.1",
-    "fastapi>=0.133.0",
-    "flask>=3.0.0",
-    "httpx2>=2.12",
     "mypy>=1.13.0",
     "pytest>=8.2.1",
     "pytest-cov>=6.0.0",
     "prek>=0.1.0",
-    "starlette>=1.2.0",
-    "sqlalchemy>=2.0",
     "tox-uv>=1.16.0",
     "precis-i18n>=1.1.2",
 ]

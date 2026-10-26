@@ -42,6 +42,7 @@ import hashlib
 import json
 import logging
 import os
+import threading
 import time
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -293,12 +294,17 @@ async def _http_post(url: str, body: dict[str, Any], headers: dict[str, str]) ->
 
 class Shipper:
     def __init__(self, session_id: str, *, base_url: str, key: str, post: Post | None = None,
-                 clock: Callable[[], float] = time.monotonic) -> None:
+                 clock: Callable[[], float] = time.monotonic,
+                 session_headers: dict[str, str] | None = None) -> None:
         self.session_id = session_id
         self.base_url = base_url.rstrip("/")
         self.url = self.base_url + ROUTE
         self.key_id = _key_id(key)
         self.headers = {"Authorization": f"Bearer {key}"}
+        #: The watched session's `X-Probe-Agent` + `X-Probe-Agent-Session`
+        #: (`model.session_headers`), sent with this session's own traces as on
+        #: every `/v1/companion/*` call; never with another session's orphans.
+        self.session_headers = dict(session_headers or {})
         self._post = post or _http_post
         self.clock = clock
         self.wait_until = 0.0
@@ -389,7 +395,15 @@ class Shipper:
             if self.clock() >= deadline or self.clock() < self.wait_until:
                 complete = False
                 break
-            drained, done = await self._drain_one(folder, deadline)
+            # One process may host several runs (the daemon host), each draining:
+            # a folder another run of this process drains right now is skipped.
+            if not _claim_drain(folder):
+                complete = False
+                continue  # another run of this process drains it now
+            try:
+                drained, done = await self._drain_one(folder, deadline)
+            finally:
+                _release_drain(folder)
             sent += drained
             complete = complete and done
         return sent, complete
@@ -440,8 +454,9 @@ class Shipper:
                     cursor = following
                     continue
                 break
+            headers = {**self.headers, **self.session_headers} if session == self.session_id else self.headers
             status, payload = await self._post(self.url, {"session_id": session, "agent": agent, "lines": items},
-                                               self.headers)
+                                               headers)
             if status == 202 and not (isinstance(payload, dict) and payload.get("dark")):
                 write_cursor(path, following)
                 cursor = following
@@ -487,6 +502,25 @@ def _line_length(path: Path, offset: int) -> int:
         return len(handle.readline())
 
 
+#: Orphan folders a run of this process is draining (`drain_others`).
+_DRAINING: set[str] = set()
+_DRAINING_LOCK = threading.Lock()
+
+
+def _claim_drain(folder: Path) -> bool:
+    key = str(folder)
+    with _DRAINING_LOCK:
+        if key in _DRAINING:
+            return False
+        _DRAINING.add(key)
+        return True
+
+
+def _release_drain(folder: Path) -> None:
+    with _DRAINING_LOCK:
+        _DRAINING.discard(str(folder))
+
+
 def start(session_id: str) -> Shipper | None:
     """The session's shipper, running; None when uploads are off or the machine
     has no daemon key (nothing could be sent)."""
@@ -498,6 +532,6 @@ def start(session_id: str) -> Shipper | None:
         ep = model_mod.endpoint()
     except model_mod.NoKey:
         return None
-    shipper = Shipper(session_id, base_url=ep.base_url, key=ep.key)
+    shipper = Shipper(session_id, base_url=ep.base_url, key=ep.key, session_headers=model_mod.session_headers())
     shipper.start()
     return shipper

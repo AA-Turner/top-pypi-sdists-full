@@ -365,6 +365,7 @@ def test_a_cli_start_waits_for_the_barrier(service_home):
     script = (
         "import sys; from probe import _entry\n"
         "_entry.main = None\n"  # nothing past the barrier runs: only whether it waited
+        "_entry._rerun = lambda argv: print('rerun', argv) or 0\n"  # re-runs on the new code once it is done
         "busy = _entry._update_barrier(['log', 'loss', '0.1']); print('passed' if busy is None else busy)"
     )
     started = time.monotonic()
@@ -373,7 +374,7 @@ def test_a_cli_start_waits_for_the_barrier(service_home):
     assert child.poll() is None  # still waiting: nothing of the CLI imported yet
     barrier.lower(token)
     out, err = child.communicate(timeout=60)
-    assert child.returncode == 0 and out.strip() == "passed", err
+    assert child.returncode == 0 and out.split("\n")[0] == "rerun ['log', 'loss', '0.1']", (out, err)
     assert time.monotonic() - started >= 1.0
 
 
@@ -384,10 +385,12 @@ def test_a_cli_start_during_an_update_runs_on_the_installed_version_at_once(serv
     status`. An update side by side (D6), or of the plugins only, replaces
     nothing a `probe` runs from: it runs on the installed version at once. A
     process already pinned to a version env (`probe-versions/<v>`) is never
-    replaced either. Only an in-place update still holds a start back, and even
-    then a hook or a read-only command never waits: it answers busy at once."""
+    replaced either. Only an in-place update still holds a start back: a hook
+    never waits (busy at once); every other command, a read-only one too,
+    waits it out (IN_PLACE_WAIT_S) rather than fail an agent mid-work."""
     from probe import _entry
 
+    monkeypatch.setattr(_entry, "IN_PLACE_WAIT_S", 1.0)
     token = "v" * 32
     barrier.raise_barrier(token)
     if kind in ("side-by-side", "plugins-only"):
@@ -407,10 +410,10 @@ def test_a_cli_start_during_an_update_runs_on_the_installed_version_at_once(serv
         barrier.lower(token)
     if kind in ("side-by-side", "plugins-only", "pinned-env"):
         assert busy is None and took < 0.5, (busy, took)
-    elif kind in ("hook", "read-only"):
+    elif kind == "hook":
         assert busy == barrier.BUSY_EXIT_CODE and took < 0.5, (busy, took)
     else:
-        assert busy == barrier.BUSY_EXIT_CODE and took >= barrier.WAIT_S - 0.5, (busy, took)
+        assert busy == barrier.BUSY_EXIT_CODE and took >= _entry.IN_PLACE_WAIT_S - 0.2, (busy, took)
 
 
 @pytest.mark.parametrize(("deadline", "never"), [
@@ -456,6 +459,7 @@ def test_a_cli_start_gives_up_busy_and_the_update_s_own_children_pass(service_ho
     token = "u" * 32
     barrier.raise_barrier(token)
     monkeypatch.setattr(barrier, "WAIT_S", 0.2)
+    monkeypatch.setattr(_entry, "IN_PLACE_WAIT_S", 0.2)
     try:
         assert _entry._update_barrier(["log", "loss", "0.1"]) == barrier.BUSY_EXIT_CODE == 75
         assert _entry._update_barrier(["daemon", "worker", "--session-id", "s"]) == barrier.WORKER_BUSY_EXIT_CODE
@@ -474,7 +478,7 @@ def test_a_busy_cli_start_imports_nothing_of_the_cli(service_home):
     barrier turns away has loaded nothing from the files being replaced."""
     script = (
         "import sys; from probe.service import barrier; barrier.raise_barrier('t' * 32); "
-        "from probe import _entry; barrier.WAIT_S = 0.2; rc = _entry.main(['log', 'loss', '1']); "
+        "from probe import _entry; barrier.WAIT_S = 0.2; _entry.IN_PLACE_WAIT_S = 0.2; rc = _entry.main(['log', 'loss', '1']); "
         "print(rc, any(m == 'probe.cli' or m.startswith('probe.cli.') for m in sys.modules))"
     )
     out = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=60)
@@ -521,6 +525,7 @@ def test_a_service_stopped_mid_update_leaves_the_barrier_to_the_update(service_h
 # -- lifetime and self ---------------------------------------------------------
 
 
+@pytest.mark.heavy
 def test_a_cycle_holds_the_service_alive(service_home, machine, monkeypatch):
     monkeypatch.setenv("PROBE_SERVICE_GRACE_S", "1")
     slow = service_home.home / "update-may-finish"
@@ -2370,3 +2375,48 @@ def test_the_first_start_after_an_older_services_update_follows_it_up(service_ho
     assert old["followed_version"] == "2.0.0"
     paths.update_state_path().write_text(json.dumps({**old, "followed_version": "1.9.0"}))
     assert checker().take_followup() is True, "a version moved by hand since the last follow-up"
+
+
+@pytest.mark.parametrize("argv", [["session", "status"], ["--version"], ["log", "loss", "0.1"]])
+def test_a_start_that_waited_out_an_in_place_update_runs_again_on_the_new_code(service_home, monkeypatch, argv):
+    """A machine's first update is in place and long: `probe session status`
+    and `probe --version` answered busy (exit 75) to agents mid-work, and a
+    start that waited went on with the old `probe.service` modules it had
+    imported under the new CLI (`module 'probe.service.procid' has no
+    attribute 'exists'`; release gate, 2026-10-25). Now every non-hook start
+    waits it out and runs again in a fresh interpreter."""
+    import threading
+
+    from probe import _entry
+
+    reran = []
+    monkeypatch.setattr(_entry, "_rerun", lambda a: reran.append(a) or 0)
+    token = "r" * 32
+    barrier.raise_barrier(token)
+    threading.Timer(0.5, barrier.lower, args=(token,)).start()
+    assert _entry._update_barrier(argv) == 0
+    assert reran == [argv]
+
+
+def test_the_rerun_execs_a_fresh_interpreter_with_the_same_command_and_stops_after_max(monkeypatch):
+    from probe import _entry
+
+    calls = []
+    monkeypatch.setattr(_entry.os if hasattr(_entry, "os") else __import__("os"), "execve",
+                        lambda path, args, env: calls.append((path, args, env.get(_entry.RERUN_ENV))))
+    monkeypatch.delenv(_entry.RERUN_ENV, raising=False)
+    monkeypatch.setattr(sys, "orig_argv", [sys.executable, "/x/bin/probe", "session", "status"], raising=False)
+    if os.name != "nt":
+        _entry._rerun(None)
+        assert calls == [(sys.executable, [sys.executable, "/x/bin/probe", "session", "status"], "1")]
+        _entry._rerun(["log", "loss"])
+        assert calls[-1][1] == [sys.executable, "-m", "probe", "log", "loss"]
+    # Past MAX_RERUNS a cleared wait runs on in this process instead of again.
+    token = "m" * 32
+    monkeypatch.setenv(_entry.RERUN_ENV, str(_entry.MAX_RERUNS))
+    monkeypatch.setattr(_entry, "_rerun", lambda a: pytest.fail("re-ran past MAX_RERUNS"))
+    barrier.raise_barrier(token)
+    import threading
+
+    threading.Timer(0.3, barrier.lower, args=(token,)).start()
+    assert _entry._update_barrier(["status"]) is None

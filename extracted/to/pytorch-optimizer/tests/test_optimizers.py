@@ -28,7 +28,6 @@ TRAINING_CASES = [
     pytest.param(recipe, dtype, foreach, id=f'{ids(recipe)}-{dtype}-{foreach}')
     for recipe in OPTIMIZER_RECIPES
     for dtype in (torch.float32, torch.bfloat16, torch.complex64)
-    if not (dtype == torch.float32 and recipe[0] == 'nero' and 'constraints' not in recipe[1])
     if not (dtype == torch.bfloat16 and recipe[0] in SKIP_BF16_OPTIMIZERS)
     if dtype != torch.complex64 or recipe[0] in COMPLEX_OPTIMIZERS
     for foreach in ([False, True] if dtype != torch.complex64 and recipe[0] in FOREACH_OPTIMIZERS else [False])
@@ -93,7 +92,8 @@ class TestOptimizerTraining:
 
         x_data, y_data = environment
         model, loss_fn = build_model(device=x_data.device)
-        config['lr'] = torch.tensor(config['lr'], device=x_data.device)
+        lr_key = 'max_lr' if optimizer_name == 'alig' else 'lr'
+        config[lr_key] = torch.tensor(config[lr_key], device=x_data.device)
 
         if optimizer_name == 'adamw' and foreach:
             if x_data.device.type == 'cpu':
@@ -103,10 +103,23 @@ class TestOptimizerTraining:
         optimizer = build_optimizer(optimizer_name, model.parameters(), **config, foreach=foreach)
 
         trainer = Trainer(model, loss_fn, optimizer, x_data, y_data)
-        trainer.run(iterations=iterations)
+        trainer.run(
+            iterations=iterations,
+            create_graph=should_use_create_graph(optimizer_name),
+            closure_fn=make_closure if optimizer_name == 'alig' else None,
+        )
 
 
 class TestOptimizerInterface:
+    @pytest.mark.parametrize(
+        'optimizer_name', ['dadaptadam', 'dadaptsgd', 'dadaptlion', 'prodigy', 'kron', 'magma', 'asgd']
+    )
+    def test_init_group(self, optimizer_name):
+        optimizer = build_optimizer(optimizer_name, [make_parameter(grad=None)])
+        group = {'params': []}
+        optimizer.init_group(group)
+        assert group == ({'params': []} if optimizer_name == 'asgd' else {'params': [], 'step': 0})
+
     @pytest.mark.parametrize('optimizer_name', sorted(set(VALID_OPTIMIZER_NAMES) | set(RECIPE_OPTIMIZER_NAMES)))
     def test_checkpoint_resume(self, optimizer_name):
         if optimizer_name in ('demo', 'distributedmuon'):
@@ -174,15 +187,6 @@ class TestOptimizerInterface:
 
             torch.testing.assert_close(restored_model.state_dict(), model.state_dict(), rtol=0.0, atol=0.0)
 
-    @pytest.mark.parametrize(
-        'optimizer_name',
-        [name for name in RECIPE_OPTIMIZER_NAMES if name not in ('lookahead', 'orthograd', 'schedulefree')],
-    )
-    def test_init_group(self, optimizer_name):
-        parameters = TrainingModel() if optimizer_name in MODEL_OPTIMIZERS else [make_parameter()]
-        optimizer = build_optimizer(optimizer_name, parameters)
-        optimizer.init_group({'params': [], 'betas': (0.0, 0.0)})
-
     @pytest.mark.parametrize('optimizer_name', RECIPE_OPTIMIZER_NAMES)
     def test_closure(self, optimizer_name):
         if optimizer_name in MODEL_OPTIMIZERS:
@@ -213,4 +217,4 @@ class TestOptimizerInterface:
             assert optimizer.step(closure).item() == 1.0
             torch.testing.assert_close(param.grad, torch.tensor([0.0, 2.0**0.5]))
         else:
-            optimizer.step(closure=dummy_closure)
+            assert optimizer.step(closure=dummy_closure) == 1.0

@@ -16,8 +16,6 @@ from typing import Annotated, Protocol, TypedDict, get_args
 
 import msgspec
 
-from cozy_runtime.author._assets import FileState
-from cozy_runtime.author._capture import ActivationCapture
 from cozy_runtime.author._errors import CapabilityError, InvalidRequest
 
 MAX_CALL_INDEX = (1 << 32) - 1
@@ -38,7 +36,6 @@ class ChildCall(_Request, frozen=True, kw_only=True, tag="child_call"):
     #: The callee's canonical request document.
     payload: str
     progress_label: str = ""
-    capture: ActivationCapture | None = None
 
 
 class _Indexed(_Request, frozen=True, kw_only=True):
@@ -90,8 +87,8 @@ class Publish(_Request, frozen=True, kw_only=True, tag="publish"):
 
 
 class CheckpointItem(_Request, frozen=True, kw_only=True, tag="checkpoint_item"):
-    """A checkpoint output reference: the commit (`revision`, its tree id) and the private tag
-    the Runtime moved there; a later uploaded reference replaces its local one."""
+    """A local checkpoint commit (`revision`, its tree id), in the output's lane.
+    TensorD uploads it when the request names a remote destination."""
 
     output: str
     repo_id: str
@@ -122,14 +119,6 @@ class StageMemoStore(_Request, frozen=True, kw_only=True, tag="stage_memo_store"
     reason: str = ""
 
 
-class TreeMember(_Request, frozen=True, kw_only=True, tag="tree_member"):
-    tree: str
-    path: str
-    asset_kind: str
-    max_bytes: int
-    media_types: tuple[str, ...] = ()
-
-
 type _Tagged = (
     ChildEvents
     | ChildCall
@@ -138,7 +127,6 @@ type _Tagged = (
     | ChildForget
     | GpuRelease
     | ModelPrefetch
-    | TreeMember
     | Publish
     | CheckpointItem
     | StageMemoLookup
@@ -177,7 +165,7 @@ class CallProgress(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class ByteMetadata(TypedDict):
-    """Verified native byte metadata retained for forwarding and tree members."""
+    """Verified native byte metadata retained for forwarding."""
 
     kind: str
     digest: str
@@ -208,8 +196,6 @@ class CallState(Answer, frozen=True, kw_only=True):
     # consumed fields into a typed record before constructing any handle.
     byte_grants: tuple[Mapping[str, object], ...] = ()
     progress: CallProgress | None = None
-    #: The child's execution observation document.
-    observation: object = None
     #: A failed child's traceback, from its triage (its `detail` is untruncated too).
     traceback: str = ""
 
@@ -235,16 +221,6 @@ class Published(Answer, frozen=True, kw_only=True):
     digest: str = ""
     length: int = 0
     sequence: int = 0
-
-
-class Member(Answer, frozen=True, kw_only=True):
-    tree: str = ""
-    path: str = ""
-    digest: str = ""
-    length: int = 0
-    media_type: str = ""
-    local: str = ""
-    file_state: FileState | None = None
 
 
 class Exchange(Protocol):

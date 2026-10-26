@@ -34,8 +34,8 @@ pub enum Class {
 /// How a missing tool is installed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Install {
-    /// A cozy verb: `cozy tools install uv`.
-    Cozy(&'static str),
+    /// cozy fetches its pinned build on first need.
+    Fetched,
     /// The OS package that carries it (`system_install` spells the command).
     System(&'static str),
     /// No package installs it alone: what to install, in words.
@@ -72,7 +72,7 @@ pub const TOOLS: &[Tool] = &[
         side: Side::Computer,
         class: Class::Essential,
         cost: "packages can't be authored, locked or published here",
-        install: Install::Cozy("cozy tools install uv"),
+        install: Install::Fetched,
         probe: uv,
     },
     Tool {
@@ -88,16 +88,8 @@ pub const TOOLS: &[Tool] = &[
         side: Side::Computer,
         class: Class::Optional,
         cost: "uploads go untrimmed (larger, slower)",
-        install: Install::Cozy("cozy tools install ffmpeg"),
+        install: Install::Fetched,
         probe: |tools, path| ffmpeg(tools, path).map(|(ffmpeg, _)| ffmpeg),
-    },
-    Tool {
-        name: "xdg-open",
-        side: Side::Computer,
-        class: Class::Optional,
-        cost: "the browser isn't opened; the URL is printed instead",
-        install: Install::System("xdg-utils"),
-        probe: looked_for!("xdg-open"),
     },
     Tool {
         name: "systemctl",
@@ -149,10 +141,10 @@ pub const TOOLS: &[Tool] = &[
     },
 ];
 
-/// Whether this OS uses `tool`: macOS and Windows open URLs and start Calcifer at login with their
-/// own built-ins, so xdg-open and systemctl are Linux's alone.
+/// Whether this OS uses `tool`: macOS and Windows start Calcifer at login with their own built-ins,
+/// so systemctl is Linux's alone.
 pub fn used_here(tool: &Tool) -> bool {
-    cfg!(target_os = "linux") || !matches!(tool.name, "xdg-open" | "systemctl")
+    cfg!(target_os = "linux") || tool.name != "systemctl"
 }
 
 /// The table's entry for `name`.
@@ -197,6 +189,48 @@ pub struct Archive {
     pub members: &'static [(&'static str, &'static str)],
 }
 
+/// Copies `member`, a path inside a `.zip` or `.tar.gz` `archive`, into `out`.
+#[cfg(feature = "fetch")]
+pub fn unpack(
+    mut archive: impl std::io::Read + std::io::Seek,
+    member: &str,
+    out: &mut impl std::io::Write,
+) -> std::io::Result<u64> {
+    let mut magic = [0; 2];
+    archive.read_exact(&mut magic)?;
+    archive.rewind()?;
+    if magic == *b"PK" {
+        return std::io::copy(&mut zip::ZipArchive::new(archive)?.by_name(member)?, out);
+    }
+    for entry in tar::Archive::new(flate2::read::GzDecoder::new(archive)).entries()? {
+        let mut entry = entry?;
+        if *entry.path_bytes() == *member.as_bytes() {
+            return std::io::copy(&mut entry, out);
+        }
+    }
+    Err(std::io::Error::new(
+        std::io::ErrorKind::NotFound,
+        format!("the archive holds no {member}"),
+    ))
+}
+
+/// `archive`'s members, out of its downloaded bytes, into `dir`, runnable: the CLI's and the
+/// machine's one way to install a pinned tool.
+#[cfg(feature = "fetch")]
+pub fn extract(archive: &Archive, bytes: &mut (impl std::io::Read + std::io::Seek), dir: &Path) -> std::io::Result<()> {
+    for (member, name) in archive.members {
+        bytes.rewind()?;
+        let out = dir.join(name);
+        unpack(&mut *bytes, member, &mut std::fs::File::create(&out)?)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            std::fs::set_permissions(&out, std::fs::Permissions::from_mode(0o755))?;
+        }
+    }
+    Ok(())
+}
+
 /// The uv cozy fetches where this computer or machine brings none: one version everywhere.
 pub const UV_VERSION: &str = "0.12.24";
 
@@ -227,10 +261,6 @@ pub fn uv_build() -> Option<Archive> {
         ("macos", "aarch64") => astral!(
             "aarch64-apple-darwin",
             "0c4346de7abdb49495b393b9ec809fe387aa43e586be20fecb972216c1e71732"
-        ),
-        ("macos", "x86_64") => astral!(
-            "x86_64-apple-darwin",
-            "4fa82e37cb94767661f532b001e470b67a186c7260e305bd84ddb78fd545c0b6"
         ),
         ("windows", "x86_64") => Some(Archive {
             url: "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-pc-windows-msvc.zip",
@@ -308,11 +338,6 @@ pub fn ffmpeg_build() -> &'static [Archive] {
             "macos/arm64/1789931890_9.0.2",
             "c8ed4c4e6978a03c485edbfe4e0a5dc2380f8a30bba5150531b31b094492d924",
             "fcbe839537485eaee7a7a8bc5cbc0f90d53617e80943e8a5b2e31cb851197ea6"
-        ),
-        ("macos", "x86_64") => riedl!(
-            "macos/amd64/1789931006_9.0.2",
-            "7c6b4125b191cbf773832dc51f424cf2b6bb7da43007d1e066f95909e47cacd4",
-            "2322438ed2f6319a691291b247d09c69dcaa3a982460d1f269a7e1af335cfdfd"
         ),
         ("windows", "x86_64") => &[Archive {
             url: "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip",

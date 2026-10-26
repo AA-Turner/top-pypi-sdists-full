@@ -937,7 +937,7 @@ async def agent_call(
         try:
             await on_child_result(result)
         except Exception as exc:  # noqa: BLE001 — the record is not the answer
-            from matrx_connect.streaming import capture_error
+            from matrx_connect.streaming.error_capture import capture_error
 
             await capture_error(exc, kind="agent_call_child_result_hook", agent_id=agent_id)
 

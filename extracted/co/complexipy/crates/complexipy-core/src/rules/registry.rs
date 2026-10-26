@@ -1,13 +1,25 @@
 use super::types::{AnalysisOptions, RefactorRule, RuleSet};
 use crate::classes::{CodeSuggestion, RefactorPlan};
 use crate::cognitive_complexity::function_level_cognitive_complexity_shared;
-use crate::fix::splice_plan;
+use crate::fix::{splice_plan, splice_window};
 use crate::refactor_plans::ComplexityRegion;
+use crate::syntax_tree::parse_module;
 use crate::utils::LineIndex;
-use ruff_python_parser::parse_module;
-use std::collections::HashMap;
+use ruff_python_ast::Stmt;
+use std::collections::{BTreeMap, HashMap};
+
+/// The lines of the function being planned, and whether it is a method,
+/// whose indented text only parses inside a class body.
+#[derive(Clone, Copy)]
+pub struct FunctionSpan {
+    pub line_start: u64,
+    pub line_end: u64,
+    pub is_method: bool,
+}
 
 /// Everything a rule needs about the function or module being planned.
+/// `function` is `None` for the module-level plans of `--check-script`, and
+/// `newline` is the file's line break.
 pub struct PlanContext<'a> {
     pub source: &'a str,
     pub index: &'a LineIndex,
@@ -15,6 +27,8 @@ pub struct PlanContext<'a> {
     pub function_complexity: u64,
     pub is_module: bool,
     pub active: &'a RuleSet,
+    pub function: Option<FunctionSpan>,
+    pub newline: &'a str,
 }
 
 pub struct RuleRegistry {
@@ -107,9 +121,7 @@ impl RuleRegistry {
             if !suggestion.spliceable {
                 continue;
             }
-            let Some(measured) =
-                measure_reduction(plan, suggestion, ctx.source, ctx.index, ctx.is_module)
-            else {
+            let Some(measured) = measure_reduction(plan, suggestion, ctx) else {
                 continue;
             };
             plan.estimated_reduction = measured;
@@ -151,25 +163,91 @@ impl Default for RuleRegistry {
     }
 }
 
-/// The target is `<module>` for script-mode plans (module-level regions
-/// only reach the registry through the `is_module` call); otherwise it is
-/// the function with the greatest `line_start` still before the plan's
-/// region - the splice only shifts lines after the region, so the
-/// containing function's start is unchanged between the two parses.
+/// Measures a plan by splicing its suggestion into the source and scoring
+/// the result. A function's plan is measured on that function's text alone,
+/// so the cost follows the size of the function rather than of the file.
+/// When the spliced text no longer parses as exactly that one function, the
+/// whole file is measured instead, so both paths always report the number a
+/// whole-file measurement would.
 ///
 /// Returns `None` when the spliced source cannot be parsed or the target
 /// cannot be located; the caller keeps the formula estimate then.
 fn measure_reduction(
     plan: &RefactorPlan,
     suggestion: &CodeSuggestion,
-    source: &str,
-    index: &LineIndex,
-    is_module: bool,
+    ctx: &PlanContext<'_>,
 ) -> Option<u64> {
-    let spliced = splice_plan(plan, suggestion, source, index)?;
+    let in_function = match ctx.function {
+        Some(function) if !ctx.is_module => measure_in_function(plan, suggestion, ctx, function),
+        _ => None,
+    };
+    in_function.or_else(|| measure_in_file(plan, suggestion, ctx))
+}
+
+fn measure_in_function(
+    plan: &RefactorPlan,
+    suggestion: &CodeSuggestion,
+    ctx: &PlanContext<'_>,
+    function: FunctionSpan,
+) -> Option<u64> {
+    let start = ctx.index.byte_of_line(function.line_start)?;
+    let end = ctx
+        .index
+        .byte_of_line(function.line_end + 1)
+        .unwrap_or(ctx.source.len());
+    let spliced = splice_window(
+        plan,
+        suggestion,
+        ctx.source,
+        ctx.index,
+        ctx.newline,
+        (start, end),
+    )?;
+    let snippet = if function.is_method {
+        format!("class _:{}{}", ctx.newline, spliced)
+    } else {
+        spliced
+    };
+    let parsed = parse_module(&snippet).ok()?;
+    let suite = parsed.suite();
+    let only_the_function = match suite.as_slice() {
+        [Stmt::FunctionDef(_)] => !function.is_method,
+        [Stmt::ClassDef(class)] => {
+            function.is_method && matches!(class.body.as_slice(), [Stmt::FunctionDef(_)])
+        }
+        _ => false,
+    };
+    if !only_the_function {
+        return None;
+    }
+    let (functions, _) = function_level_cognitive_complexity_shared(
+        suite,
+        &snippet,
+        &AnalysisOptions {
+            no_ignore: true,
+            ..Default::default()
+        },
+    );
+    let [measured] = functions.as_slice() else {
+        return None;
+    };
+    Some(plan.current_complexity.saturating_sub(measured.complexity))
+}
+
+/// The target is `<module>` for script-mode plans (module-level regions
+/// only reach the registry through the `is_module` call); otherwise it is
+/// the function with the greatest `line_start` still before the plan's
+/// region - the splice only shifts lines after the region, so the
+/// containing function's start is unchanged between the two parses.
+fn measure_in_file(
+    plan: &RefactorPlan,
+    suggestion: &CodeSuggestion,
+    ctx: &PlanContext<'_>,
+) -> Option<u64> {
+    let spliced = splice_plan(plan, suggestion, ctx.source, ctx.index, ctx.newline)?;
     let parsed = parse_module(&spliced).ok()?;
     let (functions, _) = function_level_cognitive_complexity_shared(
-        &parsed.into_suite(),
+        parsed.suite(),
         &spliced,
         &AnalysisOptions {
             check_script: true,
@@ -178,7 +256,7 @@ fn measure_reduction(
         },
     );
 
-    let new_complexity = if is_module {
+    let new_complexity = if ctx.is_module {
         functions.iter().find(|f| f.name == "<module>")?.complexity
     } else {
         let containing = functions
@@ -191,9 +269,10 @@ fn measure_reduction(
     Some(plan.current_complexity.saturating_sub(new_complexity))
 }
 
-/// Sorts by spliceable/effectiveness/reduction/line, then keeps only
-/// non-overlapping plans (highest spliceable/effectiveness/reduction wins any
-/// overlap), capped at 5. A spliceable plan beats a help-only plan of higher
+/// Sorts by spliceable/effectiveness/reduction/line, then keeps each plan
+/// that overlaps no plan kept before it, so the highest
+/// spliceable/effectiveness/reduction wins any overlap, capped at 5. A
+/// spliceable plan beats a help-only plan of higher
 /// effectiveness: the tool stands behind a faithful, measured replacement
 /// more than behind prose. Split out from `RuleRegistry::analyze` so the
 /// selection logic can be unit tested directly against hand-built plans,
@@ -219,40 +298,16 @@ fn select_non_overlapping(
             .then_with(|| a.line_start.cmp(&b.line_start))
     });
 
+    let mut taken: BTreeMap<u64, u64> = BTreeMap::new();
     let mut selected: Vec<RefactorPlan> = Vec::new();
 
     for plan in plans {
-        let overlapping: Vec<usize> = selected
-            .iter()
-            .enumerate()
-            .filter(|(_, existing)| {
-                plan.line_start <= existing.line_end && plan.line_end >= existing.line_start
-            })
-            .map(|(idx, _)| idx)
-            .collect();
-
-        if overlapping.is_empty() {
-            selected.push(plan);
-            continue;
-        }
-
-        let eff_plan = effectiveness_of(&plan.rule_id);
-        let spliceable_plan = spliceable_of(&plan);
-        let beats_all_overlaps = overlapping.iter().all(|&idx| {
-            let existing = &selected[idx];
-            let eff_existing = effectiveness_of(&existing.rule_id);
-            let spliceable_existing = spliceable_of(existing);
-            spliceable_plan & !spliceable_existing
-                || (spliceable_plan == spliceable_existing
-                    && (eff_plan > eff_existing
-                        || (eff_plan == eff_existing
-                            && plan.estimated_reduction > existing.estimated_reduction)))
-        });
-
-        if beats_all_overlaps {
-            for &idx in overlapping.iter().rev() {
-                selected.remove(idx);
-            }
+        let overlaps = taken
+            .range(..=plan.line_end)
+            .next_back()
+            .is_some_and(|(_, &line_end)| line_end >= plan.line_start);
+        if !overlaps {
+            taken.insert(plan.line_start, plan.line_end);
             selected.push(plan);
         }
     }

@@ -1,6 +1,7 @@
 import pytest
 
-from curl_cffi import AsyncCurl, Curl, CurlOpt
+from curl_cffi import AsyncCurl, Curl, CurlError, CurlOpt
+from curl_cffi.aio import CURL_POLL_REMOVE, socket_function
 
 
 async def test_init(server):
@@ -30,6 +31,30 @@ async def test_add_handle_callback_exception(server):
     await ac.close()
 
 
+async def test_close_with_curl_closed_after_cancel(server):
+    ac = AsyncCurl()
+    c = Curl()
+    c.setopt(CurlOpt.URL, str(server.url).encode())
+    c.setopt(CurlOpt.WRITEFUNCTION, lambda x: len(x))
+    fut = ac.add_handle(c)
+    fut.cancel()
+    c.close()
+    await ac.close()
+
+
+async def test_remove_handle_with_closed_curl(server):
+    ac = AsyncCurl()
+    c = Curl()
+    c.setopt(CurlOpt.URL, str(server.url).encode())
+    c.setopt(CurlOpt.WRITEFUNCTION, lambda x: len(x))
+    fut = ac.add_handle(c)
+    c.close()
+    ac.remove_handle(c)
+    assert fut.cancelled()
+    assert c not in ac._curl2future
+    await ac.close()
+
+
 async def test_socket_action(server):
     ac = AsyncCurl()
     running = ac.socket_action(-1, 0)
@@ -44,3 +69,23 @@ async def test_socket_action(server):
 
 
 async def test_process_data(server): ...
+
+
+async def test_multi_error_message_carries_the_libcurl_text():
+    ac = AsyncCurl()
+    with pytest.raises(CurlError, match=r"multi: \(1\) Invalid multi handle\. "):
+        ac._check_error(1, "perform")
+    await ac.close()
+
+
+async def test_socket_callback_remove_untracked_socket():
+    ac = AsyncCurl()
+    try:
+        for _ in range(2):
+            assert (
+                socket_function(None, 3116, CURL_POLL_REMOVE, ac._self_handle, None)
+                == 0
+            )
+        assert not ac._sockfds
+    finally:
+        await ac.close()

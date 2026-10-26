@@ -1,0 +1,207 @@
+schema = 1
+
+[[word]]
+text = "familie"
+salutation = { issue = 606, expands = "the family addressed, 'Familie Hansen'", after_given = true }
+
+[[word]]
+text = "frau"
+salutation = { gender = "f", after_given = true }
+family = { wikidata = 42, as_of = 2026-10-24, note = "kept for after_given (decisions/H8)" }
+
+[[word]]
+text = "fräulein"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "herr"
+salutation = { gender = "m", excluded = { after_given = "a surname (Census 2010 HERR), and middle names are drawn from surnames" } }
+given = { wikidata = 3, as_of = 2026-10-24 }
+family = { us_census_2010 = 11980, wikidata = 135, as_of = 2026-10-24 }
+
+[[word]]
+text = "herrn"
+salutation = { gender = "m", same_as = "herr", expands = "Herr, inflected (an Herrn Müller)", after_given = true }
+
+[[word]]
+text = "hr"
+salutation = { gender = "m", same_as = "herr", excluded = { after_given = "ending a given part in US data, more likely two initials run together than the abbreviation of Herr: one of three such fec-individuals names has a woman's given name (2026-10-24)" } }
+
+[[word]]
+text = "herren"
+salutation = { gender = "m", expands = "the plural of Herr", excluded = { after_given = "a surname (Census 2010 HERREN), and middle names are drawn from surnames" } }
+family = { us_census_2010 = 4466, wikidata = 37, as_of = 2026-10-24 }
+
+[[word]]
+text = "dipl.-ing"
+academic = { expands = "Diplom-Ingenieur" }
+
+[[word]]
+text = "fh-prof"
+academic = { expands = "Fachhochschul-Professor" }
+
+[[word]]
+text = "priv.-doz"
+academic = { expands = "Privatdozent" }
+
+[[word]]
+text = "pd"
+academic = { same_as = "priv.-doz" }
+
+[[word]]
+text = "ra"
+academic = { expands = "Rechtsanwalt, the address of a lawyer, 'RA Müller'" }
+
+[[word]]
+text = "univ.prof"
+academic = { expands = "Universitätsprofessor" }
+
+[[word]]
+text = "wp"
+academic = { expands = "Wirtschaftsprüfer, the address of an auditor" }
+
+[[word]]
+text = "erzbischof"
+religious = { expands = "archbishop" }
+
+[[word]]
+text = "fürsterzbischof"
+religious = { expands = "prince-archbishop" }
+
+[[word]]
+text = "baron"
+nobility = { gender = "m" }
+
+[[word]]
+text = "edler"
+nobility = { gender = "m", expands = "the lowest German noble rank, 'Edler von'" }
+
+[[word]]
+text = "freifrau"
+nobility = { gender = "f", expands = "baroness" }
+
+[[word]]
+text = "freiherr"
+nobility = { gender = "m", expands = "baron" }
+[word.rank]
+may_be_given = true
+issue = 18
+expands = "baron"
+gender = "m"
+note = "Since 1919 a former noble title is part of the legal surname, written before the particle (\"Karl-Theodor Freiherr von und zu Guttenberg\"), so it chains like one. Also in TITLES, load-bearing"
+
+[[word]]
+text = "fürst"
+nobility = { gender = "m", expands = "prince" }
+
+[[word]]
+text = "graf"
+nobility = { gender = "m", expands = "count" }
+
+[[word]]
+text = "großfürst"
+nobility = { gender = "m", expands = "grand prince, grand duke" }
+
+[[word]]
+text = "gräfin"
+nobility = { gender = "f", expands = "countess" }
+
+[[word]]
+text = "herzog"
+nobility = { gender = "m", expands = "duke" }
+
+[[word]]
+text = "prinz"
+nobility = { gender = "m", expands = "prince" }
+
+[[word]]
+text = "reichsgraf"
+nobility = { gender = "m", expands = "imperial count" }
+
+[[word]]
+text = "ritter"
+nobility = { gender = "m", expands = "knight" }
+
+[[word]]
+text = "mda"
+credential = { issue = 18, expands = "Mitglied des Abgeordnetenhauses" }
+
+[[word]]
+text = "mdb"
+credential = { issue = 18, expands = "Mitglied des Bundestages" }
+
+[[word]]
+text = "mdbb"
+credential = { issue = 18, expands = "Mitglied der Bremischen Bürgerschaft" }
+
+[[word]]
+text = "mdep"
+credential = { issue = 18, expands = "Mitglied des Europäischen Parlaments" }
+
+[[word]]
+text = "mdhb"
+credential = { issue = 18, expands = "Mitglied der Hamburgischen Bürgerschaft" }
+
+[[word]]
+text = "mdl"
+credential = { issue = 18, expands = "Mitglied des Landtages" }
+
+[[word]]
+text = "stb"
+credential = { issue = 18, expands = "Steuerberater, tax adviser" }
+
+[[word]]
+text = "auf"
+preposition = { may_be_given = false, issue = 18, expands = "upon: \"auf der Heide\"" }
+
+[[word]]
+text = "tho"
+preposition = { may_be_given = true, issue = 18, expands = "to, Low German zu" }
+
+[[word]]
+text = "vom"
+preposition = { may_be_given = false, expands = "from the, von dem contracted" }
+
+[[word]]
+text = "von"
+[word.preposition]
+may_be_given = true
+expands = "of, from"
+note = "Von Miller: a real given name, so this stays ambiguous even though \"von Braun\" is misparsed today. The case that shows a word can look like a pure particle, BE misparsed as one, and still have a bearer"
+
+[[word]]
+text = "zu"
+preposition = { may_be_given = false, expands = "at, to; nobiliary: \"zu Guttenberg\"" }
+
+[[word]]
+text = "dem"
+article = { may_be_given = false, issue = 18, expands = "the, dative" }
+
+[[word]]
+text = "den"
+article = { may_be_given = true, expands = "the: \"von den Steinen\"" }
+
+[[word]]
+text = "der"
+article = { may_be_given = false, expands = "the: \"von der Leyen\"" }
+
+[[word]]
+text = "freiherrin"
+[word.rank]
+may_be_given = true
+issue = 18
+expands = "baroness"
+gender = "f"
+note = "the feminine of freiherr, written and chained the same way (see its note); unlike freiherr it is not in TITLES"
+
+[[word]]
+text = "und"
+conjunction = {}
+
+[[word]]
+text = "geb"
+birth_marker = { issue = 274 }
+
+[[word]]
+text = "geborene"
+birth_marker = { issue = 274, gender = "f" }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: merge3
-Version: 0.0.16
+Version: 1.0.0
 Summary: Python implementation of 3-way merge
 Maintainer-email: Breezy Developers <team@breezy-vcs.org>
 License-Expression: GPL-2.0-or-later
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: POSIX
@@ -21,7 +22,7 @@ Description-Content-Type: text/x-rst
 License-File: COPYING
 License-File: AUTHORS
 Provides-Extra: dev
-Requires-Dist: ruff==0.14.0; extra == "dev"
+Requires-Dist: ruff==0.14.10; extra == "dev"
 Requires-Dist: mypy>=1.0.0; extra == "dev"
 Dynamic: license-file
 

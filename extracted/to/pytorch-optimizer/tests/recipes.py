@@ -1,5 +1,8 @@
 from typing import Any
 
+from pytorch_optimizer.base.optimizer import BaseOptimizer
+from pytorch_optimizer.optimizer import OPTIMIZERS
+
 OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     ('lookahead', {'lr': 5e-1, 'weight_decay': 1e-3}, 5),
     ('orthograd', {'lr': 5e-1, 'weight_decay': 1e-3}, 10),
@@ -25,7 +28,7 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     ('diffgrad', {'lr': 5e-1, 'weight_decay': 1e-3}, 5),
     ('diffgrad', {'lr': 5e-1, 'weight_decay': 1e-3, 'ams_bound': True}, 5),
     ('diffgrad', {'lr': 5e-1, 'weight_decay': 1e-3, 'weight_decouple': False}, 5),
-    ('diffgrad', {'lr': 5e-1, 'weight_decay': 1e-3, 'rectify': True}, 5),
+    ('diffgrad', {'lr': 5e-1, 'weight_decay': 1e-3, 'rectify': True, 'ams_bound': True}, 10),
     ('dualadam', {'lr': 5e-1, 'weight_decay': 1e-3, 'switch_rate': 0.25}, 5),
     ('lamb', {'lr': 1e-1, 'weight_decay': 1e-3}, 5),
     ('lamb', {'lr': 1e-1, 'weight_decay': 1e-3, 'weight_decouple': False}, 5),
@@ -50,6 +53,22 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     ('ranger', {'lr': 5e0, 'weight_decay': 1e-3, 'degenerated_to_sgd': True}, 5),
     ('ranger21', {'lr': 7.5e-1, 'weight_decay': 1e-3, 'num_iterations': 75}, 75),
     ('shampoo', {'lr': 5e-1, 'weight_decay': 1e-3, 'momentum': 0.1}, 10),
+    ('dash', {'lr': 1e-1, 'weight_decay': 1e-3, 'block_size': 2}, 10),
+    (
+        'dash',
+        {
+            'lr': 1e-1,
+            'block_size': 2,
+            'inverse_root_method': 'eigh',
+            'grafting_beta': 0.7,
+            'correct_bias': False,
+            'momentum': 0.6,
+            'nesterov': False,
+            'start_preconditioning_step': 3,
+            'precondition_frequency': 4,
+        },
+        10,
+    ),
     (
         'scalableshampoo',
         {
@@ -112,17 +131,6 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
             'weight_decay': 1e-3,
             'start_preconditioning_step': 9,
             'preconditioning_compute_steps': 10,
-            'pre_conditioner_type': 0,
-        },
-        10,
-    ),
-    (
-        'scalableshampoo',
-        {
-            'lr': 1e-1,
-            'weight_decay': 1e-3,
-            'start_preconditioning_step': 9,
-            'preconditioning_compute_steps': 10,
             'pre_conditioner_type': 1,
         },
         10,
@@ -174,7 +182,7 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     (
         'scalableshampoo',
         {
-            'lr': 1e-0,
+            'lr': 1e-1,
             'weight_decay': 1e-3,
             'start_preconditioning_step': 9,
             'preconditioning_compute_steps': 10,
@@ -185,7 +193,7 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     (
         'scalableshampoo',
         {
-            'lr': 1e-1,
+            'lr': 1e0,
             'weight_decay': 1e-3,
             'start_preconditioning_step': 9,
             'preconditioning_compute_steps': 10,
@@ -198,7 +206,6 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     ('adapnm', {'lr': 5e-1, 'weight_decay': 1e-3}, 10),
     ('adapnm', {'lr': 5e-1, 'weight_decay': 1e-3, 'weight_decouple': False}, 10),
     ('adapnm', {'lr': 5e-1, 'weight_decay': 1e-3, 'ams_bound': False}, 10),
-    ('nero', {'lr': 5e-1}, 25),
     ('nero', {'lr': 5e0, 'constraints': False}, 5),
     ('adan', {'lr': 5e-1}, 5),
     ('adan', {'lr': 5e-1, 'max_grad_norm': 1.0}, 5),
@@ -216,7 +223,7 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     ('adafactor', {'lr': 1e0, 'weight_decay': 1e-3, 'scale_parameter': False, 'relative_step': False}, 5),
     ('adafactor', {'lr': 1e0, 'weight_decay': 1e-3, 'ams_bound': True, 'relative_step': False}, 10),
     ('adafactor', {'lr': 5e-1, 'betas': (None, 0.999), 'weight_decay': 1e-3, 'scale_parameter': False}, 50),
-    ('apollodqn', {'lr': 5e-1, 'weight_decay': 1e-3}, 10),
+    ('apollodqn', {'lr': 5e-1, 'weight_decay': 1e-3, 'weight_decay_type': 'decoupled'}, 10),
     ('apollodqn', {'lr': 5e-1, 'weight_decay': 1e-3, 'rebound': 'belief'}, 10),
     ('apollodqn', {'lr': 1e-2, 'weight_decay': 1e-6, 'weight_decay_type': 'stable', 'warmup_steps': 0}, 5),
     ('novograd', {'lr': 5e-1, 'weight_decay': 1e-3, 'grad_averaging': True, 'weight_decouple': True}, 10),
@@ -351,15 +358,15 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     ('ftrl', {'lr': 1e0, 'beta': 0.0, 'lambda_1': 0.0, 'lambda_2': 0.0}, 5),
     ('muon', {'lr': 5e-1, 'weight_decay': 1e-3, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2, 'nesterov': True}, 5),
     ('muon', {'lr': 5e-1, 'weight_decay': 1e-3, 'use_adjusted_lr': True, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2}, 5),
+    ('muonclip', {'lr': 5e-1, 'weight_decay': 1e-3, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2}, 5),
     ('adamuon', {'lr': 5e-1, 'weight_decay': 1e-3, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2}, 5),
-    ('adamuon', {'lr': 5e-1, 'weight_decay': 1e-3, 'use_adjusted_lr': True, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2}, 5),
+    ('adamuon', {'lr': 5e-1, 'weight_decay': 1e-3, 'use_adjusted_lr': False, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2}, 5),
     ('normuon', {'lr': 5e-1, 'weight_decay': 1e-3, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2, 'nesterov': True}, 5),
     (
         'normuon',
         {'lr': 5e-1, 'weight_decay': 1e-3, 'update_scale': 'match_rms', 'adamw_lr': 5e-1, 'adamw_wd': 1e-2},
         5,
     ),
-    ('normuon', {'lr': 5e-1, 'weight_decay': 1e-3, 'use_adjusted_lr': True, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2}, 5),
     ('normuon', {'lr': 5e-1, 'weight_decay': 0.0, 'nesterov': False, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2}, 5),
     ('adago', {'lr': 5e-1, 'adamw_lr': 5e-1, 'adamw_wd': 1e-2, 'nesterov': True}, 5),
     ('laprop', {'lr': 1e0, 'weight_decay': 1e-3}, 5),
@@ -427,10 +434,6 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
     ('emonavi', {'lr': 1e-1, 'use_shadow': True}, 5),
     ('emolynx', {'lr': 5e-1, 'use_shadow': True}, 5),
     ('emofact', {'lr': 1e-1, 'use_shadow': True}, 5),
-    ('ranger25', {'lr': 2.5e-2}, 10),
-    ('ranger25', {'lr': 2.5e-2, 't_alpha_beta3': 5}, 10),
-    ('ranger25', {'lr': 1e-2, 'stable_adamw': False}, 10),
-    ('ranger25', {'lr': 5e-2, 'stable_adamw': False, 'orthograd': False, 'eps': None, 'lookahead_merge_time': 2}, 3),
     ('conda', {'lr': 1e0, 'weight_decay': 1e-3, 'scale': 1.0, 'update_proj_gap': 1, 'projection_type': 'std'}, 5),
     ('bcos', {'lr': 1e0, 'mode': 'm'}, 5),
     ('bcos', {'lr': 1e0, 'mode': 'g'}, 5),
@@ -447,7 +450,13 @@ OPTIMIZER_RECIPES: list[tuple[str, dict[str, Any], int]] = [
 ]
 
 COMPILE_SUPPORTED_OPTIMIZERS: list[tuple[str, dict[str, Any], int]] = [
-    ('lion', {'lr': 5e-1, 'weight_decay': 1e-3}, 5),
     ('adamw', {'lr': 5e-1, 'weight_decay': 1e-3}, 5),
     ('stableadamw', {'lr': 5e-1, 'weight_decay': 1e-3}, 5),
+    *{
+        name: (name, options.copy(), iterations)
+        for name, options, iterations in reversed(OPTIMIZER_RECIPES)
+        if name in OPTIMIZERS
+        and issubclass(OPTIMIZERS[name], BaseOptimizer)
+        and OPTIMIZERS[name]._supports_compiled_foreach
+    }.values(),
 ]

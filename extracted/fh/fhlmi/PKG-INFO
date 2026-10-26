@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhlmi
-Version: 1.0.7
+Version: 1.10.0
 Summary: A client to provide LLM responses for FutureHouse applications.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -234,8 +234,6 @@ Provides-Extra: dev
 Requires-Dist: deptry; extra == "dev"
 Requires-Dist: fhaviary[xml]; extra == "dev"
 Requires-Dist: fhlmi[image,local,progress,typing,vcr]; extra == "dev"
-Requires-Dist: google-auth>=2; extra == "dev"
-Requires-Dist: google-cloud-storage>=3; extra == "dev"
 Requires-Dist: httpx; extra == "dev"
 Requires-Dist: httpx-aiohttp; extra == "dev"
 Requires-Dist: ipython>=8; extra == "dev"

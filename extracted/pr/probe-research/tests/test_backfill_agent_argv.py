@@ -7,6 +7,8 @@ mutual exclusion between minting a session and resuming one.
 
 from __future__ import annotations
 
+import json
+
 import inspect
 from pathlib import Path
 
@@ -43,9 +45,35 @@ def test_a_workdir_makes_the_folder_readable_and_unwritable():
 
 
 def test_no_workdir_means_no_confinement_flags():
-    """The non-import callers run IN the folder and are not confined by this."""
+    """The non-import callers run IN the folder and are not confined by this --
+    but still run without the researcher's hooks (see below)."""
     argv = _claude()
-    assert "--add-dir" not in argv and "--settings" not in argv
+    assert "--add-dir" not in argv
+    assert json.loads(argv[argv.index("--settings") + 1]) == {"disableAllHooks": True}
+
+
+@pytest.mark.parametrize("workdir", [None, Path("/state/work")])
+def test_every_claude_the_import_launches_runs_without_hooks(workdir):
+    """Probe's own import agents are not the researcher's sessions: with the
+    researcher's hooks loaded, the Probe plugins registered them for capture and
+    uploaded 45 classifier sessions as one researcher's history (2026-10-25).
+    `disableAllHooks` in `--settings` turns off plugin hooks too (verified live:
+    5 SessionStart hooks ran without it, none with it)."""
+    argv = _claude(workdir=workdir)
+    assert json.loads(argv[argv.index("--settings") + 1])["disableAllHooks"] is True
+
+
+def test_codex_runs_without_hooks_only_when_it_has_the_feature(monkeypatch):
+    """`--disable hooks` on a Codex without a `hooks` feature is a hard
+    "Unknown feature flag" exit (0.80.0), so it is passed only when
+    `codex features list` names it."""
+    monkeypatch.setattr(backfill, "codex_features", lambda binary: frozenset({"hooks", "plugins"}))
+    argv = backfill.agent_argv(backfill.Agent.CODEX, "/bin/codex", Path("/tmp/x"), workdir=Path("/w"))
+    assert argv[argv.index("--disable") + 1] == "hooks"
+    for features in (frozenset({"plugins"}), None):
+        monkeypatch.setattr(backfill, "codex_features", lambda binary, f=features: f)
+        argv = backfill.agent_argv(backfill.Agent.CODEX, "/bin/codex", Path("/tmp/x"), workdir=Path("/w"))
+        assert "--disable" not in argv, "an older Codex must still start"
 
 
 def test_codex_writes_to_the_workdir_not_the_imported_folder():
@@ -144,7 +172,9 @@ def test_codex_gets_neither_a_positional_prompt_nor_a_dash():
     separate `<stdin>` block rather than as the instructions. `-` would be a
     second way to say the same thing and is equally unnecessary."""
     argv = backfill.agent_argv(backfill.Agent.CODEX, "/bin/codex", Path("/tmp/x"))
-    assert argv[-1] == "/tmp/x", "the -C value is last; nothing follows it"
+    tail = argv[argv.index("-C") + 2:]
+    assert argv[argv.index("-C") + 1] == "/tmp/x"
+    assert tail in ([], ["--disable", "hooks"]), "only flags follow -C, never a prompt"
     assert "-" not in argv
 
 
@@ -194,3 +224,75 @@ def test_an_ordinary_folder_path_does_not_trip_the_guard():
     deep = Path("/" + "/".join(f"level{i}" for i in range(40)))
     argv = backfill.agent_argv(backfill.Agent.CLAUDE, "/bin/claude", deep, workdir=deep / "scratch")
     assert "--settings" in argv
+
+
+# -- the import's model and reasoning effort ----------------------------------
+#
+# Set per lane by the server or the env (`import_agent_settings`). Absent, the
+# argv is exactly the tests above; present, each value goes in as ONE element,
+# and an effort only ever as a literal from the agent's own list.
+
+
+def _codex(**kw):
+    return backfill.agent_argv(backfill.Agent.CODEX, "/bin/codex", Path("/tmp/x"), **kw)
+
+
+def test_codex_gets_its_model_as_one_element_and_its_effort_as_a_literal(monkeypatch):
+    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    argv = _codex(model="gpt-6-astra", effort="medium")
+    assert argv[argv.index("-m") + 1] == "gpt-6-astra"
+    assert argv[argv.index("model_reasoning_effort=\"medium\"") - 1] == "-c"
+    assert argv.index("-m") < argv.index("-C"), "options before the workspace, like the rest"
+
+
+def test_codex_gets_neither_when_neither_is_set(monkeypatch):
+    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    assert _codex(model=None, effort=None) == _codex()
+    assert "-m" not in _codex() and not any("reasoning" in a for a in _codex())
+
+
+@pytest.mark.parametrize("effort", [
+    "bogus", "MEDIUM", "", 'medium"\nsandbox_mode="danger-full-access', "medium sandbox_mode=x",
+])
+def test_an_effort_off_the_list_never_reaches_the_argv(monkeypatch, effort):
+    """`-c` values are TOML: a string built from input could set a second key."""
+    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    assert _codex(effort=effort) == _codex()
+    assert _claude(effort=effort) == _claude()
+
+
+@pytest.mark.parametrize("model", ["-c", "--dangerously-bypass-approvals-and-sandbox", "a b", "x" * 81])
+def test_a_model_that_is_not_a_model_name_never_reaches_the_argv(monkeypatch, model):
+    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    assert _codex(model=model) == _codex()
+    assert _claude(model=model) == _claude()
+
+
+def test_every_listed_effort_reaches_its_agent(monkeypatch):
+    monkeypatch.setattr(backfill, "codex_features", lambda binary: None)
+    for effort in backfill.EFFORTS[backfill.Agent.CODEX]:
+        assert f'model_reasoning_effort="{effort}"' in _codex(effort=effort)
+    for effort in backfill.EFFORTS[backfill.Agent.CLAUDE]:
+        argv = _claude(effort=effort)
+        assert argv[argv.index("--effort") + 1] == effort
+    assert "none" not in backfill.EFFORTS[backfill.Agent.CLAUDE], "Claude has no `none`"
+    assert _claude(effort="minimal") == _claude()
+
+
+def test_claude_model_and_effort_are_dropped_by_a_binary_without_them(monkeypatch):
+    """Gated like every optional flag: an older Claude exits on an option it
+    does not know, before reading a file."""
+    full = frozenset({"--output-format", "--verbose", "--allowedTools", "--settings",
+                      "--model", "--effort"})
+    monkeypatch.setattr(backfill, "supported_flags", lambda binary, agent=None: full)
+    argv = _claude(model="opus", effort="high")
+    assert argv[argv.index("--model") + 1] == "opus" and argv[argv.index("--effort") + 1] == "high"
+    monkeypatch.setattr(backfill, "supported_flags", lambda binary, agent=None: full - {"--effort"})
+    argv = _claude(model="opus", effort="high")
+    assert "--effort" not in argv and "high" not in argv
+    assert argv[argv.index("--model") + 1] == "opus"
+
+
+def test_pi_takes_a_model_and_no_effort():
+    argv = backfill.agent_argv(backfill.Agent.PI, "/bin/pi", Path("/tmp/x"), model="m1", effort="high")
+    assert argv[argv.index("--model") + 1] == "m1" and "high" not in argv

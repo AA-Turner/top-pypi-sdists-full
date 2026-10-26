@@ -956,6 +956,7 @@ def _is_consumed_prefill(msg: dict[str, Any]) -> bool:
     return bool(flags_of(msg).get("prefill"))
 
 
+
 async def persist_completed_request(
     completed: CompletedRequest,
     conversation_id: str | None = None,
@@ -1054,6 +1055,22 @@ async def persist_completed_request(
     #     color="green",
     # )
 
+    # Price the rows against the LOADED catalog, never a cold one. to_storage_dict prices each
+    # call synchronously; a process that saved a turn before its lookup had loaded wrote cost NULL
+    # on calls whose price exists (2026-10-15 15:00 UTC: Anthropic, Google, OpenAI and Groq calls
+    # in one hour). Still cold after this (the database is down) → the NULL is recorded loudly.
+    from matrx_ai.config.usage_config import ensure_pricing_lookup, is_pricing_lookup_warm
+
+    # Bounded by the pool's own command_timeout (every catalog read is an ORM fetch).
+    await ensure_pricing_lookup()
+    if not is_pricing_lookup_warm():
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            RuntimeError("pricing catalog not loaded at persistence — this turn's calls are stored with no cost"),
+            kind="pricing_lookup_cold_at_persist",
+            conversation_id=str(conversation_id or completed.request.conversation_id or ""),
+        )
     storage = completed.to_storage_dict()
     model_manager = _model_manager()
     if model_manager is None:

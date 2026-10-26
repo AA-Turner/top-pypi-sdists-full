@@ -35,6 +35,7 @@ import datetime as _dt
 import http.client
 import io
 import json
+import functools
 import os
 import shutil
 import subprocess
@@ -108,12 +109,27 @@ def binary_available() -> bool:
 
 
 def kimi_version() -> tuple[int, int, int] | None:
-    """`kimi --version`, parsed; None when Kimi is missing or says nothing."""
-    from probe.sdk.agent_session import parse_version
-
+    """`kimi --version`, parsed; None when Kimi is missing or says nothing.
+    Asked once per binary (`_version_of`): each install and update step asks,
+    and Kimi takes ~1 s to start."""
     binary = shutil.which("kimi")
     if binary is None:
         return None
+    try:
+        stat = os.stat(binary)
+    except OSError:
+        return None
+    return _version_of(binary, os.path.realpath(binary), stat.st_mtime_ns, stat.st_size)
+
+
+@functools.lru_cache(maxsize=4)
+def _version_of(binary: str, _target: str, _mtime_ns: int, _size: int) -> tuple[int, int, int] | None:
+    """`kimi --version`, run as `binary` (the PATH entry: a version manager's
+    shim decides what to run by the name it is called with), for the program
+    it resolves to as it is on disk now: a reinstall (a new target, mtime or
+    size) asks again."""
+    from probe.sdk.agent_session import parse_version
+
     try:
         done = subprocess.run(  # noqa: S603 - fixed binary, no shell
             [binary, "--version"],

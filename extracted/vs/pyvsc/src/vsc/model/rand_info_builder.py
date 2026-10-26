@@ -1,0 +1,611 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#  http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+# Created on Jan 22, 2020
+#
+# @author: ballance
+
+
+import random
+from _random import Random
+from builtins import set
+from toposort import toposort
+from typing import Set, Dict, List
+
+from vsc.model.constraint_block_model import ConstraintBlockModel
+from vsc.model.constraint_expr_model import ConstraintExprModel
+from vsc.model.constraint_model import ConstraintModel
+from vsc.model.constraint_soft_model import ConstraintSoftModel
+from vsc.model.constraint_if_else_model import ConstraintIfElseModel
+from vsc.model.constraint_implies_model import ConstraintImpliesModel
+from vsc.model.constraint_scope_model import ConstraintScopeModel
+from vsc.model.constraint_solve_order_model import ConstraintSolveOrderModel
+from vsc.model.covergroup_model import CovergroupModel
+from vsc.model.coverpoint_bin_array_model import CoverpointBinArrayModel
+from vsc.model.coverpoint_model import CoverpointModel
+from vsc.model.expr_array_subscript_model import ExprArraySubscriptModel
+from vsc.model.expr_fieldref_model import ExprFieldRefModel
+from vsc.model.expr_dynref_model import ExprDynRefModel
+from vsc.model.expr_literal_model import ExprLiteralModel
+from vsc.model.expr_unary_model import ExprUnaryModel
+from vsc.model.expr_bin_model import ExprBinModel
+from vsc.model.unary_expr_type import UnaryExprType
+from vsc.model.bin_expr_type import BinExprType
+from vsc.model.field_array_model import FieldArrayModel
+from vsc.model.field_model import FieldModel
+from vsc.model.model_visitor import ModelVisitor
+from vsc.model.rand_if import RandIF
+from vsc.model.rand_info import RandInfo
+from vsc.model.rand_set import RandSet
+from vsc.model.constraint_dist_scope_model import ConstraintDistScopeModel
+from vsc.visitors.expand_solve_order_visitor import ExpandSolveOrderVisitor
+from vsc.visitors.expr2field_visitor import Expr2FieldVisitor
+from vsc.model.field_composite_model import FieldCompositeModel
+
+
+class _IndexRefsUsedRandVisitor(ModelVisitor):
+    """Walks an array-subscript index expression and reports whether it references
+    any *used-rand* field, i.e. a genuinely-symbolic select whose index value the
+    solver chooses. A constant index has no fieldref (stays False); a `foreach`
+    loop index is a synthesized non-rand field (stays False)."""
+
+    def __init__(self, expr2fm):
+        super().__init__()
+        self._found = False
+
+    def check(self, e):
+        self._found = False
+        e.accept(self)
+        return self._found
+
+    def visit_expr_fieldref(self, e):
+        try:
+            fm = Expr2FieldVisitor().field(e)
+        except Exception:
+            return
+        if getattr(fm, "is_used_rand", False):
+            self._found = True
+
+
+class RandInfoBuilder(ModelVisitor,RandIF):
+
+    EN_DEBUG = 0
+    
+    def __init__(self, rng):
+        # TODO: need access to the random state
+        super().__init__()
+        self._pass = 0
+        self._field_m = {}
+        self._field_l = []
+        self._active_constraint = None
+        self._active_randset = None
+        
+        # Tracks the randsets added due to
+        # dependencies against  ordered fields
+        self._active_order_randset_s = set()
+        
+        self._randset_m : Dict[RandSet,int] = {}
+        self._randset_l = []
+        self._randset_field_m : Dict[FieldModel,RandSet] = {} # map<field,randset>
+        self._constraint_s : List[ConstraintModel] = []
+        self._soft_priority = 0
+        self._used_rand = True
+        self._in_generator = False
+        self.active_cp = None
+        self._rng = rng
+        
+        self._order_m = {}
+        self._expr2fm = Expr2FieldVisitor()
+        self._soft_cond_l = []
+        
+    @staticmethod
+    def build(
+            field_model_l : List[FieldModel],
+            constraint_l : List[ConstraintModel],
+            rng=None) ->RandInfo:
+        if rng is None:
+#            rng = Random()
+            rng = random
+            
+        builder = RandInfoBuilder(rng)
+
+        # First, collect all fields and ordering from constraints
+        builder._pass = 0
+        for fm in field_model_l:
+            fm.accept(builder)
+
+        # Collect all fields and ordering from standalone constraints passed to the function
+        for c in constraint_l:
+            c.accept(builder)
+
+        builder._randset_m.clear()
+        builder._randset_l.clear()
+        builder._randset_field_m.clear()
+
+        # Now, build the randset
+        builder._pass = 1
+        builder._used_rand = True
+        # Visit the field objects passed in, as well
+        # as their constraints
+        for fm in field_model_l:
+            fm.accept(builder)
+
+        # Visit standalone constraints passed to the function
+        for c in constraint_l:
+            c.accept(builder)
+            
+        randset_l = list(filter(lambda e: e is not None, builder._randset_l))
+        
+        # Handle ordering constraints.
+        # - Collect fields that are members of this randset
+        # - Sort in dependency order
+        # - Create a randomization ordering list
+        if len(builder._order_m.keys()) > 0:
+            for rs in randset_l:
+                # Create an ordering list of any 
+                rs_deps = {}
+                for i,f in enumerate(rs.fields()):
+                    if f in builder._order_m.keys():
+                        rs_deps[f] = builder._order_m[f]
+
+                if len(rs_deps) > 0:
+                    rs.rand_order_l = []
+                    # Random stability warning: toposort uses sets and is unordered
+                    for fs in list(toposort(rs_deps)):
+                        # Add fields in predictable randset order
+                        field_l = [fi for fi in rs.fields() if fi in fs]
+                        if len(field_l) > 0:
+                            rs.rand_order_l.append(field_l)
+                
+        # It's important to maintain a fixed order for the
+        # unconstrained fields, since this affects their
+        # randomization. 
+        nonrand_fields = []
+        for f,i in builder._field_m.items():
+            nonrand_fields.append((i, f))
+        # Sort by add order
+        nonrand_fields.sort(key=lambda e: e[0])
+        
+        return RandInfo(randset_l, 
+                list(map(lambda e: e[1], nonrand_fields)))
+    
+    def randint(self, low:int, high:int)->int:
+        return self._rng.randint(low,high)
+    
+    def sample(self, s, k):
+        return self._rng.sample(sorted(s), k)
+    
+    def visit_constraint_block(self, c):
+        if RandInfoBuilder.EN_DEBUG:
+            print("--> RandInfoBuilder::visit_constraint_block")
+
+        if not c.enabled:
+            # Ignore constraint blocks that aren't enabled
+            return
+        
+        # Null out the randset on entry to a constraint block
+        if self._used_rand:
+            self._active_randset = None
+            self._constraint_s.append(c)
+            super().visit_constraint_block(c)
+            self._constraint_s.clear()
+
+        if RandInfoBuilder.EN_DEBUG:
+            print("<-- RandInfoBuilder::visit_constraint_block")
+            
+    def visit_constraint_solve_order(self, c : ConstraintSolveOrderModel):
+        if self._pass == 0:
+            for b in c.before_l:
+                for a in c.after_l:
+                    ExpandSolveOrderVisitor(self._order_m).expand(a, b)
+        
+    def visit_constraint_stmt_enter(self, c):
+        if RandInfoBuilder.EN_DEBUG:
+            print("--> RandInfoBuilder::visit_constraint_stmt_enter")
+        if self._pass == 1 and len(self._constraint_s) == 1:
+            self._active_randset = None
+            self._active_order_randset_s.clear()
+        self._constraint_s.append(c)
+        super().visit_constraint_stmt_enter(c)
+        if RandInfoBuilder.EN_DEBUG:
+            print("<-- RandInfoBuilder::visit_constraint_stmt_enter")
+        
+    def visit_constraint_stmt_leave(self, c):
+        c_blk = self._constraint_s[0]
+        self._constraint_s.pop()
+        if self._pass == 1 and len(self._constraint_s) == 1:
+            if self._active_randset is not None:
+                self._active_randset.add_constraint(c)
+                for s in self._active_order_randset_s:
+                    s.add_constraint(c)
+            else:
+                # A constraint that reads no field joins no randset, so no
+                # solver sees it. A constant one is decided here: false makes
+                # the problem unsatisfiable, true constrains nothing.
+                self._check_const_constraint(c, c_blk)
+        super().visit_constraint_stmt_leave(c)
+        
+    @staticmethod
+    def _check_const_constraint(c, c_blk):
+        from vsc.visitors.is_const_expr_visitor import IsConstExprVisitor
+        if not isinstance(c, ConstraintExprModel) \
+                or not IsConstExprVisitor().is_const(c.e):
+            return
+        try:
+            value = int(c.e.val())
+        except Exception:
+            return              # no value without a solve: leave it be
+        if not value:
+            from vsc.model.solve_failure import SolveFailure
+            raise SolveFailure(
+                "constraint %s contains a statement that is always false"
+                % (getattr(c_blk, "name", None),), "")
+
+    def visit_constraint_dynref(self, c):
+        # Treat a dynamic constraint as an inline expansion
+        # of the constraints in the referenced block
+        for c_stmt in c.c.constraint_l:
+            c_stmt.accept(self)
+    
+    def visit_constraint_expr(self, c):
+        if RandInfoBuilder.EN_DEBUG:
+            print("--> RandInfoBuilder::visit_constraint_expr")
+
+        if isinstance(c.e, ExprDynRefModel):
+            # Don't consider a dynamic-constraint reference to be
+            # a full-fledged constraint statement
+            c.e.accept(self)
+        else:
+            super().visit_constraint_expr(c)
+        
+        if RandInfoBuilder.EN_DEBUG:
+            print("<-- RandInfoBuilder::visit_constraint_expr")
+        
+    def visit_constraint_dist_scope(self, s : ConstraintDistScopeModel):
+        super().visit_constraint_dist_scope(s)
+
+        # Record whether this dist is enclosed by a conditional (if/else or
+        # implies). A conditional dist applies only when its guard holds, so a
+        # back-end that weights the variable *unconditionally* (e.g. dv-solve's
+        # native add_dist) would wrongly restrict the variable when the guard is
+        # false — such a dist must be deferred. ``_soft_cond_l`` is the active
+        # condition stack maintained by visit_constraint_if_else/_implies.
+        s.is_conditional = len(self._soft_cond_l) > 0
+        # Snapshot the active guard stack so a back-end can resolve which branch
+        # of a conditional dist applies (dv-solve evaluates constant guards to
+        # emit the active branch's native weighting). Copy the references — the
+        # condition expressions themselves are stable model nodes.
+        s.cond_l = list(self._soft_cond_l)
+
+        # Save information on dist constraints to the
+        # appropriate randset
+        if self._active_randset is not None:
+            f = self._expr2fm.field(s.dist_c.lhs)
+            if f in self._active_randset.dist_field_m.keys():
+                self._active_randset.dist_field_m[f].append(s)
+            else:
+                self._active_randset.dist_field_m[f] = [s]
+        
+    def visit_constraint_soft(self, c:ConstraintSoftModel):
+        if RandInfoBuilder.EN_DEBUG:
+            print("--> RandInfoBuilder::visit_constraint_soft")
+            
+        # Update the priority of this constraint
+        c.priority += self._soft_priority
+        self._soft_priority += 1
+
+        if self._pass == 1 and len(self._soft_cond_l) > 0:
+            # AND all soft conditions together
+            and_cond = self._soft_cond_l[0]
+            for soft_cond in self._soft_cond_l[1:]:
+                and_cond = ExprBinModel(and_cond, BinExprType.And, soft_cond)
+
+            # TODO Is it okay to add priority attr to root Constraint so
+            #      add_constraint can detect them and randomize can sort
+            #      soft constraints more easily?
+            soft_implies = ConstraintImpliesModel(and_cond, [c])
+            soft_implies.priority = c.priority
+            self._active_randset.add_constraint(soft_implies)
+
+        super().visit_constraint_soft(c)
+        
+        if RandInfoBuilder.EN_DEBUG:
+            print("<-- RandInfoBuilder::visit_constraint_soft")
+
+    def visit_constraint_if_else(self, c : ConstraintIfElseModel):
+        self.visit_constraint_stmt_enter(c)
+        self._soft_cond_l.append(c.cond)
+        c.cond.accept(self)
+        c.true_c.accept(self)
+        if c.false_c != None:
+            self._soft_cond_l[-1] = ExprUnaryModel(UnaryExprType.Not, c.cond)
+            c.false_c.accept(self)
+        self._soft_cond_l.pop()
+        self.visit_constraint_stmt_leave(c)
+
+    def visit_constraint_implies(self, c : ConstraintImpliesModel):
+        self.visit_constraint_stmt_enter(c)
+        self._soft_cond_l.append(c.cond)
+        c.cond.accept(self)
+        self.visit_constraint_scope(c)
+        self._soft_cond_l.pop()
+        self.visit_constraint_stmt_leave(c)
+
+    def _index_is_used_rand(self, idx_e):
+        """True iff an array-subscript index expression references at least one
+        *used-rand* field — i.e. a genuinely-symbolic select whose value the solver
+        chooses. This is False for a constant index (no fieldref) and for a
+        `foreach` loop index (a synthesized non-rand FieldScalarModel), both of
+        which must keep the snapshot behavior."""
+        v = _IndexRefsUsedRandVisitor(self._expr2fm)
+        return v.check(idx_e)
+
+    def visit_expr_array_subscript(self, s : ExprArraySubscriptModel):
+        if not isinstance(s.lhs, ExprFieldRefModel):
+            # An array reached through an object (`objs[i].arr[j]`).
+            self._visit_ref_chain(s)
+            return
+        if self._pass == 1 \
+                and isinstance(s.lhs, ExprFieldRefModel) \
+                and isinstance(s.lhs.fm, FieldArrayModel) \
+                and self._index_is_used_rand(s.rhs):
+            # Symbolic (rand) index: the selected element can be ANY element, so
+            # relate the index AND every *rand* element into one randset. This
+            # makes each arm of the dv-solve select (ITE / expr_array_select) a
+            # free solver var rather than a baked constant, so arbitrary
+            # constraints on arr[idx] (bounds, arithmetic, relational) solve
+            # simultaneously instead of landing on a frozen snapshot element.
+            #
+            # Only *rand* elements are pulled in: when the array is a fixed
+            # (non-rand) lookup table, its elements are constant inputs — freeing
+            # them would be wrong (they aren't solve targets) and pointless O(n)
+            # work. Such a subscript is a pure index *selector*, not a symbolic
+            # select; only the index is a solve var (and the dv-solve translator
+            # rewrites `table[idx] <cmp> const` to an index membership constraint).
+            s.rhs.accept(self)                     # index field(s) -> randset
+            for f in s.lhs.fm.field_l:
+                if getattr(f, "is_used_rand", False):
+                    self.process_fieldref(f)       # rand element -> same randset
+            return
+        if self._pass != 1 and self._index_is_used_rand(s.rhs):
+            # A random index has no value yet (it may be out of range); pass 0
+            # needs no element.
+            return
+        fm = s.getFieldModel()
+        if self._pass == 1:
+            # During pass 1, build out randsets based on constraint
+            # relationships
+
+            # If the field is already referenced by an existing randset
+            # that is not this one, we need to merge the sets
+            if fm in self._randset_field_m.keys():
+                # There's an existing randset that holds this field
+                # as a solve target
+                ex_randset = self._randset_field_m[fm]
+                if self._active_randset is None:
+                    self._active_randset = ex_randset
+                elif ex_randset is not self._active_randset:
+                    for f in self._active_randset.fields():
+                        # Relink to the new consolidated randset
+                        self._randset_field_m[f] = ex_randset
+                        ex_randset.add_field(f)
+                    # TODO: this might be later
+                    for c in self._active_randset.constraints():
+                        ex_randset.add_constraint(c)
+
+                    # Remove the previous randset
+                    idx = self._randset_m[self._active_randset]
+                    self._randset_m.pop(self._active_randset)
+                    self._randset_l[idx] = None
+                    self._active_randset = ex_randset
+            else:
+                # No existing randset holds this field as a
+                # solve target
+                if self._active_randset is None:
+                    self._active_randset = RandSet()
+                    idx = len(self._randset_l)
+                    self._randset_m[self._active_randset] = idx
+                    self._randset_l.append(self._active_randset)
+                    
+                # Need to register this field/randset mapping
+                self._active_randset.add_field(fm)
+                self._randset_field_m[fm] = self._active_randset
+
+            if fm in self._field_m.keys():
+                self._field_m.pop(fm)
+
+    def visit_expr_array_sum(self, e):
+        self._relate_array(e.arr)
+
+    def visit_expr_array_product(self, e):
+        self._relate_array(e.arr)
+
+    def _relate_array(self, arr):
+        # A sum or product relates all array elements, and the size of a
+        # random-size array, which decides how many of them count. Solved
+        # apart (first), the size could be one that makes the aggregate
+        # unsatisfiable (size 0 for sum == 30). Solved together, both
+        # back-ends guard each element by the size
+        # (FieldArrayModel._build_guarded, DvSolveTranslator._array_terms).
+        for f in arr.field_l:
+            self.process_fieldref(f)
+        if getattr(arr, "is_rand_sz", False):
+            self.process_fieldref(arr.size)
+
+    def visit_expr_fieldref(self, e):
+        # If the field is already referenced by an existing randset
+        # that is not this one, we need to merge the sets
+        fm = self._expr2fm.field(e)
+        
+        if self._pass == 0:
+            fm.accept(self)
+        elif self._pass == 1:
+            # During pass 1, build out randsets based on constraint
+            # relationships
+            
+            
+            if isinstance(fm, FieldArrayModel):
+                # Note: this is important for unique constraints on an
+                # entire (possibly variable-size) scalar array
+                for f in e.fm.field_l:
+                    self.process_fieldref(f)
+            else:
+                self.process_fieldref(fm)
+ 
+#        super().visit_expr_fieldref(e)
+
+    def visit_expr_indexed_dynref(self, e):
+        fm : FieldCompositeModel = Expr2FieldVisitor().field(e.root, True)
+        c = fm.constraint_dynamic_model_l[e.idx]
+        
+        # Treat a dynamic constraint as an inline expansion
+        # of the constraints in the referenced block
+        for c_stmt in c.constraint_l:
+            c_stmt.accept(self)
+        
+    def visit_expr_indexed_fieldref(self, e):
+        self._visit_ref_chain(e)
+
+    def _visit_ref_chain(self, e):
+        """A reference through objects or arrays (`objs[i].v`). With every
+        index fixed it names one field. An index the solver chooses may
+        select any element, so, as for a scalar `arr[idx]`, the index and
+        every rand field the chain may name go into one randset."""
+        from vsc.model.expr_indexed_field_ref_model import (
+            ref_alternatives, is_symbolic, index_exprs)
+        alts = ref_alternatives(e, self._index_is_used_rand)
+        if not is_symbolic(alts):
+            self.process_fieldref(alts[0][1])
+            return
+        if self._pass != 1:
+            # A random index has no value yet; pass 0 needs no element.
+            return
+        for ie in index_exprs(alts):
+            ie.accept(self)
+        for _, f in alts:
+            if getattr(f, "is_used_rand", False):
+                self.process_fieldref(f)
+        
+    def process_fieldref(self, fm):
+        if RandInfoBuilder.EN_DEBUG > 0:
+            print("--> RandInfoBuilder::process_fieldref %s" % fm.fullname)
+        if fm in self._randset_field_m.keys():
+            # There's an existing randset that holds this field
+            ex_randset = self._randset_field_m[fm]
+            if self._active_randset is None:
+                self._active_randset = ex_randset
+            elif ex_randset is not self._active_randset:
+                if RandInfoBuilder.EN_DEBUG > 0:
+                    print("RandInfoBuilder: combine two randsets")
+                    
+                # This field isn't being ordered, so go ahead and
+                for f in self._active_randset.fields():
+                    # Relink to the new consolidated randset
+                    self._randset_field_m[f] = ex_randset
+                    ex_randset.add_field(f)
+
+                for f, s in self._active_randset.dist_field_m.items():
+                    if f in ex_randset.dist_field_m.keys():
+                        ex_randset.dist_field_m[f].extend(s)
+                    else:
+                        ex_randset.dist_field_m[f] = s
+
+                for c in self._active_randset.constraints():
+                    ex_randset.add_constraint(c)
+                    
+                for c in self._active_randset.soft_constraints():
+                    ex_randset.add_constraint(c)
+
+                # Remove the previous randset
+                idx = self._randset_m[self._active_randset]
+                self._randset_m.pop(self._active_randset)
+                self._randset_l[idx] = None
+                self._active_randset = ex_randset
+            else:
+                # Field is handled by a randset that is the active one
+                pass
+        else:
+            if RandInfoBuilder.EN_DEBUG > 0:
+                print("RandInfoBuilder: create new randset")
+                
+            # No existing randset holds this field
+            if self._active_randset is None:
+                self._active_randset = RandSet()
+                idx = len(self._randset_l)
+                self._randset_m[self._active_randset] = idx
+                self._randset_l.append(self._active_randset)
+                
+            # Need to register this field/randset mapping
+            self._active_randset.add_field(fm)
+            self._randset_field_m[fm] = self._active_randset
+
+        if fm in self._field_m.keys():
+            self._field_m.pop(fm)        
+            
+        if RandInfoBuilder.EN_DEBUG > 0:
+            print("<-- RandInfoBuilder::process_fieldref %s" % fm.fullname)
+        
+        
+    def visit_composite_field(self, f):
+        old_used_rand = self._used_rand
+        self._used_rand = f.is_used_rand
+        super().visit_composite_field(f)
+        self._used_rand = old_used_rand
+        
+    def visit_scalar_field(self, f):
+        if self._pass == 0:
+            if not f in self._field_m.keys():
+                idx = len(self._field_l)
+                self._field_m[f] = idx
+            
+    def visit_enum_field(self, f):
+        if self._pass == 0:
+            if not f in self._field_m.keys():
+                idx = len(self._field_l)
+                self._field_m[f] = idx
+            
+    def visit_covergroup(self, cg:CovergroupModel):
+        
+        if not self._in_generator or self._pass != 1:
+            return
+
+        # TODO: in the case of multiple covergroups, need to have 
+        # made a higher-level decision about which covergroup to target
+        # TODO: determine which coverpoints we're going to enable
+        # First try: just select one
+        unhit_cp = []
+        for cp in cg.coverpoint_l:
+            if cp.get_coverage() != 100:
+                unhit_cp.append(cp)
+        for cp in cg.cross_l:
+            if cp.get_coverage() != 100:
+                unhit_cp.append(cp)
+                
+        if len(unhit_cp) > 0:
+            # Only process the target coverpoint
+            target_cp = self.randint(0, len(unhit_cp)-1)
+            bin_idx = unhit_cp[target_cp].select_unhit_bin(self)
+            bin_expr = unhit_cp[target_cp].get_bin_expr(bin_idx)
+            c = ConstraintSoftModel(bin_expr)
+            cc = ConstraintBlockModel("coverage", [c])
+            cc.accept(self)
+                
+    def visit_generator(self, g):
+        self._in_generator = True
+        super().visit_generator(g)
+        self._in_generator = False
+

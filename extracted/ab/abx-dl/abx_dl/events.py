@@ -136,11 +136,12 @@ class CrawlCleanupEvent(BaseEvent):
 
 
 class CrawlCompletedEvent(BaseEvent):
-    """Informational: the full crawl lifecycle has finished."""
+    """Fact: this crawl execution has settled, including handled failures."""
 
     url: str
     snapshot_id: str
     output_dir: str
+    error: str = ""
     event_timeout: float | None = 10.0
 
 
@@ -218,19 +219,25 @@ class SnapshotCleanupEvent(BaseEvent):
     finalize_snapshot=False to flush producers without marking the snapshot done.
     """
 
+    # The owner stops recorders before later consumers publish final metadata;
+    # this phase ordering must not depend on an embedder's bus-wide default.
+    event_handler_concurrency: EventHandlerConcurrencyMode | None = EventHandlerConcurrencyMode.SERIAL
+
     url: str
     snapshot_id: str
     output_dir: str
+    error: str = ""
     finalize_snapshot: bool = True
     event_timeout: float | None = 30.0
 
 
 class SnapshotCompletedEvent(BaseEvent):
-    """Informational: the snapshot phase has finished."""
+    """Fact: the attempt has finished, including a handled execution failure."""
 
     url: str
     snapshot_id: str
     output_dir: str
+    error: str = ""
     event_timeout: float | None = 10.0
 
 
@@ -448,8 +455,9 @@ class ArchiveResultEvent(BaseEvent):
        result to failed (or skipped for the explicit skipped sentinel). Without
        a reported result, a clean exit produces noresult, never inferred success
        from files that may be metadata or leftovers from another hook/attempt.
-       A cancelled event withdraws the attempt from the DB rather than storing
-       a failure: the user stopped execution before its outcome was known.
+       A cancelled event records an interrupted attempt, not an extraction
+       failure. Consumers may preserve saved bytes and already-final results;
+       any still-running projection must no longer imply active execution.
 
     Both cases carry output_files, start_ts, end_ts copied from the process context.
     """

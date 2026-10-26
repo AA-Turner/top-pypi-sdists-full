@@ -254,6 +254,37 @@ def test_a_worker_waiting_for_a_connection_says_so_once_not_per_retry(
     assert _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)["network_retries"] == 3
 
 
+def test_a_batch_retry_is_counted_apart_from_connection_waits(
+    queued, captured, approving, monkeypatch,
+):
+    """A stopped import batch is retried by the job itself. It is not a lost
+    connection: no stall event, no connection-wait flag, its own counter."""
+    attempts = {"n": 0}
+    shown = []
+
+    def stopped_batch(kind, payload, progress):
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise jobs.UnitRetryJobError("1 import batch(es) stopped before finishing.")
+        return ["Finished."]
+
+    def sleep(_seconds):
+        shown.append(jobs.get_job(job["id"])["progress"])
+
+    job = _enqueue(jobs.Kind.FOLDER)
+    monkeypatch.setattr(jobs, "_dispatch", stopped_batch)
+    monkeypatch.setattr(jobs.time, "sleep", sleep)
+    monkeypatch.setattr(jobs, "_reclaim_children", lambda folder: None)
+    captured.clear()
+    assert jobs.run_worker(job["id"]) == 0
+    assert [row for row in captured if row["event"] == tm.EVENT_IMPORT_JOB_STALLED] == []
+    assert [p["unit_retries"] for p in shown] == [1, 2]
+    assert not any(p.get("waiting_for_connection") for p in shown)
+    finished = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)
+    assert finished["unit_retries"] == 2
+    assert finished.get("network_retries") is None
+
+
 def test_a_worker_that_vanished_is_reported_by_whoever_reads_the_record_next(
     queued, captured, approving, monkeypatch,
 ):
@@ -330,3 +361,56 @@ def test_telemetry_is_never_load_bearing_for_the_worker(queued, monkeypatch):
     assert jobs.get_job(job["id"])["state"] == jobs.State.SUCCEEDED
     _release(job)
     assert jobs.clear_all() == 1
+
+
+# --- what the attempt's agents ran at and cost ------------------------------
+
+
+@pytest.mark.parametrize("ending", ["succeeded", "failed", "interrupted"])
+def test_a_folder_attempt_reports_its_agents_per_lane_however_it_ends(
+    queued, captured, approving, monkeypatch, ending,
+):
+    """Most unit work runs in the background, so this event -- not
+    `backfill.summary` -- is where an import's cost is visible, and a failed
+    or stopped attempt spent tokens too."""
+    from probe.cli import backfill as bf
+    from probe.cli import import_agent_settings as settings_mod
+
+    monkeypatch.setattr(settings_mod, "_read_server",
+                        lambda client: ({"codex": {"*": {"effort": "medium"}}}, "fleet-1"))
+
+    def run(kind, payload, progress):
+        # What `backfill_import.run_background_job` does with the attempt's meter.
+        agents = settings_mod.resolve(None, bf.Agent.CODEX, meter=jobs._attempt_meter)
+        agents.meter.launched(settings_mod.Lane.IMPORT, {
+            "input_tokens": 30047, "cached_input_tokens": 12288, "cache_write_input_tokens": 0,
+            "output_tokens": 5, "reasoning_output_tokens": 0,
+        })
+        agents.meter.launched(settings_mod.Lane.IMPORT, None)
+        if ending == "failed":
+            raise jobs.JobError("an import batch stopped")
+        if ending == "interrupted":
+            raise KeyboardInterrupt
+        return ["Finished."]
+
+    job = _enqueue(jobs.Kind.FOLDER)
+    monkeypatch.setattr(jobs, "_dispatch", run)
+    captured.clear()
+    jobs.run_worker(job["id"])
+    done = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)
+    assert done["outcome"] == ending
+    assert done["backfill_agent"] == "codex" and done["settings_version"] == "fleet-1"
+    assert done["import_effort"] == "medium" and done["import_source"] == "server"
+    assert done["import_launches"] == 2 and done["import_usage_missing"] == 1
+    assert done["import_input_tokens"] == 30047
+    assert done["classify_launches"] == 0 and "classify_input_tokens" not in done
+    assert jobs._attempt_meter is None, "the attempt's meter does not outlive it"
+
+
+def test_a_transcript_attempt_reports_no_agent_fields(queued, captured, approving, monkeypatch):
+    job = _enqueue()
+    monkeypatch.setattr(jobs, "_dispatch", lambda *args: ["Finished."])
+    captured.clear()
+    assert jobs.run_worker(job["id"]) == 0
+    done = _props(captured, tm.EVENT_IMPORT_JOB_FINISHED)
+    assert not any(key.endswith(("_launches", "_effort")) or key == "backfill_agent" for key in done)

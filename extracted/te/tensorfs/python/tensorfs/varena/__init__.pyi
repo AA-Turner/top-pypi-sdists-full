@@ -9,7 +9,7 @@ holds the block until the last one dies. Every call releases the GIL; a panic ra
 """
 
 from collections.abc import Sequence
-from typing import Final, Literal
+from typing import Final
 
 from .._ext import Checkpoint
 
@@ -136,10 +136,12 @@ class Memory:
 
     def retain(self, set: int, blocks: list[int]) -> Retained: ...
     def context_measurable(self) -> bool: ...
-    def bind(self, set: int, block: int, stream: int = 0, evict: bool = True) -> Pin:
+    def bind(self, set: int, block: int, stream: int = 0, evict: bool = True, request: Request | None = None) -> Pin:
         """Block (region) `block` of `set`, mapped and filled; `stream` (a CUstream, 0 the default)
         waits on the fill, and tensors made from the pin are consumed on it only. With `evict`
-        false it maps into free bytes only, `Exhausted` at once when they are short."""
+        false it maps into free bytes only, `Exhausted` at once when they are short. Its fill and
+        trace go to the request whose pass on this thread runs `set`, else to `request` (a hold
+        taken before its pass opens); the pin is no request's then."""
 
     def classes(self) -> list[int]:
         """Mapped bytes by class (F, O, S, N, D, W, P)."""
@@ -211,8 +213,8 @@ class Region:
         """As `pin`, and this thread's torch blocks go to its arena until the pin ends."""
     def produced(self, ns: int) -> None: ...
     def next_use(self, step: int | None = None) -> None: ...
-    def close(self) -> tuple[int, int, list[tuple[int, int, int]]]:
-        """(allocated, peak, its blocks still live (ptr, bytes, stream))."""
+    def close(self) -> Ended:
+        """Its arena's record."""
 
 class RegionPin:
     @property
@@ -298,12 +300,23 @@ class Fills:
 
 class Moved:
     @property
-    def kept(self) -> Fills: ...
+    def kept(self) -> Fills:
+        """Leased pages adopted from the manager's retention (no copy)."""
+    @property
+    def leased(self) -> Fills:
+        """Pages leased from the manager and filled here."""
     @property
     def store(self) -> Fills:
         """The store, read through the page cache."""
     @property
     def speculative(self) -> int: ...
+
+class Origin:
+    """Where a bound block's bytes came from; `str()` gives hit, kept or store."""
+
+    Hit: Origin
+    Kept: Origin
+    Store: Origin
 
 class Ref:
     """One bind: the page-reference trace."""
@@ -317,13 +330,14 @@ class Ref:
     @property
     def bytes(self) -> int: ...
     @property
-    def origin(self) -> Literal["hit", "kept", "store"]: ...
+    def origin(self) -> Origin: ...
     @property
     def speculative(self) -> bool: ...
 
 class StepStats:
     @property
-    def capacity(self) -> int: ...
+    def capacity(self) -> int:
+        """The free bytes at its start."""
     @property
     def evicted(self) -> list[int]: ...
 
@@ -347,16 +361,50 @@ class Stats:
     @property
     def compute(self) -> int: ...
     @property
+    def host(self) -> int | None:
+        """The process's anonymous host high-water over it; None where it cannot be read."""
+    @property
     def leftover(self) -> int: ...
     @property
-    def make_room(self) -> list[tuple[int, str, int, int, int]]:
-        """Each make_room that took bytes: (step, trigger, need, freed, release events waited on)."""
+    def make_room(self) -> list[MakeRoom]: ...
     @property
-    def outlived(self) -> list[tuple[int, int, int]]:
-        """Its torch blocks still live at its end (ptr, bytes, stream): the request-end audit."""
+    def outlived(self) -> list[Outlived]:
+        """Its torch blocks still live at its end: the request-end audit."""
 
-    def json(self) -> str:
-        """The record as JSON, field for field (what a Runtime relays)."""
+class MakeRoom:
+    """One make_room that took bytes for a request."""
+
+    @property
+    def step(self) -> int: ...
+    @property
+    def trigger(self) -> str: ...
+    @property
+    def need(self) -> int: ...
+    @property
+    def freed(self) -> int: ...
+    @property
+    def waited(self) -> int:
+        """Release events it waited on."""
+
+class Outlived:
+    """A torch block of an arena still live at its end."""
+
+    @property
+    def ptr(self) -> int: ...
+    @property
+    def bytes(self) -> int: ...
+    @property
+    def stream(self) -> int: ...
+
+class Ended:
+    """An arena's record at its end."""
+
+    @property
+    def allocated(self) -> int: ...
+    @property
+    def peak(self) -> int: ...
+    @property
+    def outlived(self) -> list[Outlived]: ...
 
 class Retained:
     """Stable virtual references. `prepare` leases their physical pages through stream completion."""
@@ -368,6 +416,14 @@ class Retained:
     def close(self) -> None: ...
 
 class StaleBinding(VarenaError): ...
+
+def host_limit() -> int | None:
+    """The most this process's memory can reach: physical memory, or less under a cgroup limit;
+    None when unreadable."""
+
+def document(stats: Stats) -> dict[str, object]:
+    """A request's record as plain dicts, lists and scalars, written by serde from the record
+    itself: what a Runtime relays in its reply."""
 
 def pins_held() -> int:
     """Pins the binding holds now: Python's pin objects and the tensors that keep one."""

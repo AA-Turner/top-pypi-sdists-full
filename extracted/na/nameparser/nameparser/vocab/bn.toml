@@ -1,0 +1,182 @@
+schema = 1
+
+[[word]]
+text = "mst"
+excluded = { salutation = { reason = "the transliteration of মোসাঃ collides with real names where the native script cannot", issue = 343 } }
+
+[[word]]
+text = "কুমারী"
+excluded = { salutation = { reason = "Kumari is a given name and a family name in this script, so the leading claim fails C-i (decisions/vocabulary-collisions)", issue = 343, decided = 2026-09-06 } }
+
+[[word]]
+text = "জনাব"
+salutation = { gender = "m", issue = 343, expands = "Janab, Mr.", after_given = true }
+
+[[word]]
+text = "বেগম"
+excluded = { salutation = { reason = "Begum is a trailing name element far more often than a leading title", issue = 343, decided = 2026-09-06 } }
+
+[[word]]
+text = "মিঃ"
+salutation = { gender = "m", issue = 343, expands = "Mr., borrowed", after_given = true }
+
+[[word]]
+text = "মি"
+salutation = { gender = "m", issue = 343, same_as = "মিঃ", expands = "the period spelling মি.", after_given = true }
+
+[[word]]
+text = "মিসেস"
+salutation = { gender = "f", issue = 343, expands = "Mrs., borrowed", after_given = true }
+
+[[word]]
+text = "মোঃ"
+salutation = { gender = "m", issue = 343, expands = "Md., Mohammad", note = "a name PREFIX, not a title semantically; TITLES is the functional home because `given` must stay the name the person is addressed by (decisions/indic-honorifics)", excluded = { after_given = "abbreviates Mohammad, a given name, and is read as one where it leads (#853)" } }
+given = { wikidata = 37, as_of = 2026-10-24 }
+
+[[word]]
+text = "মো"
+salutation = { gender = "m", issue = 343, same_as = "মোঃ", expands = "the period spelling মো.", excluded = { after_given = "abbreviates Mohammad, a given name, as মোঃ does (#853)" } }
+
+[[word]]
+text = "মোসাঃ"
+salutation = { gender = "f", issue = 343, expands = "Mst., Mosammat, the women's counterpart of মোঃ", after_given = true }
+
+[[word]]
+text = "মোছাঃ"
+salutation = { gender = "f", issue = 343, same_as = "মোসাঃ", expands = "the ছ spelling", after_given = true }
+
+[[word]]
+text = "মোছা"
+salutation = { gender = "f", issue = 343, same_as = "মোছাঃ", expands = "the period spelling মোছা.", after_given = true }
+
+[[word]]
+text = "মোসা"
+salutation = { gender = "f", issue = 343, same_as = "মোসাঃ", expands = "the period spelling মোসা.", after_given = true }
+
+[[word]]
+text = "শ্রী"
+salutation = { gender = "m", issue = 343, expands = "Shri, Mr.", excluded = { after_given = "also an element of given names (Sri, Shri), so where it ends the given part it may be one" } }
+
+[[word]]
+text = "শ্রীমতী"
+salutation = { gender = "f", issue = 343, expands = "Shrimati, Mrs.", after_given = true }
+
+[[word]]
+text = "আলহাজ্ব"
+style = { issue = 343, expands = "Alhaj" }
+
+[[word]]
+text = "আলহাজ"
+style = { issue = 343, same_as = "আলহাজ্ব", expands = "Alhaj, the spelling without the ব-phala" }
+
+[[word]]
+text = "ঠাকুর"
+excluded = { style = { reason = "a genuine Bengali honorific (lord, master) that is also Tagore, the surname", issue = 343 } }
+
+[[word]]
+text = "শেখ"
+excluded = { style = { reason = "a clan name and a family name ('শেখ হাসিনা'); the Latin sheikh cluster ships for the Arabic addressing form, while the Indic spellings name the family", issue = 343, decided = 2026-09-06 } }
+
+[[word]]
+text = "অধ্যাপক"
+academic = { issue = 343, expands = "professor" }
+
+[[word]]
+text = "ড"
+academic = { issue = 343, expands = "Dr., the PhD's", note = "the doctor abbreviations split by profession, ড./ডঃ the PhD's and ডাঃ/ডা. the Bangladeshi physician's; a period spelling matches its bare stem through the edge-period normalization, so each stem is listed once, and the visarga ঃ (U+0983, a spacing combining mark) reaches the lexicon intact; no Latin twins, for the reason the sri/shri exclusions in hi.toml give" }
+
+[[word]]
+text = "ডঃ"
+academic = { issue = 343, same_as = "ড", expands = "Dr., the PhD's, visarga spelling" }
+
+[[word]]
+text = "ডক্টর"
+academic = { issue = 343, expands = "doctor, full form" }
+
+[[word]]
+text = "ডা"
+academic = { issue = 343, expands = "Dr., the physician's" }
+
+[[word]]
+text = "ডাঃ"
+academic = { issue = 343, same_as = "ডা", expands = "Dr., the physician's, visarga spelling" }
+
+[[word]]
+text = "ডাক্তার"
+academic = { issue = 343, expands = "doctor, full form (physician)" }
+
+[[word]]
+text = "প্রফেসর"
+academic = { issue = 343, expands = "professor, borrowed form" }
+
+[[word]]
+text = "baba"
+religious = { addresses = "given", issue = 346 }
+
+[[word]]
+text = "guru"
+religious = { addresses = "given", issue = 346 }
+
+[[word]]
+text = "swami"
+religious = { addresses = "given", issue = 346 }
+
+[[word]]
+text = "গুরু"
+religious = { addresses = "given", issue = 343, expands = "Guru" }
+
+[[word]]
+text = "বাবা"
+religious = { addresses = "given", issue = 343, expands = "Baba" }
+
+[[word]]
+text = "মাওলানা"
+religious = { issue = 343, expands = "Maulana" }
+
+[[word]]
+text = "মুফতি"
+religious = { issue = 343, expands = "Mufti", note = "the Latin mufti ships too, in ar.toml" }
+
+[[word]]
+text = "শ্রীল"
+religious = { addresses = "given", issue = 343, expands = "Srila, the Vaishnava honorific (শ্রীল প্রভুপাদ)", note = "no Latin twin; unprefixed শ্রী is the civil salutation" }
+
+[[word]]
+text = "স্বামী"
+religious = { addresses = "given", issue = 343, expands = "Swami" }
+
+[[word]]
+text = "বিচারপতি"
+office = { issue = 343, expands = "Justice" }
+
+[[word]]
+text = "জুনিয়র"
+generation = { issue = 679 }
+
+[[word]]
+text = "সিনিয়র"
+generation = { issue = 679 }
+
+[[word]]
+text = "বাবু"
+[word.honorific]
+issue = [346, 344, 343]
+note = "Babu, TRAILING (অমল বাবু), while Devanagari बाबू is a LEADING title (#344); the split is real and must not be harmonized"
+[word.honorific.excluded]
+attached = "जी ends बनर्जी, मुखर्जी, चटर्जी, so a glued peel would strand a bare virama (बनर् + जी); the 殿 criterion in a non-CJK script (decisions/indic-honorifics)"
+
+[[word]]
+text = "সাহেব"
+[word.honorific]
+issue = [346, 344, 343]
+note = "Saheb (রহমান সাহেব)"
+[word.honorific.excluded]
+attached = "जी ends बनर्जी, मुखर्जी, चटर्जी, so a glued peel would strand a bare virama (बनर् + जी); the 殿 criterion in a non-CJK script (decisions/indic-honorifics)"
+
+[[word]]
+text = "মহারাজ"
+[word.courtesy]
+issue = [346, 344, 343]
+note = "Maharaj"
+[word.courtesy.excluded]
+attached = "जी ends बनर्जी, मुखर्जी, चटर्जी, so a glued peel would strand a bare virama (बनर् + जी); the 殿 criterion in a non-CJK script (decisions/indic-honorifics)"

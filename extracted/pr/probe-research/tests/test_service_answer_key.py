@@ -158,12 +158,16 @@ def _held_other() -> appr.Request:
                              held={"kind": "shell", "command": "make", "cwd": "/w"}, bypass=False)
 
 
-def test_a_question_any_caller_posts_gets_a_key_it_is_never_sent(home):
-    """`mailbox.post` is open to the same callers: a question posted there gets a
-    key written beside it, and nothing sends it back, so its poster cannot then
-    answer it through the service either."""
+def test_a_question_its_poster_posts_gets_a_key_it_is_never_sent(home):
+    """A question posted through `mailbox.post` (by the session's own worker:
+    since #3361 nobody else may post) gets a key written beside it, and nothing
+    sends it back, so even its poster cannot then answer it through the service."""
     question = _request("feedfeed")
+    owner = client.owner_of(os.getpid())
     with home.connect() as conn:
+        # This process registers the session, so what it posts is its worker's.
+        conn.call(Method.SESSION_REGISTER, {"sid": SID, "harness": "claude_code", "mode": "daemon",
+                                            "owner": owner, "generation": 1})
         posted = conn.call(Method.MAILBOX_POST, {"sid": SID, "state_dir": str(_state()),
                                                  "question": question.to_json()})
         assert posted == {"posted": "feedfeed", "kind": "question", "late": False}

@@ -1,5 +1,8 @@
-//! The NVIDIA GPUs a machine reports in `StatusFrame.gpus[]`, read through NVML, which is opened
-//! at run time (`libnvidia-ml.so.1`, `nvml.dll`). No driver is "no NVIDIA GPU", never an error.
+//! The GPUs a machine reports in `StatusFrame.gpus[]`: NVIDIA's through NVML, which is opened at
+//! run time (`libnvidia-ml.so.1`, `nvml.dll`), and an Apple Silicon Mac's through Metal. No driver
+//! is "no GPU", never an error.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+mod apple;
 #[cfg(windows)]
 mod budget;
 mod cuda;
@@ -11,8 +14,8 @@ pub use cuda::memory_classes;
 use crate::{Error, Result};
 use nvml_wrapper::{
     Nvml,
-    enum_wrappers::device::{ComputeMode, Sampling},
-    enums::device::{SampleValue, UsedGpuMemory},
+    enum_wrappers::device::ComputeMode,
+    enums::device::UsedGpuMemory,
     error::NvmlError,
     struct_wrappers::device::{MemoryInfo, ProcessInfo},
 };
@@ -27,8 +30,9 @@ pub struct Gpu {
     pub pci_bus_id: String,
     pub memory_bytes: u64,
     pub driver: String,
-    /// (major, minor), `(9, 0)` on a Hopper; `None` when the driver does not say.
-    pub compute_capability: Option<(u32, u32)>,
+    /// The lane rule's row: an NVIDIA card's compute capability (`9.0` on a Hopper), an Apple
+    /// GPU's newest Metal family (`apple9`); empty when the driver does not say.
+    pub capability: String,
     /// [`memory_classes`] fills it from CUDA's device attributes; the probe leaves it `None`.
     pub memory_class: Option<MemoryClass>,
 }
@@ -71,6 +75,9 @@ pub fn probe(visible: Option<&str>) -> Result<Vec<Gpu>> {
     if visible.is_some_and(|visible| visible.trim().is_empty()) {
         return Ok(vec![]);
     }
+    if let Some(gpus) = apple() {
+        return Ok(gpus);
+    }
     let nvml = match Nvml::init() {
         Ok(nvml) => nvml,
         Err(
@@ -93,10 +100,9 @@ pub fn probe(visible: Option<&str>) -> Result<Vec<Gpu>> {
             pci_bus_id: device.pci_info().map_err(failed("PCI info"))?.bus_id,
             memory_bytes: memory(device.memory_info())?.0,
             driver: driver.clone(),
-            compute_capability: device
+            capability: device
                 .cuda_compute_capability()
-                .ok()
-                .map(|cc| (cc.major as u32, cc.minor as u32)),
+                .map_or(String::new(), |cc| format!("{}.{}", cc.major, cc.minor)),
             memory_class: None,
         });
     }
@@ -107,6 +113,16 @@ pub fn probe(visible: Option<&str>) -> Result<Vec<Gpu>> {
         });
     }
     Ok(gpus)
+}
+
+/// An Apple Silicon Mac's GPU; `None` elsewhere, where NVML answers.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+fn apple() -> Option<Vec<Gpu>> {
+    Some(apple::probe().into_iter().collect())
+}
+#[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+fn apple() -> Option<Vec<Gpu>> {
+    None
 }
 
 /// One GPU opened for repeated reads (TensorD's memory sampler reads it every second). NVML
@@ -201,25 +217,14 @@ impl Device {
         memory(device.memory_info()).map(|(_, free)| free)
     }
 
-    /// Whether device memory moved (kernels' traffic, copies, peer writes) in NVML's samples
-    /// after `seen` (its timestamp, µs), which it advances.
-    pub fn moved_since(&self, seen: &mut u64) -> Result<bool> {
+    /// Its bytes in use now, every process's, as `nvidia-smi` shows them (not the driver's reserve;
+    /// an integrated GPU's: total less free).
+    pub fn used(&self) -> Result<u64> {
         let device = self.nvml.device_by_index(self.index).map_err(failed("open device"))?;
-        // No sample newer than `seen` is no work seen: NVML answers NotFound while the GPU is idle,
-        // which is a reading, not an unreadable GPU: a call stuck there was never judged.
-        let samples = match device.samples(Sampling::MemoryUtilization, *seen) {
-            Err(NvmlError::NotFound) => return Ok(false),
-            samples => samples.map_err(failed("utilization samples"))?,
-        };
-        Ok(samples.iter().fold(false, |moved, sample| {
-            *seen = (*seen).max(sample.timestamp);
-            moved || match sample.value {
-                SampleValue::U32(value) => value > 0,
-                SampleValue::U64(value) => value > 0,
-                SampleValue::I64(value) => value > 0,
-                SampleValue::F64(value) => value > 0.0,
-            }
-        }))
+        match device.memory_info() {
+            Ok(info) => Ok(info.used),
+            answer => memory(answer).map(|(total, free)| total.saturating_sub(free)),
+        }
     }
 
     /// Whether its compute mode admits one context at a time (exclusive-process) or none
@@ -241,18 +246,62 @@ impl Device {
     }
 }
 
+/// One GPU's bytes in use as the driver reads them ([`Device::used`]): when a [`Peak`] began and
+/// at its fullest.
+#[derive(Clone, Copy, Debug, serde::Serialize)]
+pub struct Used {
+    pub gpu: u32,
+    pub before_bytes: u64,
+    pub peak_bytes: u64,
+}
+
+/// A call's GPUs, read every 100 ms on a thread of its own from [`Peak::watch`] until
+/// [`Peak::end`] (or its drop). A GPU NVML cannot open is left out.
+pub struct Peak {
+    stop: std::sync::mpsc::Sender<()>,
+    thread: std::thread::JoinHandle<Vec<Used>>,
+}
+
+impl Peak {
+    /// `entries` as `CUDA_VISIBLE_DEVICES` spells them; None for none.
+    pub fn watch(entries: Vec<String>) -> Option<Peak> {
+        if entries.is_empty() {
+            return None;
+        }
+        let (stop, stopped) = std::sync::mpsc::channel::<()>();
+        let thread = std::thread::Builder::new().name("gpu-peak".into()).spawn(move || {
+            let devices: Vec<Device> = entries.iter().filter_map(|entry| Device::open(entry).ok()).collect();
+            let mut rows: Vec<(Used, &Device)> = devices.iter()
+                .filter_map(|d| d.used().ok().map(|bytes| (Used { gpu: d.index, before_bytes: bytes, peak_bytes: bytes }, d)))
+                .collect();
+            while let Err(std::sync::mpsc::RecvTimeoutError::Timeout) = stopped.recv_timeout(std::time::Duration::from_millis(100)) {
+                for (row, device) in &mut rows {
+                    row.peak_bytes = row.peak_bytes.max(device.used().unwrap_or(0));
+                }
+            }
+            rows.into_iter().map(|(row, _)| row).collect()
+        });
+        thread.ok().map(|thread| Peak { stop, thread })
+    }
+
+    pub fn end(self) -> Vec<Used> {
+        drop(self.stop);
+        self.thread.join().unwrap_or_default()
+    }
+}
+
 /// A GPU's (total, free) memory from NVML's answer. An integrated GPU (GB10) has no
-/// framebuffer, so NVML answers NotSupported: its memory is the host's (`MemTotal`,
-/// `MemAvailable`).
+/// framebuffer, so NVML answers NotSupported: its memory is what this process may hold of the
+/// host's (`host_memory::limit`, and the live budget under it).
 fn memory(answer: std::result::Result<MemoryInfo, NvmlError>) -> Result<(u64, u64)> {
     match answer {
         Ok(memory) => Ok((memory.total, memory.free)),
         Err(NvmlError::NotSupported) => {
-            let total = crate::contain::host_memory::total();
-            let free = crate::contain::host_memory::read().mem_available;
-            match total > 0 && free >= 0 {
-                true => Ok((total as u64, free as u64)),
-                false => Err(failed("memory info")(NvmlError::NotSupported)),
+            let total = crate::contain::host_memory::limit();
+            let free = u64::try_from(crate::contain::host_memory::read().available).ok();
+            match total.zip(free) {
+                Some((total, free)) => Ok((total, free.min(total))),
+                None => Err(failed("memory info")(NvmlError::NotSupported)),
             }
         }
         Err(error) => Err(failed("memory info")(error)),

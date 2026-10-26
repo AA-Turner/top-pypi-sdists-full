@@ -11,7 +11,7 @@ Layout under ``root``:
     simple-v3/<index>[-<serialization>]/<package>.policy  <- {fetched_at, max_age,
                                                               etag, page_url,
                                                               body_digest}
-    simple-parsed-v0/<index>[-<serialization>]/<package>.parsed  <- parsed blob
+    simple-parsed-v1/<index>[-<serialization>]/<package>.parsed  <- parsed blob
     simple-neg-v0/<index>[-<serialization>]/<package>.neg <- {fetched_at, max_age, etag}
     metadata-v1/<index>/<package>/<url digest>.metadata
     sdist-v2/<index>/<package>/<version>.record  <- pkg_info and pyproject,
@@ -35,10 +35,25 @@ A resolve writes two more buckets under the same root, holding upstream
 source trees:
 
     vcs-v1/vcs/<repo key>/<commit sha>/   <- shallow clone
-    archive-v1/<archive digest>/          <- extracted archive
+    archive-v2/<archive digest>/          <- extracted archive
 """
 
 from __future__ import annotations
+
+__lazy_modules__ = (
+    "contextlib",
+    "hashlib",
+    "json",
+    "nab_index._json_decode",
+    "nab_index.atomic",
+    "nab_index.parsed_listing",
+    "nab_provider.digest",
+    "os",
+    "pathlib",
+    "shutil",
+    "stat",
+    "time",
+)
 
 import hashlib
 import json
@@ -49,12 +64,12 @@ import stat
 import threading
 import time
 from contextlib import suppress
-from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Final, Protocol
 
 from nab_provider.digest import is_hex_digest
 from nab_provider.serialization import SimpleSerialization
+from nab_provider.value import HashableRecord, replace
 
 from ._json_decode import decode_json
 from .atomic import atomic_write
@@ -80,7 +95,7 @@ __all__ = [
 
 
 CACHE_VERSION_SIMPLE = "v3"
-CACHE_VERSION_SIMPLE_PARSED = "v0"
+CACHE_VERSION_SIMPLE_PARSED = "v1"
 CACHE_VERSION_SIMPLE_NEG = "v0"
 CACHE_VERSION_METADATA = "v1"
 CACHE_VERSION_SDIST = "v2"
@@ -88,7 +103,7 @@ CACHE_VERSION_SDIST = "v2"
 # and rewritten there, since rebuilding one costs an archive download.
 _CACHE_VERSION_SDIST_JSON = "v1"
 CACHE_VERSION_VCS = "v1"
-CACHE_VERSION_ARCHIVE = "v1"
+CACHE_VERSION_ARCHIVE = "v2"
 
 # Buckets of nab-written records. simple-neg-* is covered by the simple- prefix.
 ENTRY_BUCKET_PREFIXES = ("simple-", "metadata-", "sdist-")
@@ -98,7 +113,7 @@ ENTRY_BUCKET_PREFIXES = ("simple-", "metadata-", "sdist-")
 VCS_BUCKET = f"vcs-{CACHE_VERSION_VCS}"
 ARCHIVE_BUCKET = f"archive-{CACHE_VERSION_ARCHIVE}"
 SOURCE_BUCKETS = (VCS_BUCKET, ARCHIVE_BUCKET)
-_LEGACY_SOURCE_BUCKETS = ("vcs", "archive")
+_LEGACY_SOURCE_BUCKETS = ("vcs", "archive", "archive-v1")
 _RECOGNIZED_SOURCE_BUCKETS = SOURCE_BUCKETS + _LEGACY_SOURCE_BUCKETS
 
 DEFAULT_PYPI_URLS = frozenset(
@@ -113,8 +128,7 @@ class OfflineError(Exception):
     """Raised when offline mode is set and a needed entry is not cached."""
 
 
-@dataclass(frozen=True, slots=True)
-class CachePolicy:
+class CachePolicy(HashableRecord):
     """RFC 9111-style freshness policy for one Simple API entry.
 
     ``fetched_at`` is the start of the freshness window: when nab received the
@@ -133,11 +147,34 @@ class CachePolicy:
     characters is dropped.
     """
 
-    fetched_at: int
-    max_age: int
-    etag: str | None
-    page_url: str | None = None
-    body_digest: str | None = None
+    __slots__ = __match_args__ = (
+        "fetched_at",
+        "max_age",
+        "etag",
+        "page_url",
+        "body_digest",
+    )
+
+    fetched_at: Final[int]
+    max_age: Final[int]
+    etag: Final[str | None]
+    page_url: Final[str | None]
+    body_digest: Final[str | None]
+
+    def __init__(
+        self,
+        fetched_at: int,
+        max_age: int,
+        etag: str | None,
+        page_url: str | None = None,
+        body_digest: str | None = None,
+    ) -> None:
+        """Retain the freshness inputs and representation identity for one entry."""
+        self.fetched_at = fetched_at
+        self.max_age = max_age
+        self.etag = etag
+        self.page_url = page_url
+        self.body_digest = body_digest
 
     def is_fresh(self, now: int | None = None) -> bool:
         """Return True if the entry is still within its freshness window."""

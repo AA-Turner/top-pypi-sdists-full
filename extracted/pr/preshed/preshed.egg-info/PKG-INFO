@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: preshed
-Version: 3.0.14
+Version: 3.0.15
 Summary: Cython hash table that trusts the keys are pre-hashed
 Home-page: https://github.com/explosion/preshed
 Author: Explosion

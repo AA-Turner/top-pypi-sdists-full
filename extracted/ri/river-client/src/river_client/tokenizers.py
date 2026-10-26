@@ -33,6 +33,10 @@ MODEL_TOKENIZER_ALIASES: dict[str, str] = {
     # a run against 1017 off the base repo -- which an offline cache holding
     # only the 1017 snapshot does not have.
     "deepseek-ai/DeepSeek-V4.1-Flash-1017": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    # Self-mapping for the same reason as the DeepSeek root above.
+    "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4": (
+        "nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4"
+    ),
 }
 
 

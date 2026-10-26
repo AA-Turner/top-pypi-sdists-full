@@ -8,6 +8,7 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .document_list_item_system_dreaming_status import DocumentListItemSystemDreamingStatus
 
 
 class DocumentListItemSystem(UncheckedBaseModel):
@@ -18,6 +19,30 @@ class DocumentListItemSystem(UncheckedBaseModel):
     status: str = pydantic.Field()
     """
     Current extraction and memory-processing status
+    """
+
+    dreaming_status: typing_extensions.Annotated[
+        DocumentListItemSystemDreamingStatus,
+        FieldMetadata(alias="dreamingStatus"),
+        pydantic.Field(
+            alias="dreamingStatus",
+            description="Memory generation state, separate from status. dreaming while memories for the latest content are queued, being generated, or waiting for a retry after a failure; done once they are generated or when none are needed. Under dynamic dreaming, status can reach done minutes before dreamingStatus does.",
+        ),
+    ]
+    """
+    Memory generation state, separate from status. dreaming while memories for the latest content are queued, being generated, or waiting for a retry after a failure; done once they are generated or when none are needed. Under dynamic dreaming, status can reach done minutes before dreamingStatus does.
+    """
+
+    memory_count: typing_extensions.Annotated[
+        typing.Optional[int],
+        FieldMetadata(alias="memoryCount"),
+        pydantic.Field(
+            alias="memoryCount",
+            description="Number of live memories linked to this document in the requested namespace",
+        ),
+    ] = None
+    """
+    Number of live memories linked to this document in the requested namespace
     """
 
     created_at: typing_extensions.Annotated[

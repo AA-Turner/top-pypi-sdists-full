@@ -33,9 +33,12 @@ move at the sizes this feature is for.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
+import re
+import shutil
 import sys
 import threading
 import time
@@ -57,7 +60,10 @@ from . import backfill_index as index_mod
 from . import backfill_ledger as ledger_mod
 from .backfill_manifest import validate_manifest
 from . import backfill_plan as plan_mod
+from . import backfill_plan_tool as tool_mod
 from . import backfill_prompts as prompts
+from .import_agent_settings import AgentSettings, Lane, cached, launch_kwargs
+from probe._compat import StrEnum
 
 def _env_concurrency(name: str, default: int) -> int:
     raw = os.environ.get(name)
@@ -346,7 +352,7 @@ class _ClassificationContext:
 _classification_context: ContextVar[_ClassificationContext | None] = ContextVar(
     "backfill_classification_context", default=None,
 )
-_PREP_CACHE_VERSION = 1
+_PREP_CACHE_VERSION = 2
 _PREP_CACHE_ENTRY_BYTES = 8 * 1024 * 1024
 _PREP_CACHE_BYTES = 128 * 1024 * 1024
 _PREP_CACHE_ENTRIES = 2048
@@ -538,8 +544,13 @@ def classify(
     existing: list[str],
     work_dir: Path,
     stream=None,
+    agents: AgentSettings | None = None,
 ) -> tuple[plan_mod.Plan | None, str, str | None]:
     """Run the classification agent. Returns ``(plan, tail, session_id)``.
+
+    `agents` carries the import's settings and meter to every launch in the
+    `classify` lane (`import_agent_settings`); without it, launches are as
+    they always were.
 
     The session comes back so the review gate can RESUME it to apply a
     correction. That is the difference between a revision costing one turn and
@@ -567,11 +578,11 @@ def classify(
         # other, in one decision, with no summary in between.
         plan, tail = classify_chunked(
             folder, ev, agent=agent, existing=existing,
-            work_dir=work_dir, stream=stream,
+            work_dir=work_dir, stream=stream, agents=agents,
         )
         # No session to hand back: the chunked route runs many, and resuming
-        # "the" one would resume whichever ran last. A correction after this
-        # re-classifies cold, which the revise prompt is told about.
+        # "the" one would resume whichever ran last. A correction after this is
+        # one fresh session that starts from the plan (`revise`).
         return plan, tail, None
 
     prompt = prompts.classify(
@@ -583,37 +594,20 @@ def classify(
         mtime_uninformative=ev.mtime_uninformative,
     ) + _git_note(folder, work_dir)
     heading = f"Reading {folder.name} — {ev.total_files:,} files"
-    _classification_progress(heading, "classify")
-    cache = _classification_cache_path(
-        work_dir, agent=agent, prompt=prompt, phase="classify",
+    ref = tool_mod.Reference(
+        root=str(folder), mode=tool_mod.Mode.CLASSIFY,
+        files=tuple(plan_mod.relative_paths(ev)), projects=tuple(existing),
     )
-    saved = _cached_plan(cache)
-    if saved is not None:
-        _classification_progress(heading, "classify", cached=True)
-        return saved
-    session = new_session_id() if agent is bf.Agent.CLAUDE else None
-    with _ReadProgress(folder, ev.total_files, 0, stream) as progress:
-        progress.begin("classify", heading)
-        ok, tail = bf.launch_agent(
-            folder,
-            prompt,
-            agent=agent,
-            workdir=work_dir,
-            heading=heading,
-            total=0,
-            timeout=CLASSIFY_TIMEOUT_S,
-            stream=stream,
-            session_id=session,
-            paint_to=progress.activity("classify", heading),
-            cancel_event=progress.cancelled,
-        )
-        plan = plan_mod.parse(tail) if ok else None
-        progress.finish("classify", heading, success=plan is not None)
-    if not ok:
-        return None, tail, session
-    if plan is not None:
-        _write_classification_cache(cache, {"tail": tail, "session": session})
-    return plan, tail, session
+    got = _run_tool_pass(
+        folder, prompt, ref, agent=agent, work_dir=work_dir, heading=heading,
+        phase="classify", key=_session_key("classify", 0, ref), stream=stream,
+        session_id=new_session_id() if agent is bf.Agent.CLAUDE else None,
+        board=(folder, ev.total_files, 0), agents=agents,
+    )
+    if not got.state.decided:
+        return None, got.detail or got.tail, got.session
+    plan = _plan_from_passes([got], [], summary=_final_message(got.tail))
+    return plan, got.tail, got.session
 
 
 #: Tokens the slice summaries may occupy in the naming prompt. Smaller than a
@@ -633,6 +627,7 @@ PASS_ATTEMPTS = 2
 def _run_pass(
     folder: Path, prompt: str, *, agent: bf.Agent, heading: str, work_dir: Path,
     total: int, stream=None, key: str, attempts: int = PASS_ATTEMPTS,
+    agents: AgentSettings | None = None,
 ) -> tuple[dict | None, str]:
     """One agent turn that answers with JSON. Returns ``(object, detail)``.
 
@@ -657,6 +652,7 @@ def _run_pass(
     )
     saved = _read_classification_cache(cache)
     if saved is not None and _usable_pass(saved, key):
+        cached(agents, Lane.CLASSIFY)
         _classification_progress(heading, phase, cached=True)
         if progress is not None:
             progress.finish(phase, heading, success=True, cached=True)
@@ -673,6 +669,7 @@ def _run_pass(
             session_id=new_session_id() if agent is bf.Agent.CLAUDE else None,
             paint_to=progress.activity(phase, heading) if progress is not None else None,
             cancel_event=progress.cancelled if progress is not None else None,
+            **launch_kwargs(agents, Lane.CLASSIFY),
         )
         last = tail.splitlines()[-1] if tail.strip() else "no output"
         if ok:
@@ -719,6 +716,336 @@ def _fit_findings(findings: list[dict]) -> tuple[str, int]:
     return "[]", len(findings)
 
 
+# -- filing by selection -------------------------------------------------------
+#
+# Every pass that decides where files go -- single-shot classify, one chunked
+# slice, a reviewer's correction -- is ONE agent session with
+# `probe-backfill-plan` on its PATH. The result is read from that session's
+# decisions log, replayed through the tool's own `apply` against the reference
+# THIS process holds, never parsed out of the agent's reply: the agent selects,
+# code keeps the data. See `backfill_plan_tool` for why.
+
+#: A session that decided at least this share of its files is kept, and the
+#: rest follow their neighbours, as `missing` files always have. Below it the
+#: session counts as failed: inheriting most of a slice from its neighbours is a
+#: guess at scale, so those files are excluded and wait for the next run.
+INHERIT_FLOOR = 0.8
+
+
+class SessionOutcome(StrEnum):
+    COMPLETE = "complete"
+    INCOMPLETE = "incomplete"
+    FAILED = "failed"
+
+
+@dataclass
+class ToolPass:
+    """One filing session, as the log says it went."""
+
+    ref: tool_mod.Reference
+    state: tool_mod.State
+    outcome: SessionOutcome
+    detail: str = ""
+    refused: int = 0
+    session: str | None = None
+    tail: str = ""
+
+    @property
+    def undecided(self) -> list[str]:
+        return [f for f in self.ref.files if f not in self.state.decided]
+
+
+#: What a retry is told. The log survives a dead turn, so a retry continues
+#: the slice rather than starting it over.
+CONTINUE_NOTE = """
+
+SOME OF THIS IS ALREADY DONE. An earlier attempt filed part of it before it
+stopped, and those decisions are kept. Run `probe-backfill-plan status` first
+and file only what it lists as undecided."""
+
+
+def _plan_state(work_dir: Path, key: str) -> bf.PlanTool:
+    """Where one session's state lives.
+
+    The reference sits BESIDE the work dir, not in it: the agent may write
+    anywhere in its work dir, and the list it is checked against must not be
+    one of those places. The log sits IN it, because Codex's sandbox confines
+    the tool's writes as well as the agent's.
+    """
+    return bf.PlanTool(
+        ref_dir=work_dir.parent / f"{work_dir.name}.plan-ref" / key,
+        log=work_dir / "plan" / key / "decisions.jsonl",
+    )
+
+
+def _session_key(phase: str, index: int, ref: tool_mod.Reference, salt: str = "") -> str:
+    """Stable for the same files, projects and seed; new when any of them moves.
+
+    A re-run over an unchanged slice finds its own log and continues it; a
+    slice whose evidence changed starts clean instead of replaying decisions
+    made about different files.
+    """
+    digest = hashlib.sha256((ref.to_json() + "\0" + salt).encode()).hexdigest()[:12]
+    return f"{phase}-{index:03d}-{digest}"
+
+
+def _outcome(ref: tool_mod.Reference, state: tool_mod.State) -> SessionOutcome:
+    total = len(ref.files)
+    decided = sum(1 for f in ref.files if f in state.decided)
+    if decided == total:
+        return SessionOutcome.COMPLETE
+    if decided and decided / total >= INHERIT_FLOOR:
+        return SessionOutcome.INCOMPLETE
+    return SessionOutcome.FAILED
+
+
+def _final_message(tail: str) -> str:
+    """The agent's closing sentence, for the review screen. Never a decision."""
+    for line in reversed(tail.splitlines()):
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        text = event.get("result") if event.get("type") == "result" else None
+        item = event.get("item") if isinstance(event.get("item"), dict) else None
+        if text is None and item is not None and item.get("type") == "agent_message":
+            text = item.get("text")
+        if isinstance(text, str) and text.strip():
+            last = [ln.strip() for ln in text.strip().splitlines() if ln.strip()][-1]
+            return last[:300]
+    return ""
+
+
+def _run_tool_pass(
+    folder: Path,
+    prompt: str,
+    ref: tool_mod.Reference,
+    *,
+    agent: bf.Agent,
+    work_dir: Path,
+    heading: str,
+    phase: str,
+    key: str,
+    stream=None,
+    attempts: int = PASS_ATTEMPTS,
+    session_id: str | None = None,
+    resume: str | None = None,
+    revision: bool = False,
+    board: tuple[Path, int, int] | None = None,
+    agents: AgentSettings | None = None,
+) -> ToolPass:
+    """Run one filing session (retrying once) and read what it decided.
+
+    The outcome comes from VALIDATED DECISIONS, never from the exit code: an
+    agent that could not reach the tool can explain itself and exit 0, and a
+    session that decided nothing has failed however it ended.
+
+    `revision` sessions start from a seeded plan, so "every file decided" is
+    true before they begin; theirs succeeds when it changed something.
+    """
+    _classification_progress(heading, phase)
+
+    def done(state: tool_mod.State) -> bool:
+        return state.accepted > 0 if revision else _outcome(ref, state) is SessionOutcome.COMPLETE
+
+    def judged(state: tool_mod.State) -> SessionOutcome:
+        if not revision:
+            return _outcome(ref, state)
+        # A revision that changed something is kept whatever share of the
+        # folder it touched: its undecided files are the ones the reviewed
+        # plan had left to inheritance or exclusion, and they stay that way.
+        if state.accepted == 0:
+            return SessionOutcome.FAILED
+        decided = all(f in state.decided for f in ref.files)
+        return SessionOutcome.COMPLETE if decided else SessionOutcome.INCOMPLETE
+
+    cache = _classification_cache_path(
+        work_dir, agent=agent, prompt=prompt, phase=phase, extra={"plan_tool": key},
+    )
+    saved = _read_classification_cache(cache)
+    if saved is not None and isinstance(saved.get("ops"), list):
+        state = tool_mod.replay(ref, saved["ops"])
+        if done(state):
+            cached(agents, Lane.CLASSIFY)
+            _classification_progress(heading, phase, cached=True)
+            progress = _read_progress.get()
+            if progress is not None:
+                progress.begin(phase, heading)
+                progress.finish(phase, heading, success=True, cached=True)
+            return ToolPass(ref, state, judged(state),
+                            session=saved.get("session") if isinstance(saved.get("session"), str) else None,
+                            tail=saved.get("tail") if isinstance(saved.get("tail"), str) else "")
+
+    with (_ReadProgress(*board, stream) if board and _read_progress.get() is None else contextlib.nullcontext()):
+        return _launch_tool_pass(
+            folder, prompt, ref, agent=agent, work_dir=work_dir, heading=heading, phase=phase,
+            key=key, stream=stream, attempts=attempts, session_id=session_id, resume=resume,
+            revision=revision, done=done, judged=judged, cache=cache, agents=agents,
+        )
+
+
+def _launch_tool_pass(folder, prompt, ref, *, agent, work_dir, heading, phase, key, stream,
+                      attempts, session_id, resume, revision, done, judged, cache,
+                      agents=None) -> ToolPass:
+    """The launching half of `_run_tool_pass`, once no cached result applies.
+
+    The state is THIS call's: a fresh log per invocation, so a retry inside the
+    call continues the slice while a later run starts clean. Reuse across runs
+    is the prep cache's job, under the identity that proves the files did not
+    change (`classification_context`).
+    """
+    progress = _read_progress.get()
+    if progress is not None:
+        progress.begin(phase, heading)
+    state_paths = _plan_state(work_dir, f"{key}-{uuid.uuid4().hex[:8]}")
+    ref.write(state_paths.ref_dir)
+    state_paths.log.parent.mkdir(parents=True, exist_ok=True)
+
+    detail = ""
+    tail = ""
+    session = resume or session_id
+    state = tool_mod.replay(ref, tool_mod.read_log(state_paths.log))
+    for attempt in range(max(1, attempts)):
+        if progress is not None and progress.cancelled.is_set():
+            detail = "scan cancelled"
+            break
+        if done(state):
+            break
+        text = prompt + (CONTINUE_NOTE if state.accepted and not revision else "")
+        if attempt == 0:
+            use_resume, use_session = resume, (None if resume else session_id)
+        else:
+            use_resume, use_session = None, (new_session_id() if agent is bf.Agent.CLAUDE else None)
+        # A refused setting relaunches under a fresh session (`launch_agent`):
+        # that one holds the evidence a revision resumes, not the refused one.
+        relaunched: list[str | None] = []
+        with bf.plan_tool_launcher(state_paths) as bin_dir:
+            ok, tail = bf.launch_agent(
+                folder, text, agent=agent, workdir=work_dir, heading=heading,
+                # The whole evidence sample is already in the prompt. Extra
+                # tool reads are activity, not a count of files classified.
+                total=0, timeout=CLASSIFY_TIMEOUT_S, stream=stream,
+                session_id=use_session, resume=use_resume,
+                paint_to=progress.activity(phase, heading) if progress is not None else None,
+                cancel_event=progress.cancelled if progress is not None else None,
+                path_prepend=bin_dir,
+                on_relaunch=relaunched.append,
+                **launch_kwargs(agents, Lane.CLASSIFY),
+            )
+        if relaunched:
+            use_resume, use_session = None, relaunched[-1]
+        session = use_resume or use_session or session
+        state = tool_mod.replay(ref, tool_mod.read_log(state_paths.log))
+        last = tail.splitlines()[-1] if tail.strip() else "no output"
+        detail = "" if ok else last
+        if not ok and attempt + 1 < max(1, attempts):
+            detail += "  (retried)"
+
+    # The reference is only for the session's own calls; the log stays as the
+    # record of what was decided (and is small), the reference may be a 10 MB
+    # file list.
+    shutil.rmtree(state_paths.ref_dir, ignore_errors=True)
+    outcome = judged(state)
+    if revision and outcome is SessionOutcome.FAILED:
+        detail = detail or "the agent changed nothing"
+    elif outcome is SessionOutcome.FAILED and not detail:
+        detail = (f"filed {len(ref.files) - len([f for f in ref.files if f not in state.decided]):,} "
+                  f"of {len(ref.files):,} files")
+    if done(state):
+        _write_classification_cache(cache, {"ops": tool_mod.read_log(state_paths.log),
+                                            "session": session, "tail": tail})
+    if progress is not None:
+        progress.finish(phase, heading, success=outcome is not SessionOutcome.FAILED)
+    return ToolPass(ref, state, outcome, detail=detail,
+                    refused=tool_mod.refused_count(state_paths.log), session=session, tail=tail)
+
+
+def _folder_project(folder: Path) -> dict:
+    """The one project a folder is filed into when its projects could not be named."""
+    slug = re.sub(r"[^a-z0-9]+", "-", folder.name.lower()).strip("-")[:56].strip("-") or "imported-research"
+    try:
+        uuid.UUID(slug)
+    except ValueError:
+        pass
+    else:
+        # The server refuses a UUID-shaped slug (one string, two meanings), and
+        # random-hex folder names are common in the drives this imports.
+        slug = f"folder-{slug}"
+    return {
+        "slug": slug,
+        "name": folder.name or slug,
+        "description": (f"Everything imported from {folder.name}. The project names could not be "
+                        "decided automatically; split or rename it from the review screen or the project."),
+    }
+
+
+def _row_files(line: str, by_key: dict) -> tuple[str, ...]:
+    """The walked files one prompt row stands for, looked up by its key."""
+    try:
+        data = json.loads(line)
+    except ValueError:
+        return ()
+    key = data.get("path") or data.get("dir") if isinstance(data, dict) else None
+    row = by_key.get(key)
+    return row.files if row is not None else ()
+
+
+def _plan_from_passes(
+    passes: list[ToolPass], specs: list[plan_mod.ProjectSpec], *, summary: str = "",
+) -> plan_mod.Plan:
+    """A `Plan` of walked FILES, from what each session validly decided.
+
+    File-level on purpose: no `dir` row reaches `resolve`, so no prefix
+    expansion can let one session's directory claim a file another owns. A
+    failed session's undecided files become `excluded` -- not missing, never
+    inherited -- while an incomplete one's follow their neighbours.
+    """
+    assignments: list[plan_mod.Assignment] = []
+    left_out: list[plan_mod.LeftOut] = []
+    excluded: list[str] = []
+    unsure: list[str] = []
+    declared: dict[str, dict] = {}
+    stats = {"refused_selectors": 0, "invalid_decisions": 0, "undecided_files": 0,
+             "incomplete_sessions": 0, "failed_sessions": 0, "unclassified_files": 0}
+    for got in passes:
+        stats["refused_selectors"] += got.refused
+        stats["invalid_decisions"] += got.state.invalid
+        for path, decision in got.state.decided.items():
+            if decision.kind is tool_mod.Kind.LEFT_OUT:
+                left_out.append(plan_mod.LeftOut(path=path, why=decision.why))
+            else:
+                assignments.append(plan_mod.Assignment(
+                    path=path, project=decision.project or "",
+                    confidence="low" if decision.low else "high", why=decision.why,
+                ))
+        undecided = got.undecided
+        if got.outcome is SessionOutcome.FAILED:
+            stats["failed_sessions"] += 1
+            stats["unclassified_files"] += len(undecided)
+            excluded.extend(undecided)
+        elif got.outcome is SessionOutcome.INCOMPLETE:
+            stats["incomplete_sessions"] += 1
+            stats["undecided_files"] += len(undecided)
+        unsure.extend(got.state.unsure)
+        declared.update(got.state.declared)
+    # A declaration wins over the spec it names: a correction may rename or
+    # re-describe a project as well as add one.
+    def spec(slug: str, d: dict) -> plan_mod.ProjectSpec:
+        return plan_mod.ProjectSpec(slug=slug, name=d.get("name") or slug,
+                                    description=d.get("description") or "", tags=list(d.get("tags") or []))
+
+    known = {s.slug for s in specs}
+    projects = [spec(s.slug, declared[s.slug]) if s.slug in declared else s for s in specs] + [
+        spec(slug, d) for slug, d in declared.items() if slug not in known
+    ]
+    return plan_mod.Plan(
+        projects=projects, assignments=assignments, unsure=list(dict.fromkeys(unsure)),
+        summary=summary, left_out=left_out, excluded=sorted(set(excluded)), stats=stats,
+    )
+
+
 def classify_chunked(
     folder: Path,
     ev: evidence_mod.Evidence,
@@ -728,6 +1055,7 @@ def classify_chunked(
     work_dir: Path,
     stream=None,
     feedback: str = "",
+    agents: AgentSettings | None = None,
 ) -> tuple[plan_mod.Plan | None, str]:
     """Classify a folder too big to fit one prompt. Survey -> name -> assign.
 
@@ -745,11 +1073,18 @@ def classify_chunked(
     nothing from its siblings.
 
     Returns ``(plan, tail)`` like :func:`classify`, so the caller cannot tell
-    which route produced the plan. A pass that fails returns no plan rather
-    than a partial one: a classification silently missing files is the single
-    outcome worth failing the run over.
+    which route produced the plan. No single failed pass stops the folder: a
+    SURVEY slice that fails only leaves its findings out of naming (the slice is
+    still filed); a NAMING pass that fails files everything into one project
+    named for the folder, flagged on the review screen; an ASSIGN slice that
+    fails costs only its own files: they are
+    `Plan.excluded`, named on the review screen and left `new` for the next run,
+    and the rest of the folder imports. Refusing a whole folder over one slice
+    is what turned two typos into 52 lost minutes on 2026-10-25.
     """
-    jsonl = evidence_mod.to_jsonl(ev)
+    evidence_rows = evidence_mod.rows(ev)
+    by_key = {row.key: row for row in evidence_rows}
+    jsonl = "\n".join(row.line for row in evidence_rows)
     chunks = evidence_mod.chunk_lines(jsonl)
     n = len(chunks)
 
@@ -766,6 +1101,7 @@ def classify_chunked(
                                  truncated=ev.sample_budget_hit),
                 agent=agent, work_dir=work_dir, stream=stream, total=ev.total_files,
                 heading=f"Reading {folder.name} — slice {i} of {n}", key="findings",
+                agents=agents,
             )
 
         git_note = _git_note(folder, work_dir)
@@ -774,10 +1110,20 @@ def classify_chunked(
         surveyed = _classification_results(
             survey_one, numbered, workers=SURVEY_CONCURRENCY,
         )
+        # A slice whose survey failed (after its retry) only costs the naming
+        # step what that slice would have said: the slice is still FILED, by
+        # its own assign session, which reads the same evidence. Only when no
+        # slice could be read at all is there nothing to name projects from.
+        unread: list[int] = []
+        last_detail = ""
         for i, (got, detail) in surveyed:
             if got is None:
-                return None, f"slice {i} of {n} could not be read: {detail}"
+                unread.append(i)
+                last_detail = detail
+                continue
             findings.append({"slice": i, **got})
+        if not findings:
+            return None, f"no slice could be read: {last_detail}"
 
         # -- name: the only step that sees the whole folder at once
         findings_json, dropped = _fit_findings(findings)
@@ -786,10 +1132,18 @@ def classify_chunked(
             prompts.name_projects(root=folder, findings_json=findings_json,
                                   existing=existing, feedback=feedback),
             agent=agent, work_dir=work_dir, stream=stream, total=ev.total_files,
-            heading=f"Naming the projects in {folder.name}", key="projects",
+            heading=f"Naming the projects in {folder.name}", key="projects", agents=agents,
         )
-        if named is None or not named.get("projects"):
-            return None, f"the projects could not be named: {detail or 'no projects'}"
+        named_projects = [p for p in ((named or {}).get("projects") or [])
+                          if isinstance(p, dict) and p.get("slug")]
+        naming_fallback = not named_projects
+        if naming_fallback:
+            # The naming step failed twice. Rather than throw the folder away,
+            # file it into ONE project named for the folder: every slice still
+            # leaves out what is not research, the review screen says so, and a
+            # project can be split or renamed afterwards (artifacts move).
+            named = {"projects": [_folder_project(folder)], "summary": ""}
+            named_projects = named["projects"]
         specs = [
             plan_mod.ProjectSpec(
                 slug=str(p.get("slug") or "").strip(),
@@ -800,11 +1154,8 @@ def classify_chunked(
                 # different Plans from the same agent answer.
                 tags=[str(t) for t in (p.get("tags") or []) if t],
             )
-            for p in named["projects"]
-            if isinstance(p, dict) and p.get("slug")
+            for p in named_projects
         ]
-        if not specs:
-            return None, "the naming pass produced no usable project"
         listing = "\n".join(f"    {s.slug}  —  {s.description or s.name}" for s in specs)
         allowed = {s.slug for s in specs}
 
@@ -819,79 +1170,42 @@ def classify_chunked(
         # was inside `file_one` -- so a 200,000-file drive rebuilt a 200,000-element
         # list once per slice, across dozens of slices, all holding the GIL.
         mtime_dead = ev.mtime_uninformative
+        slugs = tuple(s.slug for s in specs)
 
         def file_one(pair: tuple[int, list[str]]):
+            # The slice OWNS the files of its rows -- a sampled file, or a
+            # rollup's exact group -- so a selection can never reach a file
+            # another slice owns, and a failed slice's files stay its own.
             i, chunk = pair
-            return i, _run_pass(
+            owned = tuple(f for line in chunk for f in _row_files(line, by_key))
+            ref = tool_mod.Reference(root=str(folder), mode=tool_mod.Mode.FILE,
+                                     files=owned, projects=slugs)
+            return i, _run_tool_pass(
                 folder,
                 prompts.assign_chunk(root=folder, evidence_jsonl="\n".join(chunk),
                                      projects=listing, index=i, total=n,
                                      work_dir=str(work_dir),
                                      truncated=ev.sample_budget_hit,
                                      mtime_uninformative=mtime_dead, feedback=feedback),
-                agent=agent, work_dir=work_dir, stream=stream, total=ev.total_files,
-                heading=f"Filing slice {i} of {n}", key="assignments",
+                ref, agent=agent, work_dir=work_dir, stream=stream,
+                heading=f"Filing slice {i} of {n}", phase="assign",
+                key=_session_key("assign", i, ref), agents=agents,
             )
 
         filed = _classification_results(
             file_one, numbered, workers=classify_concurrency(),
         )
-
-        assignments: list[plan_mod.Assignment] = []
-        left_out: list[plan_mod.LeftOut] = []
-        unsure: list[str] = []
-        for i, (got, detail) in filed:
-            if got is None:
-                return None, f"slice {i} of {n} could not be filed: {detail}"
-            left_out += plan_mod.parse_left_out(got.get("left_out"))
-            for row in got.get("assignments") or []:
-                if not isinstance(row, dict):
-                    continue
-                # EITHER KEY. A rollup row is addressed by `dir` -- the assign
-                # prompt says to use it verbatim -- and the agent echoes whichever
-                # key it was shown. `backfill_plan._plan_from` already carries this
-                # fix with a comment saying accepting only `path` "dropped every
-                # directory assignment silently, so thousands of files fell to
-                # inheritance with nothing reported". This path reintroduced it.
-                raw = row.get("path") or row.get("dir")
-                if not raw:
-                    continue
-                slug = str(row.get("project") or "")
-                # A slug outside the list is the agent inventing a project after
-                # being told not to. Dropping the row would lose files silently, so
-                # it is parked in the first project and flagged instead -- the
-                # reviewer sees it, and `resolve` still accounts for every file.
-                confidence = str(row.get("confidence") or "high")
-                if slug not in allowed:
-                    unsure.append(str(raw))
-                    slug = specs[0].slug
-                    # LOW, whatever the agent claimed. It was told not to invent a
-                    # slug; a row we relocated on its behalf is not a confident
-                    # placement, and anything filtering on confidence would read it
-                    # as one.
-                    confidence = "low"
-                assignments.append(plan_mod.Assignment(
-                    path=str(raw), project=slug, confidence=confidence,
-                    why=str(row.get("why") or ""),
-                ))
-            unsure += [str(u) for u in (got.get("unsure") or []) if u]
-
-        if not assignments and not left_out:
-            # `_plan_from` ends with the same guard, and without it here an
-            # all-empty result is not an error: `resolve` returns an empty map,
-            # nothing is `unknown` or `duplicated` so the plan reads as
-            # trustworthy, `pack` yields no units, and the run reports
-            # "N files found on disk · 0 queued · 0/0 units done" as a success.
-            # A green no-op is the worst possible answer here -- it is the one a
-            # reader stops investigating.
-            return None, "no slice placed a single file"
-
-        plan = plan_mod.Plan(
-            projects=specs, assignments=assignments,
-            unsure=list(dict.fromkeys(unsure)),
-            summary=str(named.get("summary") or ""),
-            left_out=left_out,
-        )
+        plan = _plan_from_passes([got for _, got in filed], specs,
+                                 summary=str(named.get("summary") or ""))
+        plan.stats["unread_slices"] = len(unread)
+        plan.stats["naming_fallback"] = naming_fallback
+        if not plan.assignments and not plan.left_out:
+            # An all-empty result is not a plan: `resolve` would return an empty
+            # map, `pack` no units, and the run would report "N files found on
+            # disk · 0 queued" as a success. A green no-op is the worst possible
+            # answer here -- it is the one a reader stops investigating.
+            failed = [got.detail for _, got in filed if got.detail]
+            return None, "no slice placed a single file" + (f": {failed[-1]}" if failed else "")
         note = f"; {dropped} slice summary(ies) did not fit the naming step" if dropped else ""
         return plan, f"classified in {n} slices{note}"
 
@@ -904,67 +1218,93 @@ def revise(
     agent: bf.Agent,
     session_id: str | None,
     work_dir: Path,
+    plan: plan_mod.Plan,
+    existing: list[str] = (),
     stream=None,
+    agents: AgentSettings | None = None,
 ) -> tuple[plan_mod.Plan | None, str, str | None]:
-    """Re-run the classifier with a correction. Returns ``(plan, tail, session)``.
+    """Apply a reviewer's correction to `plan`. Returns ``(plan, tail, session)``.
 
-    Resumes the classify session when there is one, so the agent still has the
-    evidence and the correction costs a single turn. Without one it starts cold
-    and the prompt says so -- an agent told to "revise your plan" with no plan
-    in context will otherwise invent a fresh one that quietly drops everything
-    the reviewer did not mention.
+    ONE session over the whole folder, whichever route classified it, seeded
+    with the plan the reviewer read: every file already carries its decision,
+    so the agent changes only what the correction reaches and nothing it does
+    not mention can fall out of an answer. A chunked folder used to re-run every
+    slice for a correction -- another hour on a 144k-file drive.
+
+    Resumes the classifying session when there is one (single-shot Claude), so
+    the evidence is still in context. The prompt never carries the evidence
+    itself -- a chunked folder's does not fit -- but a compact view of the
+    plan, and the tool's `show`/`status` to look closer.
 
     A failed revision returns no plan and the CALLER KEEPS THE OLD ONE. Losing
     a good-enough plan because the correction round-tripped badly would make
     typing anything at the gate a gamble, which is the opposite of the point.
-
-    The session is returned for the SAME reason it is taken: corrections come
-    in rounds. A cold rerun mints one of its own and hands it back, so the
-    second correction resumes the first one's work instead of starting over
-    again -- which is what "revise, look, revise again" costs otherwise.
     """
+    # Seeded from what the reviewer SAW: `resolve`'s placements, inherited
+    # files included. Seeding only the explicit assignments let a correction
+    # that moved a directory's scripts re-inherit its untouched checkpoints
+    # into a different project.
+    left_out: dict[str, str] = {}
+    shown, _ = plan_mod.resolve(ev, plan, left_out=left_out)
+    why = {a.path: a for a in plan.assignments}
+    seed: dict[str, dict] = {
+        path: {"kind": tool_mod.Kind.LEFT_OUT.value, "why": reason or "left out"}
+        for path, reason in left_out.items()
+    }
+    for path, project in shown.items():
+        a = why.get(path)
+        seed[path] = {"kind": tool_mod.Kind.ASSIGNED.value, "project": project,
+                      "why": a.why if a else "placed with its neighbours",
+                      "low": bool(a and a.confidence != "high")}
+    projects = list(dict.fromkeys([*existing, *(p.slug for p in plan.projects),
+                                   *(a.project for a in plan.assignments)]))
+    ref = tool_mod.Reference(
+        root=str(folder), mode=tool_mod.Mode.REVISE,
+        files=tuple(plan_mod.relative_paths(ev)), projects=tuple(projects), seed=seed,
+    )
     prompt = prompts.revise(
-        feedback=feedback,
-        root=folder,
-        work_dir=str(work_dir),
-        resumed=session_id is not None,
+        feedback=feedback, root=folder, work_dir=str(work_dir),
+        resumed=session_id is not None, plan_view=plan_view(plan),
     )
-    heading = f"Revising the plan for {folder.name}"
-    _classification_progress(heading, "revise")
-    cache = _classification_cache_path(
-        work_dir, agent=agent, prompt=prompt, phase="revise",
-        extra=({"session": session_id, "evidence": evidence_mod.to_jsonl(ev)}
-               if _classification_context.get() is not None else None),
-    )
-    saved = _cached_plan(cache)
-    if saved is not None:
-        _classification_progress(heading, "revise", cached=True)
-        return saved
-    # Mutually exclusive: --resume ADOPTS a session, --session-id MINTS one.
-    # Resuming keeps the same id, so `session` is what the next round uses
-    # either way.
-    fresh = None if session_id else (
-        new_session_id() if agent is bf.Agent.CLAUDE else None
-    )
-    ok, tail = bf.launch_agent(
-        folder,
-        prompt,
-        agent=agent,
-        workdir=work_dir,
-        heading=heading,
-        total=0,
-        timeout=CLASSIFY_TIMEOUT_S,
-        stream=stream,
+    got = _run_tool_pass(
+        folder, prompt, ref, agent=agent, work_dir=work_dir,
+        heading=f"Revising the plan for {folder.name}", phase="revise",
+        key=_session_key("revise", 0, ref, salt="\0".join(
+            [feedback, session_id or "", hashlib.sha256(evidence_mod.to_jsonl(ev).encode()).hexdigest()])),
+        stream=stream, attempts=1,
         resume=session_id,
-        session_id=fresh,
+        session_id=None if session_id else (new_session_id() if agent is bf.Agent.CLAUDE else None),
+        revision=True, agents=agents,
     )
-    session = session_id or fresh
-    if not ok:
-        return None, tail, session
-    plan = plan_mod.parse(tail)
-    if plan is not None:
-        _write_classification_cache(cache, {"tail": tail, "session": session})
-    return plan, tail, session
+    if got.outcome is SessionOutcome.FAILED:
+        return None, got.detail or got.tail, got.session
+    revised = _plan_from_passes([got], list(plan.projects), summary=_final_message(got.tail) or plan.summary)
+    # Files nobody has classified yet stay excluded unless the correction filed them.
+    revised.excluded = sorted(set(plan.excluded) - set(got.state.decided))
+    return revised, got.tail, got.session
+
+
+#: Rows in the revise prompt's view of the plan. The view is a map, not the
+#: plan: `probe-backfill-plan show` reaches the rest.
+PLAN_VIEW_LINES = 60
+
+
+def plan_view(plan: plan_mod.Plan) -> str:
+    """The plan as the reviewer saw it, grouped by directory, largest first."""
+    where: dict[str, str] = {a.path: a.project for a in plan.assignments}
+    where.update({row.path: "left out" for row in plan.left_out})
+    groups: dict[tuple[str, str], int] = {}
+    for path, project in where.items():
+        parts = path.replace("\\", "/").split("/")
+        key = "/".join(parts[:2]) + ("/" if len(parts) > 2 else "")
+        groups[key, project] = groups.get((key, project), 0) + 1
+    lines = [f"    {d}  ->  {p}  ({n:,} file{'s' if n != 1 else ''})"
+             for (d, p), n in sorted(groups.items(), key=lambda kv: (-kv[1], kv[0]))]
+    if len(lines) > PLAN_VIEW_LINES:
+        lines = lines[:PLAN_VIEW_LINES] + [f"    ... and {len(lines) - PLAN_VIEW_LINES:,} more"]
+    if plan.excluded:
+        lines.append(f"    ({len(plan.excluded):,} files are not classified yet)")
+    return "\n".join(lines) or "    (empty)"
 
 
 def _destination(path: str, assigned: dict[str, str], left_out_paths=frozenset()) -> str:
@@ -1033,8 +1373,27 @@ def describe_plan(
         if len(plan.left_out) > 12:
             lines.append(f"  ... and {len(plan.left_out) - 12:,} more")
 
+    if plan.stats.get("naming_fallback"):
+        lines += ["", "The project names could not be decided, so everything was filed into one "
+                      "project named for the folder. Change the plan to split it."]
+    if plan.stats.get("unread_slices"):
+        lines += ["", f"{plan.stats['unread_slices']} slice(s) could not be read for naming; "
+                      "their files were still filed."]
+    if plan.excluded:
+        # Named, not folded into "missing": nobody decided these, and guessing a
+        # failed session's files from their neighbours is a guess at scale.
+        lines += ["", f"{len(plan.excluded):,} files not classified: their classifier session "
+                      "failed. Nothing of theirs uploads; re-running the import classifies only them."]
+        for path in plan.excluded[:5]:
+            lines.append(f"  {path}")
+        if len(plan.excluded) > 5:
+            lines.append(f"  ... and {len(plan.excluded) - 5:,} more")
+
+    # The agent's own low-confidence SELECTIONS (a directory it was unsure of
+    # reads as one line, not as its 400 files); per-file low marks only when a
+    # plan carries no selections, as older plans do.
     low = [a for a in plan.assignments if a.confidence != "high"]
-    unsure = list(dict.fromkeys(plan.unsure + [a.path for a in low]))
+    unsure = list(dict.fromkeys(plan.unsure or [a.path for a in low]))
     if unsure:
         lines += ["", "Least certain — check these first:"]
         for path in unsure[:12]:
@@ -1068,6 +1427,7 @@ def run_unit(
     stream=None,
     paint_to=None,
     sizes: dict[str, int] | None = None,
+    agents: AgentSettings | None = None,
 ) -> UnitOutcome:
     """One unit: one project, one bounded set of files.
 
@@ -1088,19 +1448,38 @@ def run_unit(
     session = (resume or new_session_id()) if agent is bf.Agent.CLAUDE else None
     ledger.start_unit(unit.unit_id, session_id=session)
 
+    # THE UPLOAD LIST IS CODE'S. Every file of the unit is on it before the
+    # agent starts, so nothing the agent does or fails to do can drop one; the
+    # agent only adds notes. Notes an older CLI's agent already wrote into this
+    # unit's manifest are kept where they still name one of its files.
+    sizes = sizes or {}
+    notes_file = manifest.with_name(f"{unit.unit_id}.notes.json")
+    notes = _manifest_notes(manifest, unit.paths)
+    notes.update(_saved_notes(notes_file, unit.paths))
+    ref = tool_mod.Reference(root=str(folder), mode=tool_mod.Mode.NOTE, files=unit.paths)
+    state_paths = _plan_state(work_dir, f"notes-{unit.unit_id}-{uuid.uuid4().hex[:8]}")
+    ref.write(state_paths.ref_dir)
+    state_paths.log.parent.mkdir(parents=True, exist_ok=True)
+
     prompt = prompts.import_unit(
         root=folder,
         project=unit.project,
         paths=list(unit.paths),
-        manifest_path=str(manifest),
+        work_dir=str(work_dir),
     ) + _git_note(folder, work_dir)
     def launch():
-        return bf.launch_agent(
-            folder, prompt, agent=agent, workdir=work_dir,
-            heading=f"Importing into {unit.project}", label=unit.project,
-            total=unit.files, timeout=UNIT_TIMEOUT_S, stream=stream,
-            session_id=session, resume=resume, paint_to=paint_to,
-        )
+        with bf.plan_tool_launcher(state_paths) as bin_dir:
+            return bf.launch_agent(
+                folder, prompt, agent=agent, workdir=work_dir,
+                heading=f"Importing into {unit.project}", label=unit.project,
+                total=unit.files, timeout=UNIT_TIMEOUT_S, stream=stream,
+                session_id=session, resume=resume, paint_to=paint_to,
+                path_prepend=bin_dir,
+                # A relaunch's fresh session is not written to the ledger: that
+                # would count as another attempt. A later retry resumes the
+                # refused session, or restarts when it is missing (below).
+                **launch_kwargs(agents, Lane.IMPORT),
+            )
 
     ok, tail = launch()
     # The ledger start can survive a crash before Claude creates its local
@@ -1120,12 +1499,29 @@ def run_unit(
             file=stream if stream is not None else sys.stdout, flush=True,
         )
         ok, tail = launch()
+    written = tool_mod.replay(ref, tool_mod.read_log(state_paths.log))
+    shutil.rmtree(state_paths.ref_dir, ignore_errors=True)
+    notes.update(written.notes)
+    if not ok:
+        # No manifest for a crashed unit: the recovery paths treat a complete
+        # manifest on disk as a finished unit and would upload it without the
+        # retry. Its notes wait beside it (not `*.jsonl`, which is read as a
+        # manifest) for the retry to start from.
+        _save_notes(notes_file, notes)
+        return _finish_failed_unit(unit, ledger, tail)
+    _write_unit_manifest(folder, unit, manifest, sizes, notes)
+    notes_file.unlink(missing_ok=True)
     checked = validate_manifest(manifest, unit.paths, root=folder)
-    rows = len(checked.rows)
     problems = [] if ok else [(tail.splitlines()[-1] if tail else "agent failed")[:1000]]
     if not checked.complete:
         ok = False
         problems.append(checked.describe())
+    # A unit whose agent finished uploads EVERY file, whatever notes it wrote:
+    # the list is code's. One whose agent crashed (above) uploads nothing yet
+    # and is retried whole, as it always was: a file sent now would keep none
+    # of the notes the retry writes (`Coverage.remember_manifest` settles a row
+    # once it is queued).
+    rows = len(checked.rows) if ok else 0
     detail = "; ".join(problems)
     ledger.finish_unit(
         unit.unit_id,
@@ -1222,6 +1618,81 @@ def sizes_for_tails(folder: Path, ev, units: list[ledger_mod.Unit]) -> dict[str,
     return sizes
 
 
+def _manifest_notes(manifest: Path, paths: tuple[str, ...]) -> dict[str, str]:
+    """Notes already in this unit's manifest, for its own files only."""
+    wanted = set(paths)
+    notes: dict[str, str] = {}
+    try:
+        lines = manifest.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return notes
+    for line in lines:
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(row, dict):
+            continue
+        path, text = row.get("path"), row.get("notes")
+        if isinstance(path, str) and path in wanted and isinstance(text, str) and text.strip():
+            notes[path] = text.strip()[:tool_mod.NOTE_MAX_CHARS]
+    return notes
+
+
+def _saved_notes(path: Path, paths: tuple[str, ...]) -> dict[str, str]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    wanted = set(paths)
+    return {p: str(t)[:tool_mod.NOTE_MAX_CHARS] for p, t in (data if isinstance(data, dict) else {}).items()
+            if p in wanted and isinstance(t, str) and t.strip()}
+
+
+def _save_notes(path: Path, notes: dict[str, str]) -> None:
+    if not notes:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(notes, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass  # notes are optional; the retry writes them again
+
+
+def _finish_failed_unit(unit: ledger_mod.Unit, ledger: ledger_mod.Ledger, tail: str) -> UnitOutcome:
+    detail = (tail.splitlines()[-1] if tail.strip() else "agent failed")[:1000]
+    ledger.finish_unit(unit.unit_id, ok=False, enqueued=0, error=detail)
+    return UnitOutcome(unit=unit, ok=False, manifest=None, rows=0, detail=detail)
+
+
+def _write_unit_manifest(
+    folder: Path, unit: ledger_mod.Unit, manifest: Path, sizes: dict[str, int], notes: dict[str, str],
+) -> None:
+    """Every file of the unit, by code: the same rows a TAIL unit gets, plus notes.
+
+    `reference` comes from size (`REFERENCE_ABOVE_BYTES`), the rule the prompt
+    used to ask the model to apply. A size the walk did not record is read from
+    disk; a file that is gone keeps its row and fails at enqueue, out loud.
+    """
+    known = dict(sizes)
+    for path in unit.paths:
+        if path not in known:
+            try:
+                known[path] = (folder / path).stat().st_size
+            except OSError:
+                known[path] = 0
+    rows = plan_mod.tail_manifest(unit, known)
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = manifest.with_suffix(".tmp")
+    with tmp.open("w", encoding="utf-8") as fh:
+        for row in rows:
+            text = notes.get(row["path"])
+            if text:
+                row = {**row, "notes": text}
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    os.replace(tmp, manifest)
+
+
 def _fulfil_tail_unit(
     unit: ledger_mod.Unit,
     *,
@@ -1289,6 +1760,7 @@ def run_units(
     stream=None,
     sizes: dict[str, int] | None = None,
     on_complete=None,
+    agents: AgentSettings | None = None,
 ) -> list[UnitOutcome]:
     """Run units concurrently, bounded.
 
@@ -1338,7 +1810,7 @@ def run_units(
             folder, unit, agent=agent, ledger=ledger, work_dir=work_dir,
             resume=sessions.get(unit.unit_id), stream=stream,
             paint_to=board.row(index) if board else None,
-            sizes=sizes,
+            sizes=sizes, agents=agents,
         )
 
     pool = ThreadPoolExecutor(max_workers=workers)
@@ -1733,9 +2205,12 @@ def execute(
             )
         if back_to_selection:
             raise
+        from ..sdk.journal import DEFAULT_PAUSE_HOURS
+
         return ["Stopped. Nothing further was read or uploaded.",
                 "Anything already queued keeps uploading — `probe outbox status` "
-                "shows it, `probe outbox pause` stops it."]
+                "shows it. `probe outbox pause` holds every upload from this "
+                f"machine, runs included, for {DEFAULT_PAUSE_HOURS:g} h."]
     except Exception:
         # Observe-and-re-raise, never swallow: a crash without a summary would
         # read as user abandonment in the funnel. No error text on the event —

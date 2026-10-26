@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cchecksum
-Version: 0.4.5
+Version: 0.4.6
 Summary: An ~18x faster drop-in replacement for eth_utils.to_checksum_address. Raises the exact same Exceptions. Implemented in C.
 Home-page: https://github.com/BobTheBuidler/cchecksum
 Author: BobTheBuidler
@@ -14,16 +14,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9,<4
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: eth-hash
 Requires-Dist: eth-typing
-Requires-Dist: pysha3<2.0.0,>=1.0.0; python_version < "3.9"
-Requires-Dist: safe-pysha3>=1.0.0; python_version >= "3.9"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

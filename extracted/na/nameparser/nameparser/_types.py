@@ -88,7 +88,7 @@ class Span(NamedTuple):
 #: word READ as an initial -- initial-shaped in a script that HAS
 #: initials ("J." or "А.", never "씨.", #320), or a marked
 #: single-letter connective in a name written in one case
-#: (rules/P3, see CONJUNCTION_OR_INITIAL), or any other bare letter
+#: (rules/P8, see CONJUNCTION_OR_INITIAL), or any other bare letter
 #: in a name whose own words are written in one case, where its
 #: capital would be one ("j" as "J", never "é", rules/T4);
 #: "joined" a continuation of the token before it -- within one
@@ -532,8 +532,8 @@ class AmbiguityKind(StrEnum):
     #: and reports. The particle chain is the commonest joiner but not
     #: the only one: the bound-given join takes a member into its pair
     #: the same way, so "Berg, abdul MA" reads given ``abdul MA`` in
-    #: silence. Where a particle the suffix vocabulary
-    #: does not also claim stands BEHIND it, the given part ends at
+    #: silence. Where a particle the suffix vocabulary does not
+    #: also claim as an unambiguous word stands BEHIND it, the given part ends at
     #: that particle as this walk reads it, and the attachment that
     #: moves the particle to the family runs a stage too late to
     #: re-open the question -- so "Doe, John MA do" keeps middle

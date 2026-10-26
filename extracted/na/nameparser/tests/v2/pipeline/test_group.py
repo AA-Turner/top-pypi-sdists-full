@@ -1852,7 +1852,7 @@ def test_a_trailing_title_does_not_hide_the_suffix_run_from_the_join(
     assert lower_title.suffix == "i MA"
     # the ONE-CASE spellings never reached the defect and are pinned
     # as the control: written wholly in one case the letter reads as
-    # an initial (rules/P3's marked subset), no join is attempted
+    # an initial (rules/P8's marked subset), no join is attempted
     # at all, and both spellings already agreed with each other and
     # with the untitled name at dc3bdf9c -- which is what says the
     # bound and not the marking is what this row is about.
@@ -1948,7 +1948,7 @@ def test_group_hands_assign_the_trailing_read() -> None:
     (read,) = out.tail_reads
     assert read is not None
     assert sorted(out.tokens[i].text for i in read.titles) == ["Prof."]
-    assert _grouped("John Dr. G.J.", lexicon=lex).tail_reads == (None,)
+    assert _grouped("John Dr. X.Y.Z.", lexicon=lex).tail_reads == (None,)
     assert _grouped("John Smith", lexicon=lex).tail_reads == (None,)
 
 

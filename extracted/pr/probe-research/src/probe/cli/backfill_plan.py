@@ -1,21 +1,24 @@
-"""The agent's classification, checked against the walk, packed into units.
+"""The classification, checked against the walk, packed into units.
 
-DECIDE hands back prose-adjacent JSON. This module is the seam where that
-becomes something the rest of the import can act on, and it is deliberately
-suspicious: the denominator comes from the filesystem, never from the model, and
-the same rule applies one step earlier here. An agent that quietly drops four
-thousand files must not be able to produce a plan that looks complete.
+The classifier no longer answers with a list of paths. It SELECTS files through
+`probe-backfill-plan` (`backfill_plan_tool`), every selection checked against the
+walk when it is made, and `backfill_run` turns the validated decisions into a
+`Plan` of walked FILE paths. So the model cannot invent a path or name a file
+twice any more: those were the two discrepancies that used to refuse the whole
+plan, and a model retyping 10,537 rows will always produce one sooner or later.
 
-So :func:`reconcile_assignments` compares what came back against what was walked
-and reports THREE separate discrepancies rather than one boolean:
+:func:`reconcile_assignments` still compares the plan against the walk and still
+reports THREE discrepancies, because the check is cheap and a plan built by code
+can still be wrong if the code is:
 
-    missing     walked, never assigned  -- would be silently skipped
-    unknown     assigned, never walked  -- hallucinated, or a path typo
-    duplicated  assigned more than once -- would upload twice, into two projects
+    missing     walked, never assigned  -- placed with its neighbours
+    unknown     assigned, never walked  -- now a bug in OUR code, never a refusal
+    duplicated  assigned more than once -- likewise
 
-Only `missing` is recoverable by falling back (an unassigned file still has a
-home: the project its neighbours went to). `unknown` and `duplicated` mean the
-answer cannot be trusted as given, so they surface rather than get patched over.
+A walked file the plan EXCLUDES (its classifier session failed, so nobody
+decided it) is neither missing nor inherited: it stays out of this import and
+waits for the next run. Guessing a whole failed slice from its neighbours would
+be a guess at scale.
 
 Packing into units is the other half. A unit is one agent's turn: one project,
 a bounded number of files, and -- where it can be arranged -- files that were
@@ -88,11 +91,14 @@ class Discrepancy:
 
     @property
     def trustworthy(self) -> bool:
-        """Whether the plan can be used at all, with or without a fallback.
+        """False when the plan names a path the walk lacks, or a file twice.
 
-        `missing` is recoverable. `unknown` and `duplicated` are not: one means
-        the model invented paths, the other means it would file one file into
-        two projects, and neither is something to paper over silently.
+        An INVARIANT, not a gate. Plans are built from validated tool decisions
+        over walked files, so this firing means our code is wrong. Callers
+        report it and carry on with `resolve`'s map (which already drops an
+        unknown path and keeps one owner per file); they never refuse a whole
+        folder over it. Refusing the plan is what threw away 52 minutes of
+        classification over two typos on 2026-10-25.
         """
         return not (self.unknown or self.duplicated)
 
@@ -106,12 +112,12 @@ class Discrepancy:
         if self.unknown:
             out.append(
                 f"{len(self.unknown):,} assigned paths are not in this folder "
-                f"(e.g. {self.unknown[0]}) — the classification cannot be trusted."
+                f"(e.g. {self.unknown[0]}) — they were dropped."
             )
         if self.duplicated:
             out.append(
                 f"{len(self.duplicated):,} files were assigned more than once "
-                f"(e.g. {self.duplicated[0]}) — they would upload twice."
+                f"(e.g. {self.duplicated[0]}) — each keeps one project."
             )
         return out
 
@@ -123,6 +129,12 @@ class Plan:
     unsure: list[str] = field(default_factory=list)
     summary: str = ""
     left_out: list[LeftOut] = field(default_factory=list)
+    #: Walked files nobody classified because their session failed. Not
+    #: missing, never inherited, not uploaded: their coverage rows stay `new`,
+    #: so the next run classifies exactly these.
+    excluded: list[str] = field(default_factory=list)
+    #: Counts for `backfill.plan_ready` (refused selectors, failed sessions...).
+    stats: dict = field(default_factory=dict)
 
 
 def parse(tail: str) -> Plan | None:
@@ -223,8 +235,7 @@ def relative_paths(evidence: Evidence) -> list[str]:
 
 def reconcile_assignments(evidence: Evidence, plan: Plan) -> Discrepancy:
     """What the walk and the classification disagree about. See module docs."""
-    walked = relative_paths(evidence)
-    walked_set = set(walked)
+    walked_set = set(relative_paths(evidence)) - set(plan.excluded)
     seen: dict[str, int] = {}
     unknown: list[str] = []
     for a in plan.assignments:
@@ -284,7 +295,7 @@ def resolve(
     # every tail file under it. Expanded BEFORE the reconcile, or the walk would
     # report thousands of "missing" files the agent did in fact place -- turning
     # the honest-denominator check into noise nobody reads.
-    walked = set(relative_paths(evidence))
+    walked = set(relative_paths(evidence)) - set(plan.excluded)
     expanded: list[Assignment] = []
     # ONLY expansion claims. A directly-named path is appended every time it
     # appears, so two rows naming the same file still reach the reconcile as a
@@ -342,7 +353,7 @@ def resolve(
             # the reconcile must still say so.
             expanded.append(a)
     plan = Plan(projects=plan.projects, assignments=expanded,
-                unsure=plan.unsure, summary=plan.summary)
+                unsure=plan.unsure, summary=plan.summary, excluded=plan.excluded)
 
     disc = reconcile_assignments(evidence, plan)
     assigned = {a.path: a.project for a in plan.assignments if a.path not in disc.unknown}

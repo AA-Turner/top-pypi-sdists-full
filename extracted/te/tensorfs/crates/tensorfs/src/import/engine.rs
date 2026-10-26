@@ -23,13 +23,15 @@ macro_rules! table {
 }
 
 /// The built-in tables.
-pub const TABLES: [&str; 6] = [
+pub const TABLES: [&str; 8] = [
     table!("sdxl.single_file"),
     table!("anima.single_file"),
     table!("h3.native"),
     table!("h3.lora"),
     table!("sdxl.lora"),
     table!("seedvr2"),
+    table!("ideogram4.fp8"),
+    table!("qwen3.6-35b-a3b.experts"),
 ];
 
 #[derive(Debug, Deserialize)]
@@ -50,6 +52,10 @@ pub struct Table {
     /// Documents the output carries, by path.
     #[serde(default)]
     pub files: BTreeMap<String, serde_json::Value>,
+    /// The source's `config.json` stays its component's config: the table only re-lays the
+    /// tensors of the layout that config builds (Transformers' fused experts, one per expert).
+    #[serde(default)]
+    pub keep_config: bool,
     pub components: Vec<Component>,
 }
 
@@ -83,7 +89,45 @@ pub struct Component {
     /// Shape preconditions on source keys.
     #[serde(default)]
     pub expect: BTreeMap<String, Vec<u64>>,
+    #[serde(deserialize_with = "rows")]
     pub rows: Vec<Row>,
+}
+
+/// A component's rows. `[target, source, ops, {"e": n}]` stands for n rows, `e` = 0..n: `{e}`
+/// in its strings is the number, and so is a `"{e}"` value (one row per expert of a fused
+/// tensor: `{"take": [0, ["{e}"]]}`).
+fn rows<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Vec<Row>, D::Error> {
+    use serde::de::Error;
+    let mut out = Vec::new();
+    for value in Vec::<serde_json::Value>::deserialize(d)? {
+        let serde_json::Value::Array(parts) = &value else {
+            out.push(Row::deserialize(value).map_err(D::Error::custom)?);
+            continue;
+        };
+        let [target, source, ops, each] = parts.as_slice() else {
+            out.push(Row::deserialize(value).map_err(D::Error::custom)?);
+            continue;
+        };
+        let each: BTreeMap<String, u64> =
+            serde_json::from_value(each.clone()).map_err(D::Error::custom)?;
+        let mut texts = vec![serde_json::json!([target, source, ops]).to_string()];
+        for (name, n) in &each {
+            let mark = format!("{{{name}}}");
+            let value = format!("\"{mark}\"");
+            texts = (texts.iter())
+                .flat_map(|t| {
+                    (0..*n).map(|i| {
+                        t.replace(&value, &i.to_string())
+                            .replace(&mark, &i.to_string())
+                    })
+                })
+                .collect();
+        }
+        for text in texts {
+            out.push(serde_json::from_str(&text).map_err(D::Error::custom)?);
+        }
+    }
+    Ok(out)
 }
 
 #[derive(Debug, Deserialize)]
@@ -149,6 +193,9 @@ pub struct Ops {
     /// LoRA rows: the base module's `[in, out]`, so A is `[r, in]` and B `[out, r]`.
     #[serde(default)]
     pub io: Option<(u64, u64)>,
+    /// LoRA rows of a convolution: its kernel, so A is `[r, in, kh, kw]` and B `[out, r, 1, 1]`.
+    #[serde(default)]
+    pub kernel: Vec<u64>,
     /// LoRA rows: the ops applied to B.
     #[serde(default)]
     pub b: Option<Box<Ops>>,
@@ -163,6 +210,12 @@ pub fn tables() -> &'static [Table] {
             .map(|text| serde_json::from_str(text).expect("a built-in converter table"))
             .collect()
     })
+}
+
+/// The built-in tables' digest: an import is what its source's bytes and these tables make.
+pub fn tables_digest() -> &'static str {
+    static DIGEST: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    DIGEST.get_or_init(|| crate::sha256::hex_digest(TABLES.join("\0").as_bytes()))
 }
 
 // ------------------------------------------------------------------------------ recognition
@@ -656,9 +709,67 @@ fn cast_to(what: &str, from: &Dtype, to: Option<&Dtype>) -> Result<(Dtype, Optio
     }
 }
 
+/// The source rows a row's `ops` select from a `[rows, cols]` tensor, when its output is those
+/// whole rows (a fused projection's thirds), or why not.
+fn selected_rows(what: &str, shape: &[u64], ops: &Ops) -> Result<Vec<u64>> {
+    let [rows, cols] = shape else {
+        return refuse(Code::SEAM_UNBANKED, format!("{what}: rank {} rows", shape.len()));
+    };
+    let (out, _) = layout(what, shape, ops)?;
+    // The same ops over one element per row: each output element is the source row it takes.
+    let (picked, runs) = layout(what, &[*rows, 1], ops)?;
+    let selected: Vec<u64> = (0..runs.count())
+        .flat_map(|r| (0..runs.run).map(move |i| (r, i)))
+        .map(|(r, i)| runs.offset(r) + i)
+        .collect();
+    if ops.permute.is_some() || picked.last() != Some(&1) || out != [selected.len() as u64, *cols] {
+        return refuse(
+            Code::SEAM_UNBANKED,
+            format!("{what}: {ops:?} of {shape:?} is not a selection of whole rows"),
+        );
+    }
+    Ok(selected)
+}
+
+/// An encoded tensor's part cut to `rows` of its `count` rows: every part of a row-wise encoding
+/// leads with the rows.
+fn part_rows(
+    what: &str,
+    p: &super::carriers::FoldedPart,
+    count: u64,
+    rows: &[u64],
+) -> Result<(Vec<u64>, Reading)> {
+    let what = format!("{what} {}", p.role);
+    let bits = p.at.dtype.bits().filter(|b| b.is_multiple_of(8) && p.dtype == p.at.dtype);
+    let (Some(bits), None, None, Some(&count_here)) = (bits, &p.inline, &p.at.derive, p.shape.first()) else {
+        return refuse(Code::SEAM_UNBANKED, format!("{what}: a part that is not whole rows of bytes"));
+    };
+    if count_here != count {
+        return refuse(
+            Code::SHAPE_MISMATCH,
+            format!("{what}: {:?} does not lead with the tensor's {count} rows", p.shape),
+        );
+    }
+    let take = Ops { take: Some((0, rows.to_vec())), ..Ops::default() };
+    let (shape, runs) = layout(&what, &p.shape, &take)?;
+    let read = Reading {
+        file: p.at.file,
+        start: p.at.start,
+        len: p.at.len,
+        unit: bits / 8,
+        runs,
+        source: p.at.dtype.clone(),
+        cast: None,
+        inline: None,
+        derive: None,
+    };
+    Ok((shape, read))
+}
+
 /// `component/key` read from `t` through `ops` and `cast`. A tensor whose bytes do not
-/// move is one run of bytes, so it may be any dtype. An encoded tensor is only renamed: its
-/// parts are the producer's bytes, and `cast` names its logical dtype.
+/// move is one run of bytes, so it may be any dtype. An encoded tensor is renamed, or, for a
+/// row-wise encoding, cut into whole rows (each part's rows with them): its parts are the
+/// producer's bytes, and `cast` names its logical dtype.
 fn planned(
     component: &str,
     key: &str,
@@ -668,32 +779,39 @@ fn planned(
 ) -> Result<Planned> {
     let what = format!("{component}/{key}");
     if let Some(folded) = &t.encoded {
-        if ops.view.is_some() || ops.take.is_some() || ops.permute.is_some() || ops.shape.is_some()
-        {
-            return refuse(
-                Code::SEAM_UNBANKED,
-                format!(
-                    "{what}: a {} tensor; a table row may rename it, never cut or reshape it",
-                    folded.encoding.scheme
-                ),
-            );
+        let cut = ops.view.is_some() || ops.take.is_some() || ops.permute.is_some() || ops.shape.is_some();
+        let rows = match cut {
+            false => None,
+            true if folded.encoding.scheme.ends_with(".rowwise") => {
+                Some(selected_rows(&what, &t.shape, ops)?)
+            }
+            true => {
+                return refuse(
+                    Code::SEAM_UNBANKED,
+                    format!(
+                        "{what}: a {} tensor; a table row may rename it, never cut or reshape it",
+                        folded.encoding.scheme
+                    ),
+                )
+            }
+        };
+        let mut parts = Vec::new();
+        for p in &folded.parts {
+            let (shape, read) = match &rows {
+                None => (p.shape.clone(), Reading { inline: p.inline.clone(), ..Reading::whole(&p.at) }),
+                Some(rows) => part_rows(&what, p, t.shape[0], rows)?,
+            };
+            parts.push(PlannedPart { role: p.role.clone(), dtype: p.dtype.clone(), shape, read });
         }
-        let parts = (folded.parts.iter())
-            .map(|p| PlannedPart {
-                role: p.role.clone(),
-                dtype: p.dtype.clone(),
-                shape: p.shape.clone(),
-                read: Reading {
-                    inline: p.inline.clone(),
-                    ..Reading::whole(&p.at)
-                },
-            })
-            .collect();
+        let mut shape = t.shape.clone();
+        if let Some(rows) = &rows {
+            shape[0] = rows.len() as u64;
+        }
         return Ok(Planned {
             component: component.into(),
             key: key.into(),
             dtype: cast.unwrap_or(&t.dtype).clone(),
-            shape: t.shape.clone(),
+            shape,
             encoding: Some(folded.encoding.clone()),
             parts,
         });
@@ -917,20 +1035,22 @@ fn plan_lora(
         };
         let float = |d: &Dtype| matches!(d, Dtype::F16 | Dtype::BF16 | Dtype::F32);
         let rank = a.shape.first().copied().unwrap_or(0);
+        let kernel = &row.ops.kernel;
+        let want_a: Vec<u64> = [rank, input].iter().chain(kernel).copied().collect();
+        let want_b: Vec<u64> = [output, rank].into_iter().chain(kernel.iter().map(|_| 1)).collect();
         if a.encoded.is_some()
             || b.encoded.is_some()
-            || a.shape.len() != 2
             || rank == 0
-            || rank > input.min(output)
-            || a.shape[1] != input
-            || b.shape != [output, rank]
+            || rank > (input * kernel.iter().product::<u64>()).min(output)
+            || a.shape != want_a
+            || b.shape != want_b
             || a.dtype != b.dtype
             || !float(&a.dtype)
             || alpha.is_some_and(|(_, t)| !t.shape.is_empty() || !float(&t.dtype))
         {
             return refuse(
                 Code::SHAPE_MISMATCH,
-                format!("{ka}: LoRA factors must be float A [r,{input}], B [{output},r] and a scalar alpha"),
+                format!("{ka}: LoRA factors must be float A {want_a:?}, B {want_b:?} and a scalar alpha"),
             );
         }
         let none = Ops::default();

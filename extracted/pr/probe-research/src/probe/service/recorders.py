@@ -87,6 +87,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
+
 from . import capture_gate, paths, procid
 from .watch import Family
 
@@ -121,6 +122,10 @@ MAX_ENV = 200
 _VERSION = re.compile(r"^\d+(\.\d+)*$")
 #: A plugin cache's version folder name (the hooks' `[0-9]*.[0-9]*`, stricter).
 _SIBLING = re.compile(r"^\d+(\.\d+)+$")
+#: Kimi Code's folder of one tap version (`probe.cli.kimi_config`): `managed/<id>@<version>`.
+_KIMI_TAP = re.compile(r"^probe-research-tap@(\d+(\.\d+)+)$")
+KIMI_MANAGED = "managed"
+KIMI_LIST = "installed.json"
 #: The tap's own floor (`tap.start.MIN_PYTHON`).
 MIN_PYTHON = (3, 11)
 #: A held session's claim (`capture_gate.Claim`) is looked for this soon after
@@ -186,14 +191,19 @@ def installed_tap(session: dict, unsettled: list | None = None) -> tuple[str, st
     the version folder it installed: the highest version-shaped sibling that
     carries a tap, inside Codex's own cache, and that Codex has stopped
     writing (`_settled`: it picks by listing, and the newest folder may be one
-    Codex is still copying; each one skipped for that goes in `unsettled`). A
-    folder elsewhere (a developer's checkout, pi's own copy): None."""
+    Codex is still copying; each one skipped for that goes in `unsettled`).
+    Kimi Code: the one tap folder its plugin list (`installed.json`) records,
+    beside the `managed/probe-research-tap@<version>` folder the session named
+    (`_kimi_installed`). A folder elsewhere (a developer's checkout, pi's own
+    copy): None."""
     from . import followup
 
     try:
         here = Path(session["tap_root"]).resolve()
     except (KeyError, TypeError, ValueError, OSError):
         return None
+    if _KIMI_TAP.match(here.name):
+        return _kimi_installed(here)
     if not _SIBLING.match(here.name):
         return None
     plugin = here.parent
@@ -224,6 +234,28 @@ def installed_tap(session: dict, unsettled: list | None = None) -> tuple[str, st
     return str(best), best.name
 
 
+def _kimi_installed(here: Path) -> tuple[str, str] | None:
+    """`(root, version)` of the tap Kimi's plugin list records, when it is a
+    whole tap folder beside `here` in Kimi's `managed/`; None otherwise (no
+    list, none or several recorded, another folder, a tap still incomplete)."""
+    managed = here.parent
+    if managed.name != KIMI_MANAGED:
+        return None
+    try:
+        records = json.loads((managed.parent / KIMI_LIST).read_text(encoding="utf-8"))["plugins"]
+        roots = {Path(r["root"]).resolve() for r in records
+                 if isinstance(r, dict) and r.get("id") == "probe-research-tap" and isinstance(r.get("root"), str)}
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
+    if len(roots) != 1:
+        return None
+    target = roots.pop()
+    found = _KIMI_TAP.match(target.name)
+    if target.parent != managed or found is None or not _has_tap(target):
+        return None
+    return str(target), found.group(1)
+
+
 def _has_tap(root: Path) -> bool:
     """Does `root` hold a tap? False for a folder that cannot be read, or a
     saved path no filesystem call accepts (a NUL byte): one session's bad root
@@ -237,29 +269,6 @@ def _has_tap(root: Path) -> bool:
 
 #: The service's own copies of the taps it loaded (`_pin`), in its machine folder.
 TAPS_NAME = "taps"
-#: Written last into a copy: one without it was cut short, and is made again.
-PIN_DONE = ".pinned"
-#: Copies kept besides the one loading: the newest-used few, and none unused
-#: for longer than PIN_KEEP_S.
-PIN_KEEP = 3
-PIN_KEEP_S = 7 * 86400
-
-
-def _fingerprint(tap_dir: Path, *, times: bool = True) -> str:
-    """The files a tap package holds, with their sizes (and times): a copy made
-    from these same files is used again rather than made again. Without times:
-    what a copy of them must hold (a copy's times need not match to the ns)."""
-    import hashlib
-
-    digest = hashlib.sha256()
-    for path in sorted(tap_dir.rglob("*")):
-        if "__pycache__" in path.parts or path.suffix == ".pyc" or not path.is_file():
-            continue
-        info = path.stat()
-        when = f"\0{info.st_mtime_ns}" if times else ""
-        digest.update(f"{path.relative_to(tap_dir).as_posix()}\0{info.st_size}{when}\n".encode())
-    return digest.hexdigest()[:16]
-
 
 def _pin(root: str, version: str) -> Path:
     """A copy of the tap package at `root` that only this service writes or
@@ -276,59 +285,14 @@ def _pin(root: str, version: str) -> Path:
     update, Probe prunes Kimi's. Under a tap imported from such a folder, the
     first lazy import after the update failed. A copy is made once per tap
     version and files (a later load of the same files reuses it); old copies are
-    removed at a later load, never the one in use."""
-    source = Path(root) / "tap"
+    removed at a later load, never the one in use (`probe._shared.pins`)."""
+    from probe._shared import pins  # noqa: PLC0415 -- only when a tap loads: the start path stays the service's
+
     store = paths.service_dir() / TAPS_NAME
-    before = _fingerprint(source)
-    name = f"{version if _VERSION.match(version or '') else 'tap'}-{before}"
-    target = store / name
-    if not (target / PIN_DONE).is_file():
-        import shutil
-
-        store.mkdir(parents=True, exist_ok=True)
-        staging = store / f".{name}.{os.getpid()}.{random.randrange(1 << 30)}"
-        try:
-            shutil.copytree(source, staging / "tap", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-            # A tap still being written (an agent installing it as this ran)
-            # was copied in part: its files moved under the copy, or the copy
-            # holds other files than it. Never marked done, never imported.
-            if _fingerprint(source) != before or (
-                _fingerprint(source, times=False) != _fingerprint(staging / "tap", times=False)
-            ):
-                raise OSError(f"the tap at {root} changed while it was copied")
-            (staging / PIN_DONE).write_text(json.dumps({"from": root, "version": version}), encoding="utf-8")
-            if target.exists():
-                shutil.rmtree(target)  # a copy cut short (no PIN_DONE)
-            os.replace(staging, target)
-        finally:
-            shutil.rmtree(staging, ignore_errors=True)
-    with contextlib.suppress(OSError):
-        os.utime(target)  # in use now: the prune below counts from here
-    _prune_pins(store, keep=target)
+    target = pins.make(store, version if _VERSION.match(version or "") else None, {"tap": Path(root) / "tap"},
+                       default="tap", meta={"from": root})
+    pins.prune(store, keep={target})
     return target
-
-
-def _prune_pins(store: Path, keep: Path) -> None:
-    """Remove the copies past PIN_KEEP (newest-used first) and any unused for
-    PIN_KEEP_S, and leftovers of a copy cut short; never `keep`."""
-    import shutil
-
-    try:
-        entries = [p for p in store.iterdir() if p != keep and p.is_dir() and not p.is_symlink()]
-    except OSError:
-        return
-    now = time.time()
-
-    def used(path: Path) -> float:
-        try:
-            return path.stat().st_mtime
-        except OSError:
-            return 0.0
-
-    copies = sorted((p for p in entries if not p.name.startswith(".")), key=used, reverse=True)
-    stale = [p for p in entries if p.name.startswith(".") and now - used(p) > 3600]
-    for path in copies[PIN_KEEP:] + [p for p in copies[:PIN_KEEP] if now - used(p) > PIN_KEEP_S] + stale:
-        shutil.rmtree(path, ignore_errors=True)
 
 
 def _replacement(root: str) -> tuple[str, str] | None:
@@ -527,6 +491,13 @@ class RecorderHost:
         except Exception as exc:  # noqa: BLE001 -- a tap without the gate's modules records as before
             self.gated = False
             self.log(f"capture gate: not with tap {self.tap_version} ({type(exc).__name__}: {str(exc)[:200]})")
+        try:
+            # A refused key stamped where the status line and doctor read it.
+            from . import keylatch
+
+            keylatch.install(self._tap(), self.log)
+        except Exception as exc:  # noqa: BLE001 -- never a reason not to record
+            self.log(f"key latch: not with tap {self.tap_version} ({type(exc).__name__}: {str(exc)[:200]})")
         return True
 
     def _tap(self) -> Any:
@@ -901,6 +872,20 @@ class RecorderHost:
             self._notify()
         return off
 
+    def wake(self, sid: object) -> None:
+        """Its session ended (its SessionEnd, or its agent exited): its
+        recorder looks now instead of at the end of the wait it is in (up to
+        MAX_RETRY_S while the server refuses or cannot be reached), which kept
+        the service alive that long after the last session ended. A held one
+        (`_hold`) waits on `gate_wake`, a running one between two failed
+        passes (`_backoff`) on `wake`. A look decides nothing by itself: the
+        recorder still reads whether its session ended, and a finish keeps its
+        own pace (`_hold`'s 2 s between its last tries)."""
+        rec = self.recordings.get(sid) if isinstance(sid, str) else None
+        if rec is not None:
+            rec.gate_wake.set()
+            rec.wake.set()
+
     def look(self, sid: object) -> None:
         """`session.recording`'s look at the session's switch, at once (the CLI
         that moved it asks this right after): its gap opens or closes with the
@@ -1023,6 +1008,11 @@ class RecorderHost:
                     loop.call_soon_threadsafe(self._held, dict(rec.params))
         self._notify()
         retry = _first_retry()
+        #: When the next try to settle its gaps is due (a failed one backs off):
+        #: until then the loop looks again every HELD_POLL_S, so a session that
+        #: ends (or turns off) meanwhile is seen at once, and no wake brings a
+        #: try forward.
+        settle_at = 0.0
         finals = 0
         claim_at, claim_every = 0.0, CLAIM_EVERY_S
         current = lambda: not self._superseded(rec)  # noqa: E731
@@ -1087,10 +1077,17 @@ class RecorderHost:
                         self.log(f"capture gate: session {rec.sid} ended while off and could not be finished yet; "
                                  "tried again later, what it wrote while off stays unsent")
                         self._notify()
-                    if self._wait_held(rec, 2.0 if not rec.deferred else retry):
+                    if not rec.deferred:
+                        # 2 s between the last tries, whatever wakes it: one end
+                        # wakes it up to three times (its SessionEnd, `session.end`,
+                        # its agent's exit), which must not spend the tries at once.
+                        if rec.controls.pause.wait(2.0) or self._closing:
+                            return PAUSED_STEP
+                        rec.gate_wake.clear()
+                        continue
+                    if self._wait_held(rec, retry):
                         return PAUSED_STEP
-                    if rec.deferred:
-                        retry = min(retry * 2, MAX_RETRY_S)
+                    retry = min(retry * 2, MAX_RETRY_S)
                     continue
                 if off:
                     self._own_marker(tap, rec)
@@ -1121,6 +1118,10 @@ class RecorderHost:
                 claim.release()
                 if not gaps:
                     return RECORD_STEP
+                if time.monotonic() < settle_at:
+                    if self._wait_held(rec, min(capture_gate.HELD_POLL_S, settle_at - time.monotonic())):
+                        return PAUSED_STEP
+                    continue
                 done = capture_gate.settle(tap, rec.params, gaps, finalize=False, log=self.log, current=current)
                 if self._superseded(rec):
                     continue
@@ -1128,10 +1129,10 @@ class RecorderHost:
                     # Then look again: it may have turned off while this ran.
                     self._settled(rec, gaps)
                     retry = _first_retry()
+                    settle_at = 0.0
                     continue
                 rec.last = "off: settling"
-                if self._wait_held(rec, retry):
-                    return PAUSED_STEP
+                settle_at = time.monotonic() + retry
                 retry = min(retry * 2, MAX_RETRY_S)
         finally:
             if published:
@@ -1177,6 +1178,7 @@ class RecorderHost:
         if current is None or current.thread is None or not current.thread.is_alive():
             return {"recording": False, "finished": False}
         current.controls.stop.set()
+        current.gate_wake.set()  # a held recorder waits on this, not on `stop`
         await asyncio.to_thread(current.thread.join, max(0.0, min(wait, 60.0)))
         return {"recording": True, "finished": not current.thread.is_alive()}
 
@@ -1195,6 +1197,7 @@ class RecorderHost:
                 targets.append(rec)
         for rec in targets:
             rec.controls.stop.set()
+            rec.gate_wake.set()
         deadline = time.monotonic() + max(0.0, min(wait, 60.0))
         for rec in targets:
             await asyncio.to_thread(rec.thread.join, max(0.0, deadline - time.monotonic()))
@@ -1304,6 +1307,14 @@ class RecorderHost:
                 delay = _first_retry()
             if self._owner_alive(rec) is False and (outcome != self.hosted.FAILED or rec.failures >= AFTER_EXIT_TRIES):
                 break  # the agent is gone and its recorder did what it could
+            if outcome == self.hosted.FAILED and self._owner_alive(rec) is False:
+                # Its agent is gone: its last tries 2 s apart, as after its stop,
+                # never the back-off (up to MAX_RETRY_S, holding the service).
+                rec.failures += 1
+                self.log(f"recorder: session {rec.sid} failed after its agent exited ({detail}); again in 2 s")
+                if rec.controls.pause.wait(2.0):
+                    break
+                continue
             if outcome == self.hosted.FAILED:
                 rec.failures += 1
                 self.log(f"recorder: session {rec.sid} failed ({detail}); again in {delay:.0f} s")

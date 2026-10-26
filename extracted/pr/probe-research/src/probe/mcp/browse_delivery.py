@@ -172,8 +172,10 @@ def _invoke_list(arguments: dict, call: Callable[[dict], dict], scope: str) -> d
     payload = call({**arguments, "cursor": state.get("native")})
     after = payload.pop("_list_after", None)
     end = payload.pop("_list_end", None)
+    # The service names where its rows are when that is not the mode's name
+    # (one branch in full lists its experiments).
+    key = payload.pop("_list_key", None) or str(arguments.get("mode"))
     data = payload.get("data")
-    key = str(arguments.get("mode"))
     if not isinstance(after, list) or not isinstance(data, dict) or not isinstance(
         data.get(key), list
     ):

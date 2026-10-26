@@ -1481,6 +1481,9 @@ def test_an_outbox_refused_for_an_hour_is_stuck_and_names_no_credential(tmp_path
 ])
 def test_an_outbox_that_is_not_stuck_says_nothing(tmp_path, status, hours, why):
     _queue(tmp_path / "outbox", oldest_pending=_iso_ago(hours), **status)
+    if status.get("paused"):
+        # A pause is its marker; status.json's copy outlives a pause that ended.
+        (tmp_path / "outbox" / "paused").write_text(json.dumps({"at": _iso_ago(0.1), "until": None}))
     assert watch.outbox_condition(time.time(), tmp_path / "outbox") is None, why
 
 

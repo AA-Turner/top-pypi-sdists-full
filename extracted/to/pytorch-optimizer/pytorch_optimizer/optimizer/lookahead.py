@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Callable
 
 import torch
@@ -6,6 +6,7 @@ from torch.optim import Optimizer
 
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import Closure, Defaults, Loss, OptimizerInstanceOrClass, ParamGroup, State
+from pytorch_optimizer.optimizer.utils.foreach import group_tensors_by_device_and_dtype
 
 
 class Lookahead(BaseOptimizer):
@@ -33,8 +34,9 @@ class Lookahead(BaseOptimizer):
 
         self.optimizer: Optimizer = self.load_optimizer(optimizer, **kwargs)
 
-        self._optimizer_step_pre_hooks: dict[int, Callable] = {}
-        self._optimizer_step_post_hooks: dict[int, Callable] = {}
+        self._optimizer_step_pre_hooks: dict[int, Callable] = OrderedDict()
+        self._optimizer_step_post_hooks: dict[int, Callable] = OrderedDict()
+        self._patch_step_function()
 
         self.alpha = alpha
         self.k = k
@@ -43,14 +45,7 @@ class Lookahead(BaseOptimizer):
         self.state: State = defaultdict(dict)
 
         for group in self.param_groups:
-            if 'counter' not in group:
-                group['counter'] = 0
-
-            for p in group['params']:
-                state = self.state[p]
-                state['slow_params'] = p.detach().clone()
-                if self.pullback_momentum == 'pullback':
-                    state['slow_momentum'] = torch.zeros_like(p)
+            self.init_group(group)
 
         self.defaults: Defaults = {
             'lookahead_alpha': alpha,
@@ -77,8 +72,17 @@ class Lookahead(BaseOptimizer):
         self.optimizer.zero_grad(set_to_none=set_to_none)
 
     def init_group(self, group: ParamGroup, **kwargs) -> None:
-        if 'step' not in group:
-            group['step'] = 0
+        group.setdefault('counter', 0)
+        for p in group.get('params', []):
+            state = self.state[p]
+            if 'slow_params' not in state:
+                state['slow_params'] = p.detach().clone()
+                if self.pullback_momentum == 'pullback':
+                    state['slow_momentum'] = torch.zeros_like(p)
+
+    def add_param_group(self, param_group: ParamGroup) -> None:
+        self.optimizer.add_param_group(param_group)
+        self.init_group(self.param_groups[-1])
 
     def backup_and_load_cache(self) -> None:
         """Back up fast weights and load slow weights for evaluation."""
@@ -129,26 +133,25 @@ class Lookahead(BaseOptimizer):
 
     @torch.no_grad()
     def update(self, group: dict):
-        for p in group['params']:
-            if p.grad is None:
-                continue
+        params, grads, state_dict = self.collect_trainable_params(group, self.state, state_keys=['slow_params'])
 
-            state = self.state[p]
-
-            slow = state['slow_params']
-
-            p.lerp_(slow, weight=1.0 - self.alpha)
-            slow.copy_(p)
+        for batch in group_tensors_by_device_and_dtype(params, grads, state_dict):
+            torch._foreach_lerp_(batch['params'], batch['slow_params'], weight=1.0 - self.alpha)
+            torch._foreach_copy_(batch['slow_params'], batch['params'])
 
             if self.pullback_momentum == 'pullback':
-                if 'momentum_buffer' not in self.optimizer.state[p]:
-                    self.optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
+                for p in batch['params']:
+                    if 'momentum_buffer' not in self.optimizer.state[p]:
+                        self.optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
 
-                internal_momentum = self.optimizer.state[p]['momentum_buffer']
-                internal_momentum.lerp_(state['slow_momentum'], weight=1.0 - self.alpha)
-                state['slow_momentum'].copy_(internal_momentum)
+                buffers = [self.optimizer.state[p]['momentum_buffer'] for p in batch['params']]
+                slow_buffers = [self.state[p]['slow_momentum'] for p in batch['params']]
+
+                torch._foreach_lerp_(buffers, slow_buffers, weight=1.0 - self.alpha)
+                torch._foreach_copy_(slow_buffers, buffers)
             elif self.pullback_momentum == 'reset':
-                self.optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
+                for p in batch['params']:
+                    self.optimizer.state[p]['momentum_buffer'] = torch.zeros_like(p)
 
     def step(self, closure: Closure = None) -> Loss:
         loss: Loss = self.optimizer.step(closure)

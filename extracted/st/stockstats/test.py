@@ -1089,6 +1089,151 @@ class StockDataFrameTest(TestCase):
         assert_that(res[0], equal_to(0))
         assert_that(res[5], near_to(17.571))
 
+        res_wma = StockDataFrame.wma(series, 6)
+        assert_that(list(res), equal_to(list(res_wma)))
+
+    def test_wma(self):
+        stock = self.get_stock_30days()
+        w0 = stock["wma"]
+        assert_that(w0[20110104], equal_to(0))
+        assert_that(w0[20110117], near_to(13.095))
+        assert_that(w0[20110125], near_to(12.784))
+        assert_that(w0[20110128], near_to(12.765))
+
+        w1 = stock["close_10_wma"]
+        assert_that(list(w0), equal_to(list(w1)))
+
+        w2 = stock["close_5_wma"]
+        assert_that(w2[20110104], equal_to(0))
+        assert_that(w2[20110117], near_to(13.067))
+        assert_that(w2[20110125], near_to(12.756))
+
+    def test_hma(self):
+        stock = self.get_stock_90days()
+        h0 = stock["hma"]
+        assert_that(h0[20110104], equal_to(0.0))
+        assert_that(h0[20110125], equal_to(0.0))
+        assert_that(h0[20110128], near_to(12.698))
+        assert_that(h0[20110215], near_to(12.844))
+        assert_that(h0[20110331], near_to(13.635))
+
+        h1 = stock["close_16_hma"]
+        assert_that(list(h0), equal_to(list(h1)))
+
+        h2 = stock["close_9_hma"]
+        assert_that(h2[20110104], equal_to(0.0))
+        assert_that(h2[20110125], near_to(12.690))
+        assert_that(h2[20110128], near_to(12.855))
+
+    @staticmethod
+    def test_hma_edge_cases():
+        series = pd.Series([10.0, 15.0, 15.0, 17.0, 18.0, 21.0])
+        # window 4 raw calculation
+        res = StockDataFrame.hma(series, 4)
+        assert_that(res[0], equal_to(0.0))
+        assert_that(res[3], equal_to(0.0))
+        assert_that(res[4], near_to(18.144))
+        assert_that(res[5], near_to(20.378))
+
+        # window 1 returns identical series
+        h1 = StockDataFrame.hma(series, 1)
+        assert_that(list(h1), equal_to([10.0, 15.0, 15.0, 17.0, 18.0, 21.0]))
+
+        # window larger than series returns zeros
+        h_large = StockDataFrame.hma(series, 10)
+        assert_that(list(h_large), equal_to([0.0] * 6))
+
+    def test_ssl_channel(self):
+        stock = self.get_stock_30days()
+        ssl = stock["ssl"]
+        ssl_up = stock["ssl_up"]
+        ssl_down = stock["ssl_down"]
+        assert_that(list(ssl), equal_to(list(ssl_up)))
+
+        # Initial bullish state
+        assert_that(ssl_up[20110104], near_to(12.6800))
+        assert_that(ssl_down[20110104], near_to(12.3000))
+        assert_that(ssl_up[20110114], near_to(13.2322))
+        assert_that(ssl_down[20110114], near_to(12.8500))
+
+        # Bearish flip on 20110117 (close drops below sma_low)
+        assert_that(ssl_up[20110117], near_to(12.8060))
+        assert_that(ssl_down[20110117], near_to(13.2190))
+        assert_that(ssl_up[20110128], near_to(12.5660))
+        assert_that(ssl_down[20110128], near_to(12.9140))
+
+        # Crossunder detection (sell signal)
+        sell_cross = stock["ssl_up_xd_ssl_down"]
+        assert_that(sell_cross[20110117], equal_to(True))
+
+        # Default window equivalence
+        assert_that(list(stock["ssl_up_10"]), equal_to(list(ssl_up)))
+        assert_that(list(stock["ssl_down_10"]), equal_to(list(ssl_down)))
+
+        # Custom window
+        u5 = stock["ssl_up_5"]
+        d5 = stock["ssl_down_5"]
+        assert_that(u5[20110104], near_to(12.6800))
+        assert_that(d5[20110104], near_to(12.3000))
+        assert_that(u5[20110114], near_to(13.4200))
+        assert_that(d5[20110114], near_to(13.1080))
+        assert_that(u5[20110117], near_to(13.0040))
+        assert_that(d5[20110117], near_to(13.3720))
+
+    @staticmethod
+    def test_ssl_channel_edge_cases():
+        # Empty series
+        empty_up, empty_down = StockDataFrame.ssl_channel(
+            pd.Series(dtype=float), pd.Series(dtype=float),
+            pd.Series(dtype=float), 5)
+        assert_that(len(empty_up), equal_to(0))
+        assert_that(len(empty_down), equal_to(0))
+
+        # Single-row series
+        s_up, s_down = StockDataFrame.ssl_channel(
+            pd.Series([10.5]), pd.Series([9.5]), pd.Series([10.0]), 3)
+        assert_that(list(s_up), equal_to([10.5]))
+        assert_that(list(s_down), equal_to([9.5]))
+
+    def test_obv(self):
+        stock = self.get_stock_30days()
+        obv = stock["obv"]
+        assert_that(obv[20110104], equal_to(0.0))
+        assert_that(obv[20110105], equal_to(139118400.0))
+        assert_that(obv[20110106], equal_to(55978100.0))
+        assert_that(obv[20110107], equal_to(418414900.0))
+        assert_that(obv[20110110], equal_to(252005200.0))
+        assert_that(obv[20110111], equal_to(400858500.0))
+        assert_that(obv[20110112], equal_to(534845200.0))
+
+        # test moving average of obv
+        obv_sma = stock["obv_5_sma"]
+        expected_sma = StockDataFrame.sma(obv, 5)
+        assert_that(list(obv_sma), equal_to(list(expected_sma)))
+
+    @staticmethod
+    def test_obv_edge_cases():
+        close = pd.Series([10.0, 12.0, 11.0, 11.0, 13.0])
+        volume = pd.Series([1000.0, 500.0, 300.0, 200.0, 400.0])
+        res = StockDataFrame.obv(close, volume)
+        assert_that(list(res), equal_to([0.0, 500.0, 200.0, 200.0, 600.0]))
+
+        # empty series
+        empty_obv = StockDataFrame.obv(pd.Series(dtype=float),
+                                       pd.Series(dtype=float))
+        assert_that(len(empty_obv), equal_to(0))
+
+        # single-element series
+        single_obv = StockDataFrame.obv(pd.Series([100.0]),
+                                        pd.Series([500.0]))
+        assert_that(list(single_obv), equal_to([0.0]))
+
+        # flat prices (no price movement)
+        flat_close = pd.Series([10.0, 10.0, 10.0])
+        flat_volume = pd.Series([100.0, 200.0, 300.0])
+        flat_obv = StockDataFrame.obv(flat_close, flat_volume)
+        assert_that(list(flat_obv), equal_to([0.0, 0.0, 0.0]))
+
     def test_coppock(self):
         stock = self.get_stock_90days()
         c0 = stock["coppock"]

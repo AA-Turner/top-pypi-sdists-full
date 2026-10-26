@@ -64,21 +64,21 @@ def async_environment(request: typing.Any) -> str:
     return request.param
 
 
-@pytest.fixture(scope="function", autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def clean_environ():
-    """Keeps os.environ clean for every test without having to mock os.environ"""
-    original_environ = os.environ.copy()
-    os.environ.clear()
-    os.environ.update(
-        {
-            k: v
-            for k, v in original_environ.items()
-            if k not in ENVIRONMENT_VARIABLES and k.lower() not in ENVIRONMENT_VARIABLES
-        }
-    )
+    """Keeps os.environ clean for every test without having to mock os.environ.
+
+    Done once, before the test servers start: rewriting the environment while
+    other threads call getenv(), e.g. strerror() in glibc, can crash on
+    free-threaded builds.
+    """
+    removed = {
+        k: os.environ.pop(k)
+        for k in list(os.environ)
+        if k in ENVIRONMENT_VARIABLES or k.lower() in ENVIRONMENT_VARIABLES
+    }
     yield
-    os.environ.clear()
-    os.environ.update(original_environ)
+    os.environ.update(removed)
 
 
 async def app(scope, receive, send):
@@ -409,13 +409,15 @@ async def set_headers(scope, receive, send):
 
 
 async def set_cookies(scope, receive, send):
+    params = parse_qs(scope["query_string"].decode())
+    value = params.get("value", ["bar"])[0]
     await send(
         {
             "type": "http.response.start",
             "status": 200,
             "headers": [
                 [b"content-type", b"text/plain"],
-                [b"set-cookie", b"foo=bar"],
+                [b"set-cookie", f"foo={value}; Path=/".encode()],
             ],
         }
     )
@@ -707,7 +709,7 @@ class TestServer(Server):
 
 @pytest.fixture(scope="session")
 def server():
-    config = Config(app=app, lifespan="off", loop="asyncio", port=8008)
+    config = Config(app=app, lifespan="off", loop="asyncio", port=8008, ws="none")
     server = TestServer(config=config)
     yield from serve_in_thread(server)
 
@@ -733,6 +735,7 @@ def https_server(cert_pem_file, cert_private_key_file):
         ssl_keyfile=cert_private_key_file,
         port=8001,
         loop="asyncio",
+        ws="none",
     )
     server = TestServer(config=config)
     yield from serve_in_thread(server)
@@ -940,7 +943,9 @@ file_app = Litestar(
 
 @pytest.fixture(scope="session")
 def file_server():
-    config = uvicorn.Config(file_app, host="127.0.0.1", port=2952, log_level="info")
+    config = uvicorn.Config(
+        file_app, host="127.0.0.1", port=2952, log_level="info", ws="none"
+    )
     server = FileServer(config=config)
     with server.run_in_thread():
         yield server

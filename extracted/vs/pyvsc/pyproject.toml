@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyvsc"
+dynamic = ["version"]
+description = "pyvsc (Verification Stimulus and Coverage) is a Python package for generating randomized stimulus and defining and collecting functional coverage."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Matthew Ballance", email = "matt.ballance@gmail.com"},
+]
+keywords = ["Python", "Functional Verification", "Constraints", "Coverage"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+# SOLVERS (pyvsc 1.x). dv-solve is always installed: it publishes a wheel for
+# Linux x86_64 and aarch64, macOS x86_64 and arm64, and Windows AMD64 (one
+# py3-none wheel per platform, so new Python versions need no new build), and
+# PyVSC imports and solves with it alone.
+#
+# pyboolector is installed wherever it publishes a wheel (Linux x86_64 and
+# macOS), and there Boolector stays the DEFAULT back-end (src/vsc/impl/ctor.py),
+# so an upgrade -- including a fresh venv in CI -- keeps the solver users have
+# always had. dv-solve is opt-in on those platforms (VSC_SOLVER /
+# vsc.set_solver_backend()). Windows and Linux aarch64 have no pyboolector
+# wheel; its sdist build is where most install failures came from (#141, #170,
+# #171, #184, #187, #254), so it is not required there and dv-solve is the
+# default (0.9.x could not be installed there at all). dv-solve becomes the
+# default everywhere in a later major release, once proven in the field.
+#
+# dv-solve has no sdist, so a platform outside its wheel set (e.g. musl Linux)
+# fails `pip install pyvsc`; install dv-solve from source there first.
+dependencies = [
+    "dv-solve>=0.2.5",
+    "pyboolector>=3.2.2; (sys_platform == 'linux' and platform_machine == 'x86_64') or sys_platform == 'darwin'",
+    "pyucis>=0.1.4",
+    "toposort",
+]
+
+[project.optional-dependencies]
+# Requests Boolector explicitly (e.g. to build it from source where it has no wheel).
+boolector = ["pyboolector>=3.2.2"]
+# Kept so existing `pyvsc[dv-solve]` install lines keep working.
+dv-solve = ["dv-solve>=0.2.5"]
+# The vsc.sphinx documentation extension (extensions = ["vsc.sphinx"]).
+docs = ["sphinx>=7"]
+
+[project.urls]
+Homepage = "https://github.com/fvutils/pyvsc"
+Documentation = "https://dvkit.org/fvutils/pyvsc/"
+Source = "https://github.com/fvutils/pyvsc"
+
+[tool.setuptools.dynamic]
+version = {attr = "vsc.__version__._pkg_version"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["vsc*"]

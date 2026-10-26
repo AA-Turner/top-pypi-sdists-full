@@ -149,6 +149,9 @@ class TraceFile:
         self.context_messages = 0
         self.head_sha: str | None = None
         self.head_message: Any = None
+        #: The model round the agent is in (`Recording`): a `probe daemon task` its
+        #: `bash` call starts files its lines under it (`TaskTrace`).
+        self.round = 0
 
     def trace_id(self, run: int | None = None) -> str:
         return f"{self.session_id}:{self.agent}:{self.run if run is None else run}"
@@ -244,6 +247,46 @@ def _ms(since: float) -> int:
     return int((time.monotonic() - since) * 1000)
 
 
+class TaskTrace:
+    """A `probe daemon task` helper's view of its parent agent's trace file (daemon
+    cost round 7, F5: the helpers were a third of one team's writer bill and wrote
+    no line). Its lines go to the PARENT's file, under the parent's run and round,
+    each naming the task (`task`: its number in the run), the parent's `bash` call
+    that started it (`task_of`) and its own round (`task_round`); span ids nest under
+    that call. What repeats (the job description, the tools, the head) is tracked
+    apart, so the parent's own lines never read as rewritten."""
+
+    def __init__(self, parent: TraceFile, *, task: int, task_of: str | None, parent_round: int) -> None:
+        self.parent = parent
+        self.agent = parent.agent
+        self.task = task
+        self.task_of = task_of
+        self.parent_round = parent_round
+        self.instructions_sha: str | None = None
+        self.tools_sha: str | None = None
+        self.context_messages = 0
+        self.head_sha: str | None = None
+        self.head_message: Any = None
+        self.round = 0
+
+    @property
+    def off(self) -> bool:
+        return self.parent.off
+
+    def trace_id(self, run: int | None = None) -> str:
+        """The task's own span: under the parent's `bash` call (`Recording._span` adds its rounds)."""
+        return f"{self.parent.trace_id(run)}:r{self.parent_round}:{self.task_of}:task{self.task}"
+
+    def write(self, record: dict[str, Any]) -> None:
+        """Every line names its task round: a call's own, or -- the job text and the
+        tools, written without one -- the round the task is in, so two tasks of
+        one parent round never share a span (review 10-25)."""
+        line = dict(record)
+        line["task_round"] = line.pop("round", self.round)
+        line.update(round=self.parent_round, task=self.task, task_of=self.task_of)
+        self.parent.write(line)
+
+
 @dataclass
 class Recording:
     """What `agent.TraceRecorder` does: writes a run's model calls and tool runs
@@ -263,6 +306,7 @@ class Recording:
             return await handler(request_context)
         self.rounds += 1
         n = self.rounds
+        self.trace.round = n
         sent: dict[str, Any] = {}
         self._safely(self._request, request_context, n, sent)
         started = time.monotonic()

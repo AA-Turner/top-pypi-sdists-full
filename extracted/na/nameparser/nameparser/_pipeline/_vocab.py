@@ -186,7 +186,8 @@ def in_initialless_script(text: str) -> bool:
 # it at the z. `_MARKS` is the general combining blocks -- what NFD of
 # a Latin, Greek or Cyrillic letter produces -- and not the marks that
 # only some scripts write (Indic vowel signs, Arabic and Hebrew
-# points); rules/H2's Accepted clause owns that limit.
+# points); rules/H2's Accepted bullet "The shape is only recognizable
+# as an unbroken run of letters" owns that limit (decisions/H2).
 _MARKS = '[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]'
 _LETTER = r'[^\W\d_]' + _MARKS + '*'
 _PERIOD_ABBREV = re.compile(r'^(?:' + _LETTER + r'){2,}\.$')
@@ -255,10 +256,13 @@ _ROMAN = re.compile(r'^(X|IX|IV|V?I{0,3})$', re.I)
 ROMAN = _ROMAN
 
 
-# rules/S10: "A roman numeral ending a name written without a comma
-# reads as the generation" -- which the initial veto would otherwise
-# take: V and I are suffix vocabulary, X a numeral by shape alone, and
-# all three are bare capitals, which inside a name are middle initials.
+# rules/S10: "the numeral reads as the generation: the numerals the
+# vocabulary lists, and those up to X it does not, by their shape
+# alone" -- its Then clause, the `_ROMAN` test; and rules/S10's Except
+# bullet "An initial in front makes it a name word too", the two
+# is_initial_shaped tests on `preceding`. The words-to-spare count,
+# rules/S10's Except bullet "A numeral of one letter needs words to
+# spare", is the callers'. decisions/S10 (#718, #721)
 def is_trailing_numeral_suffix(text: str, preceding: str,
                                one_case: bool | None) -> bool:
     """The trailing walk's roman-numeral fork: a FINAL single-token
@@ -328,6 +332,9 @@ def is_single_letter_numeral(text: str) -> bool:
     return len(letters) == 1 and _ROMAN.match(letters) is not None
 
 
+# rules/T5: "A one-letter word written with its period is an initial,
+# in a script that writes initials, and so is a bare unaccented Latin
+# capital, A to Z"
 def is_initial(text: str) -> bool:
     """'A.' / 'j.' / bare capital -- v1's is_an_initial, narrowed to
     scripts that HAVE initials (#320). v1's \\w is Unicode-aware and
@@ -343,7 +350,7 @@ def is_initial(text: str) -> bool:
 def is_one_case(texts: Sequence[str]) -> bool:
     """Whether a name is written wholly in ONE case -- all upper or all
     lower alike -- and so carries no case EVIDENCE about any letter in
-    it (rules/P3, #383/#479). The caller passes the name's OWN
+    it (rules/P8, #383/#479). The caller passes the name's OWN
     words: a maiden marker's clause and any delimited (nickname)
     content are not among them, and appending one must not flip the
     reading of words that did not change.
@@ -453,7 +460,7 @@ def _dotted(text: str) -> bool:
     spelling a member with a lower-case tail is written in. A single
     trailing period ('Ma.', 'Ed.', 'Ms.') is the abbreviation shape any
     word can wear -- the honorific's, a name's -- and is not the gate's
-    "written with periods" (rules/S2). Until #296's review the gate
+    "written with periods" (rules/S3). Until #296's review the gate
     was "any period", and 'Smith, Ms.' passed it as the degree."""
     return (_DOTTED.fullmatch(text) is not None
             or _CHUNKED.fullmatch(text) is not None)
@@ -538,11 +545,55 @@ def is_suffix_lenient(text: str, lexicon: Lexicon) -> bool:
         or _is_suffix_strict_n(n, text, lexicon)
 
 
+#: The suffix delimiter every policy has, beside the comma. rules/C10:
+#: "The semicolon is a delimiter by default" -- "no policy removes the
+#: semicolon, as none removes the comma", so a policy's
+#: extra_suffix_delimiters add to it. decisions/C10 (D15).
+BUILTIN_SUFFIX_DELIMITERS = frozenset({";"})
+
+
 def delimiter_cores(policy_delimiters: frozenset[str]) -> frozenset[str]:
-    """Configured suffix delimiters with surrounding whitespace
-    stripped: ' - ' -> '-'. Whitespace-padded delimiters surface as
-    standalone tokens; the stripped core is what tokenize produced."""
-    return frozenset(d.strip() for d in policy_delimiters if d.strip())
+    """The built-in suffix delimiters with the configured ones,
+    surrounding whitespace stripped: ' - ' -> '-'. Whitespace-padded
+    delimiters surface as standalone tokens; the stripped core is what
+    tokenize produced."""
+    if not policy_delimiters:
+        return BUILTIN_SUFFIX_DELIMITERS
+    return BUILTIN_SUFFIX_DELIMITERS | frozenset(
+        d.strip() for d in policy_delimiters if d.strip())
+
+
+# rules/C10: "the word keeps the delimiter in its text and reads as it
+# would without it" -- the word, for every site that reads one: the
+# tags classify writes, the comma decision's shape tests, C2's flag
+# and the run test below (decisions/C10).
+def glued_stem(text: str, cores: frozenset[str]) -> str | None:
+    """The word a delimiter core glued to ONE end of `text` leaves
+    ('MD;' -> 'MD', ';PhD' -> 'PhD', 'MD-PhD;' -> 'MD-PhD' under '-'),
+    or None: no core at an end of the text, a core standing alone, one
+    inside a word only ('MD;PhD', which splits_into_suffixes reads), or
+    a core that is itself a word (see glues). Every core is tried, in
+    sorted order, so the answer never depends on a set's iteration
+    order (the second review of #871: 'MD/PhD; MBA' under '/' read two
+    ways by hash seed). Callers test `core in text` inline first, so a
+    word with no core pays no frame."""
+    for core in sorted(cores):
+        if (core in text and glues(core) and text.count(core) == 1
+                and len(text) > len(core)):
+            if text.endswith(core):
+                return text[:-len(core)]
+            if text.startswith(core):
+                return text[len(core):]
+    return None
+
+
+def glues(core: str) -> bool:
+    """Whether a delimiter core can be GLUED to a word: one written
+    without a letter or digit (';', '/', '-'). A core that is a word
+    (' and ' under a declared policy) is found inside other words by
+    the substring test ('Stand'), so it parts only standing alone
+    (rules/C10's glued bullet)."""
+    return not any(ch.isalnum() for ch in core)
 
 
 def splits_into_suffixes(text: str, cores: frozenset[str],
@@ -550,9 +601,11 @@ def splits_into_suffixes(text: str, cores: frozenset[str],
     """v1 expand_suffix_delimiter parity for delimiters WITHOUT
     whitespace ('RN/CRNA' with '/'): the token counts as a suffix when
     some core splits it into >=2 non-empty parts that are all suffixes.
-    The token text is never rewritten (anti-#100): it takes Role.SUFFIX
-    whole, which renders 'RN/CRNA' where v1 rendered 'RN, CRNA' -- the
-    documented divergence, release-log classified."""
+    A core glued to ONE word ('MD;') is is_wholly_suffix's to read, by
+    the test it gives that word alone (D15). The token text is never
+    rewritten (anti-#100): it takes Role.SUFFIX whole, which renders
+    'RN/CRNA' where v1 rendered 'RN, CRNA' -- the documented
+    divergence, release-log classified."""
     for core in cores:
         if core in text:
             parts = [part for part in text.split(core) if part]
@@ -563,10 +616,11 @@ def splits_into_suffixes(text: str, cores: frozenset[str],
 
 
 # rules/S3: "a word with interior periods reads as a suffix when
-# any of its period-separated chunks is suffix vocabulary — except
-# where every chunk the vocabulary matches is a single ASCII
-# character, the roman numerals and the lone digit the vocabulary
-# lists, which are about generations rather than credentials"
+# any of its period-separated chunks is suffix vocabulary" --
+# "every chunk the vocabulary matches is a single ASCII character,
+# the roman numerals and the lone digit the vocabulary lists, which
+# are about generations rather than credentials". The chunk rule and
+# its single-character exception (decisions/S3).
 def period_joined_vocab(
         text: str, lexicon: Lexicon,
 ) -> Literal["title", "suffix", "shape"] | None:
@@ -1103,7 +1157,8 @@ def name_word_count(texts: Sequence[str], lexicon: Lexicon,
 
 def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
                      policy: Policy, one_case: bool | None = None,
-                     letters_one_case: bool | None = None) -> bool:
+                     letters_one_case: bool | None = None,
+                     strict: bool = False) -> bool:
     """Every token in a RUN counts as a suffix -- C1's suffix test of
     a run, shared by `_comma.decide`, segment's C2 flag on a tail part
     and the peel (#319).
@@ -1159,26 +1214,41 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
     class, dotted or caps, reaches the comma form through this
     predicate at all -- only through classify's shape tags and
     `_comma.decide`'s caps test (#613).
+
+    A delimiter core glued to one word ('MD;', ';PhD') leaves the word
+    read by the test it would get without the core (D15, rules/C10),
+    so 'MD;' counts where 'MD' does. `strict` asks the strict token
+    test whatever the policy says: `_comma.decide` passes it behind a
+    head that is not a whole name, where C8 reads 'Smith, V MD' with
+    the initial veto, so that 'Smith, V; MD' reads as its space twin.
     """
     if not texts:
         return False
-    lenient = policy.lenient_comma_suffixes
+    lenient = policy.lenient_comma_suffixes and not strict
     # v1 expand_suffix_delimiter parity (#206): a configured delimiter
     # is TRANSPARENT in the all-suffix tests -- v1 split the part string
     # on the delimiter before checking, so the delimiter never counted
     cores = delimiter_cores(policy.extra_suffix_delimiters)
 
     def counts_as_suffix(text: str) -> bool:
-        if text in cores:
-            return True
         if (one_case is not None
                 and ambiguous_class_member(text, lexicon)
                 and ambiguous_lean(text, one_case) == "credential"):
             return True
-        return ((is_suffix_lenient(text, lexicon) if lenient
-                 else is_suffix_strict(text, lexicon, letters_one_case))
-                or period_joined_vocab(text, lexicon) == "suffix"
-                or (bool(cores) and splits_into_suffixes(text, cores, lexicon)))
+        if ((is_suffix_lenient(text, lexicon) if lenient
+             else is_suffix_strict(text, lexicon, letters_one_case))
+                or period_joined_vocab(text, lexicon) == "suffix"):
+            return True
+        # the split only where a core stands in the word: the built-in
+        # ';' makes `cores` non-empty for every policy, and a call per
+        # word would be a frame on every name word a run test asks
+        for core in cores:
+            if core in text:
+                stem = glued_stem(text, cores)
+                if stem is not None:
+                    return counts_as_suffix(stem)
+                return splits_into_suffixes(text, cores, lexicon)
+        return False
 
     merged = list(texts)
     k = 0
@@ -1187,7 +1257,7 @@ def is_wholly_suffix(texts: Sequence[str], lexicon: Lexicon,
             merged[k:k + 2] = ["phd"]
         else:
             k += 1
-    return all(counts_as_suffix(t) for t in merged)
+    return all(t in cores or counts_as_suffix(t) for t in merged)
 
 
 # The two derived views of a marker vocabulary, cached per-vocabulary

@@ -33,7 +33,7 @@ from typing import Literal, NoReturn, Protocol, TypeVar, cast, final, runtime_ch
 
 import msgspec
 
-from cozy_runtime.author._context import AdapterRef, Device
+from cozy_runtime.author._context import AdapterRef, Device, device
 from cozy_runtime.author._errors import CapabilityError, ConformanceError, InvalidRequest
 
 T = TypeVar("T")
@@ -65,6 +65,8 @@ class TensorLike(Protocol):
 
     @property
     def dtype(self) -> object: ...
+
+    def detach(self) -> TensorLike: ...
 
 
 @runtime_checkable
@@ -182,16 +184,14 @@ PATH_KEYS = frozenset(
 #: Key SUFFIXES that name a carrier however the key is spelled (`unet_path`, `vae_dir`).
 PATH_SUFFIXES = ("_path", "_dir", "_file", "_url", "_repo")
 
-#: Where `save_pretrained` says a config came from: provenance in every upstream config, never
-#: construction input. It names a repo or folder, so a factory never sees it: dropped, not refused.
-PROVENANCE = "_name_or_path"
-
-
-def _without_provenance(data: Mapping[str, object]) -> dict[str, object]:
+def _without_bookkeeping(data: Mapping[str, object]) -> dict[str, object]:
+    """Without what the saving library writes about itself (`_name_or_path`, `_class_name`,
+    `_diffusers_version`): never construction input, so a section's `mapping()` is exactly a
+    constructor's arguments. `_name_or_path` names a repo or folder: dropped, not refused."""
     return {
-        key: _without_provenance(value) if isinstance(value, Mapping) else value
+        key: _without_bookkeeping(value) if isinstance(value, Mapping) else value
         for key, value in data.items()
-        if key != PROVENANCE
+        if not key.startswith("_")
     }
 
 
@@ -237,7 +237,7 @@ class Config:
     ) -> None:
         """Freeze one in-memory construction config. `bound` names the components the
         binding selects (None: all); the others' tensors are not in `tensor_dtypes`."""
-        data = _without_provenance(data)
+        data = _without_bookkeeping(data)
         for key, value in data.items():
             carrier = _carrier(key, value)
             if carrier is not None:
@@ -697,7 +697,8 @@ class _Residency(Protocol):
 class _ScopeHost(Protocol):
     """What a cache needs from the model generation that declared it."""
 
-    _cozy_residency: _Residency | None
+    @property
+    def _cozy_residency(self) -> _Residency | None: ...
 
     def _cozy_require_scope(self, what: str) -> None: ...
 
@@ -776,7 +777,6 @@ class Loader:
         "_assets",
         "_backend",
         "_caches",
-        "_device",
         "_mode",
         "_objects",
         "_open",
@@ -791,13 +791,11 @@ class Loader:
         owner: _ScopeHost,
         backend: Backend | None = None,
         mode: Mode = "serve",
-        device: Device | None = None,
     ) -> None:
         self._artifact = artifact
         self._assets = ModelAssets(artifact.assets, self._require_open)
         self._backend: Backend = backend if backend is not None else _NullBackend()
         self._mode: Mode = mode
-        self._device = device or Device()
         self._owner = owner
         self._open = True
         self._records: list[ConstructionRecord] = []
@@ -806,9 +804,10 @@ class Loader:
 
     @property
     def device(self) -> Device:
-        """Read-only device identity. Placement is the runtime's; naming it is not a door."""
+        """This process's device (`author.device()`). Placement is the runtime's; naming it is
+        not a door."""
         self._require_open("loader.device")
-        return self._device
+        return device()
 
     @property
     def assets(self) -> ModelAssets:
@@ -1052,7 +1051,9 @@ def census(obj: object) -> Census:
         components.append(name)
         seen: set[int] = set()
         named_buffers = getattr(member, "named_buffers", None)
-        buffers = {id(b) for _, b in named_buffers(remove_duplicate=False)} if named_buffers else set()
+        buffers = (
+            {id(b) for _, b in named_buffers(remove_duplicate=False)} if named_buffers else set()
+        )
         for key, held in member.state_dict(keep_vars=True).items():
             if id(held) in seen:
                 continue

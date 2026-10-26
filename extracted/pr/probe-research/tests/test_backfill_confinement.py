@@ -25,6 +25,8 @@ from pathlib import Path
 
 import pytest
 
+from backfill_plan_agent import filing
+
 from probe.cli import backfill as bf
 from probe.cli import backfill_evidence as ev
 from probe.cli import backfill_ledger as bl
@@ -78,6 +80,11 @@ class _Recorder:
                 assigned = assigned.split("\n\nRead them", 1)[0]
                 paths = [p.strip() for p in assigned.splitlines() if p.strip()]
                 path.write_text("\n".join(json.dumps({"path": p}) for p in paths[:self.rows]))
+        if kw.get("path_prepend"):
+            # A classifier files through `probe-backfill-plan` (see `filing`).
+            return self.ok, json.dumps({"type": "result", "result": json.dumps({
+                "projects": [{"slug": "odyssey"}], "assignments": [{"path": ".", "project": "odyssey"}],
+            })})
         return self.ok, ""
 
 
@@ -94,7 +101,7 @@ def test_both_passes_get_a_scratch_dir_outside_the_imported_folder(folder, monke
     A manifest written under `folder` would be a file the customer did not have
     before -- and, worse, one the NEXT run would census and try to import."""
     rec = _Recorder()
-    monkeypatch.setattr(bf, "launch_agent", rec)
+    monkeypatch.setattr(bf, "launch_agent", filing(rec))
 
     led = bl.Ledger.for_folder(folder)
     work = led.path.parent / f"{led.path.stem}-manifests"
@@ -114,7 +121,7 @@ def test_both_passes_get_a_scratch_dir_outside_the_imported_folder(folder, monke
 
 def test_the_manifest_lands_in_the_scratch_dir_not_the_folder(folder, monkeypatch):
     rec = _Recorder()
-    monkeypatch.setattr(bf, "launch_agent", rec)
+    monkeypatch.setattr(bf, "launch_agent", filing(rec))
     led = bl.Ledger.for_folder(folder)
     work = led.path.parent / "work"
 
@@ -140,7 +147,7 @@ def test_every_prompt_states_the_folder_is_read_only(build):
         )
     else:
         prompt = bp.import_unit(
-            root="/drive/research", project="p", paths=["a.py"], manifest_path="/state/work/u.jsonl"
+            root="/drive/research", project="p", paths=["a.py"], work_dir="/state/work"
         )
     assert "THE FOLDER IS READ-ONLY" in prompt
     assert "/state/work" in prompt
@@ -160,24 +167,25 @@ def test_every_prompt_says_to_read_by_absolute_path(build):
         )
     else:
         prompt = bp.import_unit(
-            root="/drive/research", project="p", paths=["a.py"], manifest_path="/state/work/u.jsonl"
+            root="/drive/research", project="p", paths=["a.py"], work_dir="/state/work"
         )
     assert "ABSOLUTE paths" in prompt
     assert "/drive/research/<the path as listed>" in prompt
 
 
-def test_the_manifest_path_stays_relative_even_though_reads_are_absolute():
+def test_the_manifest_path_stays_relative_even_though_reads_are_absolute(tmp_path):
     """The two halves point opposite ways and that is not a typo.
 
     Reads resolve against the scratch cwd, so they must be absolute. Manifest
     rows are resolved by `artifact add` running with the FOLDER as its cwd, so
     an absolute path there uploads under a name with someone's home directory
-    baked into it."""
-    prompt = bp.import_unit(
-        root="/drive/research", project="p", paths=["a.py"], manifest_path="/state/work/u.jsonl"
-    )
-    assert '"path": "<path relative to the folder, exactly as listed above>"' in prompt
-    assert '"path" is RELATIVE even though you read the file by its absolute path' in prompt
+    baked into it. Code writes the rows now, from the unit's relative paths."""
+    prompt = bp.import_unit(root="/drive/research", project="p", paths=["a.py"], work_dir="/state/work")
+    assert "Paths are relative to the folder" in prompt
+    (tmp_path / "a.py").write_text("x")
+    manifest = tmp_path / "work" / "u.jsonl"
+    br._write_unit_manifest(tmp_path, bl.Unit("u", "p", ("a.py",)), manifest, {}, {})
+    assert json.loads(manifest.read_text())["path"] == "a.py"
 
 
 # -- concurrent units share one screen, not one line ------------------------

@@ -11,7 +11,8 @@ router = APIRouter()
 
 class PressClipRenderRequest(BaseModel):
     url: str
-    client_name: str = ""
+    #: The Brand the clip is for; searched for in the article text.
+    brand_name: str = ""
     scope: Literal["whole", "section"] = "whole"
     section_heading: str | None = None
     drop: list[str] = Field(default_factory=list)

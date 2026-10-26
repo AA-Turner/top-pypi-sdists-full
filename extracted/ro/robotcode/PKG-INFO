@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: robotcode
-Version: 2.7.0
+Version: 2.8.0
 Summary: Command line interface for RobotCode
 Project-URL: Homepage, https://robotcode.io
 Project-URL: Donate, https://opencollective.com/robotcode
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Debuggers
 Classifier: Topic :: Software Development :: Quality Assurance
@@ -33,35 +34,35 @@ Classifier: Topic :: Text Editors :: Integrated Development Environments (IDE)
 Classifier: Topic :: Utilities
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: robotcode-core==2.7.0
-Requires-Dist: robotcode-plugin==2.7.0
-Requires-Dist: robotcode-robot==2.7.0
+Requires-Dist: robotcode-core==2.8.0
+Requires-Dist: robotcode-plugin==2.8.0
+Requires-Dist: robotcode-robot==2.8.0
 Provides-Extra: all
 Requires-Dist: docutils; extra == 'all'
 Requires-Dist: pyyaml>=5.4; extra == 'all'
-Requires-Dist: robotcode-analyze==2.7.0; extra == 'all'
-Requires-Dist: robotcode-debugger==2.7.0; extra == 'all'
-Requires-Dist: robotcode-language-server==2.7.0; extra == 'all'
-Requires-Dist: robotcode-repl-server==2.7.0; extra == 'all'
-Requires-Dist: robotcode-repl==2.7.0; extra == 'all'
-Requires-Dist: robotcode-runner==2.7.0; extra == 'all'
+Requires-Dist: robotcode-analyze==2.8.0; extra == 'all'
+Requires-Dist: robotcode-debugger==2.8.0; extra == 'all'
+Requires-Dist: robotcode-language-server==2.8.0; extra == 'all'
+Requires-Dist: robotcode-repl-server==2.8.0; extra == 'all'
+Requires-Dist: robotcode-repl==2.8.0; extra == 'all'
+Requires-Dist: robotcode-runner==2.8.0; extra == 'all'
 Requires-Dist: robotframework-robocop>=6.0.0; extra == 'all'
 Provides-Extra: analyze
-Requires-Dist: robotcode-analyze==2.7.0; extra == 'analyze'
+Requires-Dist: robotcode-analyze==2.8.0; extra == 'analyze'
 Provides-Extra: debugger
-Requires-Dist: robotcode-debugger==2.7.0; extra == 'debugger'
+Requires-Dist: robotcode-debugger==2.8.0; extra == 'debugger'
 Provides-Extra: languageserver
-Requires-Dist: robotcode-language-server==2.7.0; extra == 'languageserver'
+Requires-Dist: robotcode-language-server==2.8.0; extra == 'languageserver'
 Provides-Extra: lint
 Requires-Dist: robotframework-robocop>=2.0.0; extra == 'lint'
 Provides-Extra: repl
-Requires-Dist: robotcode-repl==2.7.0; extra == 'repl'
+Requires-Dist: robotcode-repl==2.8.0; extra == 'repl'
 Provides-Extra: replserver
-Requires-Dist: robotcode-repl-server==2.7.0; extra == 'replserver'
+Requires-Dist: robotcode-repl-server==2.8.0; extra == 'replserver'
 Provides-Extra: rest
 Requires-Dist: docutils; extra == 'rest'
 Provides-Extra: runner
-Requires-Dist: robotcode-runner==2.7.0; extra == 'runner'
+Requires-Dist: robotcode-runner==2.8.0; extra == 'runner'
 Provides-Extra: yaml
 Requires-Dist: pyyaml>=5.4; extra == 'yaml'
 Description-Content-Type: text/markdown
@@ -69,7 +70,7 @@ Description-Content-Type: text/markdown
 # RobotCode - The Ultimate Robot Framework Toolset
 
 [![License](https://img.shields.io/github/license/robotcodedev/robotcode?style=flat&logo=apache)](https://github.com/robotcodedev/robotcode/blob/main/LICENSE)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/robotcodedev/robotcode/build-test-package-publish.yml?branch=main&style=flat&logo=github)](https://github.com/robotcodedev/robotcode/actions?query=workflow:build_test_package_publish)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/robotcodedev/robotcode/build-test-package.yml?branch=main&style=flat&logo=github)](https://github.com/robotcodedev/robotcode/actions/workflows/build-test-package.yml)
 [![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/d-biehl.robotcode?style=flat&label=VS%20Marketplace&logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=d-biehl.robotcode)
 [![Installs](https://img.shields.io/visual-studio-marketplace/i/d-biehl.robotcode?style=flat)](https://marketplace.visualstudio.com/items?itemName=d-biehl.robotcode)
 [![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/26216.svg)](https://plugins.jetbrains.com/plugin/26216)
@@ -131,9 +132,22 @@ For the complete feature reference, see the [official documentation](https://rob
 - Python 3.10 or newer
 - Robot Framework 5.0 or newer
 
+**Supported combinations:** each Robot Framework version is supported with the Python versions that it officially supports itself:
+
+| Robot Framework | Python |
+|---|---|
+| 5.0 | 3.10 |
+| 6.0 | 3.10 – 3.11 |
+| 6.1, 7.0 | 3.10 – 3.12 |
+| 7.1, 7.2 | 3.10 – 3.13 |
+| 7.3, 7.4 | 3.10 – 3.14 |
+| 7.5 | 3.10 – 3.15 |
+
+RobotCode's CI tests only these combinations, to keep the effort low. Other combinations may work, but using them is your own responsibility. For example, Robot Framework versions before 7.5 may not work with Python 3.15.
+
 **Editor / IDE — any LSP-capable editor works.** For the dedicated extensions you need one of:
-- Visual Studio Code 1.108.0 or newer
-- PyCharm / IntelliJ IDEA 2025.3 or newer
+- Visual Studio Code 1.127.0 or newer
+- PyCharm / IntelliJ IDEA 2026.1 or newer
 
 Other editors (Neovim, Sublime Text, Helix, Emacs, …) connect to the language server via the `languageserver` extra from PyPI — see [Command Line and Other Editors](#command-line-and-other-editors) below.
 
@@ -143,7 +157,7 @@ Other editors (Neovim, Sublime Text, Helix, Emacs, …) connect to the language 
 ### Visual Studio Code
 
 1. **Install the RobotCode Extension** from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=d-biehl.robotcode).
-2. **Continue with the [Getting Started Guide](https://robotcode.io/02_get_started/)** for setup, your first `robot.toml`, and running your first test.
+2. **Continue with the [Getting Started Guide](https://robotcode.io/getting-started/)** for setup, your first `robot.toml`, and running your first test.
 
 **Extensions:**
 RobotCode declares dependencies on the [Python](https://marketplace.visualstudio.com/items?itemName=ms-python.python) and [Python Debugger](https://marketplace.visualstudio.com/items?itemName=ms-python.debugpy) extensions so VS Code installs them when required. Additional extensions may be needed depending on your project.
@@ -157,7 +171,7 @@ RobotCode declares dependencies on the [Python](https://marketplace.visualstudio
    - **[JetBrains Marketplace](https://plugins.jetbrains.com/plugin/26216):** click <kbd>Install to ...</kbd> if your IDE is running.
    - **Manual:** download the [latest release](https://github.com/robotcodedev/robotcode/releases/latest) and use <kbd>Settings/Preferences</kbd> > <kbd>Plugins</kbd> > <kbd>⚙️</kbd> > <kbd>Install plugin from disk...</kbd>.
 
-2. **Continue with the [Getting Started Guide](https://robotcode.io/02_get_started/)** for setup, your first `robot.toml`, and running your first test.
+2. **Continue with the [Getting Started Guide](https://robotcode.io/getting-started/)** for setup, your first `robot.toml`, and running your first test.
 
 **Plugins:**
 RobotCode declares a dependency on [LSP4IJ](https://plugins.jetbrains.com/plugin/23257) so your IDE installs it automatically. Additional plugins may be required depending on your project needs.
@@ -168,10 +182,10 @@ RobotCode declares a dependency on [LSP4IJ](https://plugins.jetbrains.com/plugin
 For CI pipelines, the command line, or LSP-compatible editors like Neovim, Sublime Text, or Helix, install RobotCode from PyPI. The base `robotcode` package is only the CLI core; the actual commands live in extras such as `runner`, `analyze`, `debugger`, `languageserver`, and `repl`:
 
 ```bash
-pip install robotcode[runner,analyze]
+pip install "robotcode[runner,analyze]"
 ```
 
-Pick the extras that match your use case — see the [CLI reference](https://robotcode.io/03_reference/cli) for the available packages and how to install them.
+Pick the extras that match your use case — see the [CLI reference](https://robotcode.io/reference/cli/) for the available packages and how to install them.
 
 
 ## Documentation
@@ -179,10 +193,10 @@ Pick the extras that match your use case — see the [CLI reference](https://rob
 For detailed instructions, visit our **[official documentation](https://robotcode.io)**. Additional resources:
 
 - **[Q&A](https://github.com/robotcodedev/robotcode/discussions/categories/q-a):** Answers to common questions about RobotCode.
-- **[Tips & Tricks](https://robotcode.io/04_tip_and_tricks/):** Common pitfalls, editor customization, and setup recipes.
-- **[Command Line Tools Reference](https://robotcode.io/03_reference/cli):** Comprehensive documentation on using RobotCode's CLI tools.
+- **[Guides](https://robotcode.io/guides/):** How to use RobotCode's commands and set up projects, plus common pitfalls and editor customization.
+- **[Command Line Tools Reference](https://robotcode.io/reference/cli/):** Comprehensive documentation on using RobotCode's CLI tools.
 - **[Changelog](https://github.com/robotcodedev/robotcode/blob/main/CHANGELOG.md):** Track changes, updates, and new features in each release.
-- **[Support & Contribute](https://robotcode.io/05_contributing/):** Ways to back the project — financial, code, feedback.
+- **[Support & Contribute](https://robotcode.io/contributing/):** Ways to back the project — financial, code, feedback.
 
 
 ## Sponsor RobotCode
@@ -206,6 +220,7 @@ You don't need to sponsor to help. Every contribution — feedback, code, advoca
 - Leave a review on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=d-biehl.robotcode) and [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/26216)
 - Ask questions & help others on [Slack #robotcode](https://slack.robotframework.org/), the [Forum](https://forum.robotframework.org), or [Discussions](https://github.com/robotcodedev/robotcode/discussions)
 - Report bugs in the [issue tracker](https://github.com/robotcodedev/robotcode/issues)
+- Try the [dev builds](https://robotcode.io/getting-started/dev-builds/) and report what you find
 - Suggest enhancements or features (issues or [Discussions](https://github.com/robotcodedev/robotcode/discussions))
 - Share usage patterns & integration ideas in [Discussions](https://github.com/robotcodedev/robotcode/discussions)
 - Improve tests (edge cases, large suites, multi-root, versions)

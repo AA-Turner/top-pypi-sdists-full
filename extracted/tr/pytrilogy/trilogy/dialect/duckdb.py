@@ -35,6 +35,7 @@ from trilogy.core.enums import (
     Modifier,
     UnnestMode,
 )
+from trilogy.core.exceptions import ConfigurationException
 from trilogy.core.models.core import CONCRETE_TYPES, DataType, arg_to_datatype
 from trilogy.core.models.datasource import Address
 from trilogy.core.models.execute import (
@@ -185,8 +186,10 @@ FUNCTION_MAP = {
     FunctionType.TIMESTAMP: lambda x, types: f"cast({x[0]} as timestamptz)",
     FunctionType.DATE: lambda x, types: f"cast({x[0]} as date)",
     FunctionType.DATE_TRUNCATE: lambda x, types: date_trunc(x, types),
-    FunctionType.DATE_ADD: lambda x, types: f"date_add({x[0]}, {x[2]} * INTERVAL 1 {x[1]})",
-    FunctionType.DATE_SUB: lambda x, types: f"date_add({x[0]}, -{x[2]} * INTERVAL 1 {x[1]})",
+    # the offset is parenthesized: `n + 1 * INTERVAL` binds the 1, and `--1`
+    # comments out the rest of the statement
+    FunctionType.DATE_ADD: lambda x, types: f"date_add({x[0]}, ({x[2]}) * INTERVAL 1 {x[1]})",
+    FunctionType.DATE_SUB: lambda x, types: f"date_add({x[0]}, -({x[2]}) * INTERVAL 1 {x[1]})",
     FunctionType.DATE_PART: lambda x, types: date_part(x, types),
     FunctionType.DATE_DIFF: lambda x, types: f"date_diff('{x[2]}', {x[0]}, {x[1]})",
     # concat() skips NULLs, || (CONCAT_STRICT) propagates, concat_ws(sep, ...)
@@ -437,10 +440,26 @@ def attach_resident(connection: Any, location: str) -> str | None:
     return alias
 
 
-VGI_SETUP_SQL = """
-INSTALL vgi FROM community;
-LOAD vgi;
-"""
+# The vgi build to install: a 10-char commit, served immutably at
+# haybarn-extensions.query.farm/community/<engine>/<platform>/vgi/<commit>/
+# (`.../vgi/current.json` names the latest). A worker speaks only the protocol
+# of the build it was made for, so bump this with vgi-python (pyproject) and the
+# `vgi` crate (crates/trilogy-io); the haybarn bound keeps <engine> published.
+VGI_EXTENSION_VERSION = "454fefa50b"
+
+
+def vgi_setup_sql(installed: str | None) -> str:
+    """LOAD the pinned vgi build, installing it only if another one is installed.
+
+    A plain INSTALL refuses to replace a differently pinned (or unpinned) build,
+    and FORCE downloads every time, so FORCE runs only on a mismatch.
+    """
+    if installed and VGI_EXTENSION_VERSION.startswith(installed):
+        return "LOAD vgi;"
+    return (
+        f"FORCE INSTALL vgi FROM community VERSION '{VGI_EXTENSION_VERSION}';\n"
+        "LOAD vgi;"
+    )
 
 
 def bridge_attach_sql(python_executable: str, is_windows: bool) -> str:
@@ -516,6 +535,48 @@ def python_datasource_failure(error: Exception) -> PythonDatasourceError | None:
         next(g for g in script.groups() if g) if script else command,
         int(failure.group(1)),
         stderr,
+    )
+
+
+# haybarn says "out-of-date" whichever side is older: a worker built for a newer
+# vgi extension than the one loaded fails exactly like one built for an older.
+_VGI_SCHEMA_DRIFT = "Worker returned an out-of-date Apache Arrow schema"
+_VGI_WORKER = re.compile(r"\[worker: ([^\]]*)\]")
+
+
+def loaded_vgi_version(connection: Any, state: str = "loaded") -> str | None:
+    """The vgi build ``state`` (``loaded`` or ``installed``), as a short commit."""
+    side = duckdb_side_cursor(connection)
+    if side is None:
+        return None
+    try:
+        row = side.execute(
+            "SELECT extension_version FROM duckdb_extensions() "
+            f"WHERE extension_name = 'vgi' AND {state}"
+        ).fetchone()
+    finally:
+        side.close()
+    return row[0] if row else None
+
+
+def vgi_version_mismatch(
+    message: str, connection: Any | None
+) -> ConfigurationException | None:
+    """An actionable error for a vgi extension and worker built for different releases."""
+    if _VGI_SCHEMA_DRIFT not in message:
+        return None
+    extension_version = loaded_vgi_version(connection) if connection else None
+    worker = _VGI_WORKER.search(message)
+    return ConfigurationException(
+        "The vgi extension and a VGI worker were built for different vgi releases "
+        f"(extension {extension_version or 'unknown'}, host {vgi_python_requirement()}"
+        f"{f', worker: {worker.group(1)}' if worker else ''}). Either side may be "
+        "the stale one:\n"
+        f"- extension: this pytrilogy pins vgi {VGI_EXTENSION_VERSION}; run "
+        f"`FORCE INSTALL vgi FROM community VERSION '{VGI_EXTENSION_VERSION}';` "
+        "if another build was loaded\n"
+        "- worker older: `pip install -U 'pytrilogy[vgi]'` for python sources; "
+        "rebuild compiled sources against the current `vgi` crate"
     )
 
 

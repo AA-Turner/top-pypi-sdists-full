@@ -14,6 +14,7 @@ dependencies = [
     "scipy>=1.7.3",
 ]
 readme = "README.rst"
+license = "BSD-3-Clause"
 keywords = [
     "numerical differentiation",
     "derivatives",
@@ -32,7 +33,6 @@ classifiers = [
     "Environment :: Console",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Unix",
@@ -40,10 +40,7 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
-version = "0.11.1"
-
-[project.license]
-file = "LICENSE.txt"
+version = "0.11.2"
 
 [project.optional-dependencies]
 plot = [
@@ -108,10 +105,17 @@ cmd = "pytest"
 [tool.pdm.scripts.tests.env]
 MPLBACKEND = "Agg"
 
-[tool.pdm.scripts.test]
-composite = [
-    "tests",
-]
+[tool.pdm.scripts.tests-fast]
+cmd = "pytest -m 'not slow'"
+
+[tool.pdm.scripts.tests-fast.env]
+MPLBACKEND = "Agg"
+
+[tool.pdm.scripts.tests-slow]
+cmd = "pytest -m slow"
+
+[tool.pdm.scripts.tests-slow.env]
+MPLBACKEND = "Agg"
 
 [tool.pdm.scripts.all-tests]
 composite = [
@@ -199,10 +203,6 @@ convention = "numpy"
 docstring-code-line-length = 100
 
 [tool.pytest.ini_options]
-markers = [
-    "slow: marks tests as slow (time-consuming)",
-    "benchmark: marks tests used for benchmarking",
-]
 doctest_optionflags = [
     "NORMALIZE_WHITESPACE",
     "IGNORE_EXCEPTION_DETAIL",

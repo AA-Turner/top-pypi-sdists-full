@@ -29,7 +29,7 @@ from istari_digital_client.sdk._admin import (
     Usage,
     Users,
 )
-from istari_digital_client.sdk._common import Jobs, Resources, Systems
+from istari_digital_client.sdk._common import Credentials, Jobs, Resources, Systems
 from istari_digital_client.sdk._integrations import (
     AgentPools,
     Agents,
@@ -97,7 +97,7 @@ class _ClosableClient:
 
 
 class Istari(_ClosableClient):
-    """Common-user entry point: resources, systems (git-like), and jobs.
+    """Common-user entry point: resources, systems (git-like), jobs, and credentials.
 
     .. warning::
        **Beta — API subject to change.** This facade is under active development
@@ -133,6 +133,11 @@ class Istari(_ClosableClient):
     def jobs(self) -> Jobs:
         """Jobs — submit, monitor, and execute."""
         return Jobs(self._engine)
+
+    @cached_property
+    def credentials(self) -> Credentials:
+        """Stored credentials (Linked Accounts) — what a job binds to a function's auth_info input."""
+        return Credentials(self._engine)
 
 
 class IstariIntegrations(_ClosableClient):

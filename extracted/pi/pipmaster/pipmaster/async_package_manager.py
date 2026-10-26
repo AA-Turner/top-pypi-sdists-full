@@ -56,10 +56,11 @@ class AsyncPackageManager:
         logger.info(f"{EMOJI['gear']} [Async] Executing: {command_str}")
 
         try:
-            stdout_pipe = asyncio.subprocess.PIPE if capture_output or verbose else asyncio.subprocess.DEVNULL
-            stderr_pipe = asyncio.subprocess.PIPE if capture_output or verbose else asyncio.subprocess.DEVNULL
+            # Always capture output unless in verbose mode (where it streams)
+            stdout_pipe = asyncio.subprocess.PIPE
+            stderr_pipe = asyncio.subprocess.PIPE
 
-            if verbose and not capture_output:
+            if verbose:
                 stdout_pipe = asyncio.subprocess.PIPE
                 stderr_pipe = asyncio.subprocess.STDOUT
 
@@ -90,10 +91,21 @@ class AsyncPackageManager:
                 return True, stdout_str or "Command executed successfully."
             else:
                 error_message = f"{EMOJI['cross']} [Async] Command failed (code {process.returncode})"
-                if stdout_str: error_message += f"\n--- stdout ---\n{stdout_str.strip()}"
-                if stderr_str: error_message += f"\n--- stderr ---\n{stderr_str.strip()}"
                 logger.error(error_message)
-                return False, error_message
+                
+                stdout_clean = stdout_str.strip()
+                stderr_clean = stderr_str.strip()
+                max_len = 4000
+                
+                if stdout_clean:
+                    truncated = "..." if len(stdout_clean) > max_len else ""
+                    logger.error(f"{EMOJI['info']} --- STDOUT ---\n{truncated}{stdout_clean[-max_len:]}")
+                if stderr_clean:
+                    truncated = "..." if len(stderr_clean) > max_len else ""
+                    logger.error(f"{EMOJI['warning']} --- STDERR ---\n{truncated}{stderr_clean[-max_len:]}")
+                
+                full_err = error_message + (f"\n--- stdout ---\n{stdout_clean}" if stdout_clean else "") + (f"\n--- stderr ---\n{stderr_clean}" if stderr_clean else "")
+                return False, full_err
                 
         except FileNotFoundError:
             error_message = f"{EMOJI['cross']} [Async] Error: Command failed. Is '{self.pip_command_base[0]}' valid?"

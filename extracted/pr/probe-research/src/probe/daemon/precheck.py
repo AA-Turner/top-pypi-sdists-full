@@ -89,6 +89,7 @@ OWNERS: dict[str, str] = {
     "ask": RESEARCHER,
     "edge add": DAEMON, "edge remove": DAEMON, "events": READ, "exec": SDK,
     "feedback send": DAEMON, "feedback flush": SETUP,
+    "experiment branch": READ,
     "experiment create": DAEMON, "experiment delete": DAEMON, "experiment edges": READ,
     "experiment fork": DAEMON, "experiment inherited": READ,
     "experiment freeze": DAEMON, "experiment get": READ, "experiment lineage": READ, "experiment list": READ,
@@ -102,13 +103,14 @@ OWNERS: dict[str, str] = {
     "metrics backfill": RESEARCHER, "metrics delete": RESEARCHER, "metrics export": READ, "metrics grouped": READ,
     "metrics plot": READ, "metrics wide": READ,
     "notes append": DAEMON, "notes audit-advisory": READ, "notes checkout": DAEMON, "notes create": DAEMON,
-    "notes delete": DAEMON, "notes edit": DAEMON, "notes list": READ, "notes push": DAEMON, "notes rename": DAEMON,
+    "notes delete": DAEMON, "notes edit": DAEMON, "notes find": READ, "notes list": READ, "notes push": DAEMON, "notes rename": DAEMON,
     "notes show": READ, "notes status": READ,
     "notes sync": DAEMON, "notes team": READ, "notes write": RESEARCHER,
     "outbox adopt": SDK, "outbox discard": SDK, "outbox drain": SDK, "outbox pause": SDK, "outbox resume": SDK, "outbox retry": SDK,
     "outbox status": READ, "outbox watch": READ,
     "paper add": DAEMON, "paper citations": READ, "paper edges": READ, "paper find": READ, "paper graph": READ,
     "paper list": READ, "paper remove": DAEMON, "paper tag": DAEMON, "paper update": DAEMON,
+    "project branches": READ,
     "project code attach": DAEMON, "project code confirm": DAEMON, "project code detach": DAEMON,
     "project code list": READ, "project contributors": READ, "project create": DAEMON, "project delete": DAEMON,
     "project get": READ, "project lineage": READ, "project list": READ, "project move": DAEMON, "project patch": DAEMON,
@@ -128,6 +130,9 @@ OWNERS: dict[str, str] = {
     "ignore check": READ, "session parent": RESEARCHER,
     "session toggle": SWITCH, "session track": SWITCH, "session untrack": SWITCH,
     "session export": RESEARCHER,
+    # A message to one of the researcher's own running sessions (G7): an
+    # orchestrator's, never the daemon's (it would speak into another session).
+    "session send": RESEARCHER,
     "setup": SETUP, "wizard": SETUP, "update": SETUP,
     "shared add": RESEARCHER, "shared delete": RESEARCHER, "shared download": RESEARCHER, "shared list": READ,
     "shared share": RESEARCHER, "shared unshare": RESEARCHER,
@@ -164,6 +169,9 @@ OWNERS: dict[str, str] = {
     # the daemon's own included: the researcher's, like `workspace use` (D-d).
     "workspace limit": RESEARCHER,
     "workspace rename": RESEARCHER, "workspace use": RESEARCHER, "workspace writers set": RESEARCHER,
+    # The workspace's best pick, as `project set --best` is the project's: a
+    # recorded judgement with its reason; a person's pick is never written over.
+    "workspace set": DAEMON,
     "workspace writers show": READ,
 }
 
@@ -352,18 +360,35 @@ class ParseError(Exception):
 
 
 _ROOT = None
+_LIVE_ROOT = None
+
+
+def _live_root():
+    """The CLI's own tree, imported (35 MB): only when no spec can be had for the
+    installed CLI -- neither the shipped `cli_spec.json` nor the copy a child writes
+    into the daemon's state folder (`cli_spec.load`) -- or the CLI is loaded already."""
+    global _LIVE_ROOT
+    if _LIVE_ROOT is None:
+        import typer.main
+
+        _LIVE_ROOT = typer.main.get_command(importlib.import_module("probe.cli.main").app)
+    return _LIVE_ROOT
 
 
 def _root():
+    """The CLI's command tree: rebuilt from `cli_spec.json` (the CLI's own tree as
+    data, kept equal to it by a test), so the daemon never imports the whole CLI
+    to check a command (plan M1); the CLI's own when that file cannot be read."""
     global _ROOT
     if _ROOT is None:
-        import typer.main
+        from probe.daemon import cli_spec
 
-        _ROOT = typer.main.get_command(importlib.import_module("probe.cli.main").app)
+        root = cli_spec.load()
+        _ROOT = root if root is not None else _live_root()
     return _ROOT
 
 
-def _walk(argv: list[str]) -> tuple[list[str], list[str], list[str], Any]:
+def _walk(argv: list[str], root: Any = None) -> tuple[list[str], list[str], list[str], Any]:
     """`(root options, command words, the words after them, the click command or
     group they name)` for `argv`, the words after `probe`."""
     args = list(argv)
@@ -374,7 +399,7 @@ def _walk(argv: list[str]) -> tuple[list[str], list[str], list[str], Any]:
         if option in ("--base-url", "--spool-dir") and args:
             args.pop(0)
     path: list[str] = []
-    cmd: Any = _root()
+    cmd: Any = _root() if root is None else root
     while hasattr(cmd, "commands") and args and not args[0].startswith("-"):
         name = args[0]
         sub = cmd.commands.get(name)
@@ -398,9 +423,13 @@ def _help_flag(cmd: Any, ctx: Any) -> bool:
 
 def parse(argv: list[str]) -> Parsed:
     """Resolve `argv` (the words after `probe`) with the CLI's own parser, without running it."""
+    return _parse(argv, _root())
+
+
+def _parse(argv: list[str], root: Any) -> Parsed:
     import click
 
-    root_options, path, args, cmd = _walk(argv)
+    root_options, path, args, cmd = _walk(argv, root)
     if not path:
         raise ParseError(f"`probe {' '.join(argv[:2])}` is not a probe command")
     if getattr(cmd, "commands", None):

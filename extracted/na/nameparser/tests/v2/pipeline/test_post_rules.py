@@ -6,6 +6,7 @@ import pytest
 from nameparser import Parser, parse
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline import run
+from nameparser._pipeline import _post_rules
 from nameparser._pipeline._post_rules import suffix_entries
 from nameparser._pipeline._state import ParseState
 from nameparser._policy import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST,
@@ -24,8 +25,9 @@ from nameparser._types import (FOLDED_TAG, STABLE_TAGS,
 # absent while shipping as titles, and `la` sat in the never-given half
 # while shipping as ambiguous.
 _LEX = Lexicon(
-    titles=frozenset({"mr", "sir", "dr", "md"}),
+    titles=frozenset({"mr", "sir", "dr"}),
     given_name_titles=frozenset({"sir"}),
+    after_given_titles=frozenset({"mr"}),
     particles=frozenset({"de", "der", "ibn", "la", "van", "vd"}),
     particles_ambiguous=frozenset({"la", "van"}),
     # `씨` is a ONE-LETTER suffix word, which starts no credential run
@@ -1246,3 +1248,44 @@ def test_a_word_that_is_both_particle_and_connective_is_marked_too(
     # rather than "nothing else here"
     assert UNJOINED_CONJUNCTION_TAG not in tags["de"]
     assert UNJOINED_TAG not in tags["de"]
+
+
+def test_two_family_names_declines_a_family_first_name_whose_family_is_not_first() -> None:
+    # rules/O6's family-first arm takes the unit after a family standing
+    # FIRST; no shipped rule leaves a family-first name otherwise
+    # (searched over a 19-word grid to four words under both
+    # family-first orders, #754), so the guard is pinned on a state built
+    # by hand: the family moved to the end, where taking "the unit
+    # after it" would take the first word of the name.
+    from nameparser._pipeline._post_rules import _take_second_family_name
+    from nameparser._pipeline._state import copy_with
+    policy = Policy(name_order=FAMILY_FIRST, two_family_names=True)
+    state = run(ParseState(original="García Ana María", lexicon=_LEX,
+                           policy=Policy(name_order=FAMILY_FIRST)))
+    roles = (Role.GIVEN, Role.MIDDLE, Role.FAMILY)
+    tokens = [copy_with(t, role=r) for t, r in zip(state.tokens, roles)]
+    moved = copy_with(state, policy=policy, tokens=tuple(tokens))
+    _take_second_family_name(moved, tokens)
+    assert [t.role for t in tokens] == list(roles)
+
+
+#: rules/O6's hyphen class, written out: a member dropped from the
+#: regex fails its row below, and one added there fails the roster
+#: test until it is listed here (#878 review).
+_O6_HYPHENS = ("-", "\u2010", "\u2011", "\u2012", "\u2013", "\u2212",
+               "\ufe63", "\uff0d")
+
+
+def test_two_family_names_hyphen_class_is_the_listed_one() -> None:
+    assert set(_post_rules._HYPHENS.pattern[1:-1]) == set(_O6_HYPHENS)
+
+
+@pytest.mark.parametrize("hyphen", _O6_HYPHENS,
+                         ids=lambda h: f"U+{ord(h):04X}")
+def test_two_family_names_counts_every_listed_hyphen_as_two_words(
+        hyphen: str) -> None:
+    # O6's hyphen clause, for each member of the class
+    out = _parsed(f"Ana María García{hyphen}López",
+                  Policy(two_family_names=True))
+    assert _by_role(out, Role.MIDDLE) == "María"
+    assert _by_role(out, Role.FAMILY) == f"García{hyphen}López"

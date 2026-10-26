@@ -1100,3 +1100,186 @@ def test_a_gap_the_service_settled_is_never_taken_back_from_a_watchs_older_write
     host._gate(rec)
     assert gate.gaps_of(rec.params) == [[20, 30]]
     assert gate.read_gap_file(sessions, SID) == [[20, 30]]
+
+
+# -- a held recorder hears its session end ---------------------------------------------------
+#
+# Switched off and back on while the server refuses or cannot be reached, a
+# session's recorder waits between tries to settle its gap (5 s, doubling up to
+# 5 min). It waited on its wake alone: neither its SessionEnd (`recorders.finish`
+# sets `stop`) nor its agent exiting woke it, so it finished the session only at
+# its next try and kept the Probe service alive up to 5 min after the last
+# session ended (release gate C8, a machine whose key the server refuses).
+
+
+def _held_between_tries(tmp_path, monkeypatch):
+    import time
+
+    from probe.service import recorders
+
+    monkeypatch.setenv(recorders.RETRY_ENV, "120")
+    host, rec = _host(tmp_path, monkeypatch, switch={"now": "full"})
+    rec.params[gate.GAPS_KEY] = [[3, None]]
+    assert host._gate(rec) is False  # on again: the gap closes, a settle is due
+    calls = []
+
+    def settle(tap, params, gaps, *, finalize, log, current):
+        calls.append(finalize)
+        return gate.DONE if finalize else gate.RETRY  # refused / unreachable until the end
+
+    monkeypatch.setattr(gate, "settle", settle)
+    monkeypatch.setattr(gate, "write_marker", lambda *a, **k: None)
+    result = []
+    rec.thread = threading.Thread(target=lambda: result.append(host._hold(rec)), daemon=True)
+    rec.thread.start()
+    deadline = time.monotonic() + 10
+    while calls != [False] and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert calls == [False], "the first try to settle ran and failed"
+    return host, rec, calls, result
+
+
+def test_a_held_recorder_finishes_its_session_at_its_session_end_not_its_next_try(
+        tmp_path, monkeypatch, clean_unsettled):
+    import asyncio
+
+    from probe.service import recorders
+
+    host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
+    answer = asyncio.run(host.finish({"sid": SID, "wait": 5}))
+    assert answer == {"recording": True, "finished": True}
+    assert calls == [False, True] and result == [recorders.ENDED_STEP]
+
+
+def test_a_held_recorder_finishes_its_session_when_its_agent_exits(tmp_path, monkeypatch, clean_unsettled):
+    from probe.service import recorders
+
+    host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
+    monkeypatch.setattr(host, "_owner_alive", lambda r: False)
+    host.wake(SID)  # the service's `_owner_exited` / `_end`
+    rec.thread.join(5)
+    assert not rec.thread.is_alive()
+    assert calls == [False, True] and result == [recorders.ENDED_STEP]
+    host.wake("no-such-session")  # nothing recorded: nothing to wake
+
+
+def test_a_held_recorder_sees_its_session_end_with_no_wake_within_a_look(tmp_path, monkeypatch, clean_unsettled):
+    """Review of #3393: an end that reaches it without a wake (a `/clear`: the
+    tap's end sentinel alone) is seen at the next look (HELD_POLL_S), not at
+    the end of the back-off; the back-off only spaces the tries to settle."""
+    from probe.service import recorders
+
+    host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
+    monkeypatch.setattr(host, "_ending", lambda r: True)
+    rec.thread.join(gate.HELD_POLL_S + 3)
+    assert not rec.thread.is_alive()
+    assert calls == [False, True] and result == [recorders.ENDED_STEP]
+
+
+def test_wakes_never_bring_a_try_to_settle_forward(tmp_path, monkeypatch, clean_unsettled):
+    import time
+
+    host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
+    for _ in range(3):
+        host.wake(SID)
+        time.sleep(0.05)
+    time.sleep(gate.HELD_POLL_S + 0.5)
+    assert calls == [False], "a wake looks; the next try waits for its back-off"
+    rec.controls.pause.set()
+    rec.gate_wake.set()
+    rec.thread.join(5)
+
+
+def test_three_wakes_for_one_end_keep_its_last_tries_two_seconds_apart(tmp_path, monkeypatch, clean_unsettled):
+    """Review of #3393: one end wakes it up to three times (its SessionEnd,
+    `session.end`, its agent's exit); the last tries before it is left for a
+    later service stay 2 s apart, so a server blip of a few seconds is ridden out."""
+    import time
+
+    from probe.service import recorders
+
+    host, rec, calls, result = _held_between_tries(tmp_path, monkeypatch)
+    finals = []
+
+    def settle(tap, params, gaps, *, finalize, log, current):
+        if finalize:
+            finals.append(time.monotonic())
+        return gate.RETRY
+
+    monkeypatch.setattr(gate, "settle", settle)
+    monkeypatch.setattr(host, "_owner_alive", lambda r: False)
+    for _ in range(3):
+        host.wake(SID)
+        time.sleep(0.05)
+    deadline = time.monotonic() + 10
+    while len(finals) < recorders.AFTER_EXIT_TRIES and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert len(finals) == recorders.AFTER_EXIT_TRIES
+    assert all(b - a >= 1.9 for a, b in zip(finals, finals[1:])), finals
+    assert rec.deferred, "left for a later service"
+    rec.controls.pause.set()
+    rec.gate_wake.set()
+    rec.thread.join(5)
+
+
+def test_a_wake_ends_a_running_recorders_back_off(tmp_path, monkeypatch, clean_unsettled):
+    import time
+
+    host, rec = _host(tmp_path, monkeypatch, switch={"now": "full"})
+    host.gated = False
+    result = []
+    worker = threading.Thread(target=lambda: result.append(host._backoff(rec, 60)), daemon=True)
+    started = time.monotonic()
+    worker.start()
+    host.wake(SID)
+    worker.join(5)
+    assert result == [False] and time.monotonic() - started < 5
+
+
+def test_after_its_agent_exits_a_failing_recorders_last_passes_are_two_seconds_apart(
+        tmp_path, monkeypatch, clean_unsettled):
+    """Review of #3393: a recorder failing its passes (a 401) whose agent
+    exited made its last tries at its back-off (up to 5 min), holding the
+    service; now 2 s apart, as after its stop."""
+    import time
+    import types as _types
+
+    from probe.service import recorders
+
+    monkeypatch.setenv(recorders.RETRY_ENV, "120")
+    host, rec = _host(tmp_path, monkeypatch, switch={"now": "full"})
+    host.gated = False
+    passes = []
+
+    def record(params, controls):
+        passes.append(time.monotonic())
+        return "failed", "http 401"
+
+    host.hosted = _types.SimpleNamespace(record=record, ENDED="ended", PAUSED="paused", FAILED="failed")
+    monkeypatch.setattr(host, "_needs_hold", lambda r: False)
+    monkeypatch.setattr(host, "_owner_alive", lambda r: False)
+    monkeypatch.setattr(host, "incident", lambda *a, **k: None, raising=False)
+    worker = threading.Thread(target=host._guard, args=(rec,), daemon=True)
+    worker.start()
+    worker.join(12)
+    assert not worker.is_alive(), "it ended within seconds, not after its back-off"
+    assert len(passes) == recorders.AFTER_EXIT_TRIES + 1
+    assert all(b - a >= 1.9 for a, b in zip(passes, passes[1:]))
+
+
+def test_the_service_wakes_the_recorder_when_its_session_ends_or_its_agent_exits(tmp_path, monkeypatch):
+    """Review of #3393: the server's two end paths (`_end`, `_owner_exited`)
+    reach the recorder."""
+    from probe.service import client, server
+    from probe.service.registry import Registry
+
+    service = server.Service(registry=Registry(tmp_path / "sessions.json"))
+    woken = []
+    monkeypatch.setattr(service.recorders, "wake", woken.append)
+    owner = client.owner_of(os.getpid())
+    service.registry.register(SID, "claude_code", "inline", owner, 1)
+    service._owner_exited(SID, 1)  # noqa: SLF001
+    assert woken == [SID]
+    service.registry.register(SID, "claude_code", "inline", owner, 2)
+    service._end(server.Connection(None, peer_pid=os.getpid()), {"sid": SID, "generation": 2})  # noqa: SLF001
+    assert woken == [SID, SID]

@@ -164,10 +164,9 @@ class Sequence(object):
                 start = None
                 end = None
             elif slice_step == -1:  # flip the coordinates when we reverse
-                if slice_stop == -1:
-                    slice_stop = 0
-                start = self_end - slice_stop
-                end = self_start + slice_stop
+                direction = -1 if self_start > self_end else 1
+                start = self_start + direction * (slice_start + 1 + correction_factor)
+                end = self_start + direction * (slice_stop + 1)
             else:
                 # Adjust coordinates based on the original orientation.
                 # If start > end, the sequence is in reverse orientation and
@@ -1113,6 +1112,11 @@ class FastaRecord(object):
         Coordinates are 0-based, end-exclusive."""
         try:
             if isinstance(n, slice):
+                if n.step is not None and n.step < 0:
+                    start, stop, step = n.indices(len(self))
+                    if start <= stop:
+                        return self._fa.get_seq(self.name, 1, 0)[::step]
+                    return self._fa.get_seq(self.name, stop + 2, start + 1)[::step]
                 start, stop, step = n.start, n.stop, n.step
                 if start is None:
                     start = 0

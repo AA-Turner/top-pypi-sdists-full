@@ -1447,17 +1447,25 @@ class Client:
         return response.json()
 
     def reload_model(
-        self, model_uid: str, model_config: Dict[str, Any], drain_timeout: float = 300
+        self,
+        model_uid: str,
+        model_config: Dict[str, Any],
+        drain_timeout: float = 300,
+        python_executable: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Start an asynchronous reload, retaining GPU weights and model UID.
+        """Start an asynchronous parameter reload with the same model UID.
 
-        Launch with ``enable_weight_cache=True`` first. Use
+        Engine changes require launch-time ``enable_weight_cache=True``;
+        a standalone ``reasoning_content`` update does not. Use
         ``get_model_reload_status`` to wait for ready/error after HTTP 202.
         """
         url = f"{self.base_url}/v1/models/{quote(model_uid, safe='')}/reload"
+        payload = {"model_config": model_config, "drain_timeout": drain_timeout}
+        if python_executable is not None:
+            payload["python_executable"] = python_executable
         response = self.session.post(
             url,
-            json={"model_config": model_config, "drain_timeout": drain_timeout},
+            json=payload,
             headers=self._headers,
         )
         if response.status_code != 202:
@@ -2073,6 +2081,119 @@ class Client:
             )
         response_data = response.json()
         return response_data
+
+    def relaunch_api(
+        self,
+        python_executable: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Replace the distributed API process while existing requests drain."""
+        response = self.session.post(
+            f"{self.base_url}/v1/api/relaunch",
+            json={"python_executable": python_executable, "request_id": request_id},
+            headers=self._headers,
+        )
+        if response.status_code != 202:
+            raise RuntimeError(f"Failed to relaunch API: {_get_error_string(response)}")
+        return response.json()
+
+    def get_api_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        response = self.session.get(
+            f"{self.base_url}/v1/api-relaunches/{quote(operation_id, safe='')}",
+            headers=self._headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get API relaunch: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def list_api_relaunches(self) -> List[Dict[str, Any]]:
+        response = self.session.get(
+            f"{self.base_url}/v1/api-relaunches", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list API relaunches: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def relaunch_supervisor(
+        self,
+        python_executable: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Replace the distributed Supervisor process while models remain running."""
+        response = self.session.post(
+            f"{self.base_url}/v1/supervisor/relaunch",
+            json={"python_executable": python_executable, "request_id": request_id},
+            headers=self._headers,
+        )
+        if response.status_code != 202:
+            raise RuntimeError(
+                f"Failed to relaunch Supervisor: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_supervisor_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        response = self.session.get(
+            f"{self.base_url}/v1/supervisor-relaunches/{quote(operation_id, safe='')}",
+            headers=self._headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get Supervisor relaunch: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def list_supervisor_relaunches(self) -> List[Dict[str, Any]]:
+        response = self.session.get(
+            f"{self.base_url}/v1/supervisor-relaunches", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list Supervisor relaunches: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def relaunch_worker(
+        self,
+        worker_address: str,
+        python_executable: Optional[str] = None,
+        request_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Relaunch a Worker and return its asynchronous operation status."""
+        response = self.session.post(
+            f"{self.base_url}/v1/workers/{quote(worker_address, safe='')}/relaunch",
+            json={"python_executable": python_executable, "request_id": request_id},
+            headers=self._headers,
+        )
+        if response.status_code != 202:
+            raise RuntimeError(
+                f"Failed to relaunch worker: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def get_worker_relaunch(self, operation_id: str) -> Dict[str, Any]:
+        response = self.session.get(
+            f"{self.base_url}/v1/worker-relaunches/{quote(operation_id, safe='')}",
+            headers=self._headers,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to get worker relaunch: {_get_error_string(response)}"
+            )
+        return response.json()
+
+    def list_worker_relaunches(self) -> List[Dict[str, Any]]:
+        response = self.session.get(
+            f"{self.base_url}/v1/worker-relaunches", headers=self._headers
+        )
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Failed to list worker relaunches: {_get_error_string(response)}"
+            )
+        return response.json()
 
     def get_supervisor_info(self):
         url = f"{self.base_url}/v1/supervisor"

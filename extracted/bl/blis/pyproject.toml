@@ -1,15 +1,14 @@
 [build-system]
 requires = [
     "setuptools",
-    "cython>=3.0,<4.0",
+    "cython>=3.1,<4.0",
     "numpy>=2.0.0,<3.0.0",
 ]
 build-backend = "setuptools.build_meta"
 
 [tool.cibuildwheel]
 build = "*"
-skip = "cp38* cp39* cp3??t-*"
-test-skip = ""
+skip = "cp38* cp39* cp310-win_arm64*"
 
 archs = ["native"]
 
@@ -24,21 +23,22 @@ before-all = ""
 before-build = ""
 repair-wheel-command = ""
 
-test-command = ""
+test-command = "pytest"
+test-sources = ["tests", "pyproject.toml"]
 before-test = ""
-test-requires = []
+test-requires = ["pytest", "hypothesis"]
 test-extras = []
 
 container-engine = "docker"
 
-manylinux-x86_64-image = "manylinux2014"
-manylinux-i686-image = "manylinux2014"
-manylinux-aarch64-image = "manylinux2014"
-manylinux-ppc64le-image = "manylinux2014"
-manylinux-s390x-image = "manylinux2014"
-manylinux-pypy_x86_64-image = "manylinux2014"
-manylinux-pypy_i686-image = "manylinux2014"
-manylinux-pypy_aarch64-image = "manylinux2014"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-i686-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+manylinux-ppc64le-image = "manylinux_2_28"
+manylinux-s390x-image = "manylinux_2_28"
+manylinux-pypy_x86_64-image = "manylinux_2_28"
+manylinux-pypy_i686-image = "manylinux_2_28"
+manylinux-pypy_aarch64-image = "manylinux_2_28"
 
 musllinux-x86_64-image = "musllinux_1_2"
 musllinux-i686-image = "musllinux_1_2"
@@ -56,3 +56,13 @@ repair-wheel-command = "delocate-wheel --require-archs {delocate_archs} -w {dest
 [tool.cibuildwheel.windows]
 
 [tool.cibuildwheel.pyodide]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config -v -r sxfE --color=yes --durations=10"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+markers = [
+  # Needed when pytest-run-parallel is not installed
+  "thread_unsafe: Run test in single thread in pytest-run-parallel"
+]

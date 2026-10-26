@@ -17,11 +17,13 @@ from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET, NotSet
 from schemathesis.core.adapter import OperationParameter
 from schemathesis.core.errors import InvalidSchema, RefResolutionError, unresolvable_reference
+from schemathesis.core.file_samples import iter_media_type_file_samples
 from schemathesis.core.jsonschema import (
     VALIDATED_FORMATS_BY_DRAFT,
     BundleError,
     Bundler,
     make_validator,
+    resolve_bundled_root,
     resolve_with_root_bundle,
     schema_with_bundle,
 )
@@ -585,6 +587,8 @@ def _captured_variants(
     if extra_data_source is None:
         return None
     extra_data_source = cast("OpenApiExtraDataSource", extra_data_source)
+    if isinstance(schema, dict):
+        schema = resolve_bundled_root(schema)
     variants = extra_data_source.get_captured_variants(operation=operation, location=location, schema=schema)
     if not variants:
         return None
@@ -1379,7 +1383,8 @@ class OpenApiComponent(ABC):
         if isinstance(container, dict):
             examples.extend(ex["value"] for ex in container.values() if isinstance(ex, dict) and "value" in ex)
         elif isinstance(container, list):
-            examples.extend(container)
+            # Items may be Example Objects or raw values
+            examples.extend(ex["value"] if isinstance(ex, dict) and "value" in ex else ex for ex in container)
         examples.extend(self._iter_single_and_schema_examples())
         return examples
 
@@ -1407,6 +1412,7 @@ class OpenApiComponent(ABC):
             yield example
         raw_schema = self.raw_schema
         if isinstance(raw_schema, dict):
+            raw_schema = resolve_bundled_root(raw_schema)
             schema_example = raw_schema.get(self.adapter.example_keyword, NOT_SET)
             if schema_example is not NOT_SET:
                 yield schema_example
@@ -1636,9 +1642,12 @@ class OpenApiBody(OpenApiComponent):
     def is_negatable(self) -> bool:
         """Whether this body schema can be negated for negative test generation."""
         if self._is_negatable is NOT_SET:
-            from schemathesis.specs.openapi.negative.utils import can_negate
+            from schemathesis.specs.openapi.negative.utils import can_negate, is_binary_format
 
             schema = self.optimized_schema
+            if is_binary_format(schema):
+                # Any bytes are a binary string, so only its other constraints can be violated on the wire.
+                schema = {key: value for key, value in schema.items() if key not in ("type", "format")}
             self._is_negatable = isinstance(schema, dict) and can_negate(schema)
         assert not isinstance(self._is_negatable, NotSet)
         return self._is_negatable
@@ -1693,6 +1702,28 @@ class OpenApiBody(OpenApiComponent):
         """Return default type if body is a form type."""
         return "object" if self.media_type in FORM_MEDIA_TYPES else None
 
+    @property
+    def resolved_schema(self) -> dict[str, Any] | None:
+        """The declared schema with a root `$ref` into the bundle followed, or `None` for a boolean or missing one."""
+        schema = self.definition.get("schema")
+        return resolve_bundled_root(schema) if isinstance(schema, dict) else None
+
+    @property
+    def form_properties(self) -> dict[str, Any]:
+        """Body properties and their `items` with `$ref` resolved, so file parts behind a reference keep a filename."""
+        schema = self.resolved_schema
+        if schema is None:
+            return {}
+        resolved = {}
+        for name, property_schema in schema.get("properties", {}).items():
+            if isinstance(property_schema, dict):
+                property_schema = resolve_with_root_bundle(property_schema, schema)
+                items = property_schema.get("items")
+                if isinstance(items, dict):
+                    property_schema = {**property_schema, "items": resolve_with_root_bundle(items, schema)}
+            resolved[name] = property_schema
+        return resolved
+
     def get_property_content_types(self, property_name: str) -> list[str]:
         """Get media types a form property declares via `encoding.contentType`."""
         encoding = self.definition.get("encoding", {})
@@ -1700,6 +1731,12 @@ class OpenApiBody(OpenApiComponent):
         # A string may list several media types separated by commas.
         items = raw.split(",") if isinstance(raw, str) else raw if isinstance(raw, list) else []
         return [item.strip() for item in items if isinstance(item, str) and item.strip()]
+
+    def iter_file_samples(self, media_type: str) -> Iterator[tuple[str, bytes]]:
+        """Concrete media types for a raw-file body sent as `media_type`, with a file of each format."""
+        schema = self.optimized_schema
+        if isinstance(schema, dict) and schema.get("format") == "binary":
+            yield from iter_media_type_file_samples(media_type)
 
     def get_property_filename(self, property_name: str) -> str | None:
         """Get filename from encoding.headers.Content-Disposition for a form property."""

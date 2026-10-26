@@ -108,7 +108,7 @@ def saslprep(source):
     data = "".join(" " if in_table_c12(c) else c for c in source if not in_table_b1(c))
 
     # normalize to KC form
-    data = unicodedata.normalize("NFKC", data)
+    data = unicodedata.ucd_3_2_0.normalize("NFKC", data)
     if not data:
         return ""
 

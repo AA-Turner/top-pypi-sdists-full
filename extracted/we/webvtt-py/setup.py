@@ -24,6 +24,7 @@ setup(
     url='https://github.com/glut23/webvtt-py',
     packages=find_packages('.', exclude=['tests']),
     include_package_data=True,
+    data_files=[('share/man/man1', ['man/webvtt.1'])],
     entry_points={
         'console_scripts': [
             'webvtt=webvtt.cli:main'
@@ -43,6 +44,9 @@ setup(
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Operating System :: OS Independent',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],

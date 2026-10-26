@@ -15,15 +15,15 @@ class MemoryIncludedRelatedParams(typing_extensions.TypedDict):
 
     parents: typing.Sequence[MemoryIncludedRelatedParentsItemParams]
     """
-    Earlier versions this memory updates, nearest first
+    Earlier versions this memory updates
     """
 
     children: typing.Sequence[MemoryIncludedRelatedChildrenItemParams]
     """
-    Newer versions that update this memory, nearest first
+    Newer versions that update this memory
     """
 
     siblings: typing.Sequence[MemoryIncludedRelatedSiblingsItemParams]
     """
-    Memories connected by extends or derives, nearest first
+    Memories connected by extends or derives
     """

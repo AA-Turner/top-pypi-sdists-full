@@ -2243,6 +2243,9 @@ def validate_model_pricing(
     *,
     token_billed: bool,
     runs_on_device: bool = False,
+    routable: bool = False,
+    free_reason: str | None = None,
+    price_unpublished: str | None = None,
 ) -> list[PricingIssue]:
     """Validate one model's pricing against USAGE_BASIS_SPECS. Returns a list of
     issues (empty = clean). Pure + dependency-free so it runs in scripts, the
@@ -2258,6 +2261,14 @@ def validate_model_pricing(
     (whisper.cpp, Kokoro, wake words, local diffusion, LoRAs). No provider ever bills it,
     so "no pricing rows" is the truth, not a gap. The moment such a model gains a cloud
     offering the caller passes that offering's pricing with ``runs_on_device=False``.
+
+    ``routable`` says this pricing belongs to a real ``ai.offering`` a call can be sent to.
+    Such an offering carries a real price or a RECORDED reason it has none
+    (``ai.offering.metadata``): ``free_reason`` (the provider charges nothing: a free-tier
+    model, a test model) makes $0 the truth; ``price_unpublished`` (the provider publishes no
+    rate) leaves its calls reading "cost unknown", a warning. Anything else empty or all-zero
+    is an error: an unpriced call reads unknown, a $0-priced paid call bills nothing, and
+    nobody finds out (2026-10-26: five GLiNER2 placeholders, a free Gemma recorded as nothing).
     """
     issues: list[PricingIssue] = []
     wire_format = wire_format or ""
@@ -2267,9 +2278,27 @@ def validate_model_pricing(
         issues.append(PricingIssue(name, wire_format, sev, code, msg))
 
     tiers = pricing if isinstance(pricing, list) else []
+    priced = any(
+        isinstance(t, dict)
+        and (_num(t.get("input_price")) > 0 or _num(t.get("output_price")) > 0 or bool(t.get("component_prices")))
+        for t in tiers
+    )
+    if routable and not runs_on_device and not priced and not free_reason:
+        if price_unpublished:
+            add("warning", "price_unpublished",
+                f"offering has no price ({price_unpublished}) — its calls read cost unknown.")
+        else:
+            add("error", "zero_pricing" if tiers else "no_pricing",
+                ("every tier prices $0" if tiers else "no pricing rows") + " on a routable offering — "
+                "set the provider's real rate, or record metadata.free_reason (free) or "
+                "metadata.price_unpublished (no published rate).")
     if not tiers:
-        if is_media and not runs_on_device:
-            add("error", "no_pricing", "media model has no pricing rows — cost will be $0/None.")
+        if is_media and not runs_on_device and not routable:
+            if price_unpublished:
+                add("warning", "price_unpublished",
+                    f"media model has no price ({price_unpublished}) — its usage reads cost unknown.")
+            else:
+                add("error", "no_pricing", "media model has no pricing rows — cost will be $0/None.")
         return issues
 
     for idx, tier in enumerate(tiers):

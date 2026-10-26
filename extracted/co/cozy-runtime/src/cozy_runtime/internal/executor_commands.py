@@ -27,7 +27,8 @@ class Command(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True, tag
 
 
 class TensorFSOptions(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
-    """Ordinary endpoint settings and an already supplied bearer credential."""
+    """Ordinary endpoint settings and an already supplied token: at the run's Hub, its signer's run
+    capability, presented as a bearer token."""
 
     endpoint: str
     token: str | None = None
@@ -40,8 +41,8 @@ class TensorFSOptions(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=T
 
 
 class Supplied(msgspec.Struct, frozen=True, kw_only=True):
-    """A signer's bearer for one endpoint, read off the seam in order (`Mux`): a `bearer` frame
-    (TensorD's newer one, unanswered) or what a Load or Invoke carries."""
+    """A signer's run capability for one endpoint, read off the seam in order (`Mux`): a
+    `capability` frame (TensorD's newer one, unanswered) or what a Load or Invoke carries."""
 
     actor: str = ""
     tensorfs: TensorFSOptions | None = None
@@ -61,6 +62,8 @@ class Probe(Command, frozen=True, kw_only=True, tag="probe"):
 
 
 class Join(Command, frozen=True, kw_only=True, tag="join"):
+    """A follower's first half: rank 0's store reached, then it says it is ready (`Form`)."""
+
     port: int
     backend: str = "nccl"
     #: A socket follows: a byte on it aborts this follower's collectives (`RankGroup.interrupt`).
@@ -69,6 +72,11 @@ class Join(Command, frozen=True, kw_only=True, tag="join"):
     again: bool = False
     #: The NCCL route rank 0 chose from the group's measured links; set before joining.
     nccl: dict[str, str] = {}
+
+
+class Form(Command, frozen=True, kw_only=True, tag="form"):
+    """Every follower said it is ready: all GPUs enter group init together."""
+
     #: Every GPU then times NCCL against its copy engines (`copy_engine.calibrate`).
     calibrate: bool = False
 
@@ -118,6 +126,8 @@ class Attention(Command, frozen=True, kw_only=True, tag="attention"):
     adopt: Choice | UnsetType = UNSET
     #: rank 0 asks while it serves a request: this GPU opens no kernel on its own thread
     serving: bool = False
+    #: the kernels the group serves from here (`kernel_ready.agreed`)
+    kernels: tuple[str, ...] = ()
 
 
 class Kernels(Command, frozen=True, kw_only=True, tag="kernels"):
@@ -171,7 +181,7 @@ class Construction(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True
 class Start(Command, frozen=True, kw_only=True, tag="start"):
     #: The session's GPUs; empty runs on the CPU and never opens CUDA (`accelerator=False`).
     devices: str = ""
-    #: 2: leases beside two ledger descriptors per GPU; checked before reading either.
+    #: 2: TensorD leases each GPU's pages (`leases`); any other, or absent: standalone.
     memory_protocol: int = 0
     sequence_parallel_degree: int = 1
     application: str = ""
@@ -180,11 +190,11 @@ class Start(Command, frozen=True, kw_only=True, tag="start"):
     import_only: bool = False
     #: Absent: the executor keeps its in-memory tier at its default.
     memo: MemoSettings | None = None
-    #: Its GPUs' grants follow the frame, a table and a row description per GPU in `devices`
-    #: order: rank 0 opens its memory on the first and hands follower r the r-th.
+    #: An older TensorD's GPU ledgers, a memfd and an eventfd each, follow the frame: read and
+    #: closed, unused (this TensorD sends none).
     ledgers: int = 0
     #: TensorD's namespace (its uid) each GPU's lease listener is named in: given only when it
-    #: leases this executor's weight pages (memory protocol 2); none, its ledger rows alone.
+    #: leases this executor's weight pages (memory protocol 2).
     leases: int | None = None
     #: The callables its attempts may call: their proxies are installed before the package is
     #: imported, and every attempt gets the call broker over them.
@@ -253,11 +263,6 @@ class GroupHardware(msgspec.Struct, frozen=True, kw_only=True):
     devices: tuple[str, ...]
 
 
-#: An executor capability: `Load.attention_pin` is the request's pin, whose kernel build it
-#: imports first; the construction itself still selects automatically.
-LOAD_ATTENTION_PIN = "attention.load_pin/1"
-
-
 class Load(Command, frozen=True, kw_only=True, tag="load"):
     """Ask Runtime to construct models and register their weights with its memory, read through
     TensorFS. The command names one model (`binding`) or several (`models`)."""
@@ -268,7 +273,8 @@ class Load(Command, frozen=True, kw_only=True, tag="load"):
     actor: str = ""
     devices: str = ""
     sequence_parallel_degree: int = 1
-    #: the pin of the request this executor loads for (`LOAD_ATTENTION_PIN`)
+    #: the pin of the request this executor loads for: its kernel build is imported first; the
+    #: construction itself still selects automatically
     attention_pin: str = ""
     #: The one-model form; a many-model load names `models`.
     binding: Binding | UnsetType = UNSET
@@ -308,8 +314,6 @@ class InputFile(msgspec.Struct, frozen=True, kw_only=True):
 
 class _Attempt(Command, frozen=True, kw_only=True):
     request_id: str
-    #: The InvocationSpec's activation capture; the executor validates it against its models.
-    capture: Json = None
 
 
 class PrepareRequest(_Attempt, frozen=True, kw_only=True, tag="prepare_request"):
@@ -327,7 +331,7 @@ class Invoke(_Attempt, frozen=True, kw_only=True, tag="invoke"):
     entrypoint: str
     tensorfs: TensorFSOptions | None = None
     spool: str
-    deadline_s: float | None
+    deadline_s: float | None = None
     inputs: dict[str, InputFile] = {}
     #: Retained input trees by reference: (root, digest).
     trees: dict[str, tuple[str, str]] = {}
@@ -353,6 +357,7 @@ type KnownCommand = (
     | Shutdown
     | Probe
     | Join
+    | Form
     | Fork
     | Map
     | Unload

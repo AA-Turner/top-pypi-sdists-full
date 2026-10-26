@@ -540,24 +540,57 @@ def _version_comparison() -> tuple[tuple, float | None]:
     return (rows, age)
 
 
-def tap_behind_warning(rows) -> str | None:
+def tap_behind_warning(rows, source: str | None = None, plugin: str | None = None) -> str | None:
     """A warning when the transcript tap is behind the manifest's `tap.latest`.
 
     The Versions block already grades the tap, but as one row among four; a tap
     left behind by `probe update` went unnoticed exactly that way, while it is
     the component whose staleness costs captured sessions. So it is repeated
     under Warnings, with the way out.
+
+    What it says about sessions already open is what the update will do to
+    them (`updater.follows_without_restart`): where they follow an update (the
+    prompt hook hands an old watcher to the Probe service, which records on the
+    newest installed tap), they move with no restart; only elsewhere does a
+    session keep the old copy until it restarts. It said "until it restarts"
+    everywhere, and on every machine the service had already moved. `plugin`:
+    the agent's installed Probe plugin (None when it has none: then a watcher
+    from before the hand-back has nothing to move it).
     """
     from probe.sdk.session_marker import WIZARD_HINT
 
     for row in rows:
         if row.kind == "tap" and row.behind and row.latest:
-            return (
+            head = (
                 f"the transcript tap is {row.installed}, behind the published {row.latest}; "
-                f"the wizard's Update updates it ({WIZARD_HINT}); a session "
-                "started before the update keeps running the old copy until it restarts"
+                f"the wizard's Update updates it ({WIZARD_HINT}); "
             )
+            if _sessions_follow(source, row.latest, plugin):
+                return head + "open sessions move to it by themselves, with no restart"
+            return head + "a session started before the update keeps running the old copy until it restarts"
     return None
+
+
+def _sessions_follow(source: str | None, tap: str, plugin: str | None) -> bool:
+    """Do `source`'s open sessions move to tap `tap` once it is installed, with
+    no restart (`updater.follows_without_restart`, the update's own verdict, on
+    the state now: its Probe plugin `plugin`, its sessions on older taps)? A
+    prediction: an agent proven only from what is installed (Kimi Code) is
+    never said to follow a tap not installed yet.
+    Never raises: unknown (its sessions could not be looked at) keeps the
+    restart line."""
+    try:
+        from probe.cli import updater
+        from probe.cli.capabilities import agent_source
+
+        source = source or agent_source()
+        stale = updater.stale_tap_sessions(source, tap)
+        if stale is None:
+            return False
+        result = updater.PluginResult(True, True, False, None, plugin, "", tap_after=tap, tap_running_stale=stale)
+        return updater.follows_without_restart(source, result, predicting=True)
+    except Exception:  # noqa: BLE001 - see docstring
+        return False
 
 
 def _format_age(seconds: float | None) -> str:
@@ -913,7 +946,8 @@ def render(caps: Capabilities, codex_hooks: list[str] | None = None, service: di
         if blocked:
             lines.append(_row("Auth-blocked since", str(blocked)))
         if status.get("paused"):
-            lines.append(_row("Paused", "yes (`probe outbox resume`)"))
+            until = status.get("paused_until")
+            lines.append(_row("Paused", f"until {until} (`probe outbox resume`)" if until else "yes (`probe outbox resume`)"))
         if status.get("last_error"):
             lines.append(_row("Last error", str(status["last_error"])))
         rescue = status.get("rescue") or {}
@@ -1236,7 +1270,7 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
     rules_stale = rules_installed and not agent_rules.is_current()
 
     version_rows, manifest_age = _version_comparison()
-    tap_warning = tap_behind_warning(version_rows)
+    tap_warning = tap_behind_warning(version_rows, selected_agent, "installed" if TRACK in plugins else None)
     if tap_warning:
         warnings.append(tap_warning)
     python_missing = capture_python_missing(selected_agent)
@@ -1281,7 +1315,9 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
         agent_rules_stale=rules_stale,
         auto_update_enabled=settings_autoupdate.enabled,
         last_update_attempt=(
-            settings_autoupdate.last_attempt.describe()
+            _attempt_as_it_stands(
+                settings_autoupdate.last_attempt, _probe_plugin_of(selected_agent, TRACK in plugins)
+            ).describe()
             if settings_autoupdate.last_attempt
             else None
         ),
@@ -1299,6 +1335,45 @@ def collect(*, local: bool = False, plugins: PluginState | None = None) -> Capab
         daemon_ai_libraries=_daemon_ai_libraries(),
         warnings=warnings,
     )
+
+
+def _probe_plugin_of(selected: str, selected_has_it: bool):
+    """`plugin_after` for `updater.settle_stale_notes`: an agent's installed
+    Probe plugin ("installed"), or None when it has none. The agent doctor runs
+    for is known (`selected_has_it`, from its own plugin read); another is read
+    from the record its own plugin list reads (`installed_plugins(local=True)`:
+    files only, no agent CLI started). Unreadable: None, which keeps a watcher
+    from before the hand-back on the restart line."""
+    def plugin_after(source: str) -> str | None:
+        if source == selected:
+            return "installed" if selected_has_it else None
+        try:
+            from probe.cli.capabilities import installed_plugins
+
+            return "installed" if tracking_plugin_name(source) in installed_plugins(source=source, local=True) \
+                else None
+        except Exception:  # noqa: BLE001 - see docstring
+            return None
+
+    return plugin_after
+
+
+def _attempt_as_it_stands(attempt, plugin_after):
+    """The last update attempt as `probe doctor` prints it: what it said about
+    sessions still on an older tap as it stands now (`updater.settle_stale_notes`:
+    gone once none is left, "they move ... no restart needed" where they follow).
+    Every release before 0.304.0 told the person to restart them; the sessions
+    move with no restart, and doctor kept printing "restart them" until the next
+    update. Never raises: the attempt as recorded."""
+    try:
+        import dataclasses
+
+        from probe.cli import updater
+
+        settled = updater.settle_stale_notes(attempt.plugin_detail, plugin_after=plugin_after)
+        return attempt if settled == attempt.plugin_detail else dataclasses.replace(attempt, plugin_detail=settled)
+    except Exception:  # noqa: BLE001 - see docstring
+        return attempt
 
 
 def _mcp_token_held() -> bool:

@@ -1,6 +1,6 @@
 """One skill, two readers: the main agent's version and the daemon writer's.
 
-A skill with a `versions/` folder (today only `track-work`) is ONE base -- its
+A skill with a `versions/` folder (`track-work`, `edit-notes`) is ONE base -- its
 SKILL.md, the file the researcher edits -- plus a header per reader and an
 optional footer. Each agent sees only its own version (Richard 2026-09-28: "the
 plugin should install both versions and only selectively show one specific

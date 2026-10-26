@@ -2,6 +2,7 @@
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from .google_drive_config import GoogleDriveConfigParams
 
 
 class ConnectorSetupOnedriveParams(typing_extensions.TypedDict):
@@ -16,3 +17,5 @@ class ConnectorSetupOnedriveParams(typing_extensions.TypedDict):
     """
     Maximum documents this connector imports
     """
+
+    config: typing_extensions.NotRequired[GoogleDriveConfigParams]

@@ -108,6 +108,18 @@ EVENT_BACKFILL_SCANNED = "backfill.scanned"
 EVENT_BACKFILL_PLAN_READY = "backfill.plan_ready"
 EVENT_BACKFILL_APPROVED = "backfill.approved"
 EVENT_BACKFILL_SUMMARY = "backfill.summary"
+#: The import's coding agents, on `backfill.summary` AND `import_job.finished`
+#: (`probe.cli.import_agent_settings.Meter.properties`): per lane (`classify`,
+#: `import`, `draft`), `<lane>_model`, `<lane>_effort`, `<lane>_source`
+#: (env|server|builtin), `<lane>_launches`, `<lane>_rejected` (a refused
+#: setting relaunched without it), `<lane>_cached` (answered from the prep
+#: cache), `<lane>_usage_missing` (launches that reported no usage: unknown,
+#: never summed as 0) and the token sums `<lane>_input_tokens` (every prompt
+#: token, cache reads and writes included), `<lane>_cached_input_tokens`,
+#: `<lane>_cache_write_input_tokens`, `<lane>_output_tokens` (reasoning
+#: included) and `<lane>_reasoning_output_tokens` -- the sums only for a lane
+#: where some launch reported usage. Plus `backfill_agent`, `settings_version`
+#: (the server map's version) and `settings_dropped`.
 
 #: The guided install's own completion, distinct from `configure_completed`:
 #: that one is per configure CALL, this is "every selected coding agent has
@@ -179,6 +191,13 @@ EVENT_OUTBOX_RESCUED = "outbox.rescued"
 #: deletes them (`journal.relocate_discards`). Without it a backlog that
 #: vanished reads exactly like one that was delivered (Bucket, 2026-10-23).
 EVENT_OUTBOX_DISCARDED = "outbox.discarded"
+#: A pause that no longer holds was lifted (`outbox_worker.lift_stale_pause`:
+#: its end passed, or an older CLI's endless one) by the CLI's every-command
+#: check, so the writes it held send without anyone running `probe outbox
+#: resume`: what an `outbox.stuck` with `paused` turns into. The Probe service
+#: lifts too and reports nothing itself (its drainer's `outbox.drained` does,
+#: under the person's own switches).
+EVENT_OUTBOX_PAUSE_LIFTED = "outbox.pause_lifted"
 #: A TRAINING process's delivery counts (plan 1.12): every 15 min while it
 #: writes and at each run's close. Deltas since its last report, counts only --
 #: never a key, body, name or path -- so we see loss before a customer does.
@@ -259,7 +278,13 @@ class BackfillOutcome(StrEnum):
     ALREADY_IMPORTED = "already_imported"
     CREDENTIALS_FAILED = "credentials_failed"
     NO_PLAN = "no_plan"
+    #: Historical: a plan refused whole because the classifier named a path
+    #: the walk lacked. No longer raised since the classifier selects through
+    #: `probe-backfill-plan` (2026-10-25); kept so old events still read.
     UNTRUSTED_CLASSIFICATION = "untrusted_classification"
+    #: Finished, but a failed classifier session left files unclassified; they
+    #: stay `new` and the next run classifies only them.
+    PARTIAL_CLASSIFICATION = "partial_classification"
     PROJECT_CREATE_FAILED = "project_create_failed"
     ABORTED = "aborted"
     ERROR = "error"  # unexpected crash; the exception itself is re-raised
@@ -1169,6 +1194,25 @@ def emit_outbox_stuck(status: dict, *, spool_dir: str | None, base_url: str | No
             last_error_kind=_error_kind(status.get("last_error")),
             held=int(status.get("held") or 0),
             refused_credentials=len(status.get("refused_fingerprints") or {}),
+        )
+        return True
+    except Exception:
+        return False  # observability must never become observable
+
+
+def emit_outbox_pause_lifted(status: dict, *, base_url: str | None) -> bool:
+    """Report a pause that no longer held being lifted (its end passed, or an
+    older CLI's endless one), with the writes it held (the outbox status read
+    before the lift). Sent beside the command's own context, never as it
+    (`detached_context`). Never raises; True when it was handed to the sender."""
+    try:
+        ctx = detached_context(base_url, via=Via.OUTBOX)
+        if not ctx.enabled:
+            return False
+        ctx.emit(
+            EVENT_OUTBOX_PAUSE_LIFTED,
+            pending=status.get("pending") or 0,
+            oldest_pending_age_hours=_age_hours(status.get("oldest_pending")),
         )
         return True
     except Exception:

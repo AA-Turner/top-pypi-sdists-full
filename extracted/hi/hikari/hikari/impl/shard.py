@@ -68,6 +68,7 @@ if typing.TYPE_CHECKING:
         def decompress(self, data: bytes, max_length: int = ...) -> bytes:
             raise NotImplementedError
 
+
 if sys.version_info >= (3, 14):
     _DEFAULT_COMPRESS_TYPE = shard.GatewayCompression.TRANSPORT_ZSTD_STREAM
 else:
@@ -178,7 +179,7 @@ class _GatewayTransport(abc.ABC):
         try:
             await asyncio.wait_for(self._ws.close(code=code, message=message), timeout=5)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             self._logger.debug("failed to send close frame in time, probably connection issues")
 
         finally:
@@ -273,10 +274,8 @@ class _GatewayTransport(abc.ABC):
                 )
 
                 web_socket: aiohttp.ClientWebSocketResponse[typing.Literal[False]]
-                # Type ignore due to aiohttp returning a generic instead of a specific
-                # based on the argument on <= 3.11
                 web_socket = await exit_stack.enter_async_context(
-                    client_session.ws_connect(  # type: ignore[arg-type]
+                    client_session.ws_connect(
                         max_msg_size=0,
                         proxy=proxy_settings.url,
                         proxy_headers=proxy_settings.headers,
@@ -308,7 +307,7 @@ class _GatewayTransport(abc.ABC):
                     dumps=dumps,
                 )
 
-            except (aiohttp.ClientConnectionError, aiohttp.ClientResponseError, asyncio.TimeoutError) as ex:
+            except (TimeoutError, aiohttp.ClientConnectionError, aiohttp.ClientResponseError) as ex:
                 # If we cannot do DNS lookup, this will fail with an aiohttp.ClientConnectionError
                 # usually, but it might also fail with asyncio.TimeoutError if its gets stuck in a weird way
                 #
@@ -368,8 +367,6 @@ class _GatewayZlibStreamTransport(_GatewayTransport):
             return self._inflator.decompress(buff)
 
         self._handle_other_message(message)  # type: ignore[arg-type]
-
-
 
 
 class _GatewayZstdStreamTransport(_GatewayTransport):

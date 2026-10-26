@@ -21,13 +21,15 @@ Parser::Parser(Preprocessor& preprocessor, const Bag& options) :
 }
 
 SyntaxNode& Parser::parseGuess() {
-    // First try to parse as some kind of declaration.
+    // First try to parse as some kind of declaration. A keyword that can begin
+    // a member (such as 'default' or 'virtual') may turn out not to, in which
+    // case nothing has been consumed and we fall through to the other guesses.
     if (isMember()) {
         bool anyLocalModules = false;
-        auto member = parseMember(SyntaxKind::CompilationUnit, anyLocalModules);
-        SLANG_ASSERT(member);
-        member->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
-        return *member;
+        if (auto member = parseMember(SyntaxKind::CompilationUnit, anyLocalModules)) {
+            member->setPreviewNode(alloc, std::exchange(previewNode, nullptr));
+            return *member;
+        }
     }
 
     // Try to parse as an expression if possible.
@@ -432,6 +434,10 @@ StructUnionTypeSyntax& Parser::parseStructUnion(SyntaxKind syntaxKind) {
     Token closeBrace;
     SmallVector<StructUnionMemberSyntax*> buffer;
 
+    // Save off any pending preview node (e.g. an enum declared in an earlier
+    // ANSI port) so that it doesn't get attached to one of our members.
+    auto savedPN = std::exchange(previewNode, nullptr);
+
     if (openBrace.isMissing())
         closeBrace = missingToken(TokenKind::CloseBrace, openBrace.location());
     else {
@@ -482,6 +488,8 @@ StructUnionTypeSyntax& Parser::parseStructUnion(SyntaxKind syntaxKind) {
         if (buffer.empty() && !closeBrace.isMissing())
             addDiag(diag::ExpectedMember, closeBrace.location());
     }
+
+    previewNode = savedPN;
 
     auto dims = parseDimensionList();
     if (!packed) {

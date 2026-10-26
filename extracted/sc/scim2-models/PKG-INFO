@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scim2-models
-Version: 0.12.2
+Version: 0.12.3
 Summary: SCIM2 models serialization and validation with pydantic
 Keywords: scim,scim2,provisioning,pydantic,rfc7643,rfc7644
 Author: Yaal Coop
@@ -8,11 +8,12 @@ Author-email: Yaal Coop <contact@yaal.coop>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Intended Audience :: Developers
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Environment :: Web Environment
 Classifier: Programming Language :: Python
@@ -25,6 +26,8 @@ Project-URL: repository, https://github.com/python-scim/scim2-models
 Project-URL: changelog, https://scim2-models.readthedocs.io/en/latest/changelog.html
 Project-URL: funding, https://github.com/sponsors/python-scim
 Description-Content-Type: text/markdown
+
+<img alt="python-scim logo" src="https://raw.githubusercontent.com/python-scim/.github/refs/heads/main/python-scim.svg" height="72" align="right">
 
 # scim2-models
 
@@ -99,8 +102,6 @@ pip install scim2-models
   tasks.
 - [Explanation](https://scim2-models.readthedocs.io/en/latest/explanation/index.html) covers the
   SCIM rules and the choices behind them.
-- [Integrations](https://scim2-models.readthedocs.io/en/latest/integrations/index.html) build a
-  SCIM server with Flask, Django, FastAPI or SQLAlchemy.
 - [Reference](https://scim2-models.readthedocs.io/en/latest/reference/index.html) lists the public API.
 
 ## What's SCIM anyway?

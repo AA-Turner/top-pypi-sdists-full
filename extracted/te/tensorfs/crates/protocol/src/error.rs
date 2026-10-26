@@ -1,0 +1,141 @@
+//! The one typed refusal every cozy surface renders: Calcifer's HTTP refusals (`{"error": …}`),
+//! the CLI's `--json` output and its exit code. A run that ends failed is an answer, not a
+//! refusal. `kind` is the class a program branches on;
+//! `code` is the stable specific name (`idempotency_conflict`, `machine_not_found`).
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Kind {
+    /// A bad invocation: unknown flag, malformed `key=value`, malformed target.
+    Usage,
+    /// A typed payload, schema or bounds refusal.
+    Validation,
+    NotFound,
+    /// A missing or refused credential; the remedy names it.
+    Credential,
+    /// The caller may not do this here (a foreign Host/Origin or a non-loopback peer).
+    Forbidden,
+    /// A concurrent writer, an existing target, an idempotency key reused for another ask.
+    Conflict,
+    /// Not enough memory, disk or GPUs anywhere the ask may go.
+    Capacity,
+    /// Calcifer, a machine or the Hub is unreachable.
+    Unavailable,
+    /// A bug, never a user condition.
+    Internal,
+}
+
+#[derive(
+    Clone, Debug, Deserialize, Serialize, PartialEq, Eq, thiserror::Error, utoipa::ToSchema,
+)]
+#[error("{code}: {message}")]
+pub struct Error {
+    pub kind: Kind,
+    pub code: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remedy: Option<String>,
+    /// Commands to try next; at most two.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub next: Vec<String>,
+    /// The originating component's own stable code (a machine's or the Hub's), when not ours.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cause: Option<String>,
+}
+
+/// The HTTP body of a refusal.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, utoipa::ToSchema)]
+pub struct Envelope {
+    pub error: Error,
+}
+
+impl Error {
+    pub fn new(kind: Kind, code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self {
+            kind,
+            code: code.into(),
+            message: message.into(),
+            remedy: None,
+            next: vec![],
+            cause: None,
+        }
+    }
+
+    pub fn validation(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::Validation, code, message)
+    }
+    pub fn not_found(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::NotFound, code, message)
+    }
+    pub fn credential(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::Credential, code, message)
+    }
+    pub fn forbidden(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::Forbidden, code, message)
+    }
+    pub fn conflict(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::Conflict, code, message)
+    }
+    pub fn capacity(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::Capacity, code, message)
+    }
+    pub fn unavailable(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::Unavailable, code, message)
+    }
+    pub fn internal(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(Kind::Internal, code, message)
+    }
+
+    pub fn remedy(mut self, remedy: impl Into<String>) -> Self {
+        self.remedy = Some(remedy.into());
+        self
+    }
+
+    pub fn next(mut self, command: impl Into<String>) -> Self {
+        if self.next.len() < 2 {
+            self.next.push(command.into());
+        }
+        self
+    }
+
+    pub fn cause(mut self, code: impl Into<String>) -> Self {
+        self.cause = Some(code.into());
+        self
+    }
+
+    /// The process exit code: 2 for usage, 1 for everything else.
+    pub fn exit_code(&self) -> i32 {
+        if self.kind == Kind::Usage { 2 } else { 1 }
+    }
+}
+
+impl Kind {
+    pub fn http_status(self) -> u16 {
+        match self {
+            Kind::Usage | Kind::Validation => 400,
+            Kind::Credential => 401,
+            Kind::Forbidden => 403,
+            Kind::NotFound => 404,
+            Kind::Conflict => 409,
+            Kind::Capacity => 507,
+            Kind::Unavailable => 503,
+            Kind::Internal => 500,
+        }
+    }
+
+    /// What a peer's (the Hub's) HTTP refusal names. A timeout, rate limit or server failure is
+    /// `Unavailable`: asking again may be answered.
+    pub fn of_http(status: u16) -> Kind {
+        match status {
+            401 => Kind::Credential,
+            403 => Kind::Forbidden,
+            404 => Kind::NotFound,
+            402 | 409 | 410 => Kind::Conflict,
+            408 | 429 => Kind::Unavailable,
+            400..=499 => Kind::Validation,
+            507 => Kind::Capacity,
+            _ => Kind::Unavailable,
+        }
+    }
+}

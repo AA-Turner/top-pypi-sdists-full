@@ -347,3 +347,28 @@ def test_async_package_manager_create_venv_failure(mock_venv_create):
 
         assert "Failed to create virtual environment" in str(exc_info.value)
         mock_venv_create.assert_called_once_with(venv_path, with_pip=True)
+
+@patch("pipmaster.convenience._default_pm")
+async def test_convenience_install_if_missing_logs_caller_on_failure_async(mock_pm, caplog):
+    """Ensure caller path is logged at ERROR when install_if_missing fails (async test file)."""
+    import logging
+    import pipmaster.convenience as convenience
+    mock_pm.install_if_missing.return_value = False  # Simulate failure
+
+    with caplog.at_level(logging.ERROR, logger=convenience.logger.name):
+        convenience.install_if_missing("requests")
+
+    assert len(caplog.records) > 0
+    assert any(__file__ in r.getMessage() and "requests" in r.getMessage() for r in caplog.records)
+
+@patch("pipmaster.convenience._default_pm")
+async def test_convenience_install_if_missing_no_log_on_success_async(mock_pm, caplog):
+    """Ensure no caller path is logged when install_if_missing succeeds (async test file)."""
+    import logging
+    import pipmaster.convenience as convenience
+    mock_pm.install_if_missing.return_value = True  # Simulate success
+
+    with caplog.at_level(logging.ERROR, logger=convenience.logger.name):
+        convenience.install_if_missing("requests")
+
+    assert len(caplog.records) == 0

@@ -1,8 +1,7 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
-from .drawing import BoxStyle
-from .traversal import DictTraversal
+from .drawing import BoxStyle, Style
+from .traversal import DictTraversal, Traversal
 from .util import KeyArgsConstructor
 
 
@@ -32,12 +31,10 @@ class LeftAligned(KeyArgsConstructor):
             if n == len(children) - 1:
                 # last child does not get the line drawn
                 lines.append(self.draw.last_child_head(child_tree.pop(0)))
-                lines.extend(self.draw.last_child_tail(l)
-                             for l in child_tree)
+                lines.extend(self.draw.last_child_tail(line) for line in child_tree)
             else:
                 lines.append(self.draw.child_head(child_tree.pop(0)))
-                lines.extend(self.draw.child_tail(l)
-                             for l in child_tree)
+                lines.extend(self.draw.child_tail(line) for line in child_tree)
 
         return lines
 
@@ -45,13 +42,10 @@ class LeftAligned(KeyArgsConstructor):
         """Render the tree into string suitable for console output.
 
         :param tree: A tree."""
-        return '\n'.join(self.render(self.traverse.get_root(tree)))
+        return "\n".join(self.render(self.traverse.get_root(tree)))
 
 
 # legacy support below
-
-from .drawing import Style
-from .traversal import Traversal
 
 
 class LegacyStyle(Style):
@@ -59,25 +53,24 @@ class LegacyStyle(Style):
         return text
 
     def child_head(self, label):
-        return '  +--' + label
+        return "  +--" + label
 
     def child_tail(self, line):
-        return '  |' + line
+        return "  |" + line
 
     def last_child_head(self, label):
-        return '  +--' + label
+        return "  +--" + label
 
     def last_child_tail(self, line):
-        return '   ' + line
+        return "   " + line
 
 
-def draw_tree(node,
-              child_iter=lambda n: n.children,
-              text_str=str):
+def draw_tree(node, child_iter=lambda n: n.children, text_str=str):
     """Support asciitree 0.2 API.
 
     This function solely exist to not break old code (using asciitree 0.2).
     Its use is deprecated."""
-    return LeftAligned(traverse=Traversal(get_text=text_str,
-                                          get_children=child_iter),
-                       draw=LegacyStyle())(node)
+    return LeftAligned(
+        traverse=Traversal(get_text=text_str, get_children=child_iter),
+        draw=LegacyStyle(),
+    )(node)

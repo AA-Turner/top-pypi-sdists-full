@@ -19,6 +19,7 @@ from ._generated.sql import MAX_ROWS_CEILING
 from ..sdk import errors, links
 from ..sdk.notes import read_advisory
 from . import accounting
+from . import branches as _branches
 from .budget import BYTES_PER_TOKEN as _BYTES_PER_TOKEN
 from .budget import MIN_TOKENS as _MIN_TOKEN_BUDGET
 from .budget import MAX_TOKENS as _MAX_TOKEN_BUDGET
@@ -1702,6 +1703,11 @@ _VIEWS: dict[tuple[str, str], str] = {
     # versions -- see the experiment pair above.
     (EntityType.PROJECT, View.SESSIONS): "_view_project_sessions",
     (EntityType.PROJECT, View.SUMMARY_HISTORY): "_view_project_summary_history",
+    # The lines of work (swarm visibility D6): a project's tree, an
+    # experiment's own line and the ones it split from. Compact by default,
+    # one branch in full with `view_options.branch`.
+    (EntityType.PROJECT, View.BRANCHES): "_view_project_branches",
+    (EntityType.EXPERIMENT, View.BRANCHES): "_view_experiment_branches",
     (EntityType.GROUP, View.CARD): "_view_card",
     # One rollout as an entity (0135). NO `notes` view and no notes excerpt on the
     # card, unlike every other entity here: a Trial carries no notes document at
@@ -1849,6 +1855,12 @@ _VIEW_OPTIONS: dict[tuple[str, str], set[str]] = {
     # key could honestly narrow.
     **{
         (kind, View.SUMMARY_HISTORY): {"version"}
+        for kind in (EntityType.PROJECT, EntityType.EXPERIMENT)
+    },
+    # `branch` picks ONE of the read's branches by its root ref and returns it
+    # in full; a ref that is not one of them is refused, naming those that are.
+    **{
+        (kind, View.BRANCHES): {"branch"}
         for kind in (EntityType.PROJECT, EntityType.EXPERIMENT)
     },
     # GET /v1/provenance's own parameters: `direction` and `depth` shape the
@@ -2359,7 +2371,11 @@ class ResearchReadService:
         if created is None:
             return dataclass_replace(
                 result,
-                missing=[*result.missing, MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED],
+                missing=list(
+                    dict.fromkeys(
+                        [*result.missing, MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED]
+                    )
+                ),
             )
         ids, truncated = created
         # Opened BY ADDRESS, the session's own work -- one of its runs, or a file
@@ -2377,7 +2393,11 @@ class ResearchReadService:
             payload=_scrub_session_work(_scrub_provenance_graph(result.payload, hidden), hidden),
             rows=None if result.rows is None else _scrub_session_work(result.rows, hidden),
             missing=(
-                [*result.missing, MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED]
+                list(
+                    dict.fromkeys(
+                        [*result.missing, MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED]
+                    )
+                )
                 if truncated
                 else result.missing
             ),
@@ -2739,15 +2759,17 @@ class ResearchReadService:
         stored: str | None = None,
         provider: str | None = None,
         kind: str | None = None,
+        branch: str | None = None,
     ) -> dict:
         """One page of a flat listing: runs (newest first), workspaces, the
         notes catalog, the files in Shared / one workspace, or the data
         catalog's datasets, checkpoints or sources.
 
-        Returns the compact envelope plus two private keys browse delivery
+        Returns the compact envelope plus private keys browse delivery
         consumes and strips: `_list_after` (per row, the cursor resuming after
-        it) and `_list_end` (the cursor after the whole page, or None). An
-        in-process caller reads `next_cursor`, which is `_list_end`.
+        it), `_list_end` (the cursor after the whole page, or None) and
+        `_list_key` (where in `data` the rows are). An in-process caller reads
+        `next_cursor`, which is `_list_end`.
 
         Every resume position names the LAST ROW SENT, in the form the route can
         act on: runs carry the list's own `(created_at, id)` keyset, notes the
@@ -2767,6 +2789,9 @@ class ResearchReadService:
         # (projected row, the cursor resuming after it) for every row this call
         # sends; `end` resumes after the whole page.
         sent: list[tuple[dict, str | None]] = []
+        # Where the rows go in `data`: the mode's name, but one branch in full
+        # lists its experiments.
+        list_key = str(mode)
         end: str | None = None
         hidden: frozenset[str] | None = None
         # Rows the caller's own session accounted for, in the positions this
@@ -3044,6 +3069,44 @@ class ResearchReadService:
                 sent.append((self._workspace_row(row), after))
             end = sent[-1][1] if sent else None
             views_by_kind = set()
+        elif mode is BrowseMode.BRANCHES:
+            # The whole read every call (the route does not page), its rows
+            # resumed after the last REF sent; delivery fits whole rows to the
+            # budget. `branch` opens one branch in full FROM THIS READ, so a
+            # branch that crosses projects keeps every member and number it
+            # was listed with (a project read would cut it at the project).
+            if workspace_id is None:
+                raise errors.ValidationError(
+                    "browse(mode='branches') needs workspace_id (browse(mode='workspaces') lists them)",
+                    status=422,
+                )
+            try:
+                workspace_id = str(uuid.UUID(str(workspace_id)))
+            except ValueError:
+                raise errors.ValidationError(
+                    f"workspace_id must be a workspace UUID (browse(mode='workspaces') "
+                    f"lists them), not {workspace_id!r}",
+                    status=422,
+                ) from None
+            tier = _branches.project(
+                self.source.workspace_branches(workspace_id),
+                branch=branch,
+                after=last_sent,
+                workspace=True,
+            )
+            data.update(tier.payload)
+            list_key = tier.rows_key
+            if hide_session is not None:
+                missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
+            for offset, row in enumerate(tier.rows):
+                after = (
+                    self._list_cursor(mode, last=str(row["ref"]))
+                    if offset + 1 < len(tier.rows)
+                    else None
+                )
+                sent.append((row, after))
+            end = None
+            views_by_kind = set()
         else:
             if workspace_id is not None:
                 try:
@@ -3106,7 +3169,7 @@ class ResearchReadService:
             end = sent[-1][1] if sent else None
             views_by_kind = {EntityType.ARTIFACT.value}
 
-        data[str(mode)] = [row for row, _ in sent]
+        data[list_key] = [row for row, _ in sent]
         if hidden_count and len(sent) < page_size:
             # A short page that the hiding made short: an agent must not read
             # "nothing here" off it (the audit's empty `browse(runs)`).
@@ -3124,6 +3187,7 @@ class ResearchReadService:
         )
         envelope["_list_after"] = [after for _, after in sent]
         envelope["_list_end"] = end
+        envelope["_list_key"] = list_key
         return envelope
 
     def query_sql(
@@ -4365,6 +4429,33 @@ class ResearchReadService:
             more_beyond=bool(page.get("next_after")) and bool(items),
             resume_key="id",
             resume_fetched=str(items[-1]["id"]) if items and items[-1].get("id") else None,
+        )
+
+    def _view_project_branches(self, entity: dict, request: _Req) -> _ViewData:
+        return self._branches_view(self.source.project_branches(str(entity["id"])), request)
+
+    def _view_experiment_branches(self, entity: dict, request: _Req) -> _ViewData:
+        home = entity.get("project_id") or entity.get("parent_project_id")
+        body = self.source.experiment_branch(
+            str(entity["id"]), project_id=str(home) if home else None
+        )
+        return self._branches_view(body, request)
+
+    @staticmethod
+    def _branches_view(body: dict, request: _Req) -> _ViewData:
+        """The compact tier, or `view_options.branch` in full (`branches.project`).
+        Rows resume after the last ref sent. A branch is an aggregate the
+        session-work hiding cannot take its own work out of, so it says so."""
+        tier = _branches.project(body, branch=request.filters.get("branch"), after=request.after)
+        missing = []
+        if accounting.session_work_to_hide() is not None:
+            missing.append(MissingMarker.SESSION_WORK_EXCLUSION_UNSUPPORTED)
+        return _ViewData(
+            payload=tier.payload,
+            rows=tier.rows,
+            rows_key=tier.rows_key,
+            missing=missing,
+            resume_key="ref",
         )
 
     def _view_project_card(self, entity: dict, request: _Req) -> _ViewData:

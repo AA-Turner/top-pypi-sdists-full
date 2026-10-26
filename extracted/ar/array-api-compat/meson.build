@@ -1,6 +1,6 @@
 project(
   'array_api_compat',
-  version: '1.15.0',
+  version: '1.16.0',
   license: 'MIT',
   license_files: ['LICENSE']
 )
@@ -11,6 +11,7 @@ sources_raw = {
   'array_api_compat': [
     'src/array_api_compat/__init__.py',
     'src/array_api_compat/_internal.py',
+    'src/array_api_compat/py.typed',
   ],
 
   'array_api_compat/common': [

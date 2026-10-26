@@ -1,8 +1,9 @@
 //! A systemd `--user` unit kept in the home and linked into the user's manager, so no XDG path is
-//! looked up. `Restart=on-failure`: a clean exit (`cozy down`, an update) is not restarted.
+//! looked up. `Restart=on-failure`: a clean exit (a restart, an update) is not restarted.
 use super::{ServiceSpec, run};
 use crate::{Error, Result, durable, paths::Home};
 use std::{
+    ffi::OsString,
     fs, io,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -45,16 +46,6 @@ pub(super) fn current(dir: &Path, spec: &ServiceSpec) -> bool {
         .is_ok_and(|status| status.success())
 }
 
-/// Whether the service failed to start: the manager gave up on it, or restarted it.
-pub(super) fn failed(name: &str) -> bool {
-    let shown =
-        output(systemctl().args(["show", &unit(name), "-p", "ActiveState", "-p", "NRestarts"]))
-            .unwrap_or_default();
-    shown.lines().any(|line| {
-        line == "ActiveState=failed" || line.strip_prefix("NRestarts=").is_some_and(|n| n != "0")
-    })
-}
-
 pub(super) fn start(_: &Path, spec: &ServiceSpec) -> Result<()> {
     run(MANAGER, systemctl().args(["start", &unit(&spec.name)]))
 }
@@ -70,36 +61,28 @@ pub(super) fn stop(dir: &Path, name: &str) -> Result<()> {
     run(MANAGER, systemctl().args(["stop", &unit(name)]))
 }
 
-pub(super) fn uninstall(dir: &Path, name: &str) -> Result<()> {
+pub(super) fn uninstall(dir: &Path, name: &str) -> Result<bool> {
     let path = dir.join(unit(name));
     if !path.exists() {
-        return Ok(());
+        return Ok(false);
     }
-    run(MANAGER, systemctl().args(["disable", &unit(name)]))?;
+    // An unlinked unit (a removal cut short after its disable) refuses `disable`: the file goes
+    // either way, and a link left to it would name nothing.
+    let _ = run(MANAGER, systemctl().args(["disable", &unit(name)]));
     if let Err(error) = fs::remove_file(&path)
         && error.kind() != io::ErrorKind::NotFound
     {
         return Err(Error::io("remove", path)(error));
     }
-    run(MANAGER, systemctl().arg("daemon-reload"))
+    run(MANAGER, systemctl().arg("daemon-reload")).map(|()| true)
 }
 
-/// A manager command's stdout; its stderr is the error.
-fn output(command: &mut Command) -> Result<String> {
-    let out = command.output().map_err(|error| Error::Service {
-        manager: MANAGER,
-        detail: format!("{command:?}: {error}"),
-    })?;
-    if !out.status.success() {
-        return Err(Error::Service {
-            manager: MANAGER,
-            detail: format!(
-                "{command:?}: {}",
-                String::from_utf8_lossy(&out.stderr).trim()
-            ),
-        });
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+/// `spec` in a transient scope of its own (`systemd-run --scope` execs it in place), out of the
+/// cgroup of the unit that starts it, which systemd ends whole when that unit stops.
+pub(super) fn scope(spec: &ServiceSpec) -> Option<(PathBuf, Vec<OsString>)> {
+    let run = ["--user", "--scope", "--quiet", "--collect", "--"].map(OsString::from);
+    let command = std::iter::once(spec.program.clone().into_os_string());
+    Some(("systemd-run".into(), run.into_iter().chain(command).chain(spec.args.iter().cloned()).collect()))
 }
 
 fn systemctl() -> Command {

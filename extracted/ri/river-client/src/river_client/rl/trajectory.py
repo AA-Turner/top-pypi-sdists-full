@@ -257,6 +257,10 @@ class Trajectory:
     example at the start of a degenerate repetition loop, sets it where the cut
     falls, so the reward trains the tokens that led there and not the tail that
     still has to be fed back for expert-routing replay.
+
+    ``active_turn_max_tokens`` is engine state: the cap from the
+    ``TurnResult`` whose continuation the engine accepted, kept until that
+    turn ends so it survives a checkpoint taken mid-turn.
     """
 
     def __init__(self, chunks: list[ModelInputChunk], *, messages=None, id=None):
@@ -281,6 +285,7 @@ class Trajectory:
         self.wrap_up = False
         self.sample_index = 0
         self.loss_mask_end: int | None = None
+        self.active_turn_max_tokens: int | None = None
 
     @property
     def spans(self) -> tuple[Span, ...]:

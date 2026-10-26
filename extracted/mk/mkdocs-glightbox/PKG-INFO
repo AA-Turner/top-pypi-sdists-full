@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mkdocs-glightbox
-Version: 0.5.2
+Version: 0.5.3
 Summary: MkDocs plugin supports image lightbox with GLightbox.
 Project-URL: Homepage, https://blueswen.github.io/mkdocs-glightbox/
 Project-URL: Source, https://github.com/blueswen/mkdocs-glightbox

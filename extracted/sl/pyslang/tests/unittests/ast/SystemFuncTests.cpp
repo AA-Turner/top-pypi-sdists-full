@@ -1051,12 +1051,17 @@ TEST_CASE("sdf_annotate") {
     auto tree = SyntaxTree::fromText(R"(
 module m;
     string s;
+    real r;
     initial begin
         $sdf_annotate(s);
         $sdf_annotate("sdf", m);
         $sdf_annotate(s, m, "asdf", "test", "TOOL_CONTROL", "1.0:1.0:1.0", "FROM_MTM");
         $sdf_annotate(s, 123);
         $sdf_annotate(s, s);
+        $sdf_annotate("top.sdf", m, , , "MAXIMUM");
+        $sdf_annotate("top.sdf", , , , , "1.0:1.0:1.0");
+        $sdf_annotate("top.sdf", m, r);
+        $sdf_annotate(, m);
     end
 endmodule
 )");
@@ -1065,9 +1070,11 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 2);
+    REQUIRE(diags.size() == 4);
     CHECK(diags[0].code == diag::ExpectedModuleInstance);
     CHECK(diags[1].code == diag::ExpectedModuleInstance);
+    CHECK(diags[2].code == diag::BadSystemSubroutineArg);
+    CHECK(diags[3].code == diag::EmptyArgNotAllowed);
 }
 
 TEST_CASE("Tracing automatic vars") {
@@ -1880,6 +1887,35 @@ endmodule
     CHECK(std::count_if(diags.begin(), diags.end(), [](auto& d) {
               return d.code == diag::SysFuncHierarchicalNotAllowed;
           }) == 2);
+}
+
+TEST_CASE("Query functions through an interface port") {
+    auto tree = SyntaxTree::fromText(R"(
+interface I #(parameter int W = 12);
+    logic [W-1:0] data;
+endinterface
+
+module m(I i);
+    localparam int p1 = $bits(i.data);
+    localparam int p2 = $left(i.data);
+    localparam int p3 = $size(i.data);
+    wire [$bits(i.data)-1:0] w;
+endmodule
+
+module top;
+    I i();
+    m u(i);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+
+    auto& root = compilation.getRoot();
+    CHECK(root.lookupName<ParameterSymbol>("top.u.p1").getValue().integer() == 12);
+    CHECK(root.lookupName<ParameterSymbol>("top.u.p2").getValue().integer() == 11);
+    CHECK(root.lookupName<ParameterSymbol>("top.u.p3").getValue().integer() == 12);
 }
 
 TEST_CASE("$stacktrace function") {

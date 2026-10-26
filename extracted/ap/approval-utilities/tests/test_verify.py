@@ -9,7 +9,7 @@ from typing_extensions import override
 from approval_utilities.approvaltests.core.verifiable import Verifiable
 from approval_utilities.approvaltests.core.verify_parameters import VerifyParameters
 from approval_utilities.utilities.multiline_string_utils import remove_indentation_from
-from approval_utilities.utils import get_adjacent_file, is_windows_os, print_grid
+from approval_utilities.utils import get_adjacent_file, print_grid
 from approvaltests import Options, approvals, delete_approved_file
 from approvaltests.approval_exception import ApprovalException
 from approvaltests.approvals import (
@@ -161,7 +161,6 @@ class VerifyTests(unittest.TestCase):
         filename = get_adjacent_file(name)
         verify_file(filename, self.reporter)
 
-    @pytest.mark.skipif(not is_windows_os(), reason="Doesn't work on unix")
     def test_verify_file_with_windows_1252_encoding(self):
         name = "exampleFileWindows1252.txt"
         filename = get_adjacent_file(name)

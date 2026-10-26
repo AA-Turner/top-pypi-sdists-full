@@ -139,17 +139,16 @@ def test_every_filing_prompt_offers_left_out_and_naming_makes_no_junk_project(tm
         prompts.classify(existing=[], truncated=False, **common),
         prompts.assign_chunk(projects="training", index=1, total=2, **common),
         prompts.revise(feedback="keep apps/lab", root=tmp_path, work_dir=str(tmp_path),
-                       resumed=True),
+                       resumed=True, plan_view="    apps/  ->  training  (3 files)"),
     ]
     for text in filing:
-        assert '"left_out": [{"path":' in text
-        assert "in `assignments` or `left_out`" in text
+        assert "probe-backfill-plan leave-out" in text
     for text in filing[:2]:
         assert prompts.LEAVE_OUT in text
     naming = prompts.name_projects(root=tmp_path, findings_json="[]", existing=[])
     assert "belong in one project of their own" not in naming
     assert "Make no project\nfor what is not research" in naming
-    # The slice filer decides left_out, so a correction must reach it.
+    # The slice filer decides what is left out, so a correction must reach it.
     corrected = prompts.assign_chunk(projects="training", index=1, total=2,
                                      feedback="keep apps/lab, it is research", **common)
     assert "keep apps/lab, it is research" in corrected

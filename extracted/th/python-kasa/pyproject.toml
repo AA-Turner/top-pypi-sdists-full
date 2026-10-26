@@ -1,6 +1,6 @@
 [project]
 name = "python-kasa"
-version = "0.11.0.1"
+version = "0.12.0"
 description = "Python API for TP-Link Kasa and Tapo devices"
 license = {text = "GPL-3.0-or-later"}
 authors = [ { name = "python-kasa developers" }]
@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 
 [project.optional-dependencies]
@@ -107,6 +108,7 @@ exclude_lines = [
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
+    "devtools/release.py",
 ]
 markers = [
     "requires_dummy: test requires dummy data to pass, skipped on real devices",
@@ -176,6 +178,10 @@ convention = "pep257"
 # Temporary ANN disable
 "devtools/*.py" = [
     "ANN",
+]
+# The tests are at the end of the file
+"devtools/release.py" = [
+    "S101",
 ]
 
 

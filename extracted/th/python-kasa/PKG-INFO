@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: python-kasa
-Version: 0.11.0.1
+Version: 0.12.0
 Summary: Python API for TP-Link Kasa and Tapo devices
 Project-URL: Homepage, https://github.com/python-kasa/python-kasa
 Project-URL: Bug Tracker, https://github.com/python-kasa/python-kasa/issues
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Python: <4.0,>=3.11
 Requires-Dist: aiohttp>=3
 Requires-Dist: asyncclick>=8.1.7
@@ -228,13 +229,13 @@ The following devices have been tested and confirmed as working. If your device 
 
 ### Supported Tapo[^1] devices
 
-- **Plugs**: P100, P105, P110, P110M, P115, P125M, P135, TP10, TP15
+- **Plugs**: P100, P105, P110, P110M, P115, P116M, P125M, P135, TP10, TP15
 - **Power Strips**: P210M, P300, P304M, P306, P316M, TP25
 - **Wall Switches**: S210, S220, S500, S500D, S505, S505D, S515D, TS15
 - **Bulbs**: L430C, L430P, L510B, L510E, L530B, L530E, L530EA, L535E, L630
 - **Light Strips**: L900-10, L900-5, L920-5, L930-5
 - **Cameras**: C100, C101, C110, C200, C210, C220, C225, C325WB, C460, C520WS, C720, TC40, TC65, TC70
-- **Doorbells and chimes**: D100C, D130, D230
+- **Doorbells and chimes**: D100C, D130, D230, TD21
 - **Vacuums**: RV20 Max Plus, RV30 Max
 - **Hubs**: H100, H200
 - **Hub-Connected Devices[^3]**: S200B, S200D, T100, T110, T300, T310, T315

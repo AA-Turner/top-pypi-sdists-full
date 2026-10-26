@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Dict, Union
+from typing import Any
 
 
 class HTTPClientInterface(ABC):
@@ -8,7 +8,16 @@ class HTTPClientInterface(ABC):
         self,
         method: str,
         url: str,
-        *args,
-        **kwargs,
-    ) -> Union[List[Any], Dict[str, Any]]:
+        **kwargs: Any,
+    ) -> list[Any] | dict[str, Any]:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def request_text(
+        self,
+        url: str,
+        *,
+        content_type: str,
+        **kwargs: Any,
+    ) -> str:
         raise NotImplementedError

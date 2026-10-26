@@ -31,7 +31,7 @@ def _classify(**kw):
 
 def _import(**kw):
     base = dict(
-        root=ROOT, project="odyssey", paths=["a.py", "b/c.csv"], manifest_path=f"{WORK}/m.jsonl"
+        root=ROOT, project="odyssey", paths=["a.py", "b/c.csv"], work_dir=WORK
     )
     base.update(kw)
     return bp.import_unit(**base)
@@ -43,8 +43,6 @@ def _import(**kw):
 @pytest.mark.parametrize(
     "prompt,fragment",
     [
-        (_import(), bp.NAMING),
-        (_import(), bp.REFERENCES),
         (_import(), bp.DESCRIBE_ARTIFACTS),
         (_import(), bp.GROUPING),
         (_classify(), bp.REUSE),
@@ -53,28 +51,6 @@ def _import(**kw):
 )
 def test_the_fragment_arrives_verbatim(prompt, fragment):
     assert fragment in prompt
-
-
-def test_the_naming_rule_names_both_things_it_breaks():
-    """It is not stylistic: the tree splits on '/' and the preview reads the
-    extension, so a sentence in a name breaks both."""
-    assert "splitting that name on '/'" in bp.NAMING
-    assert "extension" in bp.NAMING
-    assert "Never in the name" in bp.NAMING
-    # Files carry no notes: a description is the manifest's local line for the
-    # project's writer, never an upload flag.
-    assert "--notes" not in bp.NAMING
-
-
-def test_the_reference_threshold_is_generated_not_retyped():
-    from probe.cli.backfill import REFERENCE_ABOVE_BYTES, human_bytes
-
-    assert human_bytes(REFERENCE_ABOVE_BYTES) in bp.REFERENCES
-    assert "--reference --allow-missing" in bp.REFERENCES
-    assert "--hash" in bp.REFERENCES  # says NOT to pass it
-
-
-# -- classify ----------------------------------------------------------------
 
 
 def test_classify_says_the_question_is_per_file_not_per_folder():
@@ -106,15 +82,35 @@ def test_a_truncated_sample_budget_is_disclosed_to_the_agent():
     assert "low confidence" in text
 
 
-def test_classify_demands_every_file_be_accounted_for():
-    # Placed or left out with a why -- never silently dropped.
-    assert "exactly once, in `assignments` or `left_out`" in _classify()
-
-
-def test_classify_asks_for_an_unsure_list_because_that_is_what_gets_reviewed():
+def test_classify_files_every_file_and_says_when_it_is_done():
+    # Placed or left out with a why -- never silently dropped -- and finished
+    # by the tool's own count, not by the model's say-so.
     text = _classify()
-    assert '"unsure"' in text
-    assert "the human reviews first" in text
+    assert "probe-backfill-plan status" in text and "0 undecided" in text
+
+
+def test_classify_asks_for_its_doubts_because_that_is_what_gets_reviewed():
+    text = _classify()
+    assert "--low" in text
+    assert "person checks first" in text
+
+
+@pytest.mark.parametrize("which", ["classify", "assign", "revise"])
+def test_no_filing_prompt_asks_the_model_to_copy_paths_back(which):
+    """A model cannot be trusted to copy data (2026-10-25: two mistyped
+    random-hex names out of 10,537 rows refused a whole plan). It SELECTS with
+    `probe-backfill-plan`; nothing in its answer is read."""
+    text = {
+        "classify": _classify,
+        "assign": lambda: bp.assign_chunk(root=ROOT, evidence_jsonl="{}", projects="  a", index=1,
+                                          total=2, work_dir="/w"),
+        "revise": lambda: bp.revise(feedback="f", root=ROOT, work_dir="/w", resumed=False,
+                                    plan_view="    a/  ->  x  (1 file)"),
+    }[which]()
+    assert "probe-backfill-plan assign" in text
+    assert "nothing you write there is read" in text
+    for echo in ("verbatim", "exactly once", '"assignments"', '"left_out"'):
+        assert echo not in text, echo
 
 
 def test_tail_files_must_name_what_decided_them():
@@ -144,21 +140,18 @@ def test_the_unit_prompt_lists_exactly_its_own_files():
     assert "and only these, are yours" in text
 
 
-def test_the_agent_writes_a_manifest_rather_than_uploading_per_file():
-    text = _import(manifest_path="/tmp/unit-7.jsonl")
-    assert "/tmp/unit-7.jsonl" in text
-    assert "Do not run\n`probe artifact add` yourself" in text or (
-        "Do not run" in text and "probe artifact add" in text
-    )
-
-
-def test_a_file_with_nothing_to_say_still_goes_in_the_manifest():
-    """The manifest IS the upload list, so omitting a file drops it from the
-    import entirely."""
+def test_the_unit_agent_uploads_nothing_and_writes_no_upload_list():
+    """Code writes every file of the unit onto the upload list before the agent
+    starts; the agent only says what the files are."""
     text = _import()
-    assert "a file you leave out is a\nfile that does not get imported" in text or (
-        "leave out" in text and "does not get imported" in text
-    )
+    assert "THEY ARE ALREADY ON THE UPLOAD LIST" in text
+    assert "probe-backfill-plan note --file" in text
+    assert "probe artifact add" not in text.split("HOW THIS RUN DIFFERS", 1)[0]
+
+
+def test_a_file_with_nothing_to_say_is_imported_all_the_same():
+    text = _import()
+    assert "needs none: it is imported all the same" in text
 
 
 def test_units_are_told_not_to_write_project_notes():
@@ -263,6 +256,8 @@ def test_no_import_prompt_puts_a_description_on_the_upload():
     "text",
     [
         _classify(),
+        bp.assign_chunk(root=ROOT, evidence_jsonl="{}", projects="  a", index=1, total=2, work_dir="/w"),
+        bp.revise(feedback="f", root=ROOT, work_dir="/w", resumed=True, plan_view="    a/  ->  x"),
         _import(),
         bp.map_wandb(inventory="{}", projects=["a"]),
         bp.write_notes(project="p", root=ROOT, landed=1, manifests=[]),

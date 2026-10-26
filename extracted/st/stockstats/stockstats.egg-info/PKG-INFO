@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stockstats
-Version: 0.6.9
+Version: 0.6.10
 Summary: DataFrame with inline stock statistics support.
 Author-email: Cedric Zhuang <jealous@163.com>
 License-Expression: BSD-3-Clause
@@ -41,11 +41,11 @@ Supported statistics/indicators are:
 
 **Momentum**: RSI, StochRSI, MACD, PPO, KDJ, ROC, CMO, KST, Coppock, AO, BOP, CTI, Inertia, PSL
 
-**Trend**: Supertrend, Aroon, Ichimoku, CR, DMI (+DI/-DI/ADX/ADXR), TRIX, WT
+**Trend**: Supertrend, Aroon, Ichimoku, CR, DMI (+DI/-DI/ADX/ADXR), TRIX, WT, SSL Channel
 
 **Volatility**: Bollinger Bands, ATR, TR, CCI, WR, CHOP, KER, Z-Score, MAD, PGO
 
-**Volume**: VR, MFI, PVO, VWMA
+**Volume**: VR, MFI, PVO, VWMA, OBV
 
 **Oscillators**: QQE, RVGI, ERI, FTR
 
@@ -171,6 +171,8 @@ will be re-evaluated the next time you access them.
 |------|---------------|----------------|-------------|
 | SMA | `close_20_sma` | - | Simple Moving Average |
 | EMA | `close_20_ema` | - | Exponential Moving Average |
+| WMA | `wma` | 10 | Weighted Moving Average |
+| HMA | `hma` | 16 | Hull Moving Average |
 | SMMA | `close_7_smma` | - | Smoothed Moving Average |
 | TEMA | `tema` | 5 | Triple Exponential Moving Average |
 | LRMA | `close_10_lrma` | - | Linear Regression Moving Average |
@@ -198,6 +200,7 @@ will be re-evaluated the next time you access them.
 | DMI | `pdi`, `ndi`, `adx` | 14 | Directional Movement Index |
 | TRIX | `trix` | 12 | Triple Exponential Average |
 | WT | `wt1`, `wt2` | 10, 21 | Wave Trend |
+| SSL | `ssl`, `ssl_up`, `ssl_down` | 10 | SSL Channel |
 | Bollinger | `boll` | 20 | Bollinger Bands |
 | ATR | `atr` | 14 | Average True Range |
 | TR | `tr` | - | True Range |
@@ -211,6 +214,7 @@ will be re-evaluated the next time you access them.
 | VR | `vr` | 26 | Volume Variation Index |
 | MFI | `mfi` | 14 | Money Flow Index |
 | PVO | `pvo` | 12, 26, 9 | Percentage Volume Oscillator |
+| OBV | `obv` | - | On-Balance Volume |
 | QQE | `qqe` | 14, 5 | Quantitative Qualitative Estimation |
 | RVGI | `rvgi` | 14 | Relative Vigor Index |
 | ERI | `eribull`, `eribear` | 13 | Elder-Ray Index |
@@ -295,6 +299,35 @@ It has a parameter for window size. The default window is 14. Change it with
 Examples:
 * `df['vwma']` retrieves the 14 periods VWMA
 * `df['vwma_6']` retrieves the 6 periods VWMA
+
+#### [WMA - Weighted Moving Average](https://www.investopedia.com/terms/l/linearlyweightedmovingaverage.asp)
+
+It's the linearly weighted moving average where recent data points are given more weight.
+
+It has a parameter for window size. The default window is 10. Change it with
+`set_dft_window('wma', n)`.
+
+Examples:
+* `df['wma']` retrieves the 10 periods WMA of the close price
+* `df['wma_20']` retrieves the 20 periods WMA of the close price
+* `df['close_10_wma']` retrieves the 10 periods WMA of the close price
+
+#### [HMA - Hull Moving Average](https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/hull-moving-average)
+
+The Hull Moving Average (HMA), developed by Alan Hull, reduces lag while improving smoothing:
+
+1. Calculate WMA with period `n / 2`
+2. Calculate WMA with period `n`
+3. Calculate non-lag difference: `2 * WMA(n / 2) - WMA(n)`
+4. Calculate WMA of difference with period `sqrt(n)`
+
+It has a parameter for window size. The default window is 16. Change it with
+`set_dft_window('hma', n)`.
+
+Examples:
+* `df['hma']` retrieves the 16 periods HMA of the close price
+* `df['hma_9']` retrieves the 9 periods HMA of the close price
+* `df['close_16_hma']` retrieves the 16 periods HMA of the close price
 
 #### DMA - Difference of Moving Average
 
@@ -656,6 +689,26 @@ Retrieve the LazyBear's Wave Trend with `df['wt1']` and `df['wt2']`.
 Wave trend uses two parameters. You can tune them with
 `set_dft_window('wt', (10, 21))`.
 
+#### [SSL Channel](https://www.tradingview.com/script/xzIoaIJC-SSL-channel/)
+
+The SSL Channel (Securement Stop Loss Channel), created by Erwin Beckers, is a
+trend-following indicator that calculates dynamic support and resistance bands
+using the simple moving averages of High and Low prices. The channel lines flip
+positions based on whether the closing price crosses above the SMA of High
+(bullish) or below the SMA of Low (bearish).
+
+It has a parameter for window size. The default window is 10. Change it with
+`set_dft_window('ssl', n)`.
+
+Examples:
+* `df['ssl']` retrieves the 10-period SSL Channel line (defaults to SSL Up)
+* `df['ssl_up']` retrieves the 10-period SSL Up line
+* `df['ssl_down']` retrieves the 10-period SSL Down line
+* `df['ssl_up_5']` retrieves the 5-period SSL Up line
+* `df['ssl_down_5']` retrieves the 5-period SSL Down line
+* `df['ssl_up_xu_ssl_down']` detects bullish crossover (Buy signal)
+* `df['ssl_up_xd_ssl_down']` detects bearish crossunder (Sell signal)
+
 ---
 
 ### Volatility
@@ -856,6 +909,22 @@ Example:
 The period of short, long EMA and signal line can be tuned with
 `set_dft_window('pvo', (short, long, signal))`. The default
 windows are 12 and 26 and 9.
+
+#### [OBV - On-Balance Volume](https://www.investopedia.com/terms/o/onbalancevolume.asp)
+
+On-Balance Volume (OBV) is a momentum indicator that uses volume flow to predict
+changes in stock price. Joseph Granville developed the metric in 1963.
+
+Formula:
+* If Close > Prior Close: `OBV = Prior OBV + Volume`
+* If Close < Prior Close: `OBV = Prior OBV - Volume`
+* If Close == Prior Close: `OBV = Prior OBV`
+* `OBV[0] = 0`
+
+Examples:
+* `df['obv']` retrieves the On-Balance Volume
+* `df['obv_10_sma']` retrieves the 10-period SMA of OBV
+* `df['obv_20_ema']` retrieves the 20-period EMA of OBV
 
 ---
 

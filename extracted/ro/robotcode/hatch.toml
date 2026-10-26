@@ -28,6 +28,8 @@ dependencies = [
   "semantic-version",
   "robotremoteserver",
   "mashumaro",
+  # optional for Robot Framework, needed to test Libdoc HTML of Markdown documented libraries (RF >= 7.5)
+  "markdown>=3.6",
 ]
 dependency-groups = ["all"]
 workspace.members = [
@@ -42,6 +44,8 @@ test-reset = "pytest --regtest2-reset {args}"
 create-json-schema = "python ./scripts/create_robot_toml_json_schema.py"
 generate-tmlanguage = "python ./scripts/generate_tmlanguage.py"
 create-cmd-line-docs = "python ./scripts/create_cmdline_doc.py"
+create-config-docs = "python ./scripts/create_config_doc.py"
+create-vscode-settings-docs = "python ./scripts/create_vscode_settings_doc.py"
 
 [envs.rfbeta]
 python = "3.13"
@@ -60,9 +64,30 @@ post-install-commands = ["pip install -U -e {root:uri}/../robotframework"]
 [envs.devel]
 python = "3.10"
 
+# each Robot Framework version only with the Python versions it officially supports, see CONTRIBUTING.md
+[[envs.devel.matrix]]
+python = ["3.10"]
+rf = ["rf50"]
+
+[[envs.devel.matrix]]
+python = ["3.10", "3.11"]
+rf = ["rf60"]
+
+[[envs.devel.matrix]]
+python = ["3.10", "3.11", "3.12"]
+rf = ["rf61", "rf70"]
+
+[[envs.devel.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13"]
+rf = ["rf71", "rf72"]
+
 [[envs.devel.matrix]]
 python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
-rf = ["rf50", "rf60", "rf61", "rf70", "rf71", "rf72", "rf73", "rf74"]
+rf = ["rf73", "rf74"]
+
+[[envs.devel.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
+rf = ["rf75"]
 
 [envs.devel.overrides]
 matrix.rf.dependencies = [
@@ -90,6 +115,9 @@ matrix.rf.dependencies = [
   { value = "robotframework~=7.4.0", if = [
     "rf74",
   ] },
+  { value = "robotframework~=7.5.0", if = [
+    "rf75",
+  ] },
 ]
 
 [envs.hatch-test]
@@ -97,7 +125,7 @@ dependencies = ["pytest", "pytest-html", "pytest-mock", "pytest_asyncio>=0.23", 
 pre-install-commands = ["python ./scripts/install_packages.py"]
 
 [[envs.test.matrix]]
-rf = ["rf50", "rf60", "rf61", "rf70", "rf71", "rf72", "rf73", "rf74"]
+rf = ["rf50", "rf60", "rf61", "rf70", "rf71", "rf72", "rf73", "rf74", "rf75"]
 
 [envs.test.overrides]
 matrix.rf.dependencies = [
@@ -124,6 +152,9 @@ matrix.rf.dependencies = [
   ] },
   { value = "robotframework~=7.4.0", if = [
     "rf74",
+  ] },
+  { value = "robotframework~=7.5.0", if = [
+    "rf75",
   ] },
 ]
 
@@ -157,7 +188,7 @@ platform.windows.scripts = [
 skip-install = true
 detached = true
 python = "3.10"
-dependencies = ["GitPython", "semantic-version", "commitizen", "git-cliff"]
+dependencies = ["GitPython", "semantic-version", "packaging", "commitizen", "git-cliff"]
 
 [envs.build.scripts]
 update-changelog = ["python scripts/update_changelog.py"]
@@ -165,6 +196,7 @@ update-git-versions = ["python scripts/update_git_versions.py"]
 update-doc-links = ["python scripts/update_doc_links.py"]
 package = ["python scripts/package.py"]
 publish = ["python scripts/publish.py"]
+publish-dev = ["python scripts/publish_dev.py {args}"]
 extract-release-notes = ["python scripts/extract_release_notes.py"]
 is-prerelease = ["python scripts/is_prerelease.py"]
 get-release-version = ["python scripts/get_release_version.py"]

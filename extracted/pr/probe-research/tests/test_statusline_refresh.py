@@ -254,3 +254,57 @@ def test_two_installs_still_refresh_the_renderer(tmp_path) -> None:
         assert done.returncode == 0 and done.stdout == "", done.stderr
     written = (target / "statusline.py").read_text()
     assert "USER-RENDERER" in written, written[-200:]
+
+
+# -- a server that does not answer, or refuses the key ------------------------
+#
+# The capture reading is local, but it was written only after a good read of
+# the session's work from the server: a machine whose key the server refuses
+# never got one, and the segment read a green "tracking" while nothing it wrote
+# reached the server and `probe session status` said "not recording" (release
+# gate C8, 2026-10-24). Offline the same: the reading froze at the last good read.
+
+SID = SESSION["session_id"]
+
+
+class _Core:
+    def read_cli_config(self):
+        return {}
+
+    def effective_token(self, config):
+        return "probe_pat_x"
+
+    def effective_base_url(self, config):
+        return "http://127.0.0.1:1"
+
+
+def _marker(hook, monkeypatch, tmp_path):
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    return hook._load("_session_marker")
+
+
+@pytest.mark.parametrize("before", [None, {"project": "bird-sql-sft", "run_ids": ["r1"],
+                                           "capture": {"running": True, "reason": None}}])
+def test_without_the_servers_answer_the_capture_reading_is_still_written(hook, monkeypatch, tmp_path, before):
+    marker = _marker(hook, monkeypatch, tmp_path)
+    if before is not None:
+        assert marker.write(SID, before)
+    monkeypatch.setattr(hook, "fetch_work", lambda base_url, token, sid: None)
+    monkeypatch.setattr(hook, "fetch_active_run_ids", lambda *a: pytest.fail("no work, no run read"))
+    monkeypatch.setattr(hook, "_capture_reading", lambda sid, agent: {"running": False, "reason": "not recording"})
+    hook.refresh(SID, core=_Core(), marker=marker)
+    state = marker.read(SID)
+    assert state["capture"] == {"running": False, "reason": "not recording"}
+    # The project of the last good read stays (no flicker to "untracked" offline).
+    assert state.get("project") == (before or {}).get("project")
+    assert state.get("run_ids") == (before or {}).get("run_ids", [])
+
+
+def test_with_the_servers_answer_the_marker_is_written_as_before(hook, monkeypatch, tmp_path):
+    marker = _marker(hook, monkeypatch, tmp_path)
+    monkeypatch.setattr(hook, "fetch_work", lambda base_url, token, sid: {"projects": [{"slug": "p2"}], "runs": []})
+    monkeypatch.setattr(hook, "fetch_active_run_ids", lambda *a: [])
+    monkeypatch.setattr(hook, "_capture_reading", lambda sid, agent: {"running": True, "reason": None})
+    hook.refresh(SID, core=_Core(), marker=marker)
+    state = marker.read(SID)
+    assert state["project"] == "p2" and state["capture"] == {"running": True, "reason": None}

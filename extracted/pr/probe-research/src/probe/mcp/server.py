@@ -373,7 +373,9 @@ _BR_DEPTH_DOC = """1 lists one level; 2 also expands children; higher is rejecte
 
 _BR_LIMIT_DOC = """tree: per level, not per response. Other modes: rows per page (max 50); `next_cursor` continues."""
 
-_BR_MODE_DOC = """What to list. `tree` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's. `datasets`: team datasets, plus run-logged dataset files not registered. `checkpoints`: every checkpoint team-wide. `sources`: external sources (Hub ids, buckets, URLs)."""
+_BR_MODE_DOC = """What to list. `tree` (default): projects -> experiments -> runs. `runs`: every run filed under a project, flat and newest first. `workspaces`: the team's filing locations, by name. `notes`: the notes catalog. `files`: the Shared folder, or one workspace's. `datasets`: team datasets, plus run-logged dataset files not registered. `checkpoints`: every checkpoint team-wide. `sources`: external sources (Hub ids, buckets, URLs). `branches`: a workspace's lines of work, ranked per metric (needs `workspace_id`)."""
+
+_BR_BRANCH_DOC = """mode=branches: one branch in full, by its `ref` from a branches page."""
 
 _BR_ACTIVE_DOC = """mode=runs only: just the runs live right now (status running AND a fresh heartbeat)."""
 
@@ -407,7 +409,7 @@ _RESP_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 
 
 _RESP_CURSOR_DOC = """Continue a response that has a `next_cursor`: pass it back, with the SAME other arguments."""
 
-_BR_WORKSPACE_DOC = """Scope the TOP LEVEL to one workspace. What it lists depends on the workspace KIND: a person's own is what THEY worked on; a team one is what was FILED into it. Not combinable with `ref`. Skip it for a single project - every project node carries `workspace_id` and `workspace_name`. mode=files: whose files to list (omit for the team's Shared folder)."""
+_BR_WORKSPACE_DOC = """Scope the TOP LEVEL to one workspace. What it lists depends on the workspace KIND: a person's own is what THEY worked on; a team one is what was FILED into it. Not combinable with `ref`. Skip it for a single project - every project node carries `workspace_id` and `workspace_name`. mode=files: whose files to list (omit for the team's Shared folder). mode=branches: the workspace (required)."""
 
 _BR_CURSOR_DOC = """Continue the top-level listing from a prior response's `next_cursor`."""
 
@@ -452,6 +454,7 @@ _VIEW_OPTIONS_DOC = """View-specific keys.
   path_prefix    diff on a run: narrow to one subtree.
   runs           inherited on an experiment: true lists the source runs, not their files.
   version        summary_history on a project or experiment: read that one version's markdown instead of the list.
+  branch         branches on a project or experiment: one branch in full, by its `ref`.
   field          record: a dotted field ("metadata.summary"), or a path list."""
 
 _TOKEN_BUDGET_DOC = """Response size budget, 512-8000 o200k_base tokens (default 2000), for the WHOLE response. The default fits a card or notes; start at 5000+ for a `trajectory`, `transcript` or `record` walk."""
@@ -909,6 +912,9 @@ _BROWSE_MODE_ARGS: dict[BrowseMode, frozenset[str]] = {
         {"project", "experiment", "run", "best", "stored", "limit"}
     ),
     BrowseMode.SOURCES: frozenset({"query", "provider", "kind", "limit"}),
+    # The workspace is the route's address; rows page by the token budget.
+    # `branch` opens one of its branches in full, from the same read.
+    BrowseMode.BRANCHES: frozenset({"workspace_id", "branch"}),
 }
 
 #: Browse arguments whose DEFAULT is not None. Supplied means "differs from the
@@ -1489,6 +1495,11 @@ def create_server(
         prefix: Annotated[
             str, BeforeValidator(_none_as_empty), Field(description=_BR_PREFIX_DOC)
         ] = "",
+        # Plain `str` with "" for absent, like `query`: a slug such as `1` or
+        # `true` must arrive as the string it is.
+        branch: Annotated[
+            str, BeforeValidator(_none_as_empty), Field(max_length=256, description=_BR_BRANCH_DOC)
+        ] = "",
         limit: Annotated[int, Field(description=_BR_LIMIT_DOC)] = 10,
         cursor: Annotated[str | None, Field(description=_BR_CURSOR_DOC)] = None,
         runs_cursor: Annotated[str | None, Field(description=_BR_SIDE_CURSOR_DOC)] = None,
@@ -1529,6 +1540,7 @@ def create_server(
                 "workspace_id": workspace_id,
                 "query": query,
                 "prefix": prefix,
+                "branch": branch,
                 "limit": limit,
                 "runs_cursor": runs_cursor,
                 "subprojects_cursor": subprojects_cursor,
@@ -1563,6 +1575,7 @@ def create_server(
                 active=active,
                 query=query or None,
                 prefix=prefix or None,
+                branch=branch or None,
                 workspace_id=workspace_id,
                 limit=limit,
                 cursor=cursor,

@@ -485,15 +485,15 @@ WRITE_GROUP_READS = frozenset(
         "checkpoint list", "dataset download", "dataset list", "dataset show", "source list", "source show",
         "artifact download", "artifact list", "artifact pin-impact", "artifact tree",
         "artifact versions",
-        "experiment edges", "experiment get", "experiment inherited", "experiment lineage",
-        "experiment list",
+        "experiment branch", "experiment edges", "experiment get", "experiment inherited",
+        "experiment lineage", "experiment list",
         "experiment reproduce",
         "group get", "group list",
-        "notes audit-advisory", "notes checkout", "notes list", "notes show", "notes status",
+        "notes audit-advisory", "notes checkout", "notes find", "notes list", "notes show", "notes status",
         "notes team",
         "paper citations", "paper edges", "paper find", "paper graph", "paper list",
-        "project code list", "project contributors", "project get", "project lineage",
-        "project list",
+        "project branches", "project code list", "project contributors", "project get",
+        "project lineage", "project list",
         "run check", "run get", "run inputs", "run list", "run metrics", "run reproduce", "run series",
         "run upstream",
         "span get", "span list",
@@ -829,3 +829,27 @@ def test_an_inline_daemon_profile_session_reads_and_writes():
     assert session_marker.switch_to_inline(SID)
     assert _refusal(["run", "list"]) is None
     assert _refusal(["notes", "push", "n.md"]) is None
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["workspace", "set", "main", "--best", "e1", "--reason", "beats the baseline"],
+        ["workspace", "set", "main", "--best", ""],
+        ["project", "set", "p", "--metric", "test/acc", "--goal", "max"],
+        ["project", "set", "p", "--best", "e1", "--reason", "beats the baseline"],
+        ["experiment", "set", "e1", "--metric", "test/acc", "--goal", "max"],
+    ],
+)
+def test_a_metric_or_a_pick_is_a_write_in_every_state(argv):
+    """`workspace set` is in a plumbing group, so it is named a write on its own
+    (`PLUMBING_GROUP_WRITES`); the others ride their write groups."""
+    assert session_marker.classify_probe_args(argv)[0] == "write"
+    for state in (session_marker.STATE_OFF, session_marker.STATE_READ_ONLY):
+        _set(state)
+        assert _refusal(argv) is not None, state
+    _set(session_marker.STATE_DAEMON)
+    _lease()
+    assert _refusal(argv) is not None
+    assert _refusal([*argv, "--directed"]) is None
+    assert session_marker.daemon_profile_allows([*argv, "--directed"])[0] is True

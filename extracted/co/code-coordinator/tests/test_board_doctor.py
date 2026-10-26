@@ -12,12 +12,18 @@ re-acted on, and ``dry_run=True`` mutates nothing.
 
 from __future__ import annotations
 
-from coord import state
+from dataclasses import replace
+
+from coord import queue_diagnose, state
 from coord.board_doctor import (
     ALERT_SKIPPED,
+    CAUSE_BASELINE_RED,
+    CAUSE_CEILING_BLOCKED_MERGEABLE,
     TIER_ALERT,
     TIER_AUTO,
     StuckRow,
+    _reclassify_ceiling_blocked,
+    baseline_red_rows,
     sweep,
 )
 
@@ -55,6 +61,111 @@ class _Recorder:
 
 def _always(tier: str):
     return lambda cause: tier  # noqa: ARG005
+
+
+def _seed_ceiling_blocked_entry(repo: str, issue: int) -> None:
+    """A drive-queue row that already gave up on #2972's fix-round ceiling."""
+    state.enqueue_drive_queue(repo, issue, after=[])
+    state.update_drive_queue_entry(
+        repo,
+        issue,
+        state="blocked",
+        last_reason="giving up after 2 fix rounds (#2972)",
+    )
+
+
+class TestReclassifyCeilingBlocked:
+    """#3760 Action 1: relabel a ceiling-blocked-but-live-clear row."""
+
+    def test_nothing_blocking_row_is_reclassified(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 101)
+        row = _row("acme/widgets#101", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out.cause == CAUSE_CEILING_BLOCKED_MERGEABLE
+        assert out.evidence[:-1] == row.evidence
+        assert "#2972" in out.evidence[-1]
+
+    def test_ci_green_row_is_left_alone(self) -> None:
+        # queue_diagnose._rule_ci_green fires on green checks alone and is
+        # the LAST rule in _RULES order — reached precisely when the
+        # stronger _rule_nothing_blocking (gate_ready + all green +
+        # mergeable) did NOT fire. It is not proof the row is actually
+        # clear, so it must not be promoted to auto-tier here.
+        _seed_ceiling_blocked_entry("acme/widgets", 102)
+        row = _row("acme/widgets#102", queue_diagnose.CAUSE_CI_GREEN)
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
+
+    def test_ceiling_blocked_row_with_low_confidence_is_left_alone(self) -> None:
+        # A CONFIDENCE_LOW verdict must never be promoted to auto-tier,
+        # even when the cause itself is in _LIVE_CLEAR_CAUSES.
+        _seed_ceiling_blocked_entry("acme/widgets", 107)
+        row = StuckRow(
+            queue="drive-queue",
+            key="acme/widgets#107",
+            state="stuck",
+            cause=queue_diagnose.CAUSE_NOTHING_BLOCKING,
+            confidence=queue_diagnose.CONFIDENCE_LOW,
+            evidence=(f"cause={queue_diagnose.CAUSE_NOTHING_BLOCKING}",),
+        )
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
+
+    def test_live_clear_row_that_is_not_ceiling_blocked_is_left_alone(self) -> None:
+        # No drive-queue row at all for this issue — "nothing to block on".
+        row = _row("acme/widgets#103", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
+
+    def test_a_row_blocked_for_a_different_reason_is_left_alone(self) -> None:
+        state.enqueue_drive_queue("acme/widgets", 104, after=[])
+        state.update_drive_queue_entry(
+            "acme/widgets",
+            104,
+            state="blocked",
+            last_reason="merge conflict, no path forward",
+        )
+        row = _row("acme/widgets#104", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
+
+    def test_an_unrelated_cause_on_a_ceiling_blocked_row_is_left_alone(self) -> None:
+        # The row IS ceiling-blocked, but this row's cause is not one of
+        # the two "live reads completely clear" causes — must not relabel
+        # every cause a ceiling-blocked row happens to carry.
+        _seed_ceiling_blocked_entry("acme/widgets", 105)
+        row = _row("acme/widgets#105", "merge_conflict")
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
+
+    def test_merge_queue_rows_are_never_reclassified(self) -> None:
+        _seed_ceiling_blocked_entry("acme/widgets", 106)
+        row = _row(
+            "acme/widgets#106", queue_diagnose.CAUSE_NOTHING_BLOCKING, queue="merge-queue"
+        )
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
+
+    def test_unparseable_key_is_left_alone(self) -> None:
+        row = _row("no-hash-separator", queue_diagnose.CAUSE_NOTHING_BLOCKING)
+
+        [out] = _reclassify_ceiling_blocked([row])
+
+        assert out == row
 
 
 class TestSweepClassifiesAndDispatches:
@@ -96,6 +207,27 @@ class TestSweepClassifiesAndDispatches:
         assert logged_by_key["repo#1"]["evidence"] == ["cause=no_pr"]
         assert logged_by_key["repo#2"]["cause"] == "merge_conflict"
         assert logged_by_key["repo#2"]["action"] == "alert"
+
+    def test_a_falsy_dispatcher_return_is_logged_as_a_noop_not_a_success(self) -> None:
+        # An auto-dispatcher reporting "nothing to do" (a falsy return, not
+        # an exception) must not be recorded as a confirmed "auto-dispatch"
+        # — that would falsely claim the action actually happened.
+        noop_row = _row("repo#3", "no_pr")
+
+        report = sweep(
+            [noop_row],
+            tier_of=_always(TIER_AUTO),
+            auto_dispatchers={"no_pr": lambda row: False},
+            alert_dispatcher=_Recorder(),
+            sweep_id="sweep-test-noop",
+        )
+
+        [decision] = report.decisions
+        assert decision.action == "auto-dispatch-noop"
+
+        logged = state.board_doctor_decisions()
+        [entry] = [e for e in logged if e["key"] == "repo#3"]
+        assert entry["action"] == "auto-dispatch-noop"
 
 
 class TestAlertDeliveryIsConfirmed:
@@ -465,6 +597,151 @@ class TestConvergence:
             clear_absent_rows=False,
         )
         assert state.board_doctor_row_state("drive-queue", key)["count"] == 1
+
+
+class TestBaselineRedRows:
+    """#3761: a red base poisons every row for the repo, collapsed to one."""
+
+    def test_one_row_per_blocked_repo_regardless_of_streak_value(self) -> None:
+        rows = baseline_red_rows({"acme/widgets": 3, "acme/gadgets": 9})
+
+        assert {row.key for row in rows} == {"acme/widgets#0", "acme/gadgets#0"}
+        for row in rows:
+            assert row.queue == "baseline-red"
+            assert row.cause == CAUSE_BASELINE_RED
+
+    def test_evidence_carries_the_streak_count_not_the_repo_name(self) -> None:
+        [row] = baseline_red_rows({"acme/widgets": 7})
+
+        assert row.evidence == ("baseline_red_streak=7",)
+
+    def test_empty_mapping_yields_no_rows(self) -> None:
+        assert baseline_red_rows({}) == []
+
+    def test_a_row_never_collides_with_a_real_per_issue_row(self) -> None:
+        # Issue numbers on GitHub start at 1 — the synthetic row's issue
+        # number is always 0, so no real per-issue row for the same repo
+        # can ever share its key in escalation/convergence bookkeeping,
+        # regardless of which issue number that real row happens to carry.
+        [row] = baseline_red_rows({"acme/widgets": 3})
+
+        repo_name, _, issue_text = row.key.rpartition("#")
+        assert repo_name == "acme/widgets"
+        assert int(issue_text) == 0
+
+
+class TestBaselineRedConvergesLikeAnyOtherAlertRow:
+    """#3761 acceptance (a)+(d): one alert, never a second for the same cause."""
+
+    def test_baseline_red_row_escalates_once_and_a_resweep_stays_quiet(self) -> None:
+        # #3761 review: `policy_tier_of` (the real C2 policy, not a stubbed
+        # `_always(TIER_ALERT)`) is what actually decides this — it is not
+        # registered on `ALLOWLIST`, so this is load-bearing evidence that
+        # a red base has no safe auto-fix, rather than a tautology.
+        from coord.board_doctor_policy import policy_tier_of
+
+        alert = _Recorder()
+        auto = _Recorder()
+        row = baseline_red_rows({"acme/widgets": 3})[0]
+
+        for _ in range(4):
+            sweep(
+                [row],
+                tier_of=policy_tier_of,
+                auto_dispatchers={CAUSE_BASELINE_RED: auto},
+                alert_dispatcher=alert,
+            )
+
+        # Alert-tier: never routed to an auto-action, no matter how many
+        # sweeps see it — a red base has no safe auto-fix.
+        assert auto.count == 0
+        assert alert.count == 1
+
+
+class TestSuppressedRowsStayPresentForClearAbsentRows:
+    """#3761 review (blocking finding #1).
+
+    `collect_rows` folds a red-base repo's real rows into one collapsed
+    baseline-red alert by marking each real row ``suppressed=True`` rather
+    than dropping it from the row set. This class is the direct regression
+    test for the bug that would reappear if a future change went back to
+    dropping them: ``clear_absent_rows`` (default on) must not mistake a
+    merely-*suppressed* row for a genuinely-absent one — it should neither
+    clear its convergence counter nor notify ``escalation_resolver`` — while
+    a row that is truly gone from the sweep must still get both.
+    """
+
+    def test_a_suppressed_row_keeps_its_counter_and_is_never_cleared(self) -> None:
+        dispatch = _Recorder()
+        alert = _Recorder()
+        resolved: list[tuple[str, str]] = []
+        key = "repo#21"
+        cause = "ci_red"
+
+        # Build up a counter as an ordinary auto-tier row first.
+        sweep(
+            [_row(key, cause)],
+            tier_of=_always(TIER_AUTO),
+            auto_dispatchers={cause: dispatch},
+            alert_dispatcher=alert,
+        )
+        assert dispatch.count == 1
+        assert state.board_doctor_row_state("drive-queue", key)["count"] == 1
+
+        # The repo's base goes red: the row is now folded into the
+        # baseline-red alert and shows up here only as `suppressed=True`.
+        suppressed_row = replace(_row(key, cause), suppressed=True)
+        for _ in range(3):
+            sweep(
+                [suppressed_row],
+                tier_of=_always(TIER_AUTO),
+                auto_dispatchers={cause: dispatch},
+                alert_dispatcher=alert,
+                escalation_resolver=lambda queue, k: resolved.append((queue, k)),
+            )
+
+        # Neither dispatch path runs for a suppressed row, no matter how
+        # many sweeps see it, and its prior counter is left untouched —
+        # `clear_absent_rows` must treat it as present, not resolved.
+        assert dispatch.count == 1
+        assert alert.count == 0
+        assert resolved == []
+        assert state.board_doctor_row_state("drive-queue", key)["count"] == 1
+
+        # Contrast: once the row is genuinely gone (not merely suppressed —
+        # e.g. the base went green and the row itself also resolved), the
+        # ordinary clear-on-absence path still fires exactly as before.
+        sweep(
+            [],
+            tier_of=_always(TIER_AUTO),
+            auto_dispatchers={cause: dispatch},
+            alert_dispatcher=alert,
+            escalation_resolver=lambda queue, k: resolved.append((queue, k)),
+        )
+        assert resolved == [("drive-queue", key)]
+        assert state.board_doctor_row_state("drive-queue", key) == {}
+
+    def test_a_suppressed_row_is_logged_but_never_escalates(self) -> None:
+        alert = _Recorder()
+        key = "repo#22"
+        cause = "ci_red"
+        suppressed_row = replace(_row(key, cause), suppressed=True)
+
+        report = None
+        for _ in range(5):
+            report = sweep(
+                [suppressed_row],
+                tier_of=_always(TIER_ALERT),
+                alert_dispatcher=alert,
+            )
+
+        # Never alerted, however many sweeps see it past the convergence
+        # limit — the collapsed baseline-red row is what alerts instead.
+        assert alert.count == 0
+        assert report is not None
+        [decision] = report.decisions
+        assert decision.action == "suppressed-baseline-red"
+        assert decision.escalated is False
 
 
 class TestDryRun:

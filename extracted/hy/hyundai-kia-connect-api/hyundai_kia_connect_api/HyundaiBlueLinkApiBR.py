@@ -12,7 +12,13 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 from requests import Response
 
-from .ApiImpl import ApiImplSession, ClimateRequestOptions, WindowRequestOptions
+from .ApiImpl import (
+    ApiImplSession,
+    ClimateRequestOptions,
+    POIInfo,
+    ScheduleChargingClimateRequestOptions,
+    WindowRequestOptions,
+)
 from .ApiImplType1 import (
     ApiImplType1,
     _check_response_for_errors,
@@ -22,8 +28,8 @@ from .const import (
     BRAND_HYUNDAI,
     BRANDS,
     DOMAIN,
-    ENGINE_TYPES,
     ORDER_STATUS,
+    VALET_MODE_ACTION,
     VEHICLE_LOCK_ACTION,
     WINDOW_STATE,
 )
@@ -386,34 +392,10 @@ class HyundaiBlueLinkApiBR(ApiImplType1):
         _check_response_for_errors(response)
         if "resMsg" not in response or "vehicles" not in response.get("resMsg", {}):
             raise APIError("Missing resMsg or vehicles in response")
-        result = []
-        for entry in response["resMsg"]["vehicles"]:
-            # Map vehicle type to engine type
-            vehicle_type = entry["type"]
-            if vehicle_type == "GN":
-                entry_engine_type = ENGINE_TYPES.ICE
-            elif vehicle_type == "EV":
-                entry_engine_type = ENGINE_TYPES.EV
-            elif vehicle_type in ["PHEV", "PE"]:
-                entry_engine_type = ENGINE_TYPES.PHEV
-            elif vehicle_type == "HV":
-                entry_engine_type = ENGINE_TYPES.HEV
-            else:
-                entry_engine_type = ENGINE_TYPES.ICE
-
-            vehicle = Vehicle(
-                id=entry["vehicleId"],
-                name=entry["nickname"],
-                model=entry["vehicleName"],
-                registration_date=entry["regDate"],
-                VIN=entry["vin"],
-                timezone=self.data_timezone,
-                engine_type=entry_engine_type,
-                ccu_ccs2_protocol_support=entry.get("ccuCCS2ProtocolSupport", 0),
-            )
-            result.append(vehicle)
-
-        return result
+        return [
+            self._vehicle_from_spa_entry(entry)
+            for entry in response["resMsg"]["vehicles"]
+        ]
 
     def _get_cached_vehicle_state(self, token: Token, vehicle: Vehicle) -> dict:
         """Return the server-cached CCS2 vehicle status (does not wake the car).
@@ -757,6 +739,56 @@ class HyundaiBlueLinkApiBR(ApiImplType1):
             )
 
         return data.get("msgId")
+
+    # Commands below are inherited from ApiImplType1 but have no BR endpoint
+    # (the inherited versions build URLs from SPA_API_URL, which BR never
+    # sets), so they raise NotImplementedError like the ApiImpl base.
+
+    def start_charge(self, token: Token, vehicle: Vehicle) -> str:
+        raise NotImplementedError("start_charge is not implemented for Brazil")
+
+    def stop_charge(self, token: Token, vehicle: Vehicle) -> str:
+        raise NotImplementedError("stop_charge is not implemented for Brazil")
+
+    def set_charging_current(self, token: Token, vehicle: Vehicle, level: int) -> str:
+        raise NotImplementedError("set_charging_current is not implemented for Brazil")
+
+    def set_charge_limits(
+        self, token: Token, vehicle: Vehicle, ac: int, dc: int
+    ) -> str:
+        raise NotImplementedError("set_charge_limits is not implemented for Brazil")
+
+    def set_vehicle_to_load_discharge_limit(
+        self, token: Token, vehicle: Vehicle, limit: int
+    ) -> str:
+        raise NotImplementedError(
+            "set_vehicle_to_load_discharge_limit is not implemented for Brazil"
+        )
+
+    def schedule_charging_and_climate(
+        self,
+        token: Token,
+        vehicle: Vehicle,
+        options: ScheduleChargingClimateRequestOptions,
+    ) -> str:
+        raise NotImplementedError(
+            "schedule_charging_and_climate is not implemented for Brazil"
+        )
+
+    def start_hazard_lights_and_horn(self, token: Token, vehicle: Vehicle) -> str:
+        raise NotImplementedError(
+            "start_hazard_lights_and_horn is not implemented for Brazil"
+        )
+
+    def set_navigation(
+        self, token: Token, vehicle: Vehicle, poi_list: list[POIInfo]
+    ) -> str:
+        raise NotImplementedError("set_navigation is not implemented for Brazil")
+
+    def valet_mode_action(
+        self, token: Token, vehicle: Vehicle, action: VALET_MODE_ACTION
+    ) -> str:
+        raise NotImplementedError("valet_mode_action is not implemented for Brazil")
 
     def update_month_trip_info(
         self, token: Token, vehicle: Vehicle, yyyymm_string: str

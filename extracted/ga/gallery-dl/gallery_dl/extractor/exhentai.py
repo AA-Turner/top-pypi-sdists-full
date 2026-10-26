@@ -153,7 +153,7 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
         self.original = self.config("original", True)
 
     def finalize(self, status):
-        if not status or not self.data:
+        if not status or not self.data or "num" not in self.data:
             return
 
         if self.mpv:
@@ -327,6 +327,21 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
             text.unquote(tag.replace("+", " "))
             for tag in text.extract_iter(page, 'hentai.org/tag/', '"')
         ]
+
+        data["comments"] = comments = extr(
+            'id="cdiv"', '<div id="chd"').split('class="c1">')
+        del comments[0]
+        for idx, comment in enumerate(comments):
+            extr = text.extract_from(comment)
+            comments[idx] = {
+                "date" : self.parse_datetime(extr(
+                    ">Posted on ", " by: "), "%d %B %Y, %H:%M"),
+                "user" : text.unquote(extr("/uploader/", '"')),
+                "id"   : text.parse_int(extr('id="comment_score_', '"'), 0),
+                "score": text.parse_int(extr(">", "<"), 0),
+                "text" : extr('id="comment_', "") or text.unescape(extr(
+                    ">", '</div><div class="c')),
+            }
 
         return data
 
@@ -599,7 +614,8 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
             raise self.exc.AuthorizationError()
         if page.startswith(("Key missing", "Gallery not found")):
             raise self.exc.NotFoundError("gallery")
-        if page.count("hentai.org/mpv/") > 1:
+        if self.config("mpv", True) and ">Multi-Page Viewer</a><" in page and \
+                page[:page.find('id="cdiv"')].count("hentai.org/mpv/") > 1:
             if self.gallery_token is None:
                 raise self.exc.AbortExtraction(
                     "'/s/' URLs in MPV mode are not supported")

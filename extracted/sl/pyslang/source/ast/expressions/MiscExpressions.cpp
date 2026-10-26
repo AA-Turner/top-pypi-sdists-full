@@ -885,7 +885,10 @@ Expression& AssertionInstanceExpression::fromLookup(const Symbol& symbol,
             instance.isRecursive = true;
         }
 
-        if (currInst->argDetails)
+        // For argument expansions, continue the walk from the context where the actual
+        // argument was written. If it was written outside of any instance then there
+        // is nothing further to check.
+        if (currInst->argExpansionLoc)
             currInst = currInst->argDetails;
         else {
             SLANG_ASSERT(currInst->prevContext);
@@ -1556,7 +1559,7 @@ Expression& DistExpression::fromSyntax(Compilation& comp, const ExpressionOrDist
         items.emplace_back(di);
     }
 
-    auto result = comp.emplace<DistExpression>(comp.getVoidType(), pred, items.copy(comp),
+    auto result = comp.emplace<DistExpression>(comp.getLogicType(), pred, items.copy(comp),
                                                defaultWeight, syntax.sourceRange());
     if (bad)
         return badExpr(comp, result);

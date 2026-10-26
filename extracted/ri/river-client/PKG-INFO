@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.15.0
+Version: 0.16.0
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -26,7 +26,7 @@ Requires-Dist: transformers>=5.3.0
 Requires-Dist: xxhash>=3.0.0
 Provides-Extra: custom-loss
 Requires-Dist: sympy; extra == 'custom-loss'
-Requires-Dist: torch<2.12,>=2.4; extra == 'custom-loss'
+Requires-Dist: torch<2.14,>=2.4; extra == 'custom-loss'
 Provides-Extra: examples
 Requires-Dist: datasets>=2.14.0; extra == 'examples'
 Requires-Dist: pydantic<3,>=2.12; extra == 'examples'
@@ -83,113 +83,6 @@ with client.session() as session:
     # Sample from the current weights
     sample_groups = model.sample("Continue:", max_tokens=100)
 ```
-
-## Capacity hints
-
-Capacity hints are disabled by default. Enable them with
-`client.session(capacity_hints=True)` to print capacity changes to stderr:
-workers preparing, additional workers starting, or waits for available capacity.
-A state must persist for five seconds before a hint appears. Each run and workload
-prints at most once per 30 seconds, with no repeated messages for an unchanged
-state. A ready message
-appears only after a capacity hint was shown.
-
-Structured status remains available with printing disabled:
-
-```python
-with client.session() as session:
-    # Create models and run your job as usual. In your progress update:
-    for status in session.capacity_status:
-        print(status.training_run_id, status.workload, status.state)
-```
-
-`session.capacity_status` returns an immutable tuple of `river.CapacityStatus`
-objects from the latest heartbeat without an extra API call. Each object contains
-`training_run_id`, `workload` (`training` or `inference`), `state`, `capacity_wait`,
-and `observed_at` (a UTC datetime when available). States are `ready`, `scaling_up`,
-`preparing`, `waiting`, `at_limit`, and `unavailable`.
-
-Observations expire after 30 seconds. An empty tuple or `unavailable` means no
-fresh status is available; neither means capacity is ready. A scaling limit alone
-does not imply queuing, and workload capacity pressure does not explain every
-individual request's latency.
-
-These observations require a server that supplies heartbeat capacity status.
-They cover the session's training runs and their checkpoint inference, matching
-Console. Stateless base-model sampling is outside this scope. Set
-`session.capacity_hints = True` to enable hints in an already-running session,
-or set it to `False` to silence them.
-
-## Full-weight training
-
-On an endpoint with the GLM 5.3 Flash BF16 pool enabled, select
-`full_weight=True` instead of `lora`:
-
-```python
-model = session.create_model(
-    base_model="zai-org/GLM-5.3-Flash-BF16",
-    full_weight=True,
-)
-model.forward_backward(data, loss_fn="cross_entropy")
-model.optim_step(lr=1e-5, beta1=0.9, beta2=0.95, weight_decay=0.01)
-checkpoint = model.save_weights("step1", mode="training", immutable=True, timeout=3600)
-model.load_weights(checkpoint, load_optimizer=True, timeout=3600)
-```
-
-Pass `train_router=True` to `session.create_model(..., full_weight=True)` to
-train MoE router weights as well. Routers are frozen by default; the routing
-correction bias remains fixed. Recreate a model with the same `train_router`
-setting when restoring a training checkpoint.
-
-Checkpoints include FP32 master weights, Adam moments, optimizer parameters,
-and the training step. Full-weight saves require `immutable=True`; repeated
-names create separate checkpoint URIs with independent retention. Only an RL
-model such as `zai-org/GLM-5.3-Flash-FW-RL` can sample: its run owns a sampler,
-and `river_client.rl` refreshes it with `save_weights(mode="publish")`.
-See the [full-weight training guide](../../docs/river-api-design-docs/full-weight-training.md)
-for RL, resume semantics and deployment requirements.
-
-For temporary sampling or training checkpoints, use `durable=False`:
-
-```python
-checkpoint = model.save_weights("sampling", mode="inference", durable=False)
-```
-
-These checkpoints stay on shared NFS for 24 hours by default and never upload
-to cloud storage. Pass `ttl=datetime.timedelta(...)` to choose another lifetime
-within the server's retention cap. They cannot be restored from cloud storage
-after expiry or NFS loss. This option requires server support; the SDK rejects
-it on an endpoint without `temporary_checkpoints_v1`. Changing an existing
-checkpoint's storage policy requires a new name or `immutable=True`. The RL
-trainer uses it for per-step sampling snapshots and rolling LoRA recovery saves.
-Each rolling recovery save expires seven days after creation by default.
-The server reaps expired saves after active consumers release them; the trainer
-never explicitly deletes checkpoints. Configure `Checkpointing.recovery_ttl_seconds`
-within your server's retention cap and resume before the base expires. Recovery
-requires NFS and the complete local run folder. Existing checkpoints keep their
-original retention. Final checkpoints, explicit milestones, and persisted
-evaluation jobs remain durable. Update the server before using the new RL client.
-Custom model implementations must accept `durable` and `ttl` on `save_weights`.
-
-The process-local evaluations in `examples/scalerl.py`,
-`examples/alex_scripts/scalerl_with_rl_trainer.py`, and
-`examples/alex_scripts/self_distillation.py` instead use immutable NFS-only
-snapshots with a 72-hour TTL. They consume each snapshot in one evaluation and
-do not persist evaluation jobs for resume. This covers the SDK's 24-hour save
-and sampling waits plus a day of margin, and requires a client exposing
-`durable` and a server advertising `temporary_checkpoints_v1`. Each evaluation
-retains a separate snapshot until expiry: budget NFS capacity as evaluation
-saves per day × 3 × snapshot bytes, plus any active-request retention. Final and
-explicit periodic training saves in these examples remain durable; SDK trainer
-rolling recovery saves use the policy above. This evaluation policy does not extend to other
-evaluation callers without establishing their resume and consumer lifetimes.
-
-On trainer resume, unfinished rollouts pinned to temporary snapshots restart
-from their environment's initial state, even after a short pause. Recovery
-republishes only the current policy; older pins may have expired. Completed
-rollout data is preserved, and each restarted rollout selects a fresh policy
-without mixing policies within a trajectory.
-
 
 ## Reinforcement learning
 
@@ -272,16 +165,31 @@ checkpoint and returns a base URL that the standard OpenAI client streams
 from unchanged; `list_deployments`, `get_deployment_usage`, `scale_on_target`
 and `delete_deployment` manage it from there. See the
 [deployment walkthrough](https://docs.river.ai/guides/deployments/)
-for a complete example. The bundled agent skill below
+for a complete example. The [bundled agent skill](#ai-agent-skill)
 carries the full workflow: replica roles, scale-to-zero and resume, streaming
 error handling, and usage accounting.
+
+## Export checkpoints to Hugging Face
+
+Install the `hf-export` extra to convert a downloaded LoRA checkpoint into a
+Hugging Face PEFT adapter:
+
+```bash
+pip install -U "river-client[hf-export]"
+python -m river_client.hf_export ./river-checkpoint ./hf-adapter
+```
+
+In Console, **Download HF export script** on an inference checkpoint downloads
+and converts in one step. The bundled agent skill covers the converter's
+options, Python API, supported layouts, and loader caveats.
 
 ## AI agent skill
 
 The package bundles an agent skill — a `SKILL.md` that teaches AI coding
 agents (Claude Code and compatible tools) the current training API:
 `train_step` semantics, data formats, RL/SFT/distillation loop patterns,
-image uploads and handles, and fault-tolerant auto-recovery. Because it ships
+image uploads and handles, checkpoints, full-weight training, capacity status,
+and fault-tolerant auto-recovery. Because it ships
 inside the wheel, the skill always matches the installed client version.
 
 Install it into your agent's skills directory:
@@ -297,69 +205,3 @@ different location (e.g. a project's `.claude/skills/`). Run without
 ## License
 
 Apache-2.0. See [`LICENSE`](LICENSE).
-
-## Export downloaded checkpoints to Hugging Face
-
-The converter is available in `river-client` 0.13.0 and later. In Console, open
-an inference checkpoint and choose **Download HF export script**.
-Install the script's dependencies and run it with your API key:
-
-```bash
-pip install -U "river-client[hf-export]>=0.13.0" requests
-RIVER_API_KEY=... python download.py
-```
-
-The script downloads to a temporary directory and writes an HF/PEFT LoRA adapter
-under the checkpoint ID. Load that directory with PEFT and the corresponding
-base model. Conversion reads the base model's safetensors headers from Hugging
-Face; it does not download base weights. Set `HF_TOKEN` for gated base models.
-
-For a checkpoint already on disk, install the export extra and run the converter:
-
-```bash
-pip install -U "river-client[hf-export]>=0.13.0"
-python -m river_client.hf_export ./river-checkpoint ./hf-adapter
-```
-
-The source directory must contain `adapter_config.json` and either
-`adapter_model.safetensors` or its sharded index and referenced files. The output
-contains `adapter_config.json` and `adapter_model.safetensors` in HF/PEFT adapter
-format. The converter uses `base_model_name_or_path` from the adapter
-configuration unless you override it:
-
-```bash
-python -m river_client.hf_export ./river-checkpoint ./hf-adapter \
-  --base-model "<base-model-id>" --revision "<base-model-commit>"
-```
-
-Use `--base-model /path/to/local/base` to read a local base model's safetensors
-headers. In Python, call the same converter directly:
-
-```python
-from river_client.hf_export import export_hf_adapter
-
-output = export_hf_adapter("./river-checkpoint", "./hf-adapter")
-# Optional keyword arguments: base_model="...", revision="...".
-print(output)
-```
-
-The converter checks every target name and tensor shape against the base model.
-It restores text-model prefixes, splits supported fused projections, preserves
-rank/alpha scaling, and combines indexed adapter shards into PEFT's single
-safetensors file. It runs on CPU with memory proportional to adapter size.
-The source is preserved, and an existing output directory is never overwritten.
-Unsupported layouts fail before an output directory is published. This exports
-LoRA adapters, not merged base weights or training/optimizer state.
-
-Conversion preserves adapter values and dtype; inference compatibility also
-depends on the loader. In our tests with Transformers 5.8.1 and PEFT 0.18.1,
-loading BF16 adapters onto native FP8 layers cast the adapter weights to FP8,
-changing their values. Use a loader that preserves BF16 adapters alongside the
-FP8 base. The workaround verified in that test was to load the base with
-`FineGrainedFP8Config(dequantize=True)` before attaching the adapter. This
-requires more memory and does not quantize the adapter.
-
-For unsupported layouts, including NVFP4 expert adapters, choose **Download raw
-script** in Console. Run `RIVER_API_KEY=... python download-raw.py` after installing
-`requests`. It saves the original files under `<checkpoint-id>-raw` without
-conversion; those files are not guaranteed to load in HF/PEFT.

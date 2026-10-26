@@ -1,13 +1,13 @@
 [project]
 name = "konoha"
-version = "5.7.0"
+version = "5.7.2"
 description = "Add your description here"
 authors = [{ name = "himkt", email = "himkt@klis.tsukuba.ac.jp" }]
 dependencies = [
     "requests<3.0.0",
 ]
 readme = "README.md"
-requires-python = ">= 3.10"
+requires-python = ">= 3.11"
 license = "MIT"
 
 [project.optional-dependencies]
@@ -19,9 +19,11 @@ all = [
     "boto3~=1.34.0",
     "fastapi<1.0.0",
     "janome~=0.5.0",
+    "kytea~=0.1.10",
     "nagisa~=0.2.10",
     "natto-py~=1.0.0",
     "sentencepiece~=0.2.1",
+    "sudachipy~=0.6.11",
     "sudachidict-core==20230927",
     "uvicorn<0.26.0",
 ]
@@ -30,6 +32,9 @@ remote = [
 ]
 janome = [
     "janome~=0.5.0",
+]
+kytea = [
+    "kytea~=0.1.10",
 ]
 nagisa = [
     "nagisa~=0.2.10",
@@ -41,7 +46,7 @@ sentencepiece = [
     "sentencepiece~=0.2.1",
 ]
 sudachi = [
-    "sudachipy~=0.6.10",
+    "sudachipy~=0.6.11",
     "sudachidict-core==20230927",
 ]
 
@@ -61,6 +66,7 @@ module = [
     "janome.tokenizer",
     "nagisa",
     "natto",
+    "Mykytea",
     "sentencepiece",
     "sudachipy",
 ]

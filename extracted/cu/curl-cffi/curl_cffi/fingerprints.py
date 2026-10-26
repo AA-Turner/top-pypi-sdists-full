@@ -177,6 +177,38 @@ NATIVE_IMPERSONATE_TARGETS = [
     },
     {
         "browser": "Chrome",
+        "version": "151",
+        "os": "Windows",
+        "os_version": "10",
+        "target_name": "chrome151",
+        "h3_fingerprints": True,
+    },
+    {
+        "browser": "Chrome",
+        "version": "151",
+        "os": "macOS",
+        "os_version": "26.0",
+        "target_name": "chrome151_macos",
+        "h3_fingerprints": True,
+    },
+    {
+        "browser": "Chrome",
+        "version": "152",
+        "os": "Windows",
+        "os_version": "10",
+        "target_name": "chrome152",
+        "h3_fingerprints": True,
+    },
+    {
+        "browser": "Chrome",
+        "version": "152",
+        "os": "macOS",
+        "os_version": "26.0",
+        "target_name": "chrome152_macos",
+        "h3_fingerprints": True,
+    },
+    {
+        "browser": "Chrome",
         "version": "99",
         "os": "Android",
         "os_version": "12",
@@ -296,6 +328,22 @@ NATIVE_IMPERSONATE_TARGETS = [
         "h3_fingerprints": False,
     },
     {
+        "browser": "Safari",
+        "version": "27.0",
+        "os": "macOS",
+        "os_version": "27.0",
+        "target_name": "safari270",
+        "h3_fingerprints": True,
+    },
+    {
+        "browser": "Safari",
+        "version": "27.0",
+        "os": "iOS",
+        "os_version": "27.0",
+        "target_name": "safari270_ios",
+        "h3_fingerprints": True,
+    },
+    {
         "browser": "Firefox",
         "version": "133.0",
         "os": "macOS",
@@ -326,6 +374,30 @@ NATIVE_IMPERSONATE_TARGETS = [
         "os_version": "Tahoe",
         "target_name": "firefox147",
         "h3_fingerprints": True,
+    },
+    {
+        "browser": "Firefox",
+        "version": "153.0",
+        "os": "Windows",
+        "os_version": "10",
+        "target_name": "firefox153",
+        "h3_fingerprints": False,
+    },
+    {
+        "browser": "Firefox",
+        "version": "154.0",
+        "os": "Windows",
+        "os_version": "10",
+        "target_name": "firefox154",
+        "h3_fingerprints": False,
+    },
+    {
+        "browser": "Firefox",
+        "version": "155.0",
+        "os": "Windows",
+        "os_version": "10",
+        "target_name": "firefox155",
+        "h3_fingerprints": False,
     },
     {
         "browser": "Tor",
@@ -376,7 +448,7 @@ class Fingerprint:
     tls_version: str = "1.2"
     tls_ciphers: list[str] = field(default_factory=list)
     # the value is [h2, http/1.1], which will be filled by libcurl
-    tls_alpn: bool = False
+    tls_alpn: bool = True
     tls_alps: bool = False
     tls_cert_compression: list[str] = field(default_factory=list)
     tls_signature_hashes: list[str] = field(default_factory=list)  # .sig_hash_args
@@ -413,6 +485,7 @@ class Fingerprint:
     http3_tls_supported_groups: list[str] = field(default_factory=list)
     quic_transport_parameters: str = ""
     quic_cid_length: str | None = None
+    quic_initial_packet_number: int | None = None
 
     ws_headers: dict[str, str] = field(default_factory=dict)
     ws_header_order: str = ""
@@ -425,20 +498,20 @@ class Fingerprint:
 # fmt: off
 ClientLiteral = Literal[
     # browsers
-    "chrome", "firefox", "edge", "brave", "opera", "brave", "operamini",
-    "qihoo", "qq", "quark", "samsung", "sogou", "sogou_ie",
+    "chrome", "firefox", "edge", "brave", "opera", "operamini",
+    "qihoo", "qq", "quark", "safari", "samsung", "sogou", "sogou_ie", "tor"
     # http client
     "volley", "okhttp", "webview",
     # app with general web view
     "baidu", "wechat", "bing", "duckduckgo", "google", "yandex",
 ]
 # fmt: on
-PlatformLiteral = ["macos", "windows", "linux", "ios", "android"]
+PlatformLiteral = Literal["macos", "windows", "linux", "ios", "android"]
 
 
 @dataclass
 class FingerprintSpec:
-    platform: str | None = None
+    platform: PlatformLiteral | None = None
     client: ClientLiteral | None = None
     strategy: Literal["uniform"] | None = "uniform"
 

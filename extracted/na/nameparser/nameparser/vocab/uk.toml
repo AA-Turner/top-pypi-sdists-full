@@ -1,0 +1,54 @@
+schema = 1
+
+[[word]]
+text = "пан"
+salutation = { gender = "m", issue = 269, expands = "Mr.", excluded = { after_given = "a surname in Cyrillic (Wikidata), and middle names are drawn from surnames" } }
+family = { wikidata = 743, as_of = 2026-10-24 }
+
+[[word]]
+text = "пані"
+salutation = { gender = "f", issue = 269, expands = "Mrs.", after_given = true }
+
+[[word]]
+text = "акад"
+academic = { issue = 269, expands = "academician" }
+
+[[word]]
+text = "д-р"
+academic = { issue = 269, expands = "doctor" }
+
+[[word]]
+text = "проф"
+academic = { issue = 269, expands = "professor" }
+
+[[word]]
+text = "молодша"
+generation = { issue = 661 }
+
+[[word]]
+text = "молодший"
+generation = { issue = 661 }
+
+[[word]]
+text = "старша"
+generation = { issue = 661 }
+
+[[word]]
+text = "та"
+conjunction = { issue = 269 }
+
+[[word]]
+text = "і"
+[word.conjunction]
+issue = 269
+note = "Ukrainian writes і and й for the same conjunction, alternating for euphony ('Олесь і Олена', 'Марія й Петро'), so real data carries both"
+[word.conjunction.excluded]
+may_be_initial = { reason = "#267 blessed the Cyrillic joining, and marking it would break that reading in the one-case spellings where nothing else decides", issue = [383, 479] }
+
+[[word]]
+text = "й"
+[word.conjunction]
+issue = 269
+same_as = "і"
+[word.conjunction.excluded]
+may_be_initial = { reason = "#267 blessed the Cyrillic joining, and marking it would break that reading in the one-case spellings where nothing else decides", issue = [383, 479] }

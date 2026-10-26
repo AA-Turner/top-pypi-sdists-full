@@ -177,7 +177,7 @@ async def test_press_clip_placeholder_log_redacts_userinfo_query_and_fragment_cr
     monkeypatch.setattr(renderer, "resolve_logo", resolve_logo)
     caplog.set_level("INFO", logger="matrx_scraper.press_clip.renderer")
 
-    await renderer.render_clip_document(url=leaky_url, client_name="")
+    await renderer.render_clip_document(url=leaky_url, brand_name="")
 
     messages = [record.getMessage() for record in caplog.records if record.getMessage().startswith("press clip ")]
     assert len(messages) == 1, messages

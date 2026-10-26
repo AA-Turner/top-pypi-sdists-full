@@ -53,7 +53,6 @@ import importlib.util
 import json
 import math
 import os
-import platform
 import socket
 import sys
 import threading
@@ -73,15 +72,13 @@ from cozy_runtime import __version__ as RUNTIME_VERSION
 from cozy_runtime import graphs, weights_store
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author import _split, describe
-from cozy_runtime.author import _work as work
-from cozy_runtime.author._activity import ThreadPoolExecutor, own_thread
+from cozy_runtime.author._activity import ThreadPoolExecutor
 from cozy_runtime.author._app import Registration
 from cozy_runtime.author._artifacts import ModelArtifact
 from cozy_runtime.author._assets import GrantedInput
 from cozy_runtime.author._attention import _close as close_producer_states
-from cozy_runtime.author._calls import _Broker, _CallType, _export
-from cozy_runtime.author._capture import ActivationCapture
-from cozy_runtime.author._context import CURRENT, AdapterRef, Device
+from cozy_runtime.author._calls import Nudges, _Broker, _CallType, _export
+from cozy_runtime.author._context import CURRENT, AdapterRef, Device, place
 from cozy_runtime.author._demand import shape_cell
 from cozy_runtime.author._errors import (
     DEVICE_FAULT,
@@ -163,12 +160,12 @@ from cozy_runtime.internal.config import inherited_environment, restore_seal, se
 from cozy_runtime.internal.discovery import discover_installed
 from cozy_runtime.internal.encoding.leaves import FORMATS, serving
 from cozy_runtime.internal.executor_commands import (
-    LOAD_ATTENTION_PIN,
     Activate,
     Attention,
     Binding,
     CallInterface,
     Fork,
+    Form,
     GroupHardware,
     Hello,
     Invoke,
@@ -206,7 +203,8 @@ from cozy_runtime.internal.parallel.group import (
     RankGroup,
     RankSpec,
     abort_process_group,
-    join_rank,
+    form_rank,
+    ready_rank,
 )
 from cozy_runtime.internal.parallel.mirror import mirror_component
 from cozy_runtime.internal.parallel.plan import (
@@ -217,7 +215,6 @@ from cozy_runtime.internal.parallel.plan import (
 )
 from cozy_runtime.internal.resolution import RefusedLeaves
 from cozy_runtime.internal.seam import (
-    EXECUTOR_PROTOCOL_REVISION,
     RESULT_DOCUMENT,
     Channel,
     Frame,
@@ -228,6 +225,8 @@ from cozy_runtime.internal.seam import (
 
 if sys.platform == "win32":
     from ctypes import wintypes
+
+    from cozy_runtime.internal import winpipe
 else:
     import resource
 
@@ -341,26 +340,16 @@ def _env_document() -> dict[str, Any]:
 _CALL: contextvars.ContextVar[str] = contextvars.ContextVar("cozy_call", default="")
 
 
-def _cancelled(mux: Mux, root: Path, request_id: str, wait: float = 0.0) -> bool:
-    """Whether a `cancel` named this call, waiting up to `wait` seconds for one. TensorD 0.10
-    marks it in `root`'s `executor.cancel` instead, read once the wait ends."""
-    if mux.cancelled(request_id, wait):
-        return True
-    try:
-        return (root / "executor.cancel").read_text() == request_id
-    except (OSError, UnicodeError):
-        return False
-
-
 @contextlib.contextmanager
 def _held(
-    mux: Mux, root: Path, request_id: str, waits: Attribution, waiter: str
-) -> Iterator[Callable[[float], bool]]:
+    mux: Mux, request_id: str, waits: Attribution, waiter: str, wake: Callable[[], None]
+) -> Iterator[Callable[[], bool]]:
     """A compile wait of this request's preparation (`kernel_compile.held`): a stage of its
-    record, whose polls sleep until a cancel names it (`_cancelled`)."""
+    record, woken at once when a cancel names it."""
     started = time.perf_counter()
     try:
-        yield functools.partial(_cancelled, mux, root, request_id)
+        with mux.watch(request_id, wake):
+            yield functools.partial(mux.cancelled, request_id)
     finally:
         waits.stage(f"waiting for {waiter} compile", (time.perf_counter() - started) * 1000)
 
@@ -410,10 +399,10 @@ def _replay_code(command: Invoke, request: str) -> str:
 
 
 def _show_checkpoint(
-    exchange: Exchange, slot: str, repo_id: str, revision: str, tag: str, variant: str
+    exchange: Exchange, slot: str, repo_id: str, revision: str
 ) -> None:
     """A weights output's checkpoint as the run's checkpoint item (`CheckpointItem`)."""
-    item = CheckpointItem(output=slot, repo_id=repo_id, revision=revision, tag=tag, variant=variant)
+    item = CheckpointItem(output=slot, repo_id=repo_id, revision=revision)
     answer = exchange(item, Answer)
     if not answer.ok:
         raise RuntimeFailure(
@@ -432,31 +421,39 @@ class _Slot:
 class _InFlight:
     """The attempts in flight, side by side. The first in readies the plane and the last out
     drains it, each with no other attempt running. One that changes what every attempt runs on
-    (a pinned kernel, a capture, a GPU group's call) runs alone, and later ones wait for it."""
+    (a pinned kernel, a GPU group's call) runs alone, and later ones wait for it, told which
+    runs they wait on."""
 
     def __init__(self) -> None:
         self._changed = threading.Condition()
-        self.count = 0
+        #: the runs in flight, by request id
+        self._running: list[str] = []
         self._leaving = 0
         self._alone = False
         self._queued = 0
 
+    @property
+    def count(self) -> int:
+        return len(self._running)
+
     @contextlib.contextmanager
-    def attempt(self, alone: bool) -> Iterator[_Slot]:
+    def attempt(self, alone: bool, request_id: str) -> Iterator[_Slot]:
         with self._changed:
             self._queued += alone
-            self._changed.wait_for(
-                lambda: not self._alone and not (self.count if alone else self._queued)
+            request_path.wait(
+                self._changed,
+                lambda: not self._alone and not (self.count if alone else self._queued),
+                lambda: ", ".join(f"run {running}" for running in self._running),
             )
             self._queued -= alone
-            self.count += 1
+            self._running.append(request_id)
             slot = _Slot(first=self.count == 1)
             self._alone = alone or slot.first
         try:
             yield slot
         finally:
             with self._changed:
-                self.count -= 1
+                self._running.remove(request_id)
                 self._leaving -= slot.leaving
                 self._alone = self._alone and self.count > 0
                 self._changed.notify_all()
@@ -483,22 +480,6 @@ def _distribution_version(name: str) -> str:
     try:
         return importlib.metadata.version(name)
     except importlib.metadata.PackageNotFoundError:
-        return ""
-
-
-def _proc_status(field: str) -> str:
-    """A `/proc/self/status` field; "" where the system has no `/proc` (macOS)."""
-    with contextlib.suppress(FileNotFoundError), open("/proc/self/status") as handle:
-        for line in handle:
-            if line.startswith(field + ":"):
-                return line.split(":", 1)[1].strip()
-    return ""
-
-
-def _oom_score_adj() -> str:
-    try:
-        return Path("/proc/self/oom_score_adj").read_text().strip()
-    except FileNotFoundError:  # no /proc: macOS has no OOM killer score
         return ""
 
 
@@ -538,10 +519,9 @@ if sys.platform == "win32":
             raise ctypes.WinError(ctypes.get_last_error())
         return int(counters.PeakWorkingSetSize)
 
-    def _identity() -> tuple[int, int, int]:
-        """Process group, uid, euid. A Windows executor is its own group (its Job Object)
-        and has no POSIX ids."""
-        return os.getpid(), 0, 0
+    def _group() -> int:
+        """A Windows executor is its own group (its Job Object)."""
+        return os.getpid()
 
 else:
 
@@ -551,9 +531,8 @@ else:
             1 if sys.platform == "darwin" else 1024
         )
 
-    def _identity() -> tuple[int, int, int]:
-        """Process group, uid, euid."""
-        return os.getpgrp(), os.getuid(), os.geteuid()
+    def _group() -> int:
+        return os.getpgrp()
 
 
 def _deadline(seconds: float | None) -> float:
@@ -682,6 +661,12 @@ class _CompositeResidency:
             }
             for part in ("notes", "graphs")
         }
+
+
+def _leases(command: Start) -> int | None:
+    """TensorD's lease namespace when it leases this executor's pages (memory protocol 2), else
+    None: off Linux, with no manager, or an older TensorD, varena runs each GPU standalone."""
+    return command.leases if command.memory_protocol == 2 else None
 
 
 def _construction_record(facts: Mapping[str, Any]) -> dict[str, Any]:
@@ -819,8 +804,8 @@ class Executor:
         self.execution: ModuleType | None = None
         #: HOST ONLY: each attempt's open request, by request id (`ctx.plan` replaces its plan)
         self.requests: dict[str, MemoryRequest] = {}
-        #: Why a GPU runs standalone ("" it does not): TensorD asked to lease and no manager
-        #: answers (`Memory.standalone`)
+        #: Why a GPU runs standalone ("" it does not): TensorD leases nothing here (its memory
+        #: protocol), or it asked and no manager answers (`Memory.standalone`)
         self.standalone = ""
         #: HOST ONLY: each open or just-ended request's cut rows (`measurements.execution.cuts`)
         self.cuts: dict[str, object] = {}
@@ -858,8 +843,14 @@ class Executor:
         #: world spawns and drives the followers; a follower's channel is rank 0's seam.
         self.rank = int(rank)
         self.world = int(world)
+        if self.world > 1:
+            kernel_ready.group(self.rank, self.world)
         self.group: RankGroup | None = None
+        #: the kernels that began serving as this attempt was admitted (`_grant`)
+        self._granted: list[str] = []
         self.pg: Any = None
+        #: between `join` and `form`: this follower's rank spec and the store it reached
+        self._forming: tuple[RankSpec, Any] | None = None
         #: HOST ONLY: the group's handle as every installed component reads it (`CpComms`)
         self.comms: cp.CpComms | None = None
         #: rank 0 only: the measured links and route this group formed over
@@ -942,6 +933,8 @@ class Executor:
                 return self.hello()
             case Join():
                 return self.join(command)
+            case Form():
+                return self.form(command)
             case Attention():
                 return self.select_attention(command)
             case Kernels():
@@ -979,35 +972,19 @@ class Executor:
                 raise AssertionError("shutdown ends the command loop")
 
     def hello(self) -> dict[str, Any]:
-        group, uid, euid = _identity()
+        """What TensorD (`Hello`) and rank 0 (`group._Hello`) read: who this process is, its
+        versions, its memory protocol and its seal."""
         return {
             "ok": True,
             "pid": os.getpid(),
             "ppid": os.getppid(),
-            "python_version": platform.python_version(),
-            "python_abi": (sys.implementation.cache_tag or "").replace("cpython-", "cp"),
-            "python_executable": sys.executable,
+            "pgid": _group(),
             "runtime_version": RUNTIME_VERSION,
             "tensorfs_version": _distribution_version("tensorfs"),
-            "executor_protocol_revision": EXECUTOR_PROTOCOL_REVISION,
-            # 2: each GPU's weight pages leased from TensorD's manager beside its two ledger
-            # descriptors. TensorD checks this before transferring Start's memory authority.
+            # 2: each GPU's weight pages leased from TensorD's manager (`Start.leases`); a
+            # Start of any other runs standalone.
             "memory_protocol": 2,
-            #: commands beyond the floor's (`memory` is the invoke reply's own object)
-            "capabilities": [
-                "import_only",
-                zygote.CAPABILITY,
-                LOAD_ATTENTION_PIN,
-            ],
-            "memo": [stage_memo.CAPABILITY],
-            "pgid": group,
-            "no_new_privs": _proc_status("NoNewPrivs"),
-            "oom_score_adj": _oom_score_adj(),
-            "uid": uid,
-            "euid": euid,
             "sealed": dict(_SEALED),
-            "torch_loaded": "torch" in sys.modules,
-            "rss_bytes": _rss(),
             "rank": self.rank,
             "world": self.world,
         }
@@ -1056,6 +1033,7 @@ class Executor:
             torch.cuda.set_device(self.rank)
         accel.first_launches(torch, self.device_kind)
         self._device_ready = True
+        place(self._device())
         return None
 
     def _open_memory(self, torch: Any) -> None:
@@ -1152,9 +1130,11 @@ class Executor:
         return torch.device("cpu")
 
     def join(self, command: Join) -> dict[str, Any]:
-        """A FOLLOWER joins rank 0's store and forms its half of the process group."""
+        """A FOLLOWER's first half of the group: rank 0's store reached and its device current.
+        Its answer is the readiness every GPU gives before any enters group init (`form`)."""
         if self.rank == 0:
             return {"ok": False, "code": "not_a_follower", "detail": f"{_gpu(0)} forms the group"}
+        self._forming = None
         if command.abort:
             watcher = socket.socket(fileno=self.channel.recv_descriptor())
             threading.Thread(
@@ -1188,25 +1168,44 @@ class Executor:
                 self.poisoned = f"join refused: {refused['code']}"
                 return refused
         try:
-            self.pg = join_rank(torch, spec, _SEALED)
+            self._forming = (spec, ready_rank(torch, spec, _SEALED))
         except Exception as exc:
-            self.poisoned = f"join failed: {type(exc).__name__}"
+            return self._unformed(exc, "join")
+        return {"ok": True, "rank": self.rank, "world": self.world, "backend": spec.backend}
+
+    def form(self, command: Form) -> dict[str, Any]:
+        """A FOLLOWER's second half: every GPU said it is ready, so it enters group init."""
+        forming, self._forming = self._forming, None
+        if forming is None:
             return {
                 "ok": False,
                 "code": "group_unformed",
-                "detail": f"{_gpu(self.rank)} could not join the group: "
-                f"{type(exc).__name__}: {exc}"[:900],
-                "traceback": prepare_diagnostics.exception_trace(exc),
+                "detail": f"{_gpu(self.rank)} was not joined",
             }
+        spec, store = forming
+        try:
+            self.pg = form_rank(self.torch, spec, store)
+        except Exception as exc:
+            return self._unformed(exc, "form")
         if self.comms is not None:
             self.comms.pg = self.pg
         reply = {"ok": True, "rank": self.rank, "world": self.world, "backend": spec.backend}
         if command.calibrate:
             exchange, reply["calibration"] = copy_engine.calibrate(
-                torch, self.pg, self.rank, self.world
+                self.torch, self.pg, self.rank, self.world
             )
             copy_engine.install(exchange, self.pg)
         return reply
+
+    def _unformed(self, exc: Exception, step: str) -> dict[str, Any]:
+        self.poisoned = f"{step} failed: {type(exc).__name__}"
+        detail = f"{_gpu(self.rank)} could not {step} the group: {type(exc).__name__}: {exc}"
+        return {
+            "ok": False,
+            "code": "group_unformed",
+            "detail": detail[:900],
+            "traceback": prepare_diagnostics.exception_trace(exc),
+        }
 
     def _calibrated(self, pg: Any) -> None:
         """Rank 0's half of the formation's calibration: NCCL against the copy engines."""
@@ -1219,8 +1218,12 @@ class Executor:
         """A follower's collectives end when rank 0 says so (`RankGroup.interrupt`): its main
         thread may be inside one, where no command reaches it."""
         with watcher:
-            while watcher.recv(1):
-                abort_process_group()
+            try:
+                while watcher.recv(1):
+                    abort_process_group()
+                    self._interrupted.set()
+            finally:
+                # Ended (rank 0 closed it, or the abort raised): a join waiting on it goes on.
                 self._interrupted.set()
 
     def _group_reform(self) -> None:
@@ -1547,9 +1550,7 @@ class Executor:
 
     def _attempt_cancelled(self) -> bool:
         """A group's one attempt is cancelled (its calls on the other GPUs read this)."""
-        return bool(self._attempt_request) and _cancelled(
-            self.mux, self.root, self._attempt_request
-        )
+        return bool(self._attempt_request) and self.mux.cancelled(self._attempt_request)
 
     def _warm_package(self) -> str:
         """Give the package its ONE chance to pay its deferred import cost off the lock.
@@ -1595,19 +1596,16 @@ class Executor:
         and reads as unstarted. The ordinary start that follows only initializes devices,
         warms the package and forms the group.
         """
-        if (command.devices or command.ledgers) and command.memory_protocol != 2:
-            # Another TensorD's grant layout is unknown here: its descriptors stay unread.
-            self.poisoned = "incompatible memory protocol"
-            return {
-                "ok": False,
-                "code": "memory_protocol_incompatible",
-                "detail": "GPU Start requires memory_protocol 2 (leases) before ledger transfer; "
-                f"TensorD supplied {command.memory_protocol}. Upgrade TensorD, Runtime "
-                "and TensorFS together.",
-            }
-        for fd in self.channel.recv_fds(2 * command.ledgers):  # TensorD's rows: leases serve
+        # An older TensorD's GPU ledgers follow its Start (a memfd and an eventfd each): unused
+        # here, they close. Skew degrades: whatever leases nothing runs standalone.
+        for fd in self.channel.recv_fds(2 * command.ledgers):
             os.close(fd)
-        self.leases = command.leases
+        self.leases = _leases(command)
+        if command.devices and self.leases is None and not self.standalone:
+            self.standalone = (
+                f"TensorD's memory protocol {command.memory_protocol} leases nothing here: "
+                "each GPU runs standalone"
+            )
         if self.poisoned:
             return {"ok": False, "code": "poisoned_generation", "detail": self.poisoned}
         if command.memo is not None:
@@ -1674,7 +1672,6 @@ class Executor:
             now = time.perf_counter()
             stages.append((name, round((now - _mark[0]) * 1000, 1)))
             _mark[0] = now
-            work.done += 1
 
         imported = self.imported
         warmup_error = ""
@@ -1682,6 +1679,7 @@ class Executor:
         try:
             if degree > 1 and self.rank == 0:
                 self.world = degree
+                kernel_ready.group(0, degree)
                 if self.group is None:
                     self.group = RankGroup(
                         degree=degree,
@@ -1691,6 +1689,7 @@ class Executor:
                         forward=self.channel.send,
                         devices=_sealed_entries(),
                         launch=self._follower,
+                        waiting=functools.partial(_waiting, self.channel),
                     )
                 if not self.group.followers:
                     self.group.spawn()
@@ -1764,7 +1763,11 @@ class Executor:
                             code="group_unformed",
                         )
                 if not command.import_only:
-                    measured = links.measured(links.directory(_SEALED), _sealed_entries()[:degree])
+                    measured = links.measured(
+                        links.directory(_SEALED),
+                        _sealed_entries()[:degree],
+                        functools.partial(_waiting, self.channel),
+                    )
                     stage("group_links")
                     self.transport = links.Transport(
                         degree, _gpu_numbers(degree), "nccl", measured.nccl(), measured
@@ -1916,7 +1919,7 @@ class Executor:
 
     def _model_classes(self) -> list[type[Model[Any]]]:
         """The classes the package's constructed Model slots declare, wherever they are
-        defined (a script's come from its libraries, not its entry module)."""
+        defined (a library's, not only the entry module's)."""
         surfaces = getattr(self.discovered, "surfaces", ())
         slots = [s for surface in surfaces for s in surface.model_bindings if not s.weights]
         return list(dict.fromkeys(slot.model_class for slot in slots))
@@ -2315,7 +2318,6 @@ class Executor:
             now = time.perf_counter()
             stages.append((name, round((now - _mark[0]) * 1000, 1)))
             _mark[0] = now
-            work.done += 1
 
         self._stages = stages
         if not binding.model_class:
@@ -2413,16 +2415,16 @@ class Executor:
             attention.reserve(command.attention_pin, device_facts)
         stage("measure_device")
         hardware_variant = binding.variant
-        if not hardware_variant and device_facts.kind == "mps":
-            hardware_variant = "mps"
+        if not hardware_variant and device_facts.kind in ("mps", "cpu"):
+            hardware_variant = device_facts.kind
         if not hardware_variant:
             if device_facts.kind != "cuda" or device_facts.sm <= 0:
                 self.poisoned = "modeled accelerator unavailable"
                 return {
                     "ok": False,
                     "code": "modeled_accelerator_unavailable",
-                    "detail": "modeled execution requires a measured CUDA device; no "
-                    "caller-authored hardware variant is accepted",
+                    "detail": "a model needs a GPU, and this machine has none it can use (an "
+                    "NVIDIA GPU, or an Apple Silicon Mac's own): run it --on new",
                 }
             hardware_variant = f"sm{device_facts.sm}"
         reference = Variant(
@@ -2447,14 +2449,17 @@ class Executor:
         present = [name for name in names if checkpoints[name].has(name)]
         rows = [r for name in present for r in checkpoints[name].rows(name)]
         stage("checkpoint_headers")
-        if not accel.bf16_supported(self.device_kind) and any(
-            dtype_name(r.dtype) == "bfloat16" for r in rows
-        ):
-            return self._refusal(
-                "dtype_unsupported",
-                f"this lane stores bfloat16, which {device_facts.name} computes from macOS 14 "
-                f"on ({device_facts.driver} here): serve an f16 lane",
-            )
+        if self.device_kind == "mps":
+            # One pool, every weight resident (cr-021): past the GPU's working set never fits.
+            # A CPU's weights are host memory, which pages: it is never refused here.
+            need, room = sum(r.stored_nbytes for r in rows), accel.unified_ceiling(torch)
+            if need > room:
+                return self._refusal(
+                    MEMORY_EXHAUSTED,
+                    f"{binding.model or reference.snapshot} keeps {need / 2**30:.1f} GiB of "
+                    f"weights on the GPU, and {device_facts.name} holds {room / 2**30:.1f} GiB: "
+                    "run it on a Mac with more memory, or --on new",
+                )
         # NVML is queried with the sealed device (#549.9): inside the seal, card zero IS the
         # lane's card, so a multi-GPU pod's plan names the card the fill actually uses.
         runtime_identity = measure_runtime(torch, binding.release)
@@ -2574,7 +2579,13 @@ class Executor:
                     "one model slot selects different prepared adapter graphs",
                     code="adapter_graph_conflict",
                 )
-            artifact = bind_adapters(artifact, model_cls, data, prepared_snapshot=manifest)
+            artifact = bind_adapters(
+                artifact,
+                model_cls,
+                data,
+                lambda component, name: checkpoints[component].binding(component)(name),
+                prepared_snapshot=manifest,
+            )
         seen = Observations()
         registry = ModelRegistry(
             release=binding.release,
@@ -2711,6 +2722,7 @@ class Executor:
             except GroupRefusal as exc:
                 return self._group_refusal(exc)
             for follower, reply in zip(self.group.followers, replies, strict=True):
+                kernel_ready.report(follower.rank, reply.get("kernels") or {})
                 if not reply.get("ok"):
                     code = str(reply.get("code") or "group_unformed")
                     return self._group_refusal(
@@ -3122,12 +3134,8 @@ class Executor:
         if isinstance(target, dict):
             return target
         requested = _attention_pin(command.attention_kernel, command.bits)
-        alone = (
-            self.world > 1
-            or command.capture is not None
-            or bool(requested and target._attention_reaches(requested))
-        )
-        with self.in_flight.attempt(alone) as slot, request_path.serving():
+        alone = self.world > 1 or bool(requested and target._attention_reaches(requested))
+        with self.in_flight.attempt(alone, command.request_id) as slot, request_path.serving():
             # Admitted only now: an attempt before it may have poisoned the generation. Its
             # record is taken once nothing can refuse it, so a refused call may come again.
             refused = target._unadmitted(command) or self._grant(target, command, first=slot.first)
@@ -3149,7 +3157,7 @@ class Executor:
         of whose GPUs may serve otherwise refuses); the first attempt in also opens the
         residency's attempt."""
         turn = object()
-        kernel_ready.boundary()
+        target._granted = kernel_ready.boundary()
         with SCOPES.held(turn):
             target._upgrade_attention(turn)
             refused = target._install_ready_kernels()
@@ -3191,7 +3199,7 @@ class Executor:
         waits = Attribution()
         if pin and self._attention_reaches(pin):
             held = kernel_compile.held.set(
-                functools.partial(_held, self.host.mux, self.root, command.request_id, waits)
+                functools.partial(_held, self.host.mux, command.request_id, waits)
             )
             try:
                 self._attention_plan(pin)
@@ -3213,7 +3221,6 @@ class Executor:
             finally:
                 kernel_compile.held.reset(held)
         try:
-            self._capture_options(command, registration.surface)
             prepared = prepare(registration, command.payload, input_metadata=command.input_metadata)
         except Exception as exc:
             outcome = classify(exc)
@@ -3319,11 +3326,21 @@ class Executor:
         # (`_upgrade_attention`): each selection the run served and from which step.
         segments: list[dict[str, Any]] = []
         later: list[attention.Applied] = []
-        #: each kernel that became ready mid-run, and the step from which it served
-        swapped: list[tuple[str, dict[str, str | int]]] = []
+        #: each kernel that became ready mid-run, and the step from which it served; in a
+        #: group, on which GPU
+        here: dict[str, str | int] = {} if self.group is None else {"gpu": self.group.gpu(0)}
+        point = [{"stage": "", "step": 0, **here}]  # the last boundary
+        swapped = [(name, point[0]) for name in self._granted]
         steps: dict[str, int] = {}
         stage = [""]  # the last stage this attempt itself reported
         handler = threading.get_ident()
+
+        def followed() -> None:
+            """What each follower began serving since the last boundary, at it."""
+            if self.group is not None:
+                began, self.group.began = self.group.began, []
+                gpu = self.group.gpu
+                swapped.extend((kernel, {**point[0], "gpu": gpu(rank)}) for rank, kernel in began)
 
         def boundary(frame: Any) -> None:
             progress(frame)
@@ -3331,9 +3348,10 @@ class Executor:
                 stage[0] = frame.stage
             if not isinstance(frame, ProgressFrame) or threading.get_ident() != handler:
                 return
+            followed()
             if frame.position is not None:
                 steps[frame.stage] = frame.position
-            at: dict[str, str | int] = {"stage": frame.stage, "step": steps.get(frame.stage, 0)}
+            at = point[0] = {"stage": frame.stage, "step": steps.get(frame.stage, 0), **here}
             swapped.extend((name, at) for name in kernel_ready.boundary())
             if pin or served_attention is None:
                 return  # an override holds its kernel for every step
@@ -3346,8 +3364,6 @@ class Executor:
             if row["observed"] != segments[-1]["observed"] or row["dense"] != segments[-1]["dense"]:
                 segments.append(row)
 
-        capture = None
-        capture_result: dict[str, Any] | None = None
         record: AuthorAttempt | None = None
         # Weights grants are the attempt's own: its sources and outputs end with it.
         sources: dict[str, RawWeights[Any]] = {
@@ -3363,8 +3379,6 @@ class Executor:
                 code=_replay_code(command, prepared.overlay.digest),
                 bounds=command.weights,
                 show=functools.partial(_show_checkpoint, exchange),
-                destination=command.destination,
-                connection=connection,
             )
             if command.weights
             else None
@@ -3390,62 +3404,53 @@ class Executor:
                 attention_ulysses.observing() as served_impls,
             ):
                 served_attention = self._attention_selection(served_attention)
-                capture = self._capture_session(command, surface)
-                with capture if capture is not None else contextlib.nullcontext():
-                    envelope, outcome, record = run_prepared(
-                        prepared,
-                        Invocation(
-                            request_id=command.request_id,
-                            spool=spool,
-                            deadline=deadline,
-                            device=self._device(),
-                            cancel=functools.partial(
-                                _cancelled, self.host.mux, self.root, command.request_id
-                            ),
-                            models=self.models,
-                            recipes=self.discovered.recipes,
-                            progress=boundary,
-                            activity=self._activity_sink(command.request_id),
-                            plan=functools.partial(self._plan_request, command.request_id),
-                            # cr-012: the inputs the WORKER already fetched, verified and spooled.
-                            # Every value is a path inside this attempt's own spool: this process is
-                            # `sandbox.refuse_network` rejects ungranted network access.
-                            # Input bytes arrive only through the worker grant.
-                            # That fence is Python-level (cr-042) — it bounds a buggy package, not a
-                            # hostile one, and there is no netns or seccomp under it.
-                            trees=_trees(command),
-                            assets=_granted_inputs(command),
-                            max_input_bytes=(
-                                None
-                                if command.max_input_bytes is None
-                                else command.max_input_bytes or 64 << 20
-                            ),
-                            max_output_bytes=command.max_output_bytes,
-                            sources=sources,
-                            weights_values=functools.partial(read_values_into, self.torch),
-                            tensorfs_source=(
-                                functools.partial(
-                                    weights_store.open_checkpoint,
-                                    self._store(),
-                                    connection=connection,
-                                )
-                                if sources
-                                else None
-                            ),
-                            tensorfs_output=(
-                                weight_outputs.open if weight_outputs is not None else None
-                            ),
-                            tensorfs_adopt=(
-                                weight_outputs.adopt if weight_outputs is not None else None
-                            ),
-                            publish=lambda request: exchange(request, Published),
-                            calls=self.host._call_broker(
-                                command.request_id, self.host.call_interfaces
-                            ),
+                envelope, outcome, record = run_prepared(
+                    prepared,
+                    Invocation(
+                        request_id=command.request_id,
+                        spool=spool,
+                        deadline=deadline,
+                        device=self._device(),
+                        cancel=functools.partial(self.host.mux.cancelled, command.request_id),
+                        models=self.models,
+                        recipes=self.discovered.recipes,
+                        progress=boundary,
+                        plan=functools.partial(self._plan_request, command.request_id),
+                        # cr-012: the inputs the WORKER already fetched, verified and spooled.
+                        # Every value is a path inside this attempt's own spool: this process is
+                        # `sandbox.refuse_network` rejects ungranted network access.
+                        # Input bytes arrive only through the worker grant.
+                        # That fence is Python-level (cr-042) — it bounds a buggy package, not a
+                        # hostile one, and there is no netns or seccomp under it.
+                        trees=_trees(command),
+                        assets=_granted_inputs(command),
+                        max_input_bytes=(
+                            None
+                            if command.max_input_bytes is None
+                            else command.max_input_bytes or 64 << 20
                         ),
-                    )
-                if capture is not None and outcome.terminal == "succeeded":
-                    capture_result = capture.write(spool)
+                        max_output_bytes=command.max_output_bytes,
+                        sources=sources,
+                        weights_values=functools.partial(read_values_into, self.torch),
+                        tensorfs_source=(
+                            functools.partial(
+                                weights_store.open_checkpoint,
+                                self._store(),
+                                connection=connection,
+                            )
+                            if sources
+                            else None
+                        ),
+                        tensorfs_output=(
+                            weight_outputs.open if weight_outputs is not None else None
+                        ),
+                        tensorfs_adopt=(
+                            weight_outputs.adopt if weight_outputs is not None else None
+                        ),
+                        publish=lambda request: exchange(request, Published),
+                        calls=self.host._call_broker(command.request_id, self.host.call_interfaces),
+                    ),
+                )
         except Exception as exc:
             envelope, outcome = None, classify(exc)
             unwind(exc)
@@ -3472,6 +3477,7 @@ class Executor:
                 took = {"ms": round(ms, 1), "times": times}
                 record.emit("confession", "request_path.blocking", work, **took)
                 record.emit("log", "kernel work blocked the request", "warn", work=work, **took)
+            followed()
             for name, where in swapped:
                 record.emit("confession", "kernel.ready", name, **where)
             members = self.model_executors or [self]
@@ -3603,7 +3609,6 @@ class Executor:
                 ),
                 "cuts": self.host.cuts.pop(command.request_id, {"sites": [], "oom_floor": 0}),
             },
-            "capture": capture_result,
             "quiescent": quiescent,
             **_env_document(),
             "poisoned": self.poisoned,
@@ -3948,10 +3953,13 @@ class Executor:
                             model_key=self._group_model_key,
                             adopt=mine,
                             serving=request_path.in_flight(),
+                            kernels=kernel_ready.agreed(),
                         )
                     )
                 )
                 replies = self.group.collect("attention")
+                for follower, reply in zip(self.group.followers, replies, strict=True):
+                    self.group.began.extend((follower.rank, k) for k in reply.get("began") or ())
             except GroupRefusal as exc:
                 return self._group_refusal(exc)
             lacking = {
@@ -4021,8 +4029,9 @@ class Executor:
         """A FOLLOWER restores its prepared selection and, given rank 0's `pin` for the next
         attempt (empty is the prepared one), holds it and answers what its sites now hold."""
         if command.adopt is not UNSET:
+            began = kernel_ready.boundary(command.kernels)
             with request_path.serving() if command.serving else contextlib.nullcontext():
-                return self._adopt_attention(command, command.adopt)
+                return {**self._adopt_attention(command, command.adopt), "began": began}
         self._attention_hold.close()
         self._producer_hold = None
         if command.pin is UNSET:
@@ -4089,7 +4098,7 @@ class Executor:
         assert self.group is not None
         try:
             replies = [
-                msgspec.convert(reply, RankMemory, strict=True)
+                msgspec.convert(reply, RankMemory)
                 for reply in self.group.call(executor_commands.encode(command))
             ]
         except msgspec.ValidationError as exc:
@@ -4177,40 +4186,6 @@ class Executor:
             # here would replace the failure that broke it.
             if not self.group.broken:
                 self._followers_attention()
-
-    @staticmethod
-    def _capture_options(
-        command: PrepareRequest | Invoke, surface: Any
-    ) -> ActivationCapture | None:
-        from cozy_runtime.probe._capture import validate_components
-
-        if command.capture is None:
-            return None
-        options = msgspec.convert(command.capture, type=ActivationCapture, strict=True)
-        validate_components(options, [binding.model_class for binding in surface.model_bindings])
-        return options
-
-    def _capture_session(self, command: PrepareRequest | Invoke, surface: Any) -> Any:
-        from cozy_runtime.author._errors import InvalidRequest
-        from cozy_runtime.probe._capture import CaptureSession
-
-        options = self._capture_options(command, surface)
-        if options is None:
-            return None
-        roots: dict[str, Any] = {}
-        for executor in self.model_executors or [self]:
-            if executor.backend is None:
-                continue
-            for name, root in executor.backend.roots.items():
-                if name not in options.components:
-                    continue
-                if name in roots and roots[name] is not root:
-                    raise InvalidRequest(
-                        f"capture component {name!r} occurs in more than one bound model",
-                        code="capture_component_ambiguous",
-                    )
-                roots[name] = root
-        return CaptureSession(options, roots)
 
     @staticmethod
     def _emit_attention(record: AuthorAttempt, choices: attention.Applied, name: str) -> None:
@@ -4392,13 +4367,19 @@ class Executor:
         with store_refusals(f"opening {ref[:23]}"):
             return Checkpoint(weights_store.open_checkpoint(self._store(), ref, connection))
 
-    def _child_events(self, exchange: Exchange) -> int | None:
-        """The worker's nudge socket for this attempt's calls; None when it refuses, and on
-        Windows, whose event loop cannot watch a pipe: its calls are polled."""
-        if sys.platform == "win32":
-            return None
+    def _child_events(self, exchange: Exchange) -> Nudges:
+        """The worker's nudges for this attempt's calls: a socket, a pipe on Windows."""
         answer = exchange(ChildEvents(), Handoff)
-        return answer.descriptor if answer.ok else None
+        if not answer.ok:
+            raise RuntimeFailure(
+                answer.detail or "the machine refused this attempt's call events",
+                code=answer.code or "child_events_refused",
+            )
+        if sys.platform == "win32":
+            return winpipe.Pipe(answer.descriptor)
+        nudges = socket.socket(fileno=answer.descriptor)
+        nudges.setblocking(True)
+        return nudges
 
     def _exchange(self, request_id: str) -> Exchange:
         """One call's durable exchange, naming it from whatever thread its code runs on."""
@@ -4443,22 +4424,6 @@ class Executor:
             return tolerant.read(frame, into, ("progress", "observation"))[0]
         except msgspec.ValidationError as exc:
             raise SeamError("seam_answer_malformed", f"{exchange}: {exc}") from exc
-
-    def _activity_sink(self, request_id: str) -> Callable[[int, bool, bool, bool], None]:
-        def activity(sequence: int, active: bool, known: bool, finished: bool) -> None:
-            self.channel.send(
-                {
-                    "event": "progress",
-                    "request_id": request_id,
-                    "kind": "execution_activity",
-                    "sequence": sequence,
-                    "active": active,
-                    "known": known,
-                    "finished": finished,
-                }
-            )
-
-        return activity
 
     def _progress_sink(self, request_id: str) -> Any:
         """The lossy lane's sink for one attempt — the same one `invoke` installs."""
@@ -4514,9 +4479,13 @@ class Executor:
         return cached
 
     def _device(self) -> Device:
-        """No torch in this process means no device to name (cl-013). Ordinal 0 IS the
-        lane's device: the worker sealed this process to exactly its lane (cr-066)."""
-        return Device(self.device_kind, 0) if self.torch is not None else Device()
+        """This executor's device as `author.device()` names it: its rank's GPU (`cuda:0`
+        alone; the worker sealed this process to its lane, cr-066), MPS, or the CPU where none
+        is present. No torch in this process means no device to name (cl-013)."""
+        if self.torch is None:
+            return Device()
+        placed = self._rank_device(self.torch)
+        return Device(placed.type, placed.index)
 
     @contextlib.contextmanager
     def _request(self, request_id: str) -> Iterator[list[GpuMemory]]:
@@ -4777,6 +4746,7 @@ _FOLLOWER_COMMANDS = frozenset(
         "hello",
         "start",
         "join",
+        "form",
         "load",
         "activate",
         "unload",
@@ -4804,18 +4774,24 @@ def answer(executor: Executor, frame: Frame) -> Frame | None:
             "detail": f"{_gpu(executor.rank)} answers {sorted(_FOLLOWER_COMMANDS)}, not {name!r}",
         }
     if name == "run":
-        # A follower's call serves rank 0's request: what landed before it serves in it.
+        # A follower's call serves rank 0's request, with the kernels the group serves from it.
         with request_path.serving():
-            kernel_ready.boundary()
-            return executor.run(frame)
+            began = kernel_ready.boundary(frame.get("kernels") or ())
+            reply = executor.run(frame)
+        return {**reply, "kernels": kernel_ready.pending(), "began": began}
     if name not in executor_commands.NAMES:
         return {"ok": False, "code": "unknown_command", "detail": name}
     command = executor_commands.decode(frame)
-    return None if isinstance(command, Shutdown) else executor.handle(command)
+    if isinstance(command, Shutdown):
+        return None
+    reply = executor.handle(command)
+    if name == "load" and executor.rank:  # what it opened loading: the group may serve it at once
+        reply["kernels"] = kernel_ready.pending()
+    return reply
 
 
 #: The commands whose refusals carry the raising traceback to the worker.
-_TRACED_COMMANDS = frozenset({"start", "load", "join"})
+_TRACED_COMMANDS = frozenset({"start", "load", "join", "form"})
 
 #: A follower's refusal codes rank 0 relays as-is; any other refusal is the group not
 #: forming, named with the follower's own detail.
@@ -4887,16 +4863,21 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _compiling(channel: Channel, state: kernel_compile.State) -> None:
-    """A wait on a compiling kernel, told to the machine as the waiting call's stage ("": the
-    executor's, outside every call)."""
+    """A wait on a compiling kernel, told to the machine as the waiting call's stage."""
+    _waiting(channel, f"waiting for {state.kernel} compile", state.progress)
+
+
+def _waiting(channel: Channel, what: str, fraction: float | None = None) -> None:
+    """A wait, told to the machine as the waiting call's stage ("": the executor's, outside
+    every call)."""
     with contextlib.suppress(SeamError):
         channel.send(
             {
                 "event": "progress",
                 "request_id": _CALL.get(),
                 "kind": "progress",
-                "stage": f"waiting for {state.kernel} compile",
-                "stage_fraction": state.progress,
+                "stage": what,
+                "stage_fraction": fraction,
                 "advance": 0,
             }
         )
@@ -4908,20 +4889,21 @@ _CALL_COMMANDS = frozenset({"prepare_request", "invoke"})
 
 class _Order:
     """Commands in the order they came: a call's run side by side, and a process-wide one
-    alone, after every command before it and before every command after it."""
+    alone, after every command before it and before every command after it. One waiting for
+    its turn is told what it waits on."""
 
     def __init__(self) -> None:
         self._changed = threading.Condition()
-        #: ticket -> whether it runs alone, until its command is answered
-        self._open: dict[int, bool] = {}
+        #: ticket -> whether it runs alone and what it is, until its command is answered
+        self._open: dict[int, tuple[bool, str]] = {}
         self._next = 0
         #: commands answered so far: an idle period follows each (`idle`)
         self.answered = 0
 
-    def ticket(self, alone: bool) -> int:
+    def ticket(self, alone: bool, what: str) -> int:
         with self._changed:
             self._next += 1
-            self._open[self._next] = alone
+            self._open[self._next] = (alone, what)
             return self._next
 
     def first(self, ticket: int) -> bool:
@@ -4931,13 +4913,18 @@ class _Order:
     @contextlib.contextmanager
     def turn(self, ticket: int) -> Iterator[None]:
         with self._changed:
-            alone = self._open[ticket]
-            self._changed.wait_for(
+            alone = self._open[ticket][0]
+            request_path.wait(
+                self._changed,
                 lambda: (
                     min(self._open) == ticket
                     if alone
-                    else not any(a for t, a in self._open.items() if t < ticket)
-                )
+                    else not any(a for t, (a, _) in self._open.items() if t < ticket)
+                ),
+                lambda: next(
+                    (what for t, (a, what) in self._open.items() if t < ticket and (alone or a)),
+                    "",
+                ),
             )
         try:
             yield
@@ -4956,7 +4943,7 @@ class _Order:
             self._changed.wait_for(lambda: not self._open and self.answered != answered and ready())
             self._next += 1
             ticket, answered = self._next, self.answered
-            self._open[ticket] = True
+            self._open[ticket] = (True, "graph capture")
         try:
             yield answered
         finally:
@@ -4973,7 +4960,6 @@ def _idle(executor: Executor, order: _Order) -> None:
     """Graphs record off the request path (`graphs.capture_idle`): after a command is answered,
     while no other is open. One arriving makes the capture yield at its next region boundary. A
     device fault there poisons the executor, as one in a request does (the machine ends it)."""
-    own_thread()
     answered = 0
     while True:
         with order.idle(answered, lambda: bool(graphs.IDLE.jobs)) as answered:
@@ -4988,13 +4974,14 @@ def _idle(executor: Executor, order: _Order) -> None:
 
 def serve(executor: Executor, channel: Channel) -> int:
     """Answer commands until the machine shuts this executor down or its seam ends. This thread
-    keeps reading: a call's commands run on the pool, and so does a process-wide one that must
-    wait for calls in flight; one that need not runs here, where Start and Fork always ran."""
+    keeps reading, so a `bearer` or `cancel` sent during a long command (a Load streaming its
+    weights) is taken at once: after the device Start every command runs on the pool in its
+    turn. Before it the process stays single-threaded and forkable: Start and Fork run here,
+    as does any other command that is first and not a call's."""
     kernel_compile.waiting = functools.partial(_compiling, channel)
-    if executor.rank == 0:
-        work.follow(functools.partial(_tell, channel))
-    # Runtime-owned workers (no attempt counts one as its own), none before the first is needed.
-    pool = ThreadPoolExecutor(CALLS_IN_FLIGHT, "call", initializer=own_thread)
+    request_path.told = functools.partial(_waiting, channel)
+    # Runtime-owned workers, none before the first is needed.
+    pool = ThreadPoolExecutor(CALLS_IN_FLIGHT, "call")
     order = _Order()
     idle = False
     while True:
@@ -5017,8 +5004,9 @@ def serve(executor: Executor, channel: Channel) -> int:
                 return _shut(executor, channel)
             _send_reply(channel, reply)
             continue
-        ticket = order.ticket(alone=name not in _CALL_COMMANDS)
-        if name in _CALL_COMMANDS or not order.first(ticket):
+        call = name in _CALL_COMMANDS
+        ticket = order.ticket(not call, f"run {frame.get('request_id', '')}" if call else name)
+        if executor.started or call or not order.first(ticket):
             pool.submit(contextvars.Context().run, _serve, executor, frame, order.turn(ticket))
             continue
         with order.turn(ticket):
@@ -5035,25 +5023,15 @@ def _shut(executor: Executor, channel: Channel) -> int:
     return int(Exit.ok)
 
 
-def _tell(channel: Channel, frame: Frame) -> None:
-    with contextlib.suppress(SeamError):
-        channel.send(frame)
-
-
 def _serve(executor: Executor, frame: Frame, turn: contextlib.AbstractContextManager[None]) -> None:
     """One command on a pool worker, in its turn. A BaseException, or a reply the seam would
     not take, ends the process, as either did when commands ran on the main thread; so does a
     `shutdown` that waited here for the calls before it, once answered."""
     try:
+        call = str(frame.get("request_id", "")) if frame.get("cmd") in _CALL_COMMANDS else ""
+        _CALL.set(call)  # its wait for its turn is told as its own
         with turn:
-            call = str(frame.get("request_id", "")) if frame.get("cmd") in _CALL_COMMANDS else ""
-            _CALL.set(call)
-            if call:
-                work.begin(call)
-            try:
-                reply = _reply(executor, frame)
-            finally:
-                work.end(call)
+            reply = _reply(executor, frame)
             if reply is None:
                 code = _shut(executor, executor.channel)
                 sys.stdout.flush()

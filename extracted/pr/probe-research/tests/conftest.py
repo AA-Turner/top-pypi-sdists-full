@@ -184,6 +184,9 @@ def _no_hosted_recording(monkeypatch: pytest.MonkeyPatch) -> None:
     # Nor send the Probe team an automatic diagnostic report (crash-report plan
     # B2): the tests of the watch turn it back on, with a stand-in report.
     monkeypatch.setenv("PROBE_SERVICE_REPORTS", "0")
+    # Nor lift an outbox pause (`server._keep_outbox`, in-process services):
+    # its tests turn it back on.
+    monkeypatch.setenv("PROBE_SERVICE_OUTBOX_S", "0")
 
 
 @pytest.fixture(autouse=True)
@@ -245,6 +248,31 @@ def _no_real_update_reports(monkeypatch: pytest.MonkeyPatch) -> list:
 
     monkeypatch.setattr(update_report, "_deliver", _offline)
     return sent
+
+
+@pytest.fixture(autouse=True)
+def _no_real_import_agent_settings(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
+    """No folder import a test runs may ask a real server how to run its agents.
+
+    Every import reads `GET /v1/import-jobs/agent-settings` once
+    (`import_agent_settings.resolve`) with whatever client the test built --
+    a real `Client` against a made-up host, whose connection retries then sleep
+    through a test's patched `time.sleep`. Replaced with "no answer", which is
+    the builtin settings: exactly the launches the import made before the read
+    existed. Tests ABOUT the read ask for `real_import_agent_settings`. A
+    developer's own override never reaches a test either."""
+    from probe.cli import import_agent_settings
+
+    monkeypatch.delenv(import_agent_settings.ENV_VAR, raising=False)
+    if "real_import_agent_settings" in request.fixturenames:
+        return
+
+    monkeypatch.setattr(import_agent_settings, "_read_server", lambda client: ({}, None))
+
+
+@pytest.fixture
+def real_import_agent_settings() -> None:
+    """Opt out of `_no_real_import_agent_settings`."""
 
 
 @pytest.fixture(autouse=True)
@@ -5603,6 +5631,31 @@ class FakeApp:
             rows = list(self.artifacts.get(f"experiment:{eid}", []))
             rows += [a for a in self.artifacts.get(eid, []) if a.get("experiment_id") == eid]
             return httpx.Response(200, json=_newest_first(rows))
+
+        m = re.match(
+            r"^/v1/(?:projects/([^/]+)/branches|experiments/([^/]+)/branch|workspaces/([^/]+)/branches)$",
+            path,
+        )
+        if m and method == "GET":
+            # The branches reads (app/branches/router.py). The fake keeps no
+            # lines of work, so every scope answers the read's shape, empty;
+            # tests/test_mcp_branches.py reads a real one.
+            project, experiment, workspace = m.groups()
+            return httpx.Response(
+                200,
+                json={
+                    "scope": {
+                        "type": "workspace" if workspace else "project",
+                        "id": workspace or project or experiment,
+                        "name": "scope",
+                    },
+                    "generated_at": "2026-10-25T00:00:00Z",
+                    "metric": None, "pick": None, "leader": None, "runner_up": None, "gap": None,
+                    "groups": [], "focus": experiment, "branches": [], "elsewhere_agent_h": 0.0,
+                    "locked_runs": 0, "values_withheld": False, "truncated": False,
+                    "effort_truncated": None,
+                },
+            )
 
         m = re.match(r"^/v1/experiments/([^/]+)/inherited$", path)
         if m and method == "GET":

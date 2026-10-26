@@ -207,6 +207,8 @@ def test_the_new_wording_is_the_drafted_text():
     assert markers["last writes heading"] == bite.LAST_WRITES[1]
     assert markers["long turn cut tail"] == bite.TURN_CUT[1]
     assert markers["index header"] == index.HEADER_BASH
+    assert markers["new files listed"] == bite.FILE_BURST[1]
+    assert body("bite/file-burst.PROPOSED.md") == bite.FILE_BURST[0]
     framing, lines = body("reads/bash-text.NEW.md").split("\n\n")
     assert framing == reader_lane.MEMORY_FRAMING_BASH
     assert lines == "\n".join(f"{o} -> {n}" for o, n in reader_lane.READ_SESSION_BASH)

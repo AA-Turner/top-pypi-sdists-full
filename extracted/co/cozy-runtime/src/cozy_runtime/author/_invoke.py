@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING, Any, get_args, get_type_hints
 
 import msgspec
 
-from cozy_runtime.author._activity import asides, event_loop, observing
+from cozy_runtime.author._activity import asides
 from cozy_runtime.author._app import Registration
 from cozy_runtime.author._artifacts import ModelArtifact
 from cozy_runtime.author._assets import (
@@ -47,13 +47,13 @@ from cozy_runtime.author._assets import (
     field_preparation,
 )
 from cozy_runtime.author._calls import _Broker, _current
-from cozy_runtime.author._context import CURRENT, AdapterRef, Context, Device
+from cozy_runtime.author._context import CURRENT, Context, Device
 from cozy_runtime.author._decode import (
     AudioProbe,
     VideoProbe,
     image_decoded_bytes,
 )
-from cozy_runtime.author._defaults import Clamp, DefaultSet, Overlay, resolve
+from cozy_runtime.author._defaults import Overlay, resolve
 from cozy_runtime.author._demand import RequestFeatures, normalize
 from cozy_runtime.author._describe import check
 from cozy_runtime.author._errors import (
@@ -78,11 +78,8 @@ from cozy_runtime.author._services import (
     AdjustmentRow,
     Adjustments,
     Attempt,
-    Egress,
     Outputs,
     ProgressFrame,
-    Secrets,
-    Settings,
     Telemetry,
 )
 from cozy_runtime.author._signature import Param, Surface
@@ -103,14 +100,8 @@ class Invocation:
     device: Device = field(default_factory=Device)
     cancel: Callable[[], bool] = field(default=lambda: False)
     models: Mapping[str, Model[Any]] = field(default_factory=dict)
-    default_sets: Sequence[DefaultSet] = ()
     #: The package's declared recipes, which its `quantize` runs.
     recipes: tuple[DeclaredRecipe, ...] = ()
-    clamps: Sequence[Clamp] = ()
-    settings: object = None
-    secrets: object = None
-    adapters: tuple[AdapterRef, ...] = ()
-    egress_broker: Callable[..., Any] | None = None
     trees: Mapping[str, tuple[Path, str]] = field(default_factory=dict)
     """ref -> (materialized root, digest) for every input tree THIS attempt was granted.
 
@@ -138,11 +129,12 @@ class Invocation:
     progress: Callable[[ProgressFrame | Observation], None] | None = None
     """The runtime's lossy LIVE sink (cr-007/cr-011): progress frames and retained
     observations alike. Best-effort, never authoritative."""
-    activity: Callable[[int, bool, bool, bool], None] | None = None
     plan: Callable[[Sequence[str | Collection[str]]], None] | None = None
     calls: _Broker | None = None
     publish: Callable[[Publish], Published] | None = None
     """`Outputs.publish`'s exchange with the machine, which journals the run's output log."""
+    #: No worker settles this attempt's frames (the fakes), so each encodes at its save.
+    settle_at_save: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,23 +197,14 @@ def prepare(
     registration: Registration,
     wire: Mapping[str, object],
     *,
-    default_sets: Sequence[DefaultSet] = (),
-    clamps: Sequence[Clamp] = (),
-    settings: object = None,
     input_metadata: Mapping[str, InputMetadata] = {},
 ) -> PreparedRequest:
     """The pre-admission half. Raises typed refusals; hydrates nothing; enters nothing."""
     surface = surface_of(registration)
     wire, lora = lora_mode(surface.payload_type, wire)
-    overlay = resolve(
-        surface.payload_type,
-        wire,
-        default_sets=default_sets,
-        clamps=clamps,
-        model_params=surface.model_params,
-    )
+    overlay = resolve(surface.payload_type, wire, model_params=surface.model_params)
     asset_bounds = _prepare_assets(surface, overlay.payload, input_metadata)
-    facts, facts_digest = _preflight(surface, overlay, settings)
+    facts, facts_digest = _preflight(surface, overlay)
     return PreparedRequest(
         surface=surface,
         overlay=overlay,
@@ -316,7 +299,7 @@ def invoke(prepared: PreparedRequest, inv: Invocation, record: Attempt) -> Invoc
 
     attempt = record
     attempt.outputs = surface.outputs
-    ctx = Context(inv.request_id, inv.deadline, inv.device, inv.cancel, inv.adapters)
+    ctx = Context(inv.request_id, inv.deadline, inv.device, inv.cancel)
     ctx._recipes = inv.recipes
     ctx._plan = inv.plan
     handles = ExitStack()
@@ -332,7 +315,7 @@ def invoke(prepared: PreparedRequest, inv: Invocation, record: Attempt) -> Invoc
         inv.calls.bind(ctx, Telemetry(record, ctx), record.media)
     token, context = _current.set(inv.calls), CURRENT.set(ctx)
     try:
-        result = _call(surface, kwargs, inv.activity)
+        result = _call(surface, kwargs)
         if inv.calls is not None:
             inv.calls.finish()
     finally:
@@ -385,6 +368,7 @@ def run_prepared(
         sink=inv.progress,
         publish=inv.publish,
         ignored=prepared.overlay.ignored,
+        settle_at_save=inv.settle_at_save,
     )
     record.attribution.stages.update(prepared.stages)
 
@@ -405,47 +389,18 @@ def run_prepared(
         record.closed = True
 
 
-def attempt(
-    registration: Registration, wire: Mapping[str, object], inv: Invocation
-) -> tuple[InvocationResult | None, Outcome, Attempt]:
-    """PREPARE then RUN, for a caller with no plan to price between them (a test or tool)."""
-    try:
-        prepared = prepare(
-            registration,
-            wire,
-            default_sets=inv.default_sets,
-            clamps=inv.clamps,
-            settings=inv.settings,
-            input_metadata=inv.assets,
-        )
-    except (KeyboardInterrupt, SystemExit):
-        raise
-    except Exception as exc:
-        return (
-            None,
-            classify(exc),
-            Attempt(inv.request_id, inv.spool, inv.max_output_bytes, sink=inv.progress),
-        )
-    return run_prepared(prepared, inv)
-
-
 # ------------------------------------------------------------------------- preflight
 
 
-def _preflight(surface: Surface, overlay: Overlay, settings: object) -> tuple[object, str | None]:
+def _preflight(surface: Surface, overlay: Overlay) -> tuple[object, str | None]:
     spec = surface.preflight
     if spec is None:
         return None, None
     args: list[object] = [_payload_value(surface, overlay.payload)]
-    for role in spec.argument_order:
-        if role == "assets":
-            args.append(
-                Assets._from_bound(
-                    row.asset for row in getattr(overlay.payload, str(spec.assets_parameter))
-                )
-            )
-        else:
-            args.append(_settings_value(spec.settings_type, settings, "preflight settings"))
+    if spec.assets_parameter is not None:
+        args.append(
+            Assets._from_bound(row.asset for row in getattr(overlay.payload, spec.assets_parameter))
+        )
     try:
         facts = spec.fn(*args)
     except AuthorError:
@@ -465,7 +420,7 @@ def _preflight(surface: Surface, overlay: Overlay, settings: object) -> tuple[ob
 
 
 def _payload_value(surface: Surface, payload: object) -> object:
-    if surface.assets_binding is None or surface.invocable:
+    if surface.assets is None or surface.invocable:
         return payload
     annotation = next(p.annotation for p in surface.params if p.role == "payload")
     cls: Any = annotation
@@ -475,7 +430,7 @@ def _payload_value(surface: Surface, payload: object) -> object:
 def _prepare_assets(
     surface: Surface, payload: object, metadata: Mapping[str, InputMetadata]
 ) -> dict[str, AssetBound | None]:
-    binding = surface.assets_binding
+    binding = surface.assets
     if binding is None:
         return {}
     values = getattr(payload, binding.parameter)
@@ -617,7 +572,6 @@ def _materialize_trees(payload: object, inv: Invocation) -> None:
                 code="tree_unmaterialized",
             )
         bind_tree(tree, root=root, digest=digest, attempt=inv.request_id)
-        tree._member_token = inv.calls.grant_token if inv.calls is not None else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -933,7 +887,7 @@ def _inject(
                 )
             kwargs[param.name] = model
         else:
-            kwargs[param.name] = _service(param, attempt, ctx, inv, surface)
+            kwargs[param.name] = _service(param, attempt, ctx)
     return kwargs
 
 
@@ -968,9 +922,7 @@ class _Unbound:
         )
 
 
-def _service(
-    param: Param, attempt: Attempt, ctx: Context, inv: Invocation, surface: Surface
-) -> object:
+def _service(param: Param, attempt: Attempt, ctx: Context) -> object:
     match param.capability:
         case "save":
             return Outputs(attempt)
@@ -978,27 +930,8 @@ def _service(
             return Telemetry(attempt, ctx)
         case "adjust":
             return Adjustments(attempt)
-        case "egress":
-            return Egress(attempt, inv.egress_broker)
-        case "settings":
-            return Settings(_settings_value(param.arg, inv.settings, "settings"))
-        case "secrets":
-            return Secrets(_settings_value(param.arg, inv.secrets, "secrets"))
+    # `UNGRANTABLE` capabilities (egress, settings, secrets) refuse at build and never get here.
     raise ConformanceError(f"no injector for capability {param.capability!r}")
-
-
-def _settings_value(schema: object, value: object, what: str) -> Any:
-    """Deployment-owned values, validated against the AUTHOR-declared strict schema."""
-    if isinstance(schema, type) and isinstance(value, schema):
-        return value
-    try:
-        return msgspec.convert(value, type=schema)
-    except (msgspec.ValidationError, TypeError) as exc:
-        raise InvalidRequest(
-            f"{what} do not validate against the declared schema "
-            f"{getattr(schema, '__name__', schema)}: {exc}",
-            code="settings_invalid",
-        ) from exc
 
 
 # ------------------------------------------------------------------------- execution
@@ -1007,7 +940,6 @@ def _settings_value(schema: object, value: object, what: str) -> Any:
 def _call(
     surface: Surface,
     kwargs: Mapping[str, object],
-    activity_sink: Callable[[int, bool, bool, bool], None] | None = None,
 ) -> object:
     """`def` runs right here on the calling (executor) thread; `async def` runs on a
     PRIVATE event loop created for THIS attempt and closed with it.
@@ -1015,23 +947,22 @@ def _call(
     `await` interleaves I/O within one attempt and never admits a second — this function
     is synchronous, so law 8's one-active-GPU-attempt rule is unchanged by the spelling.
     """
-    with observing(activity_sink):
-        if not surface.is_async:
-            return surface.fn(**kwargs)
-        loop = event_loop()
-        try:
-            coroutine = surface.fn(**kwargs)
-            assert asyncio.iscoroutine(coroutine)
-            return loop.run_until_complete(coroutine)
-        finally:
-            if (broker := _current.get()) is not None:
-                broker.closed = True
-            pending = asyncio.all_tasks(loop)
-            for task in pending:
-                task.cancel()
-            if pending:
-                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-            loop.close()
+    if not surface.is_async:
+        return surface.fn(**kwargs)
+    loop = asyncio.new_event_loop()
+    try:
+        coroutine = surface.fn(**kwargs)
+        assert asyncio.iscoroutine(coroutine)
+        return loop.run_until_complete(coroutine)
+    finally:
+        if (broker := _current.get()) is not None:
+            broker.closed = True
+        pending = asyncio.all_tasks(loop)
+        for task in pending:
+            task.cancel()
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        loop.close()
 
 
 # ------------------------------------------------------------------------- result

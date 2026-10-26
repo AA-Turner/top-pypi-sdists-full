@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "time-machine"
-version = "3.5.1"
+version = "3.6.0"
 description = "Travel through time in your tests."
 readme = "README.rst"
 keywords = [
@@ -24,7 +24,7 @@ license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Pytest",
@@ -32,7 +32,6 @@ classifiers = [
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -54,8 +53,12 @@ entry-points.pytest11.time_machine = "time_machine"
 
 [dependency-groups]
 test = [
+  "coverage[toml]",
+  "freezegun",
   "hypothesis",
-  { include-group = "test-base" },
+  "pytest>=9",
+  "pytest-randomly",
+  "python-dateutil",
 ]
 docs = [
   "furo>=2024.8.6",
@@ -63,14 +66,7 @@ docs = [
   "sphinx-copybutton>=0.5.2",
 ]
 build = [
-  "cibuildwheel>=3.3.1",
-]
-test-base = [
-  "coverage[toml]",
-  "freezegun",
-  "pytest>=9",
-  "pytest-randomly",
-  "python-dateutil",
+  "cibuildwheel>=4.3.1",
 ]
 
 [tool.uv]
@@ -85,7 +81,6 @@ build = [
   "cp313-*",
   "cp312-*",
   "cp311-*",
-  "cp310-*",
 ]
 archs = [ "auto64" ]
 

@@ -1,0 +1,52 @@
+schema = 1
+
+[[word]]
+text = "gospodin"
+salutation = { issue = 606, gender = "m", after_given = true }
+given = { note = "nam_dict ranks Gospodin a Bulgarian given name, band 5 (2026-10-24); kept for after_given (decisions/H8): a Bulgarian middle name is a patronymic, Gospodinov" }
+
+[[word]]
+text = "gospođa"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "gospođica"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "mlađa"
+generation = { issue = 661 }
+
+[[word]]
+text = "mlađi"
+generation = { issue = 661 }
+
+[[word]]
+text = "starija"
+generation = { issue = 661 }
+
+[[word]]
+text = "stariji"
+generation = { issue = 661 }
+
+[[word]]
+text = "мл"
+[word.generation]
+issue = 679
+note = "мл.; #679 found nothing it collides with in Cyrillic"
+
+[[word]]
+text = "млађа"
+generation = { issue = 661 }
+
+[[word]]
+text = "млађи"
+generation = { issue = 661 }
+
+[[word]]
+text = "старија"
+generation = { issue = 661 }
+
+[[word]]
+text = "старији"
+generation = { issue = 661 }

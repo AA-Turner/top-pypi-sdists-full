@@ -53,6 +53,7 @@ Stdlib only on the start path (plan S1, Q3; `tests/test_service_import_budget.py
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import contextlib
 import itertools
 import os
@@ -68,6 +69,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from . import caller, paths
+from .caller import Bound, same_process
 from . import updater as updater_mod
 from .actions import ActionManager
 from .alertpoll import AlertPoller
@@ -150,7 +152,7 @@ from .protocol import (
     ORIGIN_DESKTOP,
     Mode,
 )
-from .registry import HEARTBEAT_TTL_S, Outcome, Registry, Session
+from .registry import HEARTBEAT_TTL_S, SERVICE, Outcome, Registry, Session
 from .statepost import StatePost
 from .statuscache import StatusCache
 from .updater import Updater, preload
@@ -237,10 +239,22 @@ LEGACY_RETRY_ENV = "PROBE_SERVICE_LEGACY_RETRY_S"
 HOOK_RUN_LANES = frozenset({"pre-tool"})
 HOOK_RUN_TOOLS = frozenset({"Bash", "Write", "Edit", "MultiEdit"})
 PROBE_MCP_TOOL = "probe[-_]research"
+#: A refused session or mailbox call is logged once per (session, process) in
+#: this long: two agents on one session id retry every 2 s, and the log is
+#: rotated only when the service starts.
+REFUSAL_LOG_S = 600.0
+#: At most this many refusals are remembered for that.
+MAX_REFUSALS_LOGGED = 1024
 #: `mailbox.answer`'s `key` (a held question's answer key, 64 hex characters:
 #: `probe.daemon.approvals.KEY_HEX_CHARS`) is at most this long; checked in full
 #: on the mailbox thread (`Board.key_matches`).
 MAX_ANSWER_KEY = 128
+
+
+#: Methods this service answers that are not in `protocol.METHODS` (that file is
+#: byte-copied into the tap): only this release's own CLI calls them.
+DAEMON_HOST_METHOD = "daemon.host"
+LOCAL_METHODS = frozenset({DAEMON_HOST_METHOD})
 
 
 class Policy:
@@ -268,6 +282,8 @@ METHOD_POLICY = {
     Method.ACTION_EVENTS: Policy.READ,
     Method.UPDATE_STATUS: Policy.READ,
     Method.SESSION_RECORDING: Policy.READ,
+    # Only the session's registrant (or this service) may end it (#3360,
+    # `registry.Registry.holds`), checked in the registry.
     Method.SESSION_END: Policy.CONTROL,
     Method.ACTION_CANCEL: Policy.CONTROL,
     Method.STOP: Policy.CONTROL,
@@ -290,6 +306,7 @@ METHOD_POLICY = {
     Method.HOOKS_RUN: Policy.WORK,
     Method.HOOKS_QUEUE: Policy.WORK,
     Method.RECORDERS_FINISH: Policy.WORK,
+    DAEMON_HOST_METHOD: Policy.WORK,
     Method.RUN_HOLD: Policy.WORK,
     Method.RUN_RELEASE: Policy.WORK,
     Method.MANIFEST_REFRESH: Policy.WORK,
@@ -574,6 +591,8 @@ class Connection:
         self.peer_pid = peer_pid
         #: Its start time when it connected: the same process later, or not.
         self.peer_start: str | None = None
+        #: `{pid, start_time}` once a registry change asked (`_caller_of`).
+        self.peer_identity: dict | None = None
         #: In the order connections came (the service numbers them): the
         #: newest app connection is the one `app.check` goes to.
         self.serial = 0
@@ -631,6 +650,8 @@ class Service:
         self._discovering_until = 0.0  # monotonic
         self._discovery_handle: asyncio.TimerHandle | None = None
         self._grace_handle: asyncio.TimerHandle | None = None
+        #: `_keep_outbox`.
+        self._outbox_task: asyncio.Task | None = None
         self._expiry_handle: asyncio.TimerHandle | None = None
         self.watcher: PidWatcher | None = None
         self.status_cache = StatusCache()
@@ -677,13 +698,23 @@ class Service:
         )
         self._queue_stores = None
         self._queue_slots = threading.BoundedSemaphore(MAX_PENDING_QUEUE_STORES)
+        #: `daemon.host`'s threads (`_daemon_host`): never the loop's shared executor.
+        self._host_pool: concurrent.futures.ThreadPoolExecutor | None = None
         #: The daemon workers of the sessions recorded here whose tap hands them over (plan Q3).
-        self.workers = WorkerHost(log=log, incident=self.watch.note)
+        from .daemonhost import DaemonHost
+
+        self.workers = WorkerHost(log=log, incident=self.watch.note,
+                                  daemon_host=DaemonHost(log=log, incident=self.watch.note))
         #: Sessions this service records itself, one thread each (plan A2).
         self.recorders = RecorderHost(
             log=log, loop_getter=lambda: self._loop, changed=self._recorders_changed, workers=self.workers,
             incident=self.watch.note, claimed=self._recorder_claimed, held=self._recorder_held,
         )
+        # A registration this service made is held while it records the session
+        # (`Registry._vacant`): a `tap watch` that took it back may take it up.
+        self.registry.service_records = self.recorders.recording
+        #: (method, sid, caller pid) -> when its refusal was last logged (`_log_unbound`).
+        self._refusals_logged: dict = {}
         #: The runs a `probe exec` wraps here (`run.hold`), beside the registry.
         self.runs = RunHolds(registry.path.parent / RUNS_NAME)
         #: The CLI's release-manifest refreshes (`manifest.refresh`).
@@ -726,8 +757,9 @@ class Service:
             send_app_check=self._send_app_check,
             app_alive=lambda serial: any(c.serial == serial for c in self._app_connections()),
             followup=self._update_followup,
+            stop_hosted=self.workers.stop_hosted,
         )
-        updater_mod.set_hosted(self.recorders.live)
+        updater_mod.set_hosted(self.recorders.live, self.workers.hosted_draining)
         #: The reads mailboxes and approvals boards somebody waits on (plan Q2).
         self.mailwatch = MailWatch(
             loop_getter=lambda: self._loop,
@@ -806,6 +838,10 @@ class Service:
         # The CLI versions this machine's processes run from, for a home other
         # machines share (`installs.prune`).
         self._loop.run_in_executor(None, _mark_versions)
+        # This service starts after every update: an outbox an older release
+        # left paused is released now, and a pause that ends later the
+        # minute it does, not at the next `probe` command.
+        self._outbox_task = self._loop.create_task(self._keep_outbox())
         # The OS keeper (D35): the system starts the service again after a crash.
         self._loop.run_in_executor(None, _keep)
         try:
@@ -839,6 +875,8 @@ class Service:
         updater to keep off the run."""
         if self.registry.alive_count() > 0 or self.recorders.alive() or self.manifest.in_flight():
             return True
+        if self.workers.host_runs() > 0:
+            return True  # a session's queue still finishing in the daemon host (plan S5)
         if self.hook_queue.pending() > 0:
             return True  # queued hook events still to run (plan D36)
         if self.management.in_flight() or self.management.running > 0:
@@ -1176,6 +1214,8 @@ class Service:
         # No daemon worker starts from here on: one would outlive this process unowned.
         with contextlib.suppress(Exception):
             self.workers.close()
+            if self._host_pool is not None:
+                self._host_pool.shutdown(wait=False, cancel_futures=True)  # a proxy's wait never holds the exit
         self._emit(Topic.SERVICE_STOPPING, {"reason": reason})
         guarded = bool(getattr(self.updater, "guard_pending", None))
         with contextlib.suppress(Exception):
@@ -1237,8 +1277,48 @@ class Service:
         except OSError as exc:
             log(f"could not start the next service: {exc}")
 
+    async def _keep_outbox(self) -> None:
+        """Lift the outbox's pause when it no longer holds -- an older CLI's
+        endless one, which an update releases at once, or a timed one whose
+        end passed while nothing ran -- as this service starts (it does after
+        every update) and every OUTBOX_LOOK_S after, and start the drainer
+        for what it held.
+
+        The look is one stat of the default outbox root, as this service's
+        own environment names it: an outbox moved by a `PROBE_OUTBOX_DIR` or
+        `XDG_STATE_HOME` set in the person's profile is lifted by their next
+        `probe` command instead. The lift never waits on another process's
+        append lock (`wait=False`). Only after a lift is the login shell read
+        (`_outbox_login_env`), for the drainer's environment -- never this
+        service's stripped one (no proxy, CA or config path: a drainer that
+        could hold the outbox's lease failing forever) -- and the drainer
+        starts only when it can be read, to an endpoint the stored login may
+        go to. It drains the root queue; a credential queue's writes go with
+        the next command or write. No report from here: the drainer reports,
+        under the person's own switches. The rescue of stranded writes stays
+        with the CLI, which reads `PROBE_OUTBOX_RESCUE` in the person's own
+        environment."""
+        period = _outbox_look_s()
+        if period <= 0:
+            return
+        while self.stop_reason is None:
+            try:
+                lifted, root, held = await asyncio.to_thread(_lift_outbox_pause, None)
+                if lifted:
+                    log(f"lifted an outbox pause that no longer held ({held} write(s) queued)")
+                    env = await _outbox_login_env() if held else None
+                    if env is not None:
+                        request = {"dir": root, "python": sys.executable, "cwd": None, "env": env}
+                        answer = await asyncio.to_thread(
+                            lambda: self.background.drain(request) if _drain_url_allowed(env)
+                            else {"accepted": False, "reason": BackgroundRefusal.UNKNOWN_ENDPOINT})
+                        log(f"outbox drainer: {answer.get('state') or answer.get('reason')}")
+            except Exception as exc:  # noqa: BLE001 -- the next look tries again
+                log(f"outbox look failed: {type(exc).__name__}")
+            await asyncio.sleep(period)
+
     async def _shutdown(self) -> None:
-        for handle in (self._discovery_handle, self._grace_handle, self._expiry_handle):
+        for handle in (self._discovery_handle, self._grace_handle, self._expiry_handle, self._outbox_task):
             if handle is not None:
                 handle.cancel()
         if self._server is not None:
@@ -1269,6 +1349,8 @@ class Service:
         # to the next service's (`recorders.close`), never stopped.
         with contextlib.suppress(Exception):
             self.workers.close()
+            if self._host_pool is not None:
+                self._host_pool.shutdown(wait=False, cancel_futures=True)  # a proxy's wait never holds the exit
         self.watch.close()
         self.statepost.close()
         # Every recorder pauses (after the connections closed: a recorder's link
@@ -1299,8 +1381,10 @@ class Service:
     def _owner_exited(self, sid: str, generation: int) -> None:
         dropped = self.registry.drop(sid, generation)
         if dropped is not None:
+            self.registry.forget_daemon_owner(dropped.owner)
             log(f"session {sid} (generation {generation}): owner {dropped.owner['pid']} exited")
             self._emit(Topic.SESSION_ENDED, {"sid": sid, "generation": generation, "reason": EndReason.OWNER_EXIT})
+            self.recorders.wake(sid)
             self._session_gone()
         self.reevaluate()
 
@@ -1477,7 +1561,7 @@ class Service:
             return error(id_, exc)
         if not conn.hello and method != Method.HELLO:
             return error(id_, RpcError(ErrorCode.HELLO_REQUIRED, "hello_required: send service.hello first"))
-        if method not in METHODS:
+        if method not in METHODS and method not in LOCAL_METHODS:
             return error(id_, RpcError(ErrorCode.UNKNOWN_METHOD, f"unknown method: {method}"))
         if METHOD_POLICY.get(method, Policy.WORK) == Policy.WORK:
             # Before the handler, whatever it checks itself: one rule for
@@ -1546,6 +1630,7 @@ class Service:
             Method.SESSION_RECORDING: self._recording,
             Method.SESSION_FINISH: lambda conn, params: self.recorders.finish(params),
             Method.RECORDERS_FINISH: self._recorders_finish,
+            DAEMON_HOST_METHOD: self._daemon_host,
             Method.RUN_HOLD: self._run_hold,
             Method.RUN_RELEASE: self._run_release,
             Method.MANIFEST_REFRESH: self._manifest_refresh,
@@ -1607,6 +1692,7 @@ class Service:
             "hook_queue": self.hook_queue.public(),
             "recorders": self.recorders.public(),
             "workers": self.workers.public(),
+            "daemon_host": self.workers.daemon_host.public() if self.workers.daemon_host is not None else None,
             "runs": self.runs.public(),
             # The sessions whose mailbox and held questions a subscriber waits on (Q2).
             "watched": len(self._watch_targets()),
@@ -1640,7 +1726,12 @@ class Service:
         # B2): a bool, else unsaid (an older registrant: None, read as no).
         report_env = params.get(REPORT_ENV)
         report_env = report_env if isinstance(report_env, bool) else None
-        reg = self.registry.register(sid, harness, mode, owner, generation, state_dir, report_env)
+        who = self._caller_of(conn)
+        try:
+            reg = self.registry.register(sid, harness, mode, owner, generation, state_dir, report_env, caller=who)
+        except RpcError as exc:
+            self._log_unbound(exc, Method.SESSION_REGISTER, sid, who)
+            raise
         # Whether the service may poll for it with the user's key (`alertpoll`):
         # never for a registrant in a sandbox, which names the state folder the
         # answers go to. `session.record` refused those already; None: this service.
@@ -1910,12 +2001,18 @@ class Service:
     def _end(self, conn: Connection, params: dict) -> dict:
         sid = need_str(params, "sid", max_len=128)
         generation = need_int(params, "generation")
-        removed = self.registry.end(sid, generation)
+        who = self._caller_of(conn)
+        try:
+            removed = self.registry.end(sid, generation, who)
+        except RpcError as exc:
+            self._log_unbound(exc, Method.SESSION_END, sid, who)
+            raise
         if removed is not None:
             if self.watcher is not None:
                 self.watcher.cancel((removed.sid, removed.generation))
             log(f"session {sid} ended")
             self._emit(Topic.SESSION_ENDED, {"sid": sid, "generation": removed.generation, "reason": EndReason.END})
+            self.recorders.wake(sid)
             self._session_gone()
             self._schedule_expiry()
             self.reevaluate()
@@ -2004,34 +2101,92 @@ class Service:
             )
         return env
 
-    def _caller_session(self, conn: Connection, env: dict, seen: tuple | None = None) -> Session | None:
-        """The registered session the caller runs inside (plan D9), or None:
-        its process ancestry passes a session's owner (pid and start time),
-        or (Linux) its environment names a registered session. A session
-        found this way that the context did not name joins `env` under its
-        harness's variable, so `probe.core.run` refuses what it refuses there.
+    def _caller_of(self, conn: Connection | None) -> dict | str | None:
+        """Who a registry change comes from (#3360): `registry.SERVICE` for this
+        service's own (no connection, or one from this very process: a hosted
+        recorder's link), else the connecting process as the kernel names it,
+        `{pid, start_time}`; None when it names none. The start time is read
+        once a connection where /proc did not give it at connect (`ps`)."""
+        if conn is None or conn.peer_pid == self.pid:
+            return SERVICE
+        if conn.peer_pid is None:
+            return None
+        if conn.peer_identity is None:
+            from . import procid
+
+            start = conn.peer_start or procid.start_time(conn.peer_pid)
+            conn.peer_identity = {"pid": conn.peer_pid, "start_time": start or ""}
+        return dict(conn.peer_identity)
+
+    def _log_unbound(self, exc: RpcError, method: str, sid: str, who: dict | str | None,
+                     now: float | None = None) -> None:
+        """Log a `not_registrant` refusal, once per (session, process) every
+        REFUSAL_LOG_S: a newer `tap watch` of a session another agent still
+        runs is refused at every retry (every 2 s) until that agent exits."""
+        if isinstance(exc.data, dict) and exc.data.get("reason") == Bound.NOT_REGISTRANT:
+            pid = who.get("pid") if isinstance(who, dict) else who
+            if self._first_refusal((sid, pid), now):
+                log(f"refused {method} of {sid} from pid {pid}: not the process that registered it"
+                    f" (said once per {REFUSAL_LOG_S / 60:g} min)")
+
+    def _first_refusal(self, key: tuple, now: float | None = None) -> bool:
+        """Is `key`'s refusal the first in REFUSAL_LOG_S (then it is remembered)?"""
+        now = time.monotonic() if now is None else now
+        last = self._refusals_logged.get(key)
+        if last is not None and now - last < REFUSAL_LOG_S:
+            return False
+        if len(self._refusals_logged) >= MAX_REFUSALS_LOGGED:
+            self._refusals_logged = {k: t for k, t in self._refusals_logged.items() if now - t < REFUSAL_LOG_S}
+            if len(self._refusals_logged) >= MAX_REFUSALS_LOGGED:
+                self._refusals_logged.clear()
+        self._refusals_logged[key] = now
+        return True
+
+    def _caller_session(self, conn: Connection, env: dict, seen: tuple | None = None) -> tuple:
+        """`(session, daemon sid)`: the registered session the caller runs
+        inside (plan D9), or None, and the id of a session the Probe daemon
+        records that it runs inside, or None. Its process ancestry passes a
+        session's owner (pid and start time), or (Linux) its environment names
+        a registered session. EVERY match counts (#3360): a daemon-mode
+        session, or an agent process once registered in daemon mode that still
+        runs (`Registry.daemon_owner`, which neither a `session.end` nor a
+        later register undoes), makes it a daemon caller, so a registration
+        forged beside the real one cannot hide it. A session found this way
+        that the context did not name joins `env` under its harness's
+        variable, so `probe.core.run` refuses what it refuses there.
         `seen`: `(ancestry, environ)` read already, off the loop (`_caller_seen`)."""
         names = session_envs()
         found: Session | None = None
+        daemon: str | None = None
         if conn.peer_pid is not None:
-            owners = self.registry.owners()
-            if owners:
-                for pid, start in seen[0] if seen is not None else caller.ancestry(conn.peer_pid):
-                    found = owners.get((pid, start))
-                    if found is not None:
-                        break
-            if found is None:
-                carried = seen[1] if seen is not None else caller.environ(conn.peer_pid, frozenset(names.values()))
-                for value in carried.values():
-                    candidate = self.registry.sessions.get(value)
-                    if candidate is not None and candidate.alive(time.time(), self.registry.ttl):
+            # No owner to meet: no walk (`ps` per process on macOS, on this loop).
+            walk = seen is not None or self.registry.daemon_owners or self.registry.owners()
+            chain = (seen[0] if seen is not None else caller.ancestry(conn.peer_pid)) if walk else []
+            for pid, start in chain:
+                for session in self.registry.owned(pid, start):
+                    if found is None or (session.mode == Mode.DAEMON and found.mode != Mode.DAEMON):
+                        found = session
+                    if session.mode == Mode.DAEMON and daemon is None:
+                        daemon = session.sid
+                remembered = self.registry.daemon_owner(pid, start)
+                if remembered is not None and daemon is None:
+                    daemon = remembered["sid"]
+            carried = seen[1] if seen is not None else caller.environ(conn.peer_pid, frozenset(names.values()))
+            now = time.time()
+            for value in carried.values():
+                candidate = self.registry.sessions.get(value)
+                if candidate is not None and candidate.alive(now, self.registry.ttl):
+                    if found is None:
                         found = candidate
-                        break
+                    if candidate.mode == Mode.DAEMON and daemon is None:
+                        daemon = candidate.sid
+                if daemon is None and self.registry.daemon_agent_runs(value):
+                    daemon = value
         if found is not None:
             name = names.get(found.harness)
             if name and not any(env.get(n) for n in names.values()):
                 env[name] = found.sid
-        return found
+        return found, daemon
 
     def _caller_seen(self, conn: Connection) -> tuple:
         """`(ancestry, environ)` of the caller, for `_caller_session`: `ps` on
@@ -2079,15 +2234,21 @@ class Service:
         return self._action_run_now(conn, params, env)
 
     def _action_run_now(self, conn: Connection, params: dict, env: dict) -> dict:
-        inside = self._caller_session(conn, env)
-        if inside is not None and inside.mode == Mode.DAEMON:
-            log(f"refused {params.get('action')!r} from inside session {inside.sid}, which the Probe daemon records")
+        _inside, daemon = self._caller_session(conn, env)
+        if daemon is not None:
+            log(f"refused {params.get('action')!r} from inside session {daemon}, which the Probe daemon records")
             raise RpcError(
                 ErrorCode.REFUSED,
                 "refused: Probe's settings cannot be changed from inside a coding agent's session the "
                 "Probe daemon records; run it from your own terminal or the Probe app",
-                {"reason": RefusedReason.DAEMON_SESSION, "sid": inside.sid},
+                {"reason": RefusedReason.DAEMON_SESSION, "sid": daemon},
             )
+        if conn.peer_pid is not None:
+            # The child resolves the caller's own session from its process too
+            # (its environment, a harness-process marker above it), registered
+            # or not, as `desktop.request`'s does (#3360; `probe.core.run`).
+            env[CALLER_PID_ENV] = str(conn.peer_pid)
+            env[CALLER_START_ENV] = conn.peer_start or ""
         if params.get("action") == Action.UPDATE:
             # Before the files it imports from are replaced (R2), as a cycle does.
             try:
@@ -2101,6 +2262,25 @@ class Service:
         if trigger not in CHECK_TRIGGERS:
             raise invalid_params(f"trigger must be one of {sorted(CHECK_TRIGGERS)}")
         return self.updater.check_now(trigger, need_app_check(params, trigger))
+
+    async def _daemon_host(self, conn: Connection, params: dict) -> dict:
+        """`daemon.host`: where the daemon host listens, started if need be, for an
+        old tap's `probe daemon worker` (the proxy, `probe.daemon.proxy`), which
+        then runs its session there. Refused: no host here (off, Windows)."""
+        await self._refuse_sandboxed(conn)
+        host = self.workers.daemon_host
+        if host is None or not host.available():
+            raise RpcError(ErrorCode.REFUSED, "refused: no daemon host here", {"reason": "daemon_host_off"})
+        try:
+            # Its own small pool: proxies all ask at once after a restart, and a host
+            # start can take START_TIMEOUT_S; the loop's shared executor serves every
+            # other `to_thread` (the caller checks, the mailboxes).
+            if self._host_pool is None:
+                self._host_pool = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="daemon-host")
+            return await asyncio.get_running_loop().run_in_executor(self._host_pool, host.address)
+        except Exception as exc:  # noqa: BLE001 -- the proxy runs the worker itself
+            raise RpcError(ErrorCode.REFUSED, f"refused: the daemon host is unavailable ({exc})",
+                           {"reason": "daemon_host_unavailable"}) from None
 
     async def _recorders_finish(self, conn: Connection, params: dict) -> dict:
         """`recorders.finish` (`probe capture off` for one agent): every
@@ -2221,9 +2401,11 @@ class Service:
     async def _mailbox_post(self, conn: Connection, params: dict) -> dict:
         """`mailbox.post`: a message or a held question written for its session
         (`mailhost.MailHost.post`), and its watchers told at once. Never for a
-        caller in a sandbox, which writes the file itself."""
+        caller in a sandbox, which writes the file itself; and only from the
+        session's own daemon worker (#3361, `_refuse_foreign_mail`)."""
         request = need_mailbox_post(params)
         await self._refuse_sandboxed(conn)
+        await self._refuse_foreign_mail(conn, request["sid"], claim=False)
         request["state"] = request["state_dir"] or default_state()
         answer = self._mailbox_answered(await self.mailhost.run(MailHost.post, request))
         if "error" in answer:
@@ -2237,9 +2419,12 @@ class Service:
 
     async def _mailbox_claim(self, conn: Connection, params: dict) -> dict:
         """`mailbox.claim`: the named messages taken once for the caller to show
-        (`mailhost.MailHost.claim`). Never for a caller in a sandbox."""
+        (`mailhost.MailHost.claim`). Never for a caller in a sandbox, and only
+        from inside the session's own agent or a hook host (#3361,
+        `_refuse_foreign_mail`)."""
         request = need_mailbox_claim(params)
         await self._refuse_sandboxed(conn)
+        await self._refuse_foreign_mail(conn, request["sid"], claim=True)
         request["state"] = request["state_dir"] or default_state()
         answer = self._mailbox_answered(await self.mailhost.run(MailHost.claim, request))
         if answer.get("claimed"):
@@ -2273,6 +2458,65 @@ class Service:
             self._emit(Topic.APPROVALS_CHANGED, {"sid": answer["sid"], "ids": [request["id"]]})
         return answer
 
+    async def _refuse_foreign_mail(self, conn: Connection, sid: str, *, claim: bool) -> None:
+        """Refuse a post to, or a claim from, `sid`'s mailbox by a process that
+        is not the session's own (#3361). Any process of this user reaches the
+        socket, and a message posted is one the session's agent is shown as
+        Probe's, one claimed is one it never sees. The kernel names the caller;
+        its process ancestry (pid AND start time, as for owners) decides:
+
+            post    the session's daemon worker: a child of this service
+                    (`workers.WorkerHost.pids`), or one under the process that
+                    registered the session (`Session.registrant`: a `tap
+                    watch` supervising its own worker, an older tap)
+            claim   Probe's hooks: run under the session's agent process (its
+                    registered owner), or forked from a warm hook host this
+                    service runs (`hookhosts.HookHosts.pids`)
+            both    this service itself
+
+        The walk stops at this service: what runs above it says nothing. Every
+        caller refused here (an older worker that outlived its service, a hook
+        of a session registered without an owner) does the step on the files
+        itself, as it does on any refusal: delivery never depends on this."""
+        peer = conn.peer_pid
+        if peer == self.pid:
+            return
+        session = self.registry.sessions.get(sid)
+        owner = session.owner if claim and session is not None else None
+        registrant = None
+        if not claim and session is not None and isinstance(session.registrant, dict):
+            registrant = session.registrant
+        children = self.hookhosts.pids() if claim else self.workers.pids(sid)
+        me = self.pid
+
+        def belongs() -> bool:
+            if peer is None:
+                return False
+            below = None
+            for pid, start in caller.lineage(peer):
+                if pid == me:
+                    return below in children
+                if owner is not None and pid == owner["pid"] and start == owner["start_time"]:
+                    return True
+                if registrant is not None and same_process(registrant, {"pid": pid, "start_time": start}):
+                    return True
+                below = pid
+            return False
+
+        if await asyncio.to_thread(belongs):
+            return
+        what = "take messages from" if claim else "post to"
+        method = Method.MAILBOX_CLAIM if claim else Method.MAILBOX_POST
+        # Once per (method, session) a while: each hook is a new process.
+        if self._first_refusal((method, sid)):
+            log(f"refused {method} for {sid} from pid {peer}: not the session's own"
+                f" (said once per {REFUSAL_LOG_S / 60:g} min)")
+        raise RpcError(
+            ErrorCode.REFUSED,
+            f"refused: only the session's own {'hooks' if claim else 'daemon worker'} may {what} its mailbox",
+            {"reason": Bound.NOT_SESSION},
+        )
+
     @staticmethod
     def _mailbox_answered(answer: dict | None) -> dict:
         """A step's answer, or `busy` when none came (a stuck step before it,
@@ -2301,14 +2545,14 @@ class Service:
         await self._refuse_sandboxed(conn)
         self._refuse_gone_caller(conn)
         seen = await asyncio.to_thread(self._caller_seen, conn)
-        inside = self._caller_session(conn, env, seen)
-        if inside is not None and inside.mode == Mode.DAEMON:
-            log(f"refused desktop {op!r} from inside session {inside.sid}, which the Probe daemon records")
+        _inside, daemon = self._caller_session(conn, env, seen)
+        if daemon is not None:
+            log(f"refused desktop {op!r} from inside session {daemon}, which the Probe daemon records")
             raise RpcError(
                 ErrorCode.REFUSED,
                 "refused: the Probe app's requests cannot come from inside a coding agent's session the Probe "
                 "daemon records; use the Probe app or your own terminal",
-                {"reason": RefusedReason.DAEMON_SESSION, "sid": inside.sid},
+                {"reason": RefusedReason.DAEMON_SESSION, "sid": daemon},
             )
 
         # The caller's own session, registered or not, is resolved by the child
@@ -2372,8 +2616,7 @@ class Service:
             # would go out on this service's.
             if caller.sandboxed(peer) or other_network(peer):
                 return {"accepted": False, "reason": BackgroundRefusal.SANDBOXED}
-            url = request["env"].get(BASE_URL_ENV) or None  # empty is unset, as `config.resolve` reads it
-            if url is not None and not (url.startswith("https://") and caller.known_endpoint(url, request["env"])):
+            if not _drain_url_allowed(request["env"]):
                 return {"accepted": False, "reason": BackgroundRefusal.UNKNOWN_ENDPOINT}
             return start(request)
 
@@ -2616,6 +2859,61 @@ def _keep() -> None:
         outcome = keeper.install()
         if outcome not in ("current", "not wanted"):
             log(f"keeper: {outcome}")
+
+
+#: How often the service looks for an outbox pause that no longer holds: one stat.
+OUTBOX_LOOK_S = 60.0
+#: Test-only: the look's period in seconds, "0" off (the suite's services).
+OUTBOX_LOOK_ENV = "PROBE_SERVICE_OUTBOX_S"
+
+
+def _outbox_look_s() -> float:
+    try:
+        return float(os.environ.get(OUTBOX_LOOK_ENV) or OUTBOX_LOOK_S)
+    except ValueError:
+        return OUTBOX_LOOK_S
+
+
+async def _outbox_login_env() -> dict | None:
+    """The outbox drainer's environment, from the login shell as every other
+    network child of this service gets it (`loginenv`): PATH, where the outbox
+    and the stored login are, the proxies and CAs, and the person's report
+    switches (`watch.CONSENT_VARS`), by `runtime_env_name` (never a
+    credential). None when the login shell cannot be read."""
+    from . import loginenv, watch
+    from .protocol import runtime_env_name
+
+    names = tuple(sorted({*loginenv.NAMES, *watch.CONSENT_VARS, "PROBE_OUTBOX_DIR"}))
+    read = await loginenv.read(names=names)
+    if read is None:
+        return None
+    login_path, values = read
+    env = {"PATH": loginenv.build_path(login_path, os.environ.get("PATH"), paths.home())}
+    env.update({name: value for name, value in values.items() if value and runtime_env_name(name)})
+    return env
+
+
+def _drain_url_allowed(env: dict) -> bool:
+    """May a drainer run with `env`'s PROBE_BASE_URL (plan D10: the stored
+    login follows it)? Unset, or https and an endpoint that login may go to
+    (`caller.known_endpoint`). Blocking (reads the CLI config): a thread."""
+    url = env.get(BASE_URL_ENV) or None  # empty is unset, as `config.resolve` reads it
+    return url is None or (url.startswith("https://") and caller.known_endpoint(url, env))
+
+
+def _lift_outbox_pause(env: dict | None) -> tuple[bool, str, int]:
+    """Lift the pause of the outbox `env` names (the login shell's variables;
+    None: this service's own) when it no longer holds, reporting nothing:
+    `(lifted, outbox root, writes it held)`. One stat when there is no marker."""
+    from probe.sdk import outbox_worker
+    from probe.sdk.journal import Journal, default_root
+
+    root = default_root(env)
+    if not os.path.lexists(root / "paused"):
+        return False, str(root), 0
+    status = Journal.read_status(str(root)) or {}
+    lifted = outbox_worker.lift_stale_pause(Journal(str(root)), status, base_url=None, wait=False)
+    return lifted, str(root), int(status.get("pending") or 0) + int(status.get("waiting") or 0)
 
 
 def _mark_versions() -> None:

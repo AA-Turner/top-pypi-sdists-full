@@ -440,8 +440,9 @@ class Executor:
         from trilogy.dialect.config import DuckDBConfig, PythonDatasourceTransport
         from trilogy.dialect.duckdb import (
             PYTHON_DATASOURCE_GUARD_MARKER,
-            VGI_SETUP_SQL,
             get_python_datasource_setup_sql,
+            loaded_vgi_version,
+            vgi_setup_sql,
         )
 
         # A read-only handle can't CREATE the guard macro — and python
@@ -472,7 +473,8 @@ class Executor:
             and isinstance(self.config, DuckDBConfig)
             and self.config.python_datasource_transport == PythonDatasourceTransport.VGI
         ):
-            self._execute_setup_ddl(VGI_SETUP_SQL)
+            installed = loaded_vgi_version(self.connection, "installed")
+            self._execute_setup_ddl(vgi_setup_sql(installed))
             return
         self._execute_setup_ddl(
             get_python_datasource_setup_sql(
@@ -1667,9 +1669,14 @@ class Executor:
     def _script_failure(self, error: Exception) -> Exception | None:
         if self.dialect != Dialects.DUCK_DB:
             return None
-        from trilogy.dialect.duckdb import python_datasource_failure
+        from trilogy.dialect.duckdb import (
+            python_datasource_failure,
+            vgi_version_mismatch,
+        )
 
-        return python_datasource_failure(error)
+        return vgi_version_mismatch(
+            str(error), self.connection
+        ) or python_datasource_failure(error)
 
     def _execute_now(self, statement: Any, final_params: dict | None) -> ResultProtocol:
         if final_params:

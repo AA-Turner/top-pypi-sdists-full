@@ -42,7 +42,7 @@ async def _load(browser, fixture: str):
 
 async def _clip(page, **opts):
     base = {
-        "clientName": "",
+        "brandName": "",
         "sectionHeading": "",
         "keep": [],
         "drop": [],
@@ -112,9 +112,9 @@ async def test_placeholder_sweep_logs_every_removal_and_keeps_media(browser):
     assert not any("lead-photo" in s for s in swept)
 
 
-async def test_section_scope_keeps_lead_and_client_section_only(browser):
+async def test_section_scope_keeps_lead_and_brand_section_only(browser):
     page = await _load(browser, "roundup_article.html")
-    report = await _clip(page, clientName="Recycle Coach", sectionHeading="Recycle Coach")
+    report = await _clip(page, brandName="Recycle Coach", sectionHeading="Recycle Coach")
     assert report["section_applied"] is True
     for kept in ("#lead", "#rc1", "#rc2"):
         assert await page.locator(kept).count() == 1, kept
@@ -126,18 +126,18 @@ async def test_section_scope_needs_heading_that_starts_with_the_name(browser):
     page = await _load(browser, "roundup_article.html")
     # "Re-TRAC" is not how any heading starts with "Recycle Coach Inc"; a loose
     # 8-letter prefix ("recycle ") would wrongly match — the full name must lead.
-    report = await _clip(page, clientName="Recycle Coach Inc", sectionHeading="Recycle Coach Inc")
+    report = await _clip(page, brandName="Recycle Coach Inc", sectionHeading="Recycle Coach Inc")
     assert report["section_applied"] is False
     for kept in ("#lead", "#kanopy", "#rc1", "#retrac"):
         assert await page.locator(kept).count() == 1, kept
 
 
-async def test_client_found_in_text_is_a_plain_search(browser):
+async def test_brand_found_in_text_is_a_plain_search(browser):
     page = await _load(browser, "news_article.html")
-    assert (await _clip(page, clientName="Birchwood Avenue Renovation"))["client_found_in_text"] is True
+    assert (await _clip(page, brandName="Birchwood Avenue Renovation"))["brand_found_in_text"] is True
     page = await _load(browser, "news_article.html")
-    assert (await _clip(page, clientName="Harbor Dental Group"))[
-        "client_found_in_text"
+    assert (await _clip(page, brandName="Harbor Dental Group"))[
+        "brand_found_in_text"
     ] is False
 
 
@@ -192,11 +192,11 @@ async def test_text_wordmark_only_when_no_logo(browser):
 
 async def test_headline_element_is_found_by_its_text_not_by_being_the_first_h1(browser):
     page = await _load(browser, "headline_not_h1.html")
-    report = await _clip(page, clientName="ERI")
+    report = await _clip(page, brandName="ERI")
     # No article/main/entry-content holds the headline; the tightest ancestor of the
     # real headline that holds a body's worth of text is the container.
     assert report["root_selector_used"] == "div.col-inner"
-    assert report["client_found_in_text"] is True
+    assert report["brand_found_in_text"] is True
     assert await page.locator(".col-side").count() == 0
     assert "joint venture called ERI India" in await page.inner_text("body")
 
@@ -294,12 +294,12 @@ async def test_photos_set_as_css_backgrounds_survive_the_placeholder_sweep(brows
     assert await page.locator(".empty-slot").count() == 0
 
 
-async def test_client_found_in_text_matches_whole_words_only(browser):
+async def test_brand_found_in_text_matches_whole_words_only(browser):
     # "Coach" is not the word "Coaching"; "Lakeside" inside "Lakeside Coaching" is a whole word.
     for name, found in (("Coach", False), ("Lake", False), ("Lakeside", True),
                         ("lakeside coaching", True), ("Studio", True), ("Train", False)):
         page = await _load(browser, "background_photo.html")
-        assert (await _clip(page, clientName=name))["client_found_in_text"] is found, name
+        assert (await _clip(page, brandName=name))["brand_found_in_text"] is found, name
 
 
 async def test_blank_ad_slots_are_swept_whatever_placeholder_they_carry(browser):

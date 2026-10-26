@@ -23,3 +23,10 @@ class Anchor(str, Enum):
     PROJECT = "project"
     WORKSPACE = "workspace"
     SHARED = "shared"
+
+
+#: Anchors addressed as "files" rather than "artifacts": their identity is
+#: (anchor, name) rather than (anchor, name, content_hash), so re-uploading a name
+#: REPLACES it via a confirm-time swap instead of adding a second version. They also
+#: have no metadata-only form — a file is its bytes.
+FILE_ANCHORS = frozenset({Anchor.WORKSPACE, Anchor.SHARED})

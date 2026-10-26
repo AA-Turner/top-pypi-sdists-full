@@ -45,7 +45,6 @@ from cozy_runtime.author._markers import (
 )
 from cozy_runtime.author._memo import Memoize
 from cozy_runtime.author._model import Model, component_use
-from cozy_runtime.author._model_defaults import check_model_arguments
 from cozy_runtime.author._services import SERVICES, Secrets, Settings
 from cozy_runtime.author._walker import is_struct, strip, walk
 from cozy_runtime.author._weights import WeightsOutput, weights_class
@@ -260,47 +259,119 @@ class ModelBinding:
 
 
 @dataclass(frozen=True, slots=True)
-class Surface:
-    """One registered callable's derived surface. cr-003's package interface consumes this."""
+class ModelSpec:
+    """A Model class's facts, read by import (`of`) or from source alone."""
 
     name: str
-    fn: Callable[..., object]
-    is_async: bool
-    params: tuple[Param, ...]
+    encoded_leaves: str = "refuse"
+    min_bits: int = 8
+    phase: str = "compute"
+    sequence_parallel: tuple[int, ...] = ()
+    components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    placeable: tuple[str, ...] = ()
+    loads: bool = False
+    """It defines `load(loader)`."""
+    arguments: tuple[str, ...] = ()
+    """What its constructor requires."""
+
+    @classmethod
+    def of(cls, model: type[Model[Any]]) -> ModelSpec:
+        parameters = inspect.signature(model).parameters.values()
+        return cls(
+            model.__name__,
+            model.__encoded_leaves__,
+            model.__min_bits__,
+            model.__phase__,
+            tuple(model.__sequence_parallel__),
+            component_use(model),
+            tuple(model.__placeable__),
+            model.load is not Model.load,
+            tuple(
+                p.name
+                for p in parameters
+                if p.default is p.empty and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Slot:
+    """One Model argument: its class, and whether it is raw `Weights[M]` data."""
+
+    parameter: str
+    spec: ModelSpec
+    weights: bool = False
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Declaration:
+    """One callable as a reader found it: by import (a `Surface`) or from source alone.
+
+    The validity rules (`_describe.validate`) and the interface entry both read it, so the
+    two readers cannot disagree on whether a package is valid or on what it publishes."""
+
+    name: str
+    module: str
+    export: str
     payload_type: object
     result_type: object
-    capabilities: frozenset[str]
+    contexts: tuple[str, ...] = ()
+    services: tuple[str, ...] = ()
+    """Each injected service's capability, as often as the signature names it."""
+    facts: int = 0
+    """`Preflight[T]` parameters."""
+    slots: tuple[Slot, ...] = ()
+    assets: AssetsBinding | None = None
     publishes: bool = False
     emits_media: bool = False
     weights_outputs: tuple[WeightsOutput, ...] = ()
     """The TensorFS model outputs this function writes; grants mint off this declaration."""
-    demand_bound: Bound | None = None
-    preflight: PreflightSpec | None = None
+    memoize: Memoize | None = None
     internal: bool = False
     accelerator: bool = True
     """False: CPU only, never opens CUDA. True: the machine's GPU when it has one."""
-    hidden: bool = False
-    """DECLARED but NOT PUBLISHED (#572d). Hidden callables stay in the local registry but
-    are absent from the package interface, so no binding is staged and no request reaches them."""
-    invocable: bool = False
-    memoize: Memoize | None = None
     model_defaults: Mapping[str, str] = field(default_factory=dict)
     model_components: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     """Model argument -> the components this callable runs; an absent argument runs all."""
     model_on_demand: tuple[str, ...] = ()
     """Model arguments built, and their weights fetched, on first use (`on_demand=`)."""
+    parameters: tuple[str, ...] | None = None
+    """An invocable's caller parameters; None: a handler, whose request is its struct."""
+    parameter_defaults: Mapping[str, object] = field(default_factory=dict)
+    identity: Mapping[str, str] = field(default_factory=dict)
+    """Its operation identity, where the reader can state one."""
+    capabilities: frozenset[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        media = media_kinds(self.payload_type, self.assets)
+        object.__setattr__(
+            self,
+            "capabilities",
+            frozenset(self.services)
+            | ({"weights"} if self.weights_outputs else frozenset())
+            | ({"media_decode"} if media else frozenset()),
+        )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Surface(Declaration):
+    """One imported callable: its record, with the live objects an executor runs."""
+
+    fn: Callable[..., object]
+    is_async: bool
+    params: tuple[Param, ...]
+    demand_bound: Bound | None = None
+    preflight: PreflightSpec | None = None
+    hidden: bool = False
+    """DECLARED but NOT PUBLISHED (#572d). Hidden callables stay in the local registry but
+    are absent from the package interface, so no binding is staged and no request reaches them."""
+    invocable: bool = False
 
     @property
     def outputs(self) -> frozenset[str]:
         """The result fields `Outputs.publish` may name, dotted, as the machine reads the
         result schema: an asset takes one product, a list of assets grows by one."""
         return frozenset(_asset_fields(self.result_type, ""))
-
-    @property
-    def assets_binding(self) -> AssetsBinding | None:
-        return next(
-            (assets_binding(p.name, p.annotation) for p in self.params if p.role == "assets"), None
-        )
 
     @property
     def model_params(self) -> tuple[str, ...]:
@@ -357,6 +428,13 @@ def _hints(fn: Callable[..., object]) -> Mapping[str, object]:
         ) from exc
 
 
+def model_class(annotation: object) -> type[Model[Any]] | None:
+    """The Model class a model parameter names: `M`, or `M[P]` by its origin
+    (`quantize_calibrated`'s `Model[Any]`), as `weights_class` reads `Weights[M]`."""
+    cls = get_origin(annotation) or annotation
+    return cls if isinstance(cls, type) and issubclass(cls, Model) else None
+
+
 def _classify(name: str, annotation: object, where: str) -> Param:
     base, markers = strip(annotation)
     if any(isinstance(m, _PreflightMarker) for m in markers):
@@ -376,6 +454,17 @@ def _classify(name: str, annotation: object, where: str) -> Param:
                 fields=[name],
             )
         return Param(name, "weights", layout)
+    if (model := model_class(base)) is not None:
+        if markers:
+            raise ConformanceError(
+                f"{where}: model parameter {name} carries {markers[0]!r} — the Annotated "
+                "override-marker plane is EMPTY at launch: a bare typed parameter is "
+                "unconditionally the whole declaration (§1.1). Future markers enter "
+                "through cr-018's door",
+                code="empty_marker_plane",
+                fields=[name],
+            )
+        return Param(name, "model", model)
     origin = get_origin(base)
     if base is Assets or origin is Assets:
         assets_binding(name, annotation)
@@ -396,17 +485,6 @@ def _classify(name: str, annotation: object, where: str) -> Param:
                 continue
             if issubclass(base, plain):
                 return Param(name, "service", base, cap)
-        if issubclass(base, Model):
-            if markers:
-                raise ConformanceError(
-                    f"{where}: model parameter {name} carries {markers[0]!r} — the Annotated "
-                    "override-marker plane is EMPTY at launch: a bare typed parameter is "
-                    "unconditionally the whole declaration (§1.1). Future markers enter "
-                    "through cr-018's door",
-                    code="empty_marker_plane",
-                    fields=[name],
-                )
-            return Param(name, "model", base)
         if is_struct(base):
             return Param(name, "payload", base)
     raise ConformanceError(
@@ -484,12 +562,10 @@ def analyze(
             base, _ = strip(annotation)
             injected = (
                 base is Context
+                or model_class(base) is not None
                 or (
                     isinstance(base, type)
-                    and (
-                        issubclass(base, Model)
-                        or any(issubclass(base, service) for service in SERVICES.values())
-                    )
+                    and any(issubclass(base, service) for service in SERVICES.values())
                 )
                 or get_origin(base) in (Settings, Secrets)
                 or weights_class(base) is not None
@@ -499,7 +575,14 @@ def analyze(
                     raise ConformanceError(
                         "invocable arguments must be keyword-only", code="invocable_signature"
                     )
-                _wire_type(annotation)
+                try:
+                    _wire_type(annotation)
+                except ConformanceError as exc:
+                    raise ConformanceError(
+                        f"{where}: parameter {parameter.name}: {exc.message}",
+                        code=exc.code,
+                        fields=[parameter.name],
+                    ) from None
                 params.append(Param(parameter.name, "wire", annotation))
                 if parameter.default is parameter.empty:
                     wire_fields.append((parameter.name, annotation))
@@ -517,9 +600,7 @@ def analyze(
                 raise ConformanceError(
                     "injected invocable parameters cannot have defaults", code="injected_default"
                 )
-            if weights_class(base) is not None or (
-                isinstance(base, type) and issubclass(base, Model)
-            ):
+            if weights_class(base) is not None or model_class(base) is not None:
                 # Ordinary top-level invocation may use the owner's frozen model
                 # binding. A managed caller may supply an exact produced artifact
                 # override, which the owner also binds through that same model lane.
@@ -564,23 +645,6 @@ def analyze(
             payload_type = assets_payload(
                 typing.cast(type[msgspec.Struct], payload_type), binding, fn.__name__, fn.__module__
             )
-    assets_param = assets_params[0] if assets_params else None
-    media = media_kinds(
-        payload_type,
-        assets_binding(assets_param.name, assets_param.annotation) if assets_param else None,
-    )
-    contexts = [p for p in params if p.role == "context"]
-    if len(contexts) > 1:
-        raise ConformanceError(f"{where}: Context is injected at most once", code="context_arity")
-    facts = [p for p in params if p.role == "preflight"]
-    if len(facts) > 1:
-        raise ConformanceError(f"{where}: at most one Preflight[T] parameter", code="facts_arity")
-    for capability in (p.capability for p in params if p.role == "service"):
-        if [p.capability for p in params if p.role == "service"].count(capability) > 1:
-            raise ConformanceError(
-                f"{where}: service {capability!r} requested twice", code="service_arity"
-            )
-
     result = hints.get("return")
     if result is None or not is_struct(strip(result)[0]):
         raise ConformanceError(
@@ -596,22 +660,29 @@ def analyze(
         spec = analyze_preflight(
             preflight, payloads[0].annotation, assets_params[0] if assets_params else None
         )
-
-    models = [p.name for p in params if p.role in ("model", "weights")]
-    check_model_arguments(model_defaults or {}, models)
-    check_model_arguments(model_components or {}, models, what="components")
-    constructed = [p.name for p in params if p.role == "model"]
-    check_model_arguments(dict.fromkeys(model_on_demand), constructed, what="on_demand")
+    callers = [p.name for p in params if p.role in ("wire", "model", "weights", "assets")]
     return Surface(
         name=name,
+        module=fn.__module__,
+        export=fn.__name__,
         fn=fn,
         is_async=inspect.iscoroutinefunction(fn),
         params=tuple(params),
         payload_type=payload_type,
         result_type=strip(result)[0],
-        capabilities=frozenset(p.capability for p in params if p.capability)
-        | ({"weights"} if weights_outputs else set())
-        | ({"media_decode"} if media else set()),
+        contexts=tuple(p.name for p in params if p.role == "context"),
+        services=tuple(p.capability for p in params if p.capability),
+        facts=sum(p.role == "preflight" for p in params),
+        slots=tuple(
+            Slot(
+                p.name,
+                ModelSpec.of(typing.cast(type[Model[Any]], p.annotation)),
+                p.role == "weights",
+            )
+            for p in params
+            if p.role in ("model", "weights")
+        ),
+        assets=next((assets_binding(p.name, p.annotation) for p in assets_params), None),
         publishes=publishes,
         emits_media=emits_media,
         weights_outputs=weights_outputs,
@@ -625,6 +696,12 @@ def analyze(
         model_defaults=model_defaults or {},
         model_components=model_components or {},
         model_on_demand=model_on_demand,
+        parameters=tuple(callers) if invocable else None,
+        parameter_defaults={
+            name: signature.parameters[name].default
+            for name in callers
+            if invocable and signature.parameters[name].default is not inspect.Parameter.empty
+        },
     )
 
 
@@ -700,7 +777,7 @@ def _wire_type(annotation: object, seen: frozenset[type] = frozenset()) -> None:
                 _wire_type(field.type, seen | {base})
             return
     raise ConformanceError(
-        "invocable type is recursive or has no portable wire representation",
+        f"invocable type {annotation!r} is recursive or has no portable wire representation",
         code="invocable_wire_type",
     )
 
@@ -729,11 +806,7 @@ def analyze_preflight(
         )
     for pname in positional:
         base, _ = strip(hints.get(pname, object))
-        if (
-            base is Context
-            or weights_class(base) is not None
-            or (isinstance(base, type) and issubclass(base, Model))
-        ):
+        if base is Context or weights_class(base) is not None or model_class(base) is not None:
             raise ConformanceError(
                 f"preflight {where}: parameter {pname} reaches {base!r} — a preflight has "
                 "no Context, Model, device, network, output or secret access",

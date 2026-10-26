@@ -3,6 +3,7 @@ import json
 import pickle
 import time
 from io import BytesIO
+from threading import Event, get_ident
 from uuid import uuid4
 
 import pytest
@@ -471,6 +472,50 @@ def test_charset_parse(server):
     assert r.encoding == "gbk"
 
 
+@pytest.mark.parametrize("media_type", ["text/plain", "application/json"])
+@pytest.mark.parametrize(
+    "parameter, encoding",
+    [
+        ("charset=gb2312", "gb2312"),
+        ('charset="gb2312"', "gb2312"),
+        ("charset='gb2312'", "gb2312"),
+        ("charset = gb2312", "gb2312"),
+        ("charset\t=\tgb2312", "gb2312"),
+        ("Charset=gb2312", "gb2312"),
+        ('CHARSET="GB2312"', "GB2312"),
+        ('ChArSeT = "Gb2312"', "Gb2312"),
+        ('charset="gb2312"; format=flowed', "gb2312"),
+        ('format=flowed; charset="gb2312"', "gb2312"),
+    ],
+)
+def test_response_charset_formats(media_type, parameter, encoding):
+    r = Response()
+    r.headers["Content-Type"] = f"{media_type}; {parameter}"
+    text = '{"foo":"中文"}'
+    r.content = text.encode("gb2312")
+
+    assert r.charset_encoding == encoding
+    assert r.encoding == encoding
+    if media_type == "application/json":
+        assert r.json() == {"foo": "中文"}
+    assert r.text == text
+
+
+@pytest.mark.parametrize(
+    "content_type",
+    [None, "", "text/plain", "text/plain; charset=", 'text/plain; charset=""'],
+)
+def test_response_charset_missing(content_type):
+    r = Response()
+    if content_type is not None:
+        r.headers["Content-Type"] = content_type
+    r.content = "中文".encode()
+
+    assert r.charset_encoding is None
+    assert r.encoding == "utf-8"
+    assert r.text == "中文"
+
+
 def test_json_charset_parse():
     r = Response()
     r.headers["Content-Type"] = "application/json; charset=gb2312"
@@ -483,6 +528,21 @@ def test_json_bytes_bom_parse():
     r.headers["Content-Type"] = "application/json"
     r.content = b'\xef\xbb\xbf{"foo":"bar"}'
     assert r.json()["foo"] == "bar"
+
+
+def test_json_kwargs_with_orjson():
+    # Regression test for gh #639: Response.json() forwards kwargs to loads(),
+    # but orjson.loads() takes no keyword arguments. When orjson is installed
+    # this used to raise TypeError, making behavior depend on whether orjson
+    # happens to be present. Passing kwargs must fall back to stdlib json.
+    from decimal import Decimal
+
+    r = Response()
+    r.headers["Content-Type"] = "application/json"
+    r.content = b'{"price": 1.1}'
+    parsed = r.json(parse_float=Decimal)
+    assert parsed["price"] == Decimal("1.1")
+    assert isinstance(parsed["price"], Decimal)
 
 
 def test_response_is_redirect():
@@ -761,6 +821,27 @@ def test_response_cookies(server):
     assert r.cookies.get("xxx") is None
 
 
+@pytest.mark.parametrize(
+    "value", ["bar", '"value"', '"hello world"', '""', r'"a\"b"', r'"\141"']
+)
+@pytest.mark.parametrize("discard_cookies", [False, True])
+def test_response_cookie_preserves_value(server, value, discard_cookies):
+    with requests.Session(discard_cookies=discard_cookies) as session:
+        response = session.get(
+            str(server.url.copy_with(path="/set_cookies")), params={"value": value}
+        )
+        assert response.cookies["foo"] == value
+        if discard_cookies:
+            assert session.cookies.get("foo") is None
+        else:
+            assert session.cookies["foo"] == value
+
+        replay = session.get(
+            str(server.url.copy_with(path="/echo_cookies")), cookies=response.cookies
+        )
+        assert replay.json()["foo"] == value
+
+
 def test_elapsed(server):
     r = requests.get(str(server.url.copy_with(path="/slow_response")))
     assert r.elapsed.total_seconds() > 0.1
@@ -1032,6 +1113,29 @@ def test_session_with_all_proxies(server, proxy_server):
     assert r.text == "Hello from man in the middle"
 
 
+# The test server answers an absolute-form request as a proxy would, so the
+# body tells whether a request went through the proxy or straight to it.
+
+
+def test_env_proxy_is_used_by_default(server, monkeypatch):
+    monkeypatch.setenv("http_proxy", str(server.url))
+    r = requests.Session().get(str(server.url))
+    assert r.json() == {"Hello": "http_proxy!"}
+
+
+def test_trust_env_false_ignores_env_proxy(server, monkeypatch):
+    monkeypatch.setenv("http_proxy", str(server.url))
+    r = requests.Session(trust_env=False).get(str(server.url))
+    assert r.text == "Hello, world!"
+
+
+def test_trust_env_false_ignores_env_no_proxy(server, monkeypatch):
+    monkeypatch.setenv("no_proxy", server.url.host)
+    s = requests.Session(proxy=str(server.url), trust_env=False)
+    r = s.get(str(server.url))
+    assert r.json() == {"Hello": "http_proxy!"}
+
+
 # https://github.com/lexiforest/curl_cffi/issues/222
 def test_closed_session_throws_error():
     with requests.Session() as s:
@@ -1217,6 +1321,43 @@ def test_stream_options_persist(server):
         buffer.append(line)
     data = json.loads(b"".join(buffer))
     assert data["User-agent"][0] == "foo/1.0"
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD"])
+def test_stream_metadata_stays_in_transfer_thread(server, monkeypatch, method):
+    release_transfer = Event()
+    transfer_finished = Event()
+    transfer_thread = None
+    original_perform = Curl.perform
+    original_getinfo = Curl.getinfo
+
+    def perform(curl, *args, **kwargs):
+        nonlocal transfer_thread
+        transfer_thread = get_ident()
+        try:
+            original_perform(curl, *args, **kwargs)
+            # Keep the worker active until the caller receives the response.
+            if method == "GET":
+                assert release_transfer.wait(timeout=5)
+        finally:
+            transfer_finished.set()
+
+    def getinfo(curl, option):
+        assert get_ident() == transfer_thread
+        return original_getinfo(curl, option)
+
+    monkeypatch.setattr(Curl, "perform", perform)
+    monkeypatch.setattr(Curl, "getinfo", getinfo)
+    with requests.Session() as session:
+        try:
+            response = session.request(method, str(server.url), stream=True)
+            assert response.status_code == 200
+            assert response.url == str(server.url)
+            if method == "GET":
+                assert not transfer_finished.is_set()
+        finally:
+            release_transfer.set()
+        response.close()
 
 
 @pytest.mark.skip(reason="External url unstable")

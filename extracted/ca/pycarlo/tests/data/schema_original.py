@@ -9883,6 +9883,17 @@ class TeammateDecision(sgqlc.types.Enum):
     __choices__ = ("POSTED", "RESOLVED_NOTED", "SKIPPED", "WATCHING")
 
 
+class TeammateFeedbackRating(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `THUMBS_DOWN`None
+    * `THUMBS_UP`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("THUMBS_DOWN", "THUMBS_UP")
+
+
 class TeammateItemType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -109152,6 +109163,14 @@ class Query(sgqlc.types.Type):
                 ),
                 ("since", sgqlc.types.Arg(DateTime, graphql_name="since", default=None)),
                 ("until", sgqlc.types.Arg(DateTime, graphql_name="until", default=None)),
+                (
+                    "post_ids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="postIds",
+                        default=None,
+                    ),
+                ),
             )
         ),
     )
@@ -109167,6 +109186,9 @@ class Query(sgqlc.types.Type):
     * `domain_id` (`UUID!`): The domain.
     * `since` (`DateTime`): Start of the window (inclusive).
     * `until` (`DateTime`): End of the window (exclusive).
+    * `post_ids` (`[UUID!]`): Post ids, at most 20. When given,
+      returns these posts whatever their age, and since and until are
+      ignored.
     """
 
     get_teammate_decisions = sgqlc.types.Field(
@@ -117983,6 +118005,7 @@ class TeammatePost(sgqlc.types.Type):
     __field_names__ = (
         "id",
         "text",
+        "action",
         "alert_ids",
         "issue_ids",
         "parent_post_id",
@@ -117990,14 +118013,21 @@ class TeammatePost(sgqlc.types.Type):
         "status",
         "is_fallback",
         "created_time",
+        "feedback",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
     """Post id."""
 
     text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="text")
-    """The message text. Replaced by a notice when it, or its thread's
-    first post, covers an agent issue you may not see or that no
-    longer exists.
+    """The Slack notification text, mrkdwn-escaped, including the post's
+    "What to do" line and one `label: url` line per item. Replaced by
+    a notice when it, or its thread's first post, covers an agent
+    issue you may not see or that no longer exists.
+    """
+
+    action = sgqlc.types.Field(String, graphql_name="action")
+    """The fix or check the post asks for. Null when it has none, or when
+    the text is withheld.
     """
 
     alert_ids = sgqlc.types.Field(
@@ -118030,6 +118060,30 @@ class TeammatePost(sgqlc.types.Type):
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the post was written."""
+
+    feedback = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TeammatePostFeedback"))),
+        graphql_name="feedback",
+    )
+    """Every 👍/👎 click on the post, newest first. A person's newest click
+    is their rating.
+    """
+
+
+class TeammatePostFeedback(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("rating", "comment", "created_time")
+    rating = sgqlc.types.Field(sgqlc.types.non_null(TeammateFeedbackRating), graphql_name="rating")
+    """The 👍 or 👎 someone gave."""
+
+    comment = sgqlc.types.Field(String, graphql_name="comment")
+    """What they wrote in the feedback modal. Null when they wrote
+    nothing, or when the post covers an agent issue you may not see or
+    that no longer exists.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When they clicked."""
 
 
 class TeammateUpdates(sgqlc.types.Type):
@@ -133211,7 +133265,12 @@ class TaskPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
     """ETL Task performance summary"""
 
     __schema__ = schema
-    __field_names__ = ()
+    __field_names__ = ("last_failed_run_error",)
+    last_failed_run_error = sgqlc.types.Field(String, graphql_name="lastFailedRunError")
+    """The error message of the latest failed run of the task in the
+    period, capped at 2000 characters. Null when no run failed, or
+    when the integration does not report run errors.
+    """
 
 
 class UnifiedUser(sgqlc.types.Type, Node):

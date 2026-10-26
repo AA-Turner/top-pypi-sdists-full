@@ -63,8 +63,24 @@ log = logging.getLogger("probe.daemon")
 #: conversation fresh instead (rule A, `reader_lane`; 2026-10-14).
 #: Both are the client's own; the server can lower them (`writer_context_tokens`,
 #: `read_context_tokens`; Richard 2026-10-07, T10: "server-pushed cap").
-CONTEXT_TOKENS = int(os.environ.get("PROBE_DAEMON_CONTEXT_TOKENS") or 250_000)
-READ_CONTEXT_TOKENS = int(os.environ.get("PROBE_READER_CONTEXT_TOKENS") or 120_000)
+CONTEXT_TOKENS_ENV = "PROBE_DAEMON_CONTEXT_TOKENS"
+READ_CONTEXT_TOKENS_ENV = "PROBE_READER_CONTEXT_TOKENS"
+CONTEXT_TOKENS = int(os.environ.get(CONTEXT_TOKENS_ENV) or 250_000)
+READ_CONTEXT_TOKENS = int(os.environ.get(READ_CONTEXT_TOKENS_ENV) or 120_000)
+
+
+def _own_size(name: str, default: int) -> int:
+    """A size the session's environment sets (`name`), else `default` (read at
+    import). In the daemon host the module was imported once for every run, so a
+    run reads its own environment here (`runctx`)."""
+    from probe.daemon import runctx
+
+    if runctx.current() is not None:
+        try:
+            return int(os.environ.get(name) or default)
+        except ValueError:
+            return default
+    return default
 
 
 def _lowered_by_server(own: int, lane: str) -> int:
@@ -78,14 +94,14 @@ def writer_context_tokens() -> int:
     """The writer's size: CONTEXT_TOKENS, or the server's if that is lower."""
     from probe.daemon import model as model_mod
 
-    return _lowered_by_server(CONTEXT_TOKENS, model_mod.LANE_WRITE)
+    return _lowered_by_server(_own_size(CONTEXT_TOKENS_ENV, CONTEXT_TOKENS), model_mod.LANE_WRITE)
 
 
 def read_context_tokens() -> int:
     """The reader's size: READ_CONTEXT_TOKENS, or the server's if that is lower."""
     from probe.daemon import model as model_mod
 
-    return _lowered_by_server(READ_CONTEXT_TOKENS, model_mod.LANE_READ)
+    return _lowered_by_server(_own_size(READ_CONTEXT_TOKENS_ENV, READ_CONTEXT_TOKENS), model_mod.LANE_READ)
 #: While a model call runs, the writer's lease is renewed this often (a call may
 #: take 30 minutes; the lease lives 240 s).
 LEASE_RENEW_IN_CALL_S = 60.0
@@ -199,8 +215,10 @@ READER_BASH_DESCRIPTION = (
     "Run a read-only bash command in the session's working folders; anything off the safe list is refused. "
     "Chainable (`cd x && probe ...`, `probe ... | jq ...`). `why`: one line on why you run it.")
 READER_COMMAND_MAP = (
-    "Read: `cat <path>`; a data file: `probe file preview <path>`; the session: `probe daemon session "
-    "open|outline|search|logbook`; Probe's records: `probe mcp call <tool> '<json>'` (`probe mcp tools` lists them).")
+    "Read: `cat <path>`; a data file: `probe file preview <path>`; a note, whole or the paragraphs that mention some "
+    "words: `probe notes show|find --project|--experiment|--run <slug> [--note <title>] [<words>]`; the session: "
+    "`probe daemon session open|outline|search|logbook`; Probe's records: `probe mcp call <tool> '<json>'` "
+    "(`probe mcp tools` lists them).")
 #: The audit's (NEW, fixtures/daemon_prompts/tools/audit-command-map.NEW.md).
 AUDIT_COMMAND_MAP = (
     "Read: `cat <path>`; a data file: `probe file preview <path>`; Probe's records: `probe mcp call <tool> '<json>'` "
@@ -782,6 +800,8 @@ class RunState:
     task_usd: float = 0.0
     task_tokens: int = 0
     tasks: int = 0
+    #: How many of this run's tasks have started: the next one's number in the trace.
+    tasks_started: int = 0
     #: The tasks running now (`TaskState`): each holds back TASK_CAP_USD and
     #: TASK_TOKENS_CUT of the run's budget, less what it has spent, until it ends.
     tasks_running: list = field(default_factory=list)
@@ -1028,17 +1048,24 @@ def _order(capabilities: list) -> list:
 
 def _bash_ready(ctx: RunContext[tools.Deps], state: RunState) -> None:
     """What a `bash` call's deps need from its agent: `probe daemon task`'s runner
-    (bound to this agent's model, run usage and run state), when tasks are on."""
+    (bound to this agent's task model -- `model.task_model`, a cheaper one when the
+    server serves it (daemon cost round 7, F4) -- run usage and run state), when
+    tasks are on."""
     deps = ctx.deps
     if deps is None or deps.task:
         return
     if not toolset.tasks():
         deps.task_runner = None
         return
-    model, usage = ctx.model, ctx.usage
+    from probe.daemon import model as model_mod
+
+    model, usage = model_mod.task_model(ctx.model), ctx.usage
+    # Where its trace lines go (F5): under this `bash` call, in this model round.
+    call_id, round_now = ctx.tool_call_id, (state.trace.round if state.trace is not None else 0)
 
     async def runner(text: str):
-        return await run_task(text, deps=deps, model=model, usage=usage, parent=state)
+        return await run_task(text, deps=deps, model=model, usage=usage, parent=state, task_of=call_id,
+                              parent_round=round_now)
 
     deps.task_runner = runner
 
@@ -1861,7 +1888,8 @@ def _spent(usd: float, tokens: int, unpriced: int) -> str:
     return f"{tokens:,} tokens" if unpriced else f"${usd:.2f}"
 
 
-async def run_task(text: str, *, deps: tools.Deps, model, usage: Any, parent: RunState) -> tuple[str, int]:
+async def run_task(text: str, *, deps: tools.Deps, model, usage: Any, parent: RunState,
+                   task_of: str | None = None, parent_round: int = 0) -> tuple[str, int]:
     """`probe daemon task <text>` for the agent `deps` belong to: the child agent
     (`build_task_agent`) on `model`, its own context, until it answers or its
     budget (TASK_ROUNDS, TASK_WALL_S, TASK_TOKENS) is out. `(what the command
@@ -1875,7 +1903,9 @@ async def run_task(text: str, *, deps: tools.Deps, model, usage: Any, parent: Ru
     as it arrives (`parent.on_round`: the store's rounds, the device's tokens)
     and in `parent`'s task tally; at the end its tokens go into the parent run's
     `usage` under `usage.TASK_DETAILS`, beside the run's own: never against the
-    run's token limit (a bite's 1.5M), which they would cut short."""
+    run's token limit (a bite's 1.5M), which they would cut short. `task_of` /
+    `parent_round`: the parent's `bash` call that started it and its model round,
+    under which the task's calls go in the parent's trace (`trace.TaskTrace`)."""
     import time
 
     full = parent.tasks_full(running=False)
@@ -1888,7 +1918,10 @@ async def run_task(text: str, *, deps: tools.Deps, model, usage: Any, parent: Ru
         if full is not None:
             return TASK_BUDGET.format(spent=full), 1
         child = tools.task_deps(deps)
-        state = TaskState(parent=parent, parent_deps=deps, started=time.monotonic())
+        parent.tasks_started += 1
+        trace = (trace_mod.TaskTrace(parent.trace, task=parent.tasks_started, task_of=task_of,
+                                     parent_round=parent_round) if parent.trace is not None else None)
+        state = TaskState(parent=parent, parent_deps=deps, started=time.monotonic(), trace=trace)
         parent.tasks_running.append(state)
         try:
             return await _run_task(text, deps=deps, child=child, state=state, model=model, usage=usage,

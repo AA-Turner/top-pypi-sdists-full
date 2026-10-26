@@ -129,6 +129,8 @@ NO_SCOPE: frozenset[str] = frozenset({
     "views create", "views rename", "views update",
     # The data catalog: a source is the team's; a use names a run by ref.
     "source add", "dataset use", "checkpoint use",
+    # A workspace's best pick: the workspace's, not one project's.
+    "workspace set",
 })
 
 

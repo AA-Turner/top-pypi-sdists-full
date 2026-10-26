@@ -129,7 +129,8 @@ def test_a_report_names_the_field_its_word_lands_in(
     into names the field the word holds in the RESULT. Rules in
     post_rules move a word after assign reports it -- H1's move behind
     a title, P1's family-first fold, P6's attachment, and under opt-in
-    policies the patronymic rotations and `middle_as_family`'s fold,
+    policies the patronymic rotations, O6's two family names and
+    `middle_as_family`'s fold,
     which rows carrying those policies reach as declared -- and six of
     assign's reports were worded from the role at assign, so
     'Kim Min Do' under FAMILY_FIRST was told 'Do' was a middle name
@@ -155,6 +156,11 @@ def test_a_report_names_the_field_its_word_lands_in(
     and so not one `_FIELD_CLAIMS` lists, and `, Ma Dr.` (H1 moving it
     to the family) is pinned instead by test_assign.py's verbatim
     detail. No row reached that shape until #626's review.
+
+    #793's control, measured 2026-10-21: with the comma stage's
+    listed-member report worded "read as a credential" again, this
+    test fails 6 parses -- `John, Si.` and `John, Ma.` under each
+    order, a word the listing form binds as a title.
     """
     pn = _swept(case.id, order)
     for a in pn.ambiguities:
@@ -195,10 +201,57 @@ def test_the_field_sweep_sees_the_claims_it_checks() -> None:
     # '田中さん v' row (one suffix-or-name claim under each order);
     # 1246 -> 1252 the same day: #656's two C12 rows behind a nickname
     # and a maiden clause (one suffix-or-name claim under each order);
-    # 1252 -> 1255 the same day: the C12 row with a title in the part.
-    assert claims == 1255, (
-        f"the field sweep checks {claims} claims, recorded as 1255 on "
-        f"2026-10-18")
+    # 1252 -> 1255 the same day: the C12 row with a title in the part;
+    # 1255 -> 1282 on 2026-10-21: #791's nine reporting rows (si and
+    # chi), one suffix-or-name or given-or-family claim under each order;
+    # 1282 -> 1302 the same day: the review's empty-head, caps and
+    # family-first rows (two reports on 'Luo SI', and the family-first
+    # rows, which carry their own policy and so claim under one order);
+    # 1302 -> 1308 on 2026-10-21: #796's two case rows (Robert Capa,
+    # John Smith CAPA), each claiming under the three orders;
+    # 1308 -> 1314 the same day: #797's PA and John Pa rows, each
+    # claiming one suffix-or-name report under the three orders;
+    # 1314 -> 1341 the same day: #793's nine reporting rows ('John,
+    # Si.', 'John, Ma.' and the #794 review's seven), one
+    # suffix-or-name claim each under the three orders; 1341 -> 1353
+    # on 2026-10-23: #848's four Ing rows, one suffix-or-name claim
+    # each under the three orders; 1353 -> 1356 the same day: the
+    # review's 'Novak, Ing.' row; 1356 -> 1359 the same day: the second
+    # review's 'Novak, ING.' row; 1359 -> 1362 the same day: #853's
+    # 'Uddin, Md Karim' row, one suffix-or-name claim under the three
+    # orders; 1362 -> 1365 the same day: the review's 'Uddin, Mr Md
+    # Karim' row, the same claim behind a title; 1365 -> 1368 on
+    # 2026-10-24: the glued-semicolon row 'John Smith, MA; PhD', one
+    # suffix-or-name claim under the three orders; 1368 -> 1396 the
+    # same day: #864's paired-initials and gc rows, nine claiming one
+    # suffix-or-name report under each order and the switch-off row,
+    # which carries its own policy, under one; 1396 -> 1399 the same
+    # day: the review's 'Jane Doe MA R.T.' row, one claim under each;
+    # 1399 -> 1400 the same day: #754's 'Beethoven Ludwig Maria van'
+    # row, which carries its own policy, one particle-or-given claim;
+    # 1400 -> 1403 the same day: #835's particle row 'Doe, Jane van
+    # Mrs', one particle-or-given claim under each order; 1403 -> 1406
+    # the same day: #857's sa rows, after the word left every set (the
+    # one reporting row, 'Smith, S.A.', claims under the orders it
+    # reaches); 1406 -> 1415 the same day: the review's comma rows for
+    # sa and the listed `ma` twins, three of them reporting.
+    assert claims == 1415, (
+        f"the field sweep checks {claims} claims, recorded as 1415 on "
+        f"2026-10-25")
+
+
+def test_every_case_name_is_unique() -> None:
+    """A repeated Case name silently shadows one row: pytest parametrizes
+    the ids with a numeric suffix and the table reads as if both rows
+    ran under one name. The review of PR #794 found
+    comma_capital_si_is_a_suffix twice (the John Smith, SI row and the
+    Wang, SI row, which carries a different reading), so this test is
+    the check that would have caught it. Recorded negative control
+    (2026-10-21): with the Wang, SI row renamed back to the duplicate,
+    this test fails naming comma_capital_si_is_a_suffix."""
+    names = [case.id for case in CASES]
+    repeated = sorted({name for name in names if names.count(name) > 1})
+    assert not repeated, f"Case names repeated in tests/v2/cases.py: {repeated}"
 
 
 #: Case.__post_init__'s shape checks, each probed for the message that

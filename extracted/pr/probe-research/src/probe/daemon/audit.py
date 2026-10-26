@@ -131,7 +131,9 @@ def instructions(due: str, *, today: str, folders: "list[Path]", draft: Path) ->
     from probe.daemon import agent as agent_mod
     from probe.daemon import bite as bite_mod
 
-    skills = bite_mod.skills_text(bite_mod.AUDIT_SKILLS)
+    from probe import skill_versions
+
+    skills = bite_mod.skills_text(bite_mod.AUDIT_SKILLS, reader=skill_versions.MAIN_AGENT)
     shown = ", ".join(f"`{f}`" for f in folders) or "none yet"
     text = (audit_text().replace("{due}", due).replace("{today}", today).replace("{folders}", shown)
             .replace("{draft}", str(draft)).replace("{report_chars}", f"{agent_mod.AUDIT_REPORT_CHARS:,}"))

@@ -9,10 +9,9 @@ The resolver takes imports + a VariableScope and returns ResolvedImports
 containing all resolved entries and collected diagnostics.
 """
 
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from robotcode.core.lsp.types import (
     Diagnostic,
@@ -26,6 +25,7 @@ from robotcode.core.uri import Uri
 from robotcode.core.utils.logging import LoggingDescriptor
 from robotcode.core.utils.path import file_id, same_file_id
 
+from ..utils import RF_VERSION
 from .entities import (
     Import,
     LibraryEntry,
@@ -36,13 +36,42 @@ from .entities import (
     VariablesImport,
 )
 from .errors import DIAGNOSTICS_SOURCE_NAME, Error
-from .imports_manager import ImportsManager
-from .library_doc import BUILTIN_LIBRARY_NAME, DEFAULT_LIBRARIES
+from .imports_manager import ImportsManager, LibraryMetaData
+from .library_doc import BUILTIN_LIBRARY_NAME, DEFAULT_LIBRARIES, resolve_args
 from .variable_scope import VariableScope
+
+
+def _dependency_key(kind: str, meta: Optional[Any], import_name: str) -> str:
+    """The key of a library or variable-file dependency of the namespace cache.
+
+    It names the file of the meta, so that two files imported with the same
+    name from different folders are dependencies of their own. Without a meta
+    the namespace is not cached anyway, and the import name is enough.
+    """
+    if isinstance(meta, LibraryMetaData):
+        try:
+            return f"{kind}:{meta.cache_key}"
+        except ValueError:
+            pass
+    return f"{kind}:{import_name}"
 
 
 class _NameSpaceError(Exception):
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class FailedImport:
+    """An import whose resolution raised or whose library or variables documentation has errors.
+
+    `base_dir` and `variables` are what its file or module was looked up with.
+    `found` tells whether that lookup succeeded, so that only loading failed.
+    """
+
+    imp: Import
+    base_dir: str
+    variables: Dict[str, Any]
+    found: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,10 +89,14 @@ class ResolvedImports:
     variables_imports: Dict[str, VariablesEntry] = field(default_factory=dict)
 
     # Metadata of each resolved dependency, captured together with its doc at
-    # resolve time (keys: "lib:{import_name}", "res:{source}", "var:{import_name}").
+    # resolve time (keys: "lib:{cache_key}", "res:{source}", "var:{cache_key}", see
+    # _dependency_key; the import name when there is no meta).
     # A None value means the dependency was resolved but no trustworthy meta
     # exists — namespaces built from it must not be persisted.
     dependency_metas: Dict[str, Optional[Any]] = field(default_factory=dict)
+
+    # The imports that failed, also those of imported resource files.
+    failed_imports: List[FailedImport] = field(default_factory=list)
 
 
 class ImportResolver:
@@ -86,14 +119,15 @@ class ImportResolver:
         "_base_dir",
         "_dependency_metas",
         "_diagnostics",
+        "_failed_imports",
         "_import_entries",
         "_imports_manager",
         "_libraries",
+        "_library_args",
         "_resources",
         "_scope",
         "_sentinel",
         "_source",
-        "_source_hints",
         "_source_id",
         "_variables",
         "_variables_dirty",
@@ -115,19 +149,19 @@ class ImportResolver:
         self._base_dir = str(Path(source).parent)
 
         self._libraries: Dict[str, LibraryEntry] = {}
+        # the arguments of each entry in _libraries, resolved when it was imported
+        self._library_args: Dict[str, Tuple[Any, ...]] = {}
         self._resources: Dict[str, ResourceEntry] = {}
         self._variables_imports: Dict[str, VariablesEntry] = {}
         self._import_entries: Dict[Import, LibraryEntry] = {}
         self._diagnostics: List[Diagnostic] = []
         self._variables: Dict[str, Any] = {}
         self._variables_dirty = True
-        self._source_hints: Dict[str, str] = {}
         self._dependency_metas: Dict[str, Optional[Any]] = {}
+        self._failed_imports: List[FailedImport] = []
 
-    def resolve(self, imports: Iterable[Import], *, source_hints: Optional[Dict[str, str]] = None) -> ResolvedImports:
+    def resolve(self, imports: Iterable[Import]) -> ResolvedImports:
         """Resolve all imports and return the result."""
-        if source_hints:
-            self._source_hints = source_hints
         self._refresh_variables()
         self._import_default_libraries()
         self._handle_imports(imports, self._base_dir, top_level=True)
@@ -138,6 +172,7 @@ class ImportResolver:
             import_entries=self._import_entries,
             diagnostics=self._diagnostics,
             dependency_metas=self._dependency_metas,
+            failed_imports=self._failed_imports,
         )
 
     # ------------------------------------------------------------------
@@ -148,6 +183,11 @@ class ImportResolver:
         if self._variables_dirty:
             self._variables = self._scope.as_robot_variables()
             self._variables_dirty = False
+
+    def _record_failed_import(self, imp: Import, base_dir: str) -> None:
+        # _refresh_variables replaces the dict, so the import keeps the variables it was resolved with
+        found = self._imports_manager.find_import_source(imp, base_dir, self._variables) is not None
+        self._failed_imports.append(FailedImport(imp, base_dir, self._variables, found))
 
     def _append_diagnostics(
         self,
@@ -202,7 +242,7 @@ class ImportResolver:
                         sentinel=None,
                         variables=self._variables,
                     )
-                    self._dependency_metas[f"lib:{library}"] = meta
+                    self._dependency_metas[_dependency_key("lib", meta, library)] = meta
                     entry = LibraryEntry(
                         name=library_doc.name,
                         import_name=library,
@@ -211,6 +251,16 @@ class ImportResolver:
                         alias=None,
                     )
                     self._libraries[entry.alias or entry.name or entry.import_name] = entry
+                    self._library_args[entry.alias or entry.name or entry.import_name] = ()
+
+                    for err in library_doc.errors or []:
+                        self._append_diagnostics(
+                            range=Range.zero(),
+                            message=f"Can't import default library '{library}': {err.message}",
+                            severity=DiagnosticSeverity.ERROR,
+                            source="Robot",
+                            code=err.type_name,
+                        )
                 except (SystemExit, KeyboardInterrupt):
                     raise
                 except BaseException as e:
@@ -266,7 +316,7 @@ class ImportResolver:
             if isinstance(imp, LibraryImport):
                 if imp.name is None:
                     raise _NameSpaceError("Library setting requires value.")
-                self._import_library(imp, base_dir, top_level=top_level)
+                self._import_library(imp, base_dir, top_level=top_level, parent_import=parent_import)
             elif isinstance(imp, ResourceImport):
                 if imp.name is None:
                     raise _NameSpaceError("Resource setting requires value.")
@@ -287,6 +337,8 @@ class ImportResolver:
         except (SystemExit, KeyboardInterrupt):
             raise
         except BaseException as e:
+            self._record_failed_import(imp, base_dir)
+
             effective_source = parent_source if parent_source else source
             if top_level:
                 self._append_diagnostics(
@@ -319,7 +371,16 @@ class ImportResolver:
     #  Type-specific import methods (like RF: _import_library etc.)
     # ------------------------------------------------------------------
 
-    def _import_library(self, imp: LibraryImport, base_dir: str, *, top_level: bool) -> None:
+    def _record_dependency_meta(self, key: str, meta: Optional[Any]) -> None:
+        # A None meta keeps the namespace out of the namespace cache, so a later
+        # import of the same name (other arguments, alias) must not replace it.
+        if key in self._dependency_metas and self._dependency_metas[key] is None:
+            return
+        self._dependency_metas[key] = meta
+
+    def _import_library(
+        self, imp: LibraryImport, base_dir: str, *, top_level: bool, parent_import: Optional[Import] = None
+    ) -> None:
         assert imp.name is not None
 
         library_doc, meta = self._imports_manager.get_libdoc_for_library_import_with_meta(
@@ -329,7 +390,9 @@ class ImportResolver:
             sentinel=self._sentinel,
             variables=self._variables,
         )
-        self._dependency_metas[f"lib:{imp.name}"] = meta
+        self._record_dependency_meta(_dependency_key("lib", meta, imp.name), meta)
+        if library_doc.errors:
+            self._record_failed_import(imp, base_dir)
         entry = LibraryEntry(
             name=library_doc.name,
             import_name=imp.name,
@@ -369,9 +432,20 @@ class ImportResolver:
             ),
             None,
         )
-        if already_imported is None and (entry.alias or entry.name or entry.import_name) not in self._libraries:
-            self._libraries[entry.alias or entry.name or entry.import_name] = entry
-        elif top_level and already_imported and already_imported.library_doc.source:
+        key = entry.alias or entry.name or entry.import_name
+        args = resolve_args(
+            imp.args,
+            str(self._imports_manager.root_folder),
+            base_dir,
+            self._imports_manager.get_resolvable_command_line_variables(),
+            self._variables,
+        )
+        if already_imported is None and key not in self._libraries:
+            self._libraries[key] = entry
+            self._library_args[key] = args
+        elif already_imported is None:
+            self._report_ignored_library(imp, entry, key, args, top_level=top_level, parent_import=parent_import)
+        elif top_level and already_imported.library_doc.source:
             self._append_diagnostics(
                 range=entry.import_range,
                 message=f'Library "{entry}" already imported.',
@@ -399,6 +473,58 @@ class ImportResolver:
         if top_level:
             self._report_entry_errors(imp, entry)
 
+    def _report_ignored_library(
+        self,
+        imp: LibraryImport,
+        entry: LibraryEntry,
+        key: str,
+        args: Tuple[Any, ...],
+        *,
+        top_level: bool,
+        parent_import: Optional[Import] = None,
+    ) -> None:
+        """Report a library import that is ignored because another import uses its name.
+
+        Robot Framework warns about it since 7.4 when the earlier import is
+        another library or the same library with other arguments. An import of
+        a resource file is reported at the analyzed file's import of it.
+        """
+        if RF_VERSION < (7, 4) or not (top_level or (parent_import is not None and imp.source)):
+            return
+
+        earlier = self._libraries[key]
+        # Robot Framework reports an import that fails to load as an error and never registers it
+        if earlier.library_doc.errors or entry.library_doc.errors:
+            return
+
+        if earlier.name != entry.name:
+            reason = f'another library with name "{key}" is already imported'
+        elif self._library_args[key] != args:
+            reason = f'library "{key}" is already imported with different arguments'
+        else:
+            return
+
+        related = self._related_info_from_entry(earlier) or []
+        if top_level:
+            at = imp.range
+            message = f'Library "{imp.name}" is not imported, because {reason}.'
+        else:
+            assert parent_import is not None
+            assert imp.source
+            at = parent_import.range
+            message = f'Library "{imp.name}" in "{Path(imp.source).name}" is not imported, because {reason}.'
+            ignored = Location(uri=str(Uri.from_path(imp.source)), range=imp.range)
+            related.insert(0, DiagnosticRelatedInformation(location=ignored, message=""))
+
+        self._append_diagnostics(
+            range=at,
+            message=message,
+            severity=DiagnosticSeverity.WARNING,
+            source=DIAGNOSTICS_SOURCE_NAME,
+            related_information=related or None,
+            code=Error.LIBRARY_IMPORT_IGNORED,
+        )
+
     def _import_resource(
         self,
         imp: ResourceImport,
@@ -411,19 +537,11 @@ class ImportResolver:
     ) -> None:
         assert imp.name is not None
 
-        # Look up cached source hint to skip find_resource() filesystem search
-        source_hint: Optional[str] = None
-        if self._source_hints:
-            hint = self._source_hints.get(imp.hint_key)
-            if hint is not None and os.path.isfile(hint):
-                source_hint = hint
-
         resource_doc, meta = self._imports_manager.get_resource_doc_for_resource_import_with_meta(
             imp.name,
             base_dir,
             sentinel=self._sentinel,
             variables=self._variables,
-            source=source_hint,
         )
         if resource_doc.source is not None:
             # setdefault: on re-imports of the same resource the meta captured
@@ -483,6 +601,11 @@ class ImportResolver:
             None,
         )
         if already_imported is not None:
+            # the statement keeps its own entry, like a repeated library or variables import
+            entry.import_range = imp.range
+            entry.import_source = imp.source
+            self._import_entries[imp] = entry
+
             self._logger.debug(lambda: f"Resource '{imp.name}' already imported.", context_name="import")
             if top_level:
                 self._append_diagnostics(
@@ -557,7 +680,9 @@ class ImportResolver:
             sentinel=self._sentinel,
             variables=self._variables,
         )
-        self._dependency_metas[f"var:{imp.name}"] = meta
+        self._record_dependency_meta(_dependency_key("var", meta, imp.name), meta)
+        if library_doc.errors:
+            self._record_failed_import(imp, base_dir)
         entry = VariablesEntry(
             name=library_doc.name,
             import_name=imp.name,
@@ -670,3 +795,15 @@ class ImportResolver:
                     source=DIAGNOSTICS_SOURCE_NAME,
                     code=err.type_name,
                 )
+
+        if entry.library_doc.loaded_without_arguments:
+            self._append_diagnostics(
+                range=imp.range,
+                message=(
+                    f"Keywords of library '{entry.library_doc.name}' come from loading it without arguments, "
+                    "because loading it with the import's arguments failed."
+                ),
+                severity=DiagnosticSeverity.INFORMATION,
+                source=DIAGNOSTICS_SOURCE_NAME,
+                code=Error.LIBRARY_LOADED_WITHOUT_ARGUMENTS,
+            )

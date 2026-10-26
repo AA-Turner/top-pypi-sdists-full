@@ -197,7 +197,7 @@ async def _scroll_for_lazy_content(page: Any) -> None:
 async def render_clip_document(
     *,
     url: str,
-    client_name: str,
+    brand_name: str,
     scope: str = "whole",
     section_heading: str | None = None,
     drop: list[str] | None = None,
@@ -267,11 +267,11 @@ async def render_clip_document(
 
         heading = ""
         if scope == "section":
-            heading = (section_heading or client_name or "").strip()
+            heading = (section_heading or brand_name or "").strip()
         report = await page.evaluate(
             "(o) => window.__pressClip.clip(o)",
             {
-                "clientName": client_name,
+                "brandName": brand_name,
                 "sectionHeading": heading,
                 "keep": [s for s in (keep or []) if s.strip()],
                 "drop": [s for s in (drop or []) if s.strip()],
@@ -293,9 +293,9 @@ async def render_clip_document(
             )
         if report.get("invalid_selectors"):
             notes.append(f"Ignored invalid selectors: {report['invalid_selectors']}")
-        if not client_name.strip():
+        if not brand_name.strip():
             notes.append(
-                "No client name was given, so client_found_in_text is false by definition."
+                "No brand name was given, so brand_found_in_text is false by definition."
             )
 
         await page.add_style_tag(content=_WHITE_PAGE_CSS)

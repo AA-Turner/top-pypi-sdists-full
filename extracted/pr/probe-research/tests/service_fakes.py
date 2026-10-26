@@ -102,7 +102,8 @@ stdin = sys.stdin.read()
 WATCH = ("PROBE_CONFIG_PATH", "PROBE_BASE_URL", "PROBE_TOKEN", "PROBE_AUTOUPDATE_TRIGGER",
          "PROBE_DESKTOP_HUMAN", "PROBE_TELEMETRY", "PROBE_UPDATE_FORCED", "PROBE_UPDATE_SKIP_CLI",
          "PROBE_UPDATE_BARRIER_TOKEN", "CLAUDE_CONFIG_DIR", "XDG_CONFIG_HOME", "PYTHONPATH",
-         "CLAUDE_CODE_SESSION_ID", "PATH", "HTTPS_PROXY", "UV_INDEX_URL")
+         "CLAUDE_CODE_SESSION_ID", "PATH", "HTTPS_PROXY", "UV_INDEX_URL",
+         "PROBE_DESKTOP_CALLER_PID", "PROBE_DESKTOP_CALLER_START")
 record = {{"action": action, "flags": flags, "stdin": stdin, "pid": os.getpid(), "cwd": os.getcwd(),
           "at": time.time(), "env": {{k: os.environ.get(k) for k in WATCH}},
           "barrier": os.path.exists(BARRIER)}}
@@ -315,6 +316,12 @@ class FakeWorker:
     def __init__(self, home: Path) -> None:
         self.home = home
         self.log = home / "fake-worker.log"
+        # A worker PROCESS per session (the path the daemon host's off switch
+        # keeps): this fake stands in for `probe daemon worker`, not the host.
+        from probe.service import daemonhost
+
+        daemonhost.folder().mkdir(parents=True, exist_ok=True)
+        (daemonhost.folder() / daemonhost.OFF_FILE).write_text("off for this fake\n", encoding="utf-8")
         (home / "fake-worker.py").write_text(
             _FAKE_WORKER.format(hold=str(barrier.hold_path()), barrier=str(paths.barrier_path())),
             encoding="utf-8",

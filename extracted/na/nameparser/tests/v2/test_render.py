@@ -338,8 +338,9 @@ def test_repair_keeps_a_plain_connective_the_suffix_field_holds_lower(
         v1 = HumanName(text)
         v1.capitalize(force=True)
         assert str(v1) == forced, text
-    # A SPLICED field is the other way in, and R4's Accepted
-    # paragraph is explicit about it: text nobody read gets the
+    # A SPLICED field is the other way in, and rules/R4's Accepted
+    # bullet "The boundary is drawn per question rather than per field"
+    # is explicit about it (decisions/R4): text nobody read gets the
     # vocabulary's answer, so a suffix set to 'de y' keeps its 'y'
     # exactly as a family set to 'de y' does. 1.4.0 and 2.3.0 both
     # give 'John Smith De, y'.
@@ -655,7 +656,7 @@ def test_a_suffix_written_in_more_than_one_case_is_kept_as_written(
 
 def test_the_gate_and_the_parser_read_a_cased_suffix_differently() -> None:
     """decisions/R5's split: the parser's own one-case readings
-    (rules/P3, decisions/S6) still count a cased suffix, while R5's gate
+    (rules/P8, decisions/S6) still count a cased suffix, while R5's gate
     leaves it out. So 'john e jones III' is MIXED to the parser, which
     reads its 'e' as a connective, and one-case to the gate, which
     repairs it -- keeping the connective lowercase -- where the one-case
@@ -678,6 +679,43 @@ def test_capitalized_is_idempotent() -> None:
     once = _lowercase_mac().capitalized()
     assert once.capitalized() == once
     assert once.capitalized(force=True) == once
+
+
+def test_a_word_takes_its_capital_past_a_caseless_lead() -> None:
+    """rules/R4 (#838): a modifier letter opening a word is passed over
+    to the letter after it, so 'ʼNa', the repair of 'ŉa' ('ŉ'
+    upper-cases to the modifier apostrophe plus 'N'), is a fixpoint.
+    An apostrophe written as ', ‘ or ’ is no word character at all, so
+    a word after it was already capitalized and still is: those rows
+    are parity pins, not controls."""
+    once = parse("ŉa smith").capitalized()
+    assert once.given == "ʼNa"
+    assert once.capitalized(force=True) == once
+    # and inside the Mac/Mc prefix's name run, which the chunk step
+    # repairs too
+    mac = parse("mcŉa smith").capitalized()
+    assert mac.given == "McʼNa"
+    assert mac.capitalized(force=True) == mac
+    for lead in ("'", "‘", "’"):
+        assert parse(f"{lead}abd smith").capitalized().given \
+            == f"{lead}Abd"
+
+
+def test_a_recorded_casing_keeps_an_abbreviations_ending() -> None:
+    """rules/R4's Accepted cost (#838): an unlisted abbreviation's
+    ending after its full stop is written as a word ('Dut.Ra'), and a
+    listed casing is the remedy, asked before the chunk split -- the
+    one the shipped Italian salutations carry (#840)."""
+    lex = dataclasses.replace(
+        Lexicon.default(),
+        capitalization_exceptions=(
+            *Lexicon.default().capitalization_exceptions,
+            ("dut.ra", "Dut.ra")))
+    masked = Parser(lexicon=lex)
+    name = "DUT.RA MARIA SILVA"
+    assert str(parse(name).capitalized()) == "Dut.Ra Maria Silva"
+    assert str(masked.capitalized(masked.parse(name))) \
+        == "Dut.ra Maria Silva"
 
 
 def test_capitalized_with_explicit_lexicon() -> None:
@@ -722,6 +760,98 @@ def test_a_mask_recases_the_word_as_the_writer_punctuated_it() -> None:
     # the mask decided rather than merely agreeing with it
     assert _repaired_under((("iii", "iii"),), "john smith iii",
                            force=False).suffix == "iii"
+
+
+def test_a_mixed_case_credential_listed_for_797_repairs_to_its_mask() -> None:
+    """#797 listed credentials whose proper spelling is mixed case
+    (MBChB, DPhil, MDPhD); a listed acronym with no mask repairs in
+    capitals, so each carries one. Lowercase and capitals read alike, a
+    dotted spelling keeps its dots, and a comma credential repairs the
+    same as a trailing one. A joined spelling (fnp-c) has no mask here:
+    it repairs whole in capitals under #808 (test_a_joined_acronym_
+    repairs_whole_and_a_recorded_casing_wins)."""
+    for text, suffix in (("jane smith mbchb", "MBChB"),
+                         ("JANE SMITH MBCHB", "MBChB"),
+                         ("jane smith, dphil", "DPhil"),
+                         ("jane smith m.b.ch.b.", "M.B.Ch.B."),
+                         ("jane smith mdphd", "MDPhD")):
+        assert parse(text).capitalized().suffix == suffix, text
+
+
+def test_a_joined_acronym_repairs_whole_and_a_recorded_casing_wins() -> None:
+    """#808: a listed acronym credential joined by a hyphen or slash is
+    one word, written in capitals across the join, where the per-word
+    walk capitalized each side as a name part ('Otr/L'). No shipped
+    joined entry records a casing, so the contrast is a caller's mask:
+    laid over the whole token, it wins in any role. Hyphenated name
+    parts and titles are not acronym credentials and keep their
+    per-part repair."""
+    for text, suffix in (("john smith, otr/l", "OTR/L"),
+                         ("JOHN SMITH, FNP-BC", "FNP-BC"),
+                         ("john smith pa-c", "PA-C"),
+                         ("john smith ccc/slp", "CCC/SLP")):
+        assert parse(text).capitalized().suffix == suffix, text
+    assert parse("John Smith, otr/l").capitalized().suffix == "otr/l"
+    assert parse("John Smith, otr/l").capitalized(force=True).suffix \
+        == "OTR/L"
+    for text, whole in (("john smith-jones", "John Smith-Jones"),
+                        ("jean-luc picard", "Jean-Luc Picard"),
+                        ("maria da-silva", "Maria da-Silva"),
+                        ("dipl.-ing john smith", "Dipl.-Ing John Smith")):
+        assert str(parse(text).capitalized()) == whole, text
+    default = Lexicon.default()
+    masked = dataclasses.replace(default, capitalization_exceptions=(
+        *default.capitalization_exceptions,
+        ("otr/l", "OTr/L"), ("pa-c", "Pa-C")))
+    parser = Parser(lexicon=masked)
+    for text, suffix in (("john smith, otr/l", "OTr/L"),
+                         ("JOHN SMITH, PA-C", "Pa-C"),
+                         ("john smith fnp-c", "FNP-C")):
+        assert parser.capitalized(parser.parse(text)).suffix == suffix, text
+
+
+def test_a_joined_acronym_is_capitals_only_as_a_listed_suffix() -> None:
+    """#808's two gates, each with a row the whole-token arm must not
+    take: a listed joined acronym in a NAME role (the vocabulary lists
+    the word, the parse read a name) and an unlisted joined word in
+    the suffix role both repair part by part as before. The comma
+    shapes and the family-first order reach the arm through the role
+    the parse chose, so the empty head and the one-word head are rows
+    too, and a mixed-case spelling is left alone unless forced."""
+    for text, whole in (("otr/l smith", "Otr/L Smith"),
+                        ("john otr/l smith", "John Otr/L Smith"),
+                        ("john smith, md, xyz-q", "John Smith MD, Xyz-Q"),
+                        ("john smith, md, xyz/q", "John Smith MD, Xyz/Q")):
+        assert str(parse(text).capitalized()) == whole, text
+    for text, suffix in ((", otr/l", "OTR/L"),
+                         ("smith, otr/l", "OTR/L"),
+                         ("smith, john otr/l", "OTR/L"),
+                         ("john smith otr/L", "otr/L")):
+        assert parse(text).capitalized().suffix == suffix, text
+    ff = Parser(policy=Policy(name_order=FAMILY_FIRST))
+    assert ff.parse("smith otr/l").capitalized().suffix == "OTR/L"
+    assert parse("john smith OTR/l").capitalized(force=True).suffix \
+        == "OTR/L"
+
+
+def test_a_recorded_casing_reaches_a_joined_token_in_any_role() -> None:
+    """#808: the whole-token mask is role-free as _cap_word's is, and
+    reads the dotted key through the undotted fallback. The shipped
+    Dipl.-Ing title repairs the same either way, so a mask that
+    differs from the walk is what tells the arms apart."""
+    default = Lexicon.default()
+    masked = dataclasses.replace(default, capitalization_exceptions=(
+        *default.capitalization_exceptions,
+        ("otr/l", "OTr/L"), ("smith-jones", "SMiTH-JoNES"),
+        ("dipl.-ing", "dIpl.-Ing")))
+    parser = Parser(lexicon=masked)
+    for text, whole in (("otr/l smith", "OTr/L Smith"),
+                        ("john otr/l smith", "John OTr/L Smith"),
+                        ("john smith-jones", "John SMiTH-JoNES"),
+                        ("smith-jones, john", "John SMiTH-JoNES"),
+                        ("dipl.-ing john smith", "dIpl.-Ing John Smith"),
+                        ("john smith dipl.-ing", "John Smith dIpl.-Ing")):
+        assert str(parser.capitalized(parser.parse(text))) == whole, text
 
 
 def test_a_mask_applies_whatever_role_the_word_took() -> None:
@@ -769,12 +899,14 @@ def test_a_credential_read_by_its_shape_repairs_to_capitals() -> None:
     # the same shape read as the FAMILY -- no words to spare -- is a
     # name word
     assert parse("Jack X.Y.Z.").family == "X.Y.Z."
+    # repaired as a name word, whose full stops divide it into words
+    # of their own (#838)
     assert str(parse("Jack X.Y.Z.").capitalized(force=True)) \
-        == "Jack X.y.z."
+        == "Jack X.Y.Z."
     # and with the dotted-shape switch off it is family by position
     off = Parser(policy=Policy(unlisted_dotted_suffixes=False))
     assert str(off.capitalized(off.parse("john smith x.y.z."))) \
-        == "John Smith X.y.z."
+        == "John Smith X.Y.Z."
     # the opt-in all-caps half writes the same tag
     caps = Parser(policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE))
     assert str(caps.capitalized(caps.parse("John Smith XYZ"),
@@ -1053,13 +1185,14 @@ def test_a_lengthening_mask_is_not_a_fixpoint_under_a_second_forced_pass(
     which is a different letter sequence from the stored key 'a.ß' --
     not merely a different case of the same one -- so the exceptions
     map lookup that found the entry on the first pass misses on the
-    second, and the word falls through to plain title-casing."""
+    second, and the word falls through to plain title-casing, which
+    writes each full-stop chunk as a word ('A.Ss', #838)."""
     lex = dataclasses.replace(Lexicon.default(),
                               capitalization_exceptions=(("a.ß", "aß"),))
     first = parse("john a.ß smith").capitalized(lex, force=True)
     assert first.middle == "A.SS"
     second = first.capitalized(lex, force=True)
-    assert second.middle == "A.ss"
+    assert second.middle == "A.Ss"
     assert second.middle != first.middle
 
 
@@ -1272,7 +1405,7 @@ def test_a_link_inside_a_hyphenated_word_keeps_its_lowercase() -> None:
 
 
 def test_the_hyphen_is_the_writers_join_even_in_a_one_case_name() -> None:
-    """rules/R4's hyphen clause against rules/P3's one-case fork,
+    """rules/R4's hyphen clause against rules/P8's one-case fork,
     a split DECIDED 2026-09-24 (decisions/R4): spaced, a marked
     letter in a name written in one case reads as an initial and
     repairs to a capital; hyphenated, the writer joined the surname on
@@ -1280,7 +1413,7 @@ def test_the_hyphen_is_the_writers_join_even_in_a_one_case_name() -> None:
     name is in. The cost is a one-case name whose hyphenated bare
     initials spell a connective -- 'J-E-P DUPONT' repairs to
     'J-e-P Dupont', where 1.4.0 and the parent gave 'J-E-P'. And
-    conjunctions_ambiguous, P3's knob, does not reach a hyphenated
+    conjunctions_ambiguous, P8's knob, does not reach a hyphenated
     word: marking 'y' moves the spaced spelling only."""
     for text, repaired in (("J-E-P DUPONT", "J-e-P Dupont"),
                            ("JOHN A-Y-B SMITH", "John A-y-B Smith"),
@@ -1608,7 +1741,7 @@ def test_facade_initials_follow_the_one_case_fork() -> None:
 
     The core's initials() follows the parse's tags: in a name written
     wholly in one case an 'e' is an INITIAL and a 'y' is the connective
-    (rules/P3), so R3's "each given, middle, and base family word"
+    (rules/P8), so R3's "each given, middle, and base family word"
     reaches the first and not the second. Until #528 HumanName.initials()
     re-derived that from the lexicon and the part's raw shape instead,
     and kept 1.4.0's answer on both letters; it now reads the same tags,
@@ -1629,7 +1762,7 @@ def test_facade_initials_follow_the_one_case_fork() -> None:
     assert HumanName("John E Smith").initials() == "J. E. S."
     assert HumanName("Juan Y. Garcia").initials() == "J. Y. G."
     # 'maria y lopez' is a ONE-CASE control, not a mixed-case one: written
-    # wholly in lowercase, its 'y' is outside the marked set (rules/P3),
+    # wholly in lowercase, its 'y' is outside the marked set (rules/P8),
     # so it stays the CONNECTIVE on both surfaces rather than reading as
     # an initial the way 'e' does. What it no longer
     # witnesses is the DROP: #461 gave the letter its initial back here,

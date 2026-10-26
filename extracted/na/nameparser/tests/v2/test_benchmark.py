@@ -34,6 +34,12 @@ import pytest
 from nameparser import ParsedName, Parser, parse
 from nameparser._policy import Policy
 
+#: The whole module, though only the clock-timed tests need it: a
+#: parallel run's load fails their ratios (tests/conftest.py), and the
+#: frame-count tests beside them cost too little to be worth splitting
+#: the module's one serial pass.
+pytestmark = pytest.mark.serial
+
 
 #: What one parse of the reference name is allowed to cost, counted in
 #: Python frame entries rather than seconds (#475). A wall-clock bound
@@ -88,7 +94,8 @@ from nameparser._policy import Policy
 #: re-asked by the chain and the reserve and read again by assign
 #: (decisions/parse-cost). The 3.12-3.15 rows read 289/326 from
 #: #614's /simplify on and were corrected in #620, which moved no row
-#: (decisions/parse-cost).
+#: (decisions/parse-cost). Then down by 4 on every row in #624 and up
+#: by 3 in #625, to the figures below (decisions/parse-cost).
 _CALL_BASELINE = {
     (3, 11): {"parse": 307, "facade": 344},
     (3, 12): {"parse": 288, "facade": 325},
@@ -741,7 +748,7 @@ def _clause_run(members: int) -> str:
     """A maiden clause whose birth name is a RUN of links.
 
     Mixed case on purpose: written wholly in one case the letter reads
-    as an initial (rules/P3's marked subset). Since #601 the clause
+    as an initial (rules/P8's marked subset). Since #601 the clause
     keeps the run because nothing in it ends the clause, so this
     measures the take's walk over a long clause; until then it measured
     the clause's link exception, which #601 retired.
@@ -799,7 +806,9 @@ def test_a_clause_link_run_does_not_cost_quadratically() -> None:
 # Measured 2026-10-06 on py3.11 through `_frames_for(...,
 # only="is_suffix_piece")`, k duals and k pairs: 44 at k=8 and 164 at
 # k=32 on this tree (3.7x), against 120 and 1,620 at 47fb2b21 (13.5x),
-# where every pair rescanned. A change to what the scan calls must
+# where every pair rescanned. The dual was 'MD' until #853 took md out
+# of the titles; re-taken with 'RA' on 2026-10-23, 35 and 131 on the
+# tree (3.7x) and 120 and 1,620 at 47fb2b21 again. A change to what the scan calls must
 # move `only=` with it, and re-take that negative control.
 _PAIR_SCAN_SMALL = 8
 _PAIR_SCAN_LARGE = 32
@@ -809,12 +818,12 @@ _PAIR_SCAN_MAX_RATIO = 6.0
 def test_the_paired_initials_title_scan_does_not_cost_quadratically() -> None:
     if sys.getprofile() is not None:
         pytest.skip("a profile hook is already installed; this test owns it")
-    small_text = "John Smith, " + "MD " * _PAIR_SCAN_SMALL + "G.J. " * _PAIR_SCAN_SMALL
-    large_text = "John Smith, " + "MD " * _PAIR_SCAN_LARGE + "G.J. " * _PAIR_SCAN_LARGE
+    small_text = "John Smith, " + "RA " * _PAIR_SCAN_SMALL + "G.J. " * _PAIR_SCAN_SMALL
+    large_text = "John Smith, " + "RA " * _PAIR_SCAN_LARGE + "G.J. " * _PAIR_SCAN_LARGE
     # REACHABILITY: the flip REPORTS only where the scan ran and found
     # nothing but titles in front of the first pair, every shape word
     # being a pair (rules/C11's "nothing but other paired initials").
-    # A change that stopped the scan being asked -- 'MD' leaving the
+    # A change that stopped the scan being asked -- 'RA' leaving the
     # titles, the pair test moving -- loses the report and fails here
     # rather than leaving this guard measuring nothing.
     for text, k in ((small_text, _PAIR_SCAN_SMALL),

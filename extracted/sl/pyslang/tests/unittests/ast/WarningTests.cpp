@@ -112,6 +112,7 @@ module m;
     logic signed m = (2'd1 == 2'd1);
     logic signed [1:0] n = 2'd1 << 1;
     logic signed [1:0] o = +2'd3;
+    logic signed [99:0] p = 100'h8000000000000000000000000;
 endmodule
 )");
 
@@ -119,11 +120,12 @@ endmodule
     compilation.addSyntaxTree(tree);
 
     auto& diags = compilation.getAllDiagnostics();
-    REQUIRE(diags.size() == 4);
+    REQUIRE(diags.size() == 5);
     CHECK(diags[0].code == diag::SignConversion);
     CHECK(diags[1].code == diag::SignConversion);
     CHECK(diags[2].code == diag::SignConversion);
     CHECK(diags[3].code == diag::SignConversion);
+    CHECK(diags[4].code == diag::SignConversion);
 }
 
 TEST_CASE("Edge of multibit type") {
@@ -988,4 +990,25 @@ endmodule
     CHECK(diags[1].code == diag::IncDecBit);
     CHECK(diags[2].code == diag::IncDecBit);
     CHECK(diags[3].code == diag::IncDecBit);
+}
+
+TEST_CASE("Conditional with non-constant matches is not constant folded") {
+    auto tree = SyntaxTree::fromText(R"(
+module top;
+  int x = 5;
+  logic z1, z2, z3, z4;
+  assign z1 = x matches 5 ? 0 : 2;
+  initial z2 = x matches 5 ? 0 : 2;
+  assign z3 = x matches .* ? 0 : 2;
+  assign z4 = x matches 5 &&& x == 5 ? 0 : 2;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 4);
+    for (auto& diag : diags)
+        CHECK(diag.code == diag::WidthTruncate);
 }

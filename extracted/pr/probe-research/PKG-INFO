@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: probe-research
-Version: 0.311.0
+Version: 0.322.0
 Summary: CLI + SDK + read-only MCP client for Probe Research (experiment tracking).
 Project-URL: Homepage, https://github.com/prbe-ai/research-os-agent
 Project-URL: Repository, https://github.com/prbe-ai/research-os-agent
@@ -497,7 +497,7 @@ probe project get folding | jq -r '.summary_markdown // ""' > PROJECT.md
 # Edit the whole visible project document, retaining useful existing sections.
 probe project set folding --summary @PROJECT.md
 probe project get folding | jq -r '.summary_markdown // ""'  # verify what landed
-probe experiment set EXPERIMENT_ID --name "DockQ sweep" --description "Temperature sweep"
+probe experiment set EXPERIMENT_ID --name "DockQ sweep" --question "Does sampling temperature change DockQ?"
 probe experiment set EXPERIMENT_ID --summary @EXPERIMENT.md
 probe run set $RUN --name "DockQ baseline" --description "Stable reference run" \
   --summary @RUN.md

@@ -1,28 +1,32 @@
 Metadata-Version: 2.4
 Name: plantuml-markdown
-Version: 3.11.3
+Version: 3.11.4
 Summary: A PlantUML plugin for Markdown
-Home-page: https://github.com/mikitex70/plantuml-markdown
 Author: Michele Tessaro
-Author-email: michele.tessaro.tex@gmail.com
+License-Expression: BSD-3-Clause
 Keywords: Markdown,typesetting,include,plugin,extension
 Classifier: Programming Language :: Python
-Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Software Development :: Documentation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Filters
 Classifier: Topic :: Text Processing :: Markup :: HTML
-Requires-Python: >=3.8
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: Markdown
-Requires-Dist: requests
-Requires-Dist: six
-Requires-Dist: urllib3
-Dynamic: author-email
-Dynamic: home-page
+Requires-Dist: certifi==2026.7.22
+Requires-Dist: charset-normalizer==3.5.1
+Requires-Dist: idna==3.20
+Requires-Dist: markdown==3.11
+Requires-Dist: requests==2.34.2
+Requires-Dist: six==1.17.0
+Requires-Dist: urllib3==2.8.0
 Dynamic: license-file
 
 [![Build Status](https://travis-ci.org/mikitex70/plantuml-markdown.svg?branch=master)](https://travis-ci.org/mikitex70/plantuml-markdown)
@@ -332,7 +336,7 @@ As an example of possible conflicts see issue [#38](https://github.com/mikitex70
 Running tests
 -------------
 
-`plantuml-markdown` is tested with Python >= 3.8 and `Markdown >= 3.0.1`. Older versions of Python or `Markdown` may
+`plantuml-markdown` is tested with Python >= 3.11 and `Markdown >= 3.0.1`. Older versions of Python or `Markdown` may
 work, but if it doesn't I can't guarantee a fix as they are end-of-life versions.
 
 The test execution requires a specific version of [PlantUML] (the image generated can be different with different
@@ -354,7 +358,13 @@ pip install -r test-requirements.txt
 To run the tests, execute the following command:
 
 ```bash
-nose2 --verbose -F
+pytest
+```
+
+For verbose output:
+
+```bash
+pytest -v
 ```
 
 This command uses a custom version of the `plantuml` command which will download the expected version of [PlantUML] for

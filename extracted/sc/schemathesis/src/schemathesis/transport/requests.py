@@ -19,7 +19,8 @@ from urllib3.filepost import encode_multipart_formdata
 
 from schemathesis.core import Body, NotSet, media_types
 from schemathesis.core.errors import IncorrectUsage, SerializationNotPossible
-from schemathesis.core.jsonschema import resolve_with_root_bundle
+from schemathesis.core.file_samples import MEDIA_TYPE_FILE_SAMPLES
+from schemathesis.core.jsonschema import get_type, resolve_with_root_bundle
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, RawQueryString, split_delimited_query
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.transforms import merge_at, to_wire_text
@@ -500,27 +501,26 @@ def _collect_encoded_fields(ctx: SerializationContext) -> dict[str, str]:
     operation = ctx.case.operation
     selected = ctx.case.multipart_content_types or {}
     result: dict[str, str] = {}
-    for body in operation.body:
-        if not media_types.is_multipart_form_parts(media_types.parse(body.media_type)):
-            continue
-        for name in body.definition.get("encoding", {}):
-            # Without a recorded choice, a part is sent with the first listed media type.
-            content_type = selected.get(name) or next(iter(body.get_property_content_types(name)), None)
-            if content_type is not None:
-                result[name] = content_type
-        # Default nested-object / array form-parts to JSON so the wire payload is parsable.
-        schema_node = body.definition.get("schema")
-        if isinstance(schema_node, dict):
-            properties = schema_node.get("properties")
-            if isinstance(properties, dict):
-                for name, prop in properties.items():
-                    if name in result or not isinstance(prop, dict):
-                        continue
-                    # Resolve a property-level `$ref` against the body schema's bundle so
-                    # a referent like `{type: string}` is left alone and `{type: object}` triggers JSON.
-                    if _is_structured_schema(resolve_with_root_bundle(prop, schema_node), schema_node):
-                        result[name] = "application/json"
-        break
+    body = operation.get_body_for_media_type(ctx.case.media_type or "multipart/form-data")
+    if body is None:
+        return result
+    for name in body.definition.get("encoding", {}):
+        # Without a recorded choice, a part is sent with the first listed media type.
+        content_type = selected.get(name) or next(iter(body.get_property_content_types(name)), None)
+        if content_type is not None:
+            result[name] = content_type
+    # Default nested-object / array form-parts to JSON so the wire payload is parsable.
+    schema_node = body.resolved_schema
+    if schema_node is not None:
+        properties = schema_node.get("properties")
+        if isinstance(properties, dict):
+            for name, prop in properties.items():
+                if name in result or not isinstance(prop, dict):
+                    continue
+                # Resolve a property-level `$ref` against the body schema's bundle so
+                # a referent like `{type: string}` is left alone and `{type: object}` triggers JSON.
+                if _is_structured_schema(resolve_with_root_bundle(prop, schema_node), schema_node):
+                    result[name] = "application/json"
     return result
 
 
@@ -537,8 +537,8 @@ def _property_schema(ctx: SerializationContext, name: str) -> dict[str, Any]:
     """Return the schema of a multipart property, with `$ref` resolved."""
     body = ctx.case.operation.get_body_for_media_type(ctx.case.media_type or "multipart/form-data")
     assert body is not None
-    schema_node = body.definition.get("schema")
-    properties = schema_node.get("properties", {}) if isinstance(schema_node, dict) else {}
+    schema_node = body.resolved_schema or {}
+    properties = schema_node.get("properties", {})
     if isinstance(properties.get(name), dict):
         return resolve_with_root_bundle(properties[name], schema_node)
     return {}
@@ -562,6 +562,10 @@ def _serialize_part_value(ctx: SerializationContext, value: Any, name: str, cont
         return content, f"{main}/{sub}; boundary={boundary}"
     pair = REQUESTS_TRANSPORT.get_first_matching_media_type(content_type)
     if pair is None:
+        if not isinstance(value, list) and "array" in get_type(_property_schema(ctx, name)):
+            # An array's media type describes its items. A value of another type, e.g. `0` for a list of files,
+            # has no items to encode, so it goes out as the text it would have without `encoding`.
+            return value, content_type
         raise SerializationNotPossible.for_media_type(content_type)
     _, serializer = pair
     if serializer is xml_serializer:
@@ -591,7 +595,7 @@ def prepare_multipart_parts(
     multipart = _prepare_form_data(value)
     # Surface auto-discovered per-part content types on the wire; case-level overrides still win.
     selected = {**encoded_fields, **(ctx.case.multipart_content_types or {})}
-    return ctx.case.operation.prepare_multipart(multipart, selected)
+    return ctx.case.operation.prepare_multipart(multipart, ctx.case.media_type or "multipart/form-data", selected)
 
 
 @REQUESTS_TRANSPORT.serializer("multipart/form-data", "multipart/mixed")
@@ -642,6 +646,6 @@ def text_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
     return {"data": to_wire_text(value).encode("utf8")}
 
 
-@REQUESTS_TRANSPORT.serializer("application/octet-stream")
+@REQUESTS_TRANSPORT.serializer("application/octet-stream", *MEDIA_TYPE_FILE_SAMPLES)
 def binary_serializer(ctx: SerializationContext, value: Body) -> dict[str, Any]:
     return {"data": serialize_binary(value)}

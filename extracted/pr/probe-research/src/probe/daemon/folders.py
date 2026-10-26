@@ -34,6 +34,7 @@ from typing import Callable
 
 from probe.daemon.events import Event, Kind
 from probe.daemon.store import UNRECORDED_BITE, Store, scrub, state_dir
+from probe.daemon import runctx
 
 MAX_FILES_PER_FOLDER = 3000
 MAX_FILES_PER_CHECK = 10_000
@@ -60,6 +61,8 @@ SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".mypy_cach
 log = logging.getLogger("probe.daemon.folders")
 #: The errors `working_folders` has warned about, in this process.
 _SKIPPED: set[tuple[str, str]] = set()
+#: Each run's own in the daemon host: a warning reaches the log of the session it is about.
+_skipped = runctx.Shared(globals(), "_SKIPPED", set)
 _CD_RE = re.compile(r"(?:^|&&|\|\||;|\(|\n)\s*cd\s+(\"[^\"]+\"|'[^']+'|[^\s;&|)]+)")
 _WRITE_TOOLS = {"Write", "Edit", "MultiEdit", "NotebookEdit", "write", "edit", "apply_patch"}
 
@@ -212,8 +215,9 @@ def working_folders(store: Store, cwd: Path, home: Path) -> list[Path]:
         except Exception as exc:  # noqa: BLE001 -- one odd command is skipped, never a crashed worker
             # Re-read every poll while the row is in the window: warned once.
             key = (type(exc).__name__, str(exc)[:200])
-            if key not in _SKIPPED and len(_SKIPPED) < 256:
-                _SKIPPED.add(key)
+            skipped = _skipped.get()
+            if key not in skipped and len(skipped) < 256:
+                skipped.add(key)
                 log.warning("working folders: skipped a command: %s: %s", *key)
     # A folder inside another adds nothing to the check.
     kept = [f for f in found if not any(f != g and g in f.parents for g in found)][:MAX_WORKING_FOLDERS]

@@ -293,6 +293,7 @@ def test_a_ray_trial_thread_ending_closes_its_run_before_the_kill(app, code, ver
     assert points == {(step, key) for step in range(STEPS) for key in KEYS}
 
 
+@pytest.mark.heavy
 def test_a_trial_torn_down_while_its_worker_sends_the_close_still_closes(app, _own_outbox):
     """Ray's teardown lands while the outbox worker is SENDING the close -- the
     usual case for a trial that ran long enough for its worker to be up: the

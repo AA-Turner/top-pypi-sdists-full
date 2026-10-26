@@ -20,24 +20,27 @@ import os
 import platform
 import shutil
 import subprocess
-from operator import attrgetter
 
 import pytest
 
 from extra_platforms import (
-    ALL_PLATFORMS,
+    MACOS,
+    UBUNTU,
     WINDOWS,
     detection as detection_module,
     invalidate_caches,
 )
 from extra_platforms.platform_info import (
+    MACOS_CODENAMES,
     _hostnamectl_os_release,
     _parse_cpe_name,
     _parse_hostnamectl_content,
     _parse_os_release,
     _parse_os_release_content,
+    get_macos_codename,
     invalidate_os_release_cache,
     linux_info,
+    macos_info,
     os_release_id,
     windows_info,
 )
@@ -57,6 +60,16 @@ HOSTNAMECTL_CLOUDLINUX = """\
 [`python-distro/distro#240`](https://github.com/python-distro/distro/issues/240),
 where no os-release file is readable.
 """
+
+CLOUDLINUX_OS_RELEASE = {
+    "cpe_name": "cpe:/o:cloudlinux:cloudlinux:7.6:GA:server",
+    "id": "cloudlinux",
+    "version_id": "7.6",
+    "pretty_name": "CloudLinux 7.6 (Vladimir Lyakhov)",
+    # Codename extracted from the pretty name parenthetical.
+    "version_codename": "Vladimir Lyakhov",
+}
+"""The os-release fields rebuilt from `HOSTNAMECTL_CLOUDLINUX`."""
 
 
 @pytest.fixture
@@ -179,6 +192,21 @@ def fresh_hostnamectl_caches():
             "ID=test\nPRETTY_NAME=Test\n",
             {"id": "test", "pretty_name": "Test"},
             id="keys_lowercased",
+        ),
+        pytest.param(
+            "a line with no separator\nID=arch\n",
+            {"id": "arch"},
+            id="line_without_equal_sign",
+        ),
+        pytest.param(
+            'VERSION="39"\nID=fedora\n',
+            {"version": "39", "id": "fedora"},
+            id="version_without_codename",
+        ),
+        pytest.param(
+            'NAME="Fedora Linux\nID=fedora\n',
+            {"name": "Fedora Linux", "id": "fedora"},
+            id="unclosed_quote",
         ),
     ),
 )
@@ -337,18 +365,7 @@ def test_parse_cpe_name(cpe_name, expected):
     ("content", "expected"),
     (
         pytest.param("", {}, id="empty_input"),
-        pytest.param(
-            HOSTNAMECTL_CLOUDLINUX,
-            {
-                "cpe_name": "cpe:/o:cloudlinux:cloudlinux:7.6:GA:server",
-                "id": "cloudlinux",
-                "version_id": "7.6",
-                "pretty_name": "CloudLinux 7.6 (Vladimir Lyakhov)",
-                # Codename extracted from the pretty name parenthetical.
-                "version_codename": "Vladimir Lyakhov",
-            },
-            id="cloudlinux_vm",
-        ),
+        pytest.param(HOSTNAMECTL_CLOUDLINUX, CLOUDLINUX_OS_RELEASE, id="cloudlinux_vm"),
         pytest.param(
             "  Operating System: Ubuntu 22.04.3 LTS\n"
             "            Kernel: Linux 6.5.0-14-generic\n",
@@ -376,6 +393,11 @@ def test_parse_cpe_name(cpe_name, expected):
             {},
             id="bus_error_message",
         ),
+        pytest.param(
+            "a line with no separator\n  Operating System: Arch Linux\n",
+            {"pretty_name": "Arch Linux"},
+            id="line_without_colon",
+        ),
     ),
 )
 def test_parse_hostnamectl_content(content, expected):
@@ -384,37 +406,34 @@ def test_parse_hostnamectl_content(content, expected):
 
 
 def _fake_run(stdout):
-    """Build a `subprocess.run` stand-in returning ``stdout``."""
+    """Build a `subprocess.run` stand-in returning ``stdout``.
 
-    def run(*args, **kwargs):
+    It also checks the call it stands in for: `hostnamectl status` in the C
+    locale, which keeps the labels parseable, raising on failure, and with a
+    timeout against an unresponsive bus.
+    """
+
+    def run(args, **kwargs):
+        assert tuple(args) == ("hostnamectl", "status")
+        assert kwargs["env"]["LC_ALL"] == "C"
+        assert kwargs["check"] is True
+        assert kwargs["timeout"]
         return subprocess.CompletedProcess(args, 0, stdout=stdout, stderr="")
 
     return run
 
 
-def test_hostnamectl_os_release(monkeypatch, fresh_hostnamectl_caches):
-    """A reachable systemd bus rebuilds the os-release fields."""
-    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/hostnamectl")
-    monkeypatch.setattr(subprocess, "run", _fake_run(HOSTNAMECTL_CLOUDLINUX))
-    assert _hostnamectl_os_release() == {
-        "cpe_name": "cpe:/o:cloudlinux:cloudlinux:7.6:GA:server",
-        "id": "cloudlinux",
-        "version_id": "7.6",
-        "pretty_name": "CloudLinux 7.6 (Vladimir Lyakhov)",
-        "version_codename": "Vladimir Lyakhov",
-    }
+def _forbidden_run(*args, **kwargs):
+    """A `subprocess.run` stand-in failing the test that reaches it."""
+    raise AssertionError("hostnamectl must not be spawned")
 
 
 def test_hostnamectl_os_release_skips_missing_binary(
     monkeypatch, fresh_hostnamectl_caches
 ):
     """No subprocess is spawned on a system shipping no `hostnamectl`."""
-
-    def forbidden_run(*args, **kwargs):
-        raise AssertionError("hostnamectl must not be spawned when absent")
-
     monkeypatch.setattr(shutil, "which", lambda name: None)
-    monkeypatch.setattr(subprocess, "run", forbidden_run)
+    monkeypatch.setattr(subprocess, "run", _forbidden_run)
     assert _hostnamectl_os_release() == {}
 
 
@@ -449,7 +468,7 @@ def test_parse_os_release_falls_back_to_hostnamectl(
     monkeypatch.setattr(os.path, "isfile", lambda path: False)
     monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/hostnamectl")
     monkeypatch.setattr(subprocess, "run", _fake_run(HOSTNAMECTL_CLOUDLINUX))
-    assert _parse_os_release()["id"] == "cloudlinux"
+    assert _parse_os_release() == CLOUDLINUX_OS_RELEASE
     assert os_release_id() == "cloudlinux"
     assert linux_info() == {
         "id": "cloudlinux",
@@ -464,19 +483,61 @@ def test_parse_os_release_prefers_files_over_hostnamectl(
     monkeypatch, fresh_hostnamectl_caches, fresh_os_release_caches
 ):
     """A readable os-release file is never second-guessed through the bus."""
-
-    def forbidden_run(*args, **kwargs):
-        raise AssertionError("hostnamectl must not be spawned when a file is readable")
-
     monkeypatch.setattr(os.path, "isfile", lambda path: path == "/etc/os-release")
     monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/hostnamectl")
-    monkeypatch.setattr(subprocess, "run", forbidden_run)
+    monkeypatch.setattr(subprocess, "run", _forbidden_run)
     monkeypatch.setattr(
         "extra_platforms.platform_info.open",
         lambda *args, **kwargs: io.StringIO("ID=ubuntu\n"),
         raising=False,
     )
     assert _parse_os_release() == {"id": "ubuntu"}
+
+
+@pytest.mark.parametrize(
+    ("unreadable", "expected"),
+    (
+        pytest.param(
+            {"/etc/os-release"}, {"id": "fedora"}, id="falls_back_to_second_file"
+        ),
+        pytest.param(
+            {"/etc/os-release", "/usr/lib/os-release"}, {}, id="both_files_unreadable"
+        ),
+    ),
+)
+def test_parse_os_release_skips_unreadable_file(
+    unreadable, expected, monkeypatch, fresh_hostnamectl_caches
+):
+    """An os-release file that exists but cannot be read is skipped, not raised."""
+
+    def guarded_open(path, *args, **kwargs):
+        if path in unreadable:
+            raise PermissionError(13, "Permission denied", path)
+        return io.StringIO("ID=fedora\n")
+
+    monkeypatch.setattr(os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        "extra_platforms.platform_info.open", guarded_open, raising=False
+    )
+    assert _parse_os_release() == expected
+
+
+def test_parse_os_release_replaces_invalid_bytes(monkeypatch, fresh_hostnamectl_caches):
+    """A byte that is not UTF-8 spoils its own value, not the whole file."""
+    content = b'ID=fedora\nNAME="F\xffdora"\n'
+
+    monkeypatch.setattr(os.path, "isfile", lambda path: path == "/etc/os-release")
+    # Decode the bytes with the arguments the code under test passes to open().
+    monkeypatch.setattr(
+        "extra_platforms.platform_info.open",
+        lambda path, **kwargs: io.TextIOWrapper(io.BytesIO(content), **kwargs),
+        raising=False,
+    )
+    assert _parse_os_release() == {
+        "id": "fedora",
+        "name": "F\N{REPLACEMENT CHARACTER}dora",
+    }
 
 
 def test_invalidate_os_release_cache_clears_hostnamectl(
@@ -500,6 +561,46 @@ def test_invalidate_os_release_cache_clears_hostnamectl(
 
 
 @pytest.fixture
+def macos_sonoma(monkeypatch):
+    """Report the macOS version the way a macOS 14.2.1 host does."""
+    monkeypatch.setattr(platform, "mac_ver", lambda: ("14.2.1", ("", "", ""), "arm64"))
+
+
+def test_macos_info(macos_sonoma):
+    """The version splits into its parts, and its major part names the release."""
+    assert macos_info() == {
+        "version": "14.2.1",
+        "version_parts": {"major": "14", "minor": "2", "build_number": "1"},
+        "codename": "Sonoma",
+    }
+
+
+@pytest.mark.parametrize(
+    ("major", "minor", "codename"),
+    [
+        pytest.param(major, minor, codename, id=codename)
+        for (major, minor), codename in MACOS_CODENAMES.items()
+    ],
+)
+def test_get_macos_codename(major, minor, codename):
+    """Every version the table lists resolves to its own codename."""
+    assert get_macos_codename(major, minor) == codename
+
+
+def test_get_macos_codename_unknown_version():
+    """A version no codename covers raises, like the `16` of some Tahoe betas."""
+    with pytest.raises(ValueError, match=r"No macOS codename match version \('16'"):
+        get_macos_codename("16", "0")
+
+
+def test_get_macos_codename_ambiguous_version(monkeypatch):
+    """A version two codenames claim raises, instead of picking one of them."""
+    monkeypatch.setitem(MACOS_CODENAMES, ("14", "2"), "Sonoma Two")
+    with pytest.raises(ValueError, match="match multiple codenames"):
+        get_macos_codename("14", "2")
+
+
+@pytest.fixture
 def windows_11(monkeypatch):
     """Report the Windows version the way a Windows 11 24H2 guest does."""
     monkeypatch.setattr(
@@ -520,27 +621,41 @@ def test_windows_info(windows_11):
     }
 
 
-def test_windows_platform_info_release(monkeypatch, windows_11):
+def test_windows_platform_info_release(monkeypatch, windows_11, fresh_caches):
     """``Platform.info()`` carries the Windows release beside the NT version."""
     monkeypatch.setitem(
         detection_module._detection_registry, "is_windows", lambda: True
     )
     invalidate_caches()
-    try:
-        info = WINDOWS.info()
-        assert info["release"] == "11"
-        assert info["version"] == "10.0.26100"
-        assert info["codename"] == "11 Professional"
-    finally:
-        invalidate_caches()
+    info = WINDOWS.info()
+    assert info["release"] == "11"
+    assert info["version"] == "10.0.26100"
+    assert info["codename"] == "11 Professional"
 
 
 @pytest.mark.parametrize(
-    "plat",
-    sorted(set(ALL_PLATFORMS) - {WINDOWS}, key=attrgetter("id")),
-    ids=attrgetter("id"),
+    ("plat", "version"),
+    ((MACOS, "14.2.1"), (UBUNTU, "22.04")),
+    ids=lambda value: value.id if hasattr(value, "id") else value,
 )
-def test_release_is_windows_only(plat):
+def test_release_is_windows_only(
+    plat, version, monkeypatch, macos_sonoma, fresh_caches
+):
     """No other platform fills ``release``: on macOS, CPython's own
-    ``platform.release()`` names the Darwin kernel, another meaning."""
-    assert plat.info()["release"] is None
+    ``platform.release()`` names the Darwin kernel, another meaning.
+
+    Each platform is forced current, since ``info()`` fills nothing for a
+    platform that is not.
+    """
+    monkeypatch.setitem(
+        detection_module._detection_registry, plat.detection_func_id, lambda: True
+    )
+    monkeypatch.setattr(
+        "extra_platforms.trait.linux_info",
+        lambda: {"id": "ubuntu", "version": "22.04"},
+    )
+    invalidate_caches()
+    info = plat.info()
+    # The version proves the fetchers of the platform ran.
+    assert info["version"] == version
+    assert info["release"] is None

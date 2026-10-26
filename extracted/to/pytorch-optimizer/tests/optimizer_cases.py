@@ -22,6 +22,8 @@ MODEL_OPTIMIZERS = optimizers_with_argument('model')
 
 
 GRADIENT_OPTIONS = {
+    'adan': {'weight_decay': 1e-3},
+    'flashadamw': {'quantize': False},
     'lookahead': {'k': 1},
     'ranger21': {'lookahead_merge_time': 1},
     'lamb': {'pre_norm': True},
@@ -55,7 +57,7 @@ def supports_gradient(optimizer_name: str, kind: str) -> bool:
         options = {**GRADIENT_OPTIONS.get(optimizer_name, {})}
         if optimizer_name == 'madgrad':
             options['momentum'] = 0.0
-        if optimizer_name in ('muon', 'adamuon', 'adago', 'normuon'):
+        if optimizer_name in ('muon', 'muonclip', 'adamuon', 'adago', 'normuon'):
             options['use_muon'] = True
 
         optimizer = build_optimizer(optimizer_name, [param], **options)
@@ -87,8 +89,7 @@ NATIVE_OPTIMIZERS = frozenset(name for name, cls in OPTIMIZERS.items() if cls.__
 SKIP_LEARNING_RATE = NATIVE_OPTIMIZERS | (frozenset(OPTIMIZERS) - optimizers_with_argument('lr')) | {'a2grad'}
 SKIP_EPSILON = frozenset(OPTIMIZERS) - optimizers_with_argument('eps') - {'distributedmuon'}
 
-# SCION variants expose weight decay but do not validate it in their constructors.
-SKIP_WEIGHT_DECAY = (frozenset(OPTIMIZERS) - optimizers_with_argument('weight_decay')) | {'scion', 'scionlight'}
+SKIP_WEIGHT_DECAY = frozenset(OPTIMIZERS) - optimizers_with_argument('weight_decay')
 SKIP_CREATE_OPTIMIZER = NATIVE_OPTIMIZERS | {'demo', 'distributedmuon'}
 
 

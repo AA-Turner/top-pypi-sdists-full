@@ -371,15 +371,15 @@ class ChangelogGenerator(ChangelogGeneratorBase):
 
 
 def create_document_renderer(
-    document_format: TextFormat, start_level: int = 0
+    document_format: TextFormat, start_level: int = 0, **kwargs
 ) -> DocumentRenderer:
     """
     Create a document renderer for a given format.
     """
     if document_format == TextFormat.RESTRUCTURED_TEXT:
-        return RSTDocumentRenderer(start_level=start_level)
+        return RSTDocumentRenderer(start_level=start_level, **kwargs)
     if document_format == TextFormat.MARKDOWN:
-        return MDDocumentRenderer(start_level=start_level)
+        return MDDocumentRenderer(start_level=start_level, **kwargs)
     raise ValueError(f"Unsupported format {document_format}")
 
 
@@ -397,6 +397,37 @@ def _create_changelog_path(
     return os.path.join(paths.base_dir, changelog_filename)
 
 
+def generate_changelog_content(  # pylint: disable=too-many-arguments
+    config: ChangelogConfig,
+    changes: ChangesData,
+    output: ChangelogOutput,
+    *,
+    flatmap: bool = True,
+    only_latest: bool = False,
+    renderer_kwargs: Mapping[str, Any] | None = None,
+) -> tuple[str, list[str]]:
+    """
+    Generate the changelog as text.
+    Returns a tuple consisting of the text and the list of warnings.
+
+    :kwarg flatmap: Whether the collection uses flatmapping or not
+    :kwarg only_latest: Only write the latest changelog entry without any preamble
+    """
+    generator = ChangelogGenerator(
+        config,
+        changes,
+        flatmap=flatmap,
+        render_config=output,
+    )
+    renderer = create_document_renderer(
+        output.format, start_level=1 if only_latest else 0, **(renderer_kwargs or {})
+    )
+    generator.generate(renderer, only_latest=only_latest)
+
+    text = renderer.render()
+    return text, renderer.get_warnings()
+
+
 def generate_changelog(  # pylint: disable=too-many-arguments
     paths: PathsConfig,
     config: ChangelogConfig,
@@ -405,12 +436,13 @@ def generate_changelog(  # pylint: disable=too-many-arguments
     *,
     flatmap: bool = True,
     only_latest: bool = False,
+    renderer_kwargs: Mapping[str, Any] | None = None,
 ):
     """
-    Generate the changelog as reStructuredText.
+    Generate the changelog file.
 
     :kwarg flatmap: Whether the collection uses flatmapping or not
-    :kwarg only_latest: Only write the last changelog entry without any preamble
+    :kwarg only_latest: Only write the latest changelog entry without any preamble
     """
     changelog_path = _create_changelog_path(paths, changes, output)
 
@@ -421,7 +453,7 @@ def generate_changelog(  # pylint: disable=too-many-arguments
         render_config=output,
     )
     renderer = create_document_renderer(
-        output.format, start_level=1 if only_latest else 0
+        output.format, start_level=1 if only_latest else 0, **(renderer_kwargs or {})
     )
     generator.generate(renderer, only_latest=only_latest)
 

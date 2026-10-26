@@ -4,6 +4,7 @@ import datetime as dt
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.document_list_item_system_dreaming_status import DocumentListItemSystemDreamingStatus
 
 
 class DocumentListItemSystemParams(typing_extensions.TypedDict):
@@ -14,6 +15,18 @@ class DocumentListItemSystemParams(typing_extensions.TypedDict):
     status: str
     """
     Current extraction and memory-processing status
+    """
+
+    dreaming_status: typing_extensions.Annotated[
+        DocumentListItemSystemDreamingStatus, FieldMetadata(alias="dreamingStatus")
+    ]
+    """
+    Memory generation state, separate from status. dreaming while memories for the latest content are queued, being generated, or waiting for a retry after a failure; done once they are generated or when none are needed. Under dynamic dreaming, status can reach done minutes before dreamingStatus does.
+    """
+
+    memory_count: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="memoryCount")]]
+    """
+    Number of live memories linked to this document in the requested namespace
     """
 
     created_at: typing_extensions.Annotated[dt.datetime, FieldMetadata(alias="createdAt")]

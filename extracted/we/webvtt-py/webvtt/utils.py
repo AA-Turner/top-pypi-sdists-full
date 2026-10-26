@@ -1,5 +1,8 @@
 """Utils module."""
 
+import locale
+import os
+import re
 import typing
 import codecs
 
@@ -10,6 +13,26 @@ CODEC_BOMS = {
     'utf-16-le': codecs.BOM_UTF16_LE,
     'utf-16-be': codecs.BOM_UTF16_BE
 }
+
+# the line terminators of WebVTT, characters like U+2028 do not break lines
+_LINE_TERMINATOR = re.compile(r'\r\n|\r|\n')
+
+
+def _split_lines(text: str) -> typing.List[str]:
+    """
+    Split text into lines on CR, LF and CRLF.
+
+    Works like ``str.splitlines`` but only breaks lines on the WebVTT line
+    terminators, other characters like U+2028 or form feed stay in the line.
+
+    :param text: the text to split
+    :returns: the list of lines, without a final empty line when the text
+        ends with a line terminator
+    """
+    lines = _LINE_TERMINATOR.split(text)
+    if not lines[-1]:
+        lines.pop()
+    return lines
 
 
 class FileWrapper:
@@ -81,6 +104,33 @@ class FileWrapper:
                 if first_bytes.startswith(bom):
                     return encoding
         return None
+
+
+def _write_text_file(
+        file_path: str,
+        text: str,
+        encoding: typing.Optional[str] = None
+        ):
+    """
+    Write text to a file, encoding all of it before the file is opened.
+
+    An error while encoding, such as a character the encoding cannot write
+    or an unknown encoding, is raised before the file is opened, so an
+    existing file is left unchanged. Line feeds are written as the line
+    separator of the platform, as in a file opened in text mode.
+
+    :param file_path: path to the file
+    :param text: the text to write
+    :param encoding: name of the encoding used to encode the text, the
+        preferred encoding of the locale if None, as in a file opened in
+        text mode
+    """
+    if encoding is None:
+        encoding = locale.getpreferredencoding(False)
+
+    data = text.replace('\n', os.linesep).encode(encoding)
+    with open(file_path, 'wb') as f:
+        f.write(data)
 
 
 def iter_blocks_of_lines(

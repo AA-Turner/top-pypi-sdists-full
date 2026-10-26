@@ -12,6 +12,8 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+
+from backfill_plan_agent import filing
 from backfill_test_client import ScopedClient
 
 from probe.cli import backfill
@@ -325,11 +327,16 @@ def test_the_prompt_bounds_how_long_a_description_may_be(tmp_path):
     and the point is that something is written. Both creates say so. The experiment
     line used to invite the opposite ("record WHY you believed this was a real
     experiment — the files that convinced you"), which is notes-shaped prose in a
-    field the overview clamps to two lines."""
+    field the overview clamps to two lines.
+
+    An experiment has no description since 0231 (its question is one), and
+    asking for it crashed `experiment create` 14 times in one import (Tokenless,
+    2026-10-26): only the project create asks."""
     prompt = backfill.build_prompt(folder=tmp_path, census=backfill.Census(files=3, bytes=99))
-    # Both the project create and the experiment create state the ceiling.
-    assert prompt.count("up to 3 sentences") == 2
+    assert prompt.count("up to 3 sentences") == 1
     assert "the point is that it is WRITTEN" in prompt
+    experiment_create = prompt[prompt.index("probe experiment create"):]
+    assert "--description" not in experiment_create.split("\n\n")[0]
     # The provenance the experiment line used to want is redirected, not dropped.
     assert "probe notes write" in prompt
 
@@ -544,7 +551,7 @@ def test_a_pinned_project_overrides_every_assignment(tmp_path, monkeypatch):
             )
         return True, '{"rows": 0}'
 
-    monkeypatch.setattr(backfill, "launch_agent", fake_launch)
+    monkeypatch.setattr(backfill, "launch_agent", filing(fake_launch))
     client = _FakeClient(existing={"id": FAKE_ID, "slug": "pinned"})
     lines = backfill.run(
         client_factory=lambda: client, folder=tmp_path, interactive=False, project="pinned"
@@ -960,7 +967,7 @@ def test_the_happy_path_reports_the_denominator(tmp_path, monkeypatch):
             )
         return True, '{"manifest": "m", "rows": 0}'
 
-    monkeypatch.setattr(backfill, "launch_agent", fake_launch)
+    monkeypatch.setattr(backfill, "launch_agent", filing(fake_launch))
     lines = backfill.run(client_factory=_FakeClient, folder=tmp_path, interactive=False)
     assert seen["folders"][0] == tmp_path.resolve(), "the agent runs INSIDE the folder"
     assert any("files found on disk" in ln for ln in lines)
@@ -1047,7 +1054,7 @@ def test_a_failed_unit_says_rerunning_is_safe(tmp_path, monkeypatch):
             )
         return False, "boom"
 
-    monkeypatch.setattr(backfill, "launch_agent", fake_launch)
+    monkeypatch.setattr(backfill, "launch_agent", filing(fake_launch))
     lines = backfill.run(client_factory=_FakeClient, folder=tmp_path, interactive=False)
     assert any("Re-running resumes saved work" in ln for ln in lines)
     assert any("did not finish" in ln for ln in lines)

@@ -774,9 +774,88 @@ async def execute_ai_request(
     from matrx_ai._ext import get_presence_invocation_hook
 
     hook = get_presence_invocation_hook()
-    if hook is None:
-        return await invoke_provider()
-    return await hook(invoke_provider, ctx=ctx)
+
+    async def invoke() -> CompletedRequest:
+        if hook is None:
+            return await invoke_provider()
+        return await hook(invoke_provider, ctx=ctx)
+
+    settle = await _open_one_shot_ledger(ctx, request.metadata, mandate_key)
+    if settle is None:
+        return await invoke()
+    try:
+        completed = await invoke()
+    except BaseException as exc:
+        await _settle_one_shot(settle, "cancelled" if isinstance(exc, asyncio.CancelledError) else "failed",
+                               request.usage_history, error=str(exc) or type(exc).__name__)
+        raise
+    failed = (getattr(completed, "metadata", None) or {}).get("status") == "failed"
+    await _settle_one_shot(settle, "failed" if failed else "completed",
+                           list(getattr(getattr(completed, "request", None), "usage_history", None)
+                                or request.usage_history))
+    return completed
+
+
+async def _open_one_shot_ledger(
+    ctx: Any, metadata: dict[str, Any] | None, mandate_key: str | None
+) -> Any | None:
+    """The cost ledger of a call that runs OUTSIDE any host-tracked run.
+
+    A judge, a mandate code call, a catalog probe or a script reaches a provider
+    through here with no execution of its own, so the host's per-call meter had
+    no target and the spend lived only in ``chat.request`` — every cost rollup
+    that reads the host's ledger showed $0 (1,680 judge conversations, 2026-10-21
+    → 10-25). The host's ``internal_run_tracker`` opens a ROOT for it; asked with
+    ``standalone_only`` it declines whenever the context is already inside a
+    tracked run, whose owner settles the call. Unlike ``run_agent`` a failed open
+    does not refuse the call (it ran unmetered before this ledger existed): it is
+    captured loudly and the call runs."""
+    from matrx_ai._ext import get_internal_run_tracker
+
+    tracker = get_internal_run_tracker()
+    if tracker is None:
+        return None
+    if not _accepts_standalone_only(tracker):
+        # A tracker that cannot decline nested calls would open a second ledger
+        # inside a tracked run and count its calls twice: skipping is the safe miss,
+        # but never a silent one — this call's cost reaches no ledger.
+        vcprint(
+            "[execute_ai_request] internal_run_tracker takes no standalone_only — one-shot "
+            "calls outside a run are NOT METERED; give the host tracker the parameter",
+            color="red",
+        )
+        return None
+    md = metadata or {}
+    feature = str(md.get("source_feature") or getattr(ctx, "source_feature", None) or "ai_call")
+    label = str(mandate_key or md.get("mandate_key") or feature)
+    try:
+        return await tracker(label=label, source_feature=feature, standalone_only=True)
+    except Exception as exc:  # noqa: BLE001 — a missing ledger must not stop a call that worked before
+        vcprint(f"[execute_ai_request:{label}] cost ledger open failed — call runs UNMETERED: {exc}", color="red")
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(exc, kind="one_shot_cost_ledger_open_failed", label=label, feature=feature)
+        return None
+
+
+def _accepts_standalone_only(tracker: Any) -> bool:
+    try:
+        params = inspect.signature(tracker).parameters
+    except (TypeError, ValueError):
+        return False
+    return "standalone_only" in params or any(p.kind is p.VAR_KEYWORD for p in params.values())
+
+
+async def _settle_one_shot(
+    settle: Any, status: str, usage_history: list[Any], *, error: str | None = None
+) -> None:
+    try:
+        if getattr(settle, "accepts_usage_history", False):
+            await settle(status, error=error, usage_history=list(usage_history or []))
+        else:
+            await settle(status, error=error)
+    except Exception as exc:  # noqa: BLE001 — the host's reaper is the backstop
+        vcprint(f"[execute_ai_request] cost ledger settle failed: {exc}", color="red")
 
 
 def _build_skipped_tool_results(

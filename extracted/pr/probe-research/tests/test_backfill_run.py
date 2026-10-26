@@ -12,6 +12,8 @@ import json
 
 import pytest
 
+from backfill_plan_agent import filing, note, unit_paths
+
 from probe.cli import backfill as bf
 from probe.cli import backfill_evidence as ev
 from probe.cli import backfill_ledger as bl
@@ -54,21 +56,8 @@ class _FakeAgent:
 
     def __call__(self, folder, prompt, **kw):
         self.calls.append({"prompt": prompt, **kw})
-        if self.writes:
-            for line in prompt.splitlines():
-                if line.strip().startswith("Write JSONL to:"):
-                    path = line.split("Write JSONL to:", 1)[1].strip()
-                    from pathlib import Path
-
-                    Path(path).parent.mkdir(parents=True, exist_ok=True)
-                    assigned = prompt.split("are yours (relative to the folder):\n\n", 1)[1]
-                    assigned = assigned.split("\n\nRead them", 1)[0]
-                    paths = [p.strip() for p in assigned.splitlines() if p.strip()]
-                    Path(path).write_text(
-                        "\n".join(
-                            json.dumps({"path": p, "notes": "n"}) for p in paths[:self.rows]
-                        )
-                    )
+        if self.writes and kw.get("path_prepend") and "are yours (relative to the folder)" in prompt:
+            note(kw, {p: "n" for p in unit_paths(prompt)[:self.rows]})
         return self.ok, self.tail
 
 
@@ -89,20 +78,38 @@ def test_a_unit_is_recorded_before_it_starts_and_after_it_stops(folder, state_di
     assert st.units["u1"].attempts == 1, "started was recorded, not just finished"
 
 
-def test_a_unit_that_writes_no_manifest_is_a_failure_whatever_it_claims(
+def test_a_finished_unit_uploads_every_file_even_when_its_agent_writes_no_notes(
     folder, state_dir, monkeypatch
 ):
-    """The agent's own account is never the authority. Reporting success having
-    produced nothing is the exact failure the reconcile exists to catch."""
+    """The upload list is code's: an agent can no longer drop a file by
+    copying its path wrong or leaving it out. Notes are optional."""
     monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=True, writes=False))
     led = bl.Ledger.for_folder(folder)
     unit = _unit()
     led.record_plan([unit], ["odyssey"])
 
     out = br.run_unit(folder, unit, agent=bf.Agent.CLAUDE, ledger=led, work_dir=state_dir)
-    assert out.ok is False
-    assert "no manifest" in out.detail
+    assert out.ok is True and out.rows == len(unit.paths)
+    rows = [json.loads(line) for line in out.manifest.read_text().splitlines()]
+    assert [row["path"] for row in rows] == list(unit.paths)
+    assert not any("notes" in row for row in rows)
+    assert led.read().units["u1"].state is bl.UnitState.DONE
+
+
+def test_a_unit_whose_agent_crashed_uploads_nothing_yet_and_keeps_its_notes(
+    folder, state_dir, monkeypatch
+):
+    """Retried whole, as before; the notes it managed stay for the retry."""
+    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=False, writes=True, manifest_rows=1, tail="died"))
+    led = bl.Ledger.for_folder(folder)
+    unit = _unit()
+    led.record_plan([unit], ["odyssey"])
+
+    out = br.run_unit(folder, unit, agent=bf.Agent.CLAUDE, ledger=led, work_dir=state_dir)
+    assert out.ok is False and out.rows == 0 and out.manifest is None
     assert led.read().units["u1"].state is bl.UnitState.FAILED
+    assert not (state_dir / "u1.jsonl").exists(), "a complete manifest would be uploaded by recovery"
+    assert json.loads((state_dir / "u1.notes.json").read_text()) == {unit.paths[0]: "n"}
 
 
 def test_a_failed_unit_is_left_outstanding_for_the_resume(folder, state_dir, monkeypatch):
@@ -170,12 +177,13 @@ def test_missing_conversation_restarts_only_the_saved_unit(folder, state_dir, mo
     outcome = br.run_unit(
         folder, unit, agent=bf.Agent.CLAUDE, ledger=led, work_dir=state_dir, resume=session,
     )
-    assert outcome.ok is writes and outcome.rows == (2 if writes else 0)
+    # The fresh session finished, so every file is listed, notes or not.
+    assert outcome.ok and outcome.rows == 2
     assert len(calls) == 2 and calls[0]["resume"] == session and calls[1]["resume"] is None
     assert calls[1]["session_id"] != session
     saved = led.read().units[unit.unit_id]
     assert saved.session_id == calls[1]["session_id"] and saved.attempts == 2
-    assert saved.state is (bl.UnitState.DONE if writes else bl.UnitState.FAILED)
+    assert saved.state is bl.UnitState.DONE
     assert saved.unit.paths == unit.paths
 
 
@@ -196,8 +204,8 @@ def test_other_resume_failures_are_retained_without_fresh_replay(
         folder, unit, agent=bf.Agent.CLAUDE, ledger=led,
         work_dir=state_dir, resume="sess-earlier",
     )
-    assert not outcome.ok and len(fake.calls) == 1
-    assert failure in outcome.detail and "no manifest" in outcome.detail
+    assert not outcome.ok and len(fake.calls) == 1 and outcome.rows == 0
+    assert failure in outcome.detail
     assert led.read().units[unit.unit_id].error == outcome.detail
 
 
@@ -482,7 +490,7 @@ def test_classify_parses_a_plan_out_of_the_stream(folder, monkeypatch):
         "assignments": [{"path": "readme.md", "project": "odyssey"}],
     }
     envelope = json.dumps({"type": "result", "result": f"ok\n{json.dumps(payload)}"})
-    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=True, writes=False, tail=envelope))
+    monkeypatch.setattr(bf, "launch_agent", filing(_FakeAgent(ok=True, writes=False, tail=envelope)))
     plan, _, _ = br.classify(
         folder, ev.gather(folder), agent=bf.Agent.CLAUDE, existing=[], work_dir=folder / ".work"
     )
@@ -705,3 +713,15 @@ def test_an_unreadable_directory_is_named_by_its_path_not_its_basename(tmp_path,
     monkeypatch.setattr(ev.os, "scandir", boom)
     census, _ = _census_of(tmp_path)
     assert census.unreadable_dirs == ("datasets/2024/locked",)
+
+
+def test_a_malformed_old_manifest_row_does_not_crash_the_retry(folder, state_dir, monkeypatch):
+    """Outside review: an old agent row `{"path": [...]}` raised TypeError on
+    every retry before the agent could even start."""
+    monkeypatch.setattr(bf, "launch_agent", _FakeAgent(ok=True, writes=False))
+    led = bl.Ledger.for_folder(folder)
+    unit = _unit()
+    led.record_plan([unit], ["odyssey"])
+    (state_dir / "u1.jsonl").write_text(json.dumps({"path": ["a.py"], "notes": "x"}) + "\n")
+    out = br.run_unit(folder, unit, agent=bf.Agent.CLAUDE, ledger=led, work_dir=state_dir)
+    assert out.ok and out.rows == len(unit.paths)

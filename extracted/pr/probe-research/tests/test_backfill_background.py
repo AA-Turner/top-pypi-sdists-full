@@ -10,7 +10,7 @@ from probe.cli import backfill_import as imp
 from probe.cli import backfill_run as runner
 from probe.cli import import_jobs, tui
 from probe.cli.backfill_coverage import CoverageError
-from probe.cli.backfill_ledger import Ledger, Unit
+from probe.cli.backfill_ledger import MAX_UNIT_ATTEMPTS, Ledger, Unit
 from probe.cli.import_jobs import enqueue as enqueue_job
 from probe.sdk import journal
 from tests.test_backfill_scoped_orchestration import make_harness
@@ -125,12 +125,53 @@ def test_failed_unit_resumes_from_the_saved_plan(background_harness):
     h, queued = background_harness
     h.run(background=True)
     h.failed_model = True
-    with pytest.raises(CoverageError, match="approved file.*remain unfinished"):
+    # A batch whose agent stopped is the job's to retry, not a person's.
+    with pytest.raises(import_jobs.UnitRetryJobError, match="1 import batch"):
         _resume(queued[0])
     h.failed_model = False
     _resume(queued[0])
     assert len(h.classified) == len(h.created) == len(h.manifested) == 1
     assert h.report()["delivered"] == ["a.py"]
+
+
+def test_a_batch_that_keeps_failing_stops_at_its_attempt_limit(background_harness):
+    h, queued = background_harness
+    h.run(background=True)
+    h.failed_model = True
+    for _ in range(MAX_UNIT_ATTEMPTS - 1):
+        with pytest.raises(import_jobs.UnitRetryJobError):
+            _resume(queued[0])
+    with pytest.raises(CoverageError, match="reached the agent attempt limit"):
+        _resume(queued[0])
+    assert len(h.classified) == 1
+
+
+def test_a_failed_batch_whose_file_changed_is_reported_not_retried(background_harness):
+    """A changed file is not run again under the old approval, so its failed
+    batch would never reach the attempt limit: retrying it would loop forever."""
+    h, queued = background_harness
+    h.run(background=True)
+    h.failed_model = True
+    with pytest.raises(import_jobs.UnitRetryJobError):
+        _resume(queued[0])
+    (h.folder / "a.py").write_text("value = 2\n")
+    with pytest.raises(CoverageError, match="remain unfinished"):
+        _resume(queued[0])
+
+
+def test_an_automatic_import_keeps_a_batch_retry_a_batch_retry(tmp_path, monkeypatch):
+    """The automatic wrapper turns transport failures into a connection wait;
+    a batch retry is retryable too, but must not be reported as one."""
+    monkeypatch.setattr(imp, "_verify_auto_folder", lambda payload: tmp_path)
+    monkeypatch.setattr(imp, "_auto_checkpoint", lambda payload: (tmp_path / "checkpoint", "id"))
+
+    def stopped(*args, **kwargs):
+        raise import_jobs.UnitRetryJobError("1 import batch(es) stopped before finishing.")
+
+    payload = {"auto_approve": True,
+               "scope": {"backend": "https://x", "customer_id": "c", "workspace_id": "w"}}
+    with pytest.raises(import_jobs.UnitRetryJobError, match="batch"):
+        imp._run_auto_import(payload, progress=stopped)
 
 
 def test_lost_completion_after_upload_resumes_receipts_without_duplicate_files(

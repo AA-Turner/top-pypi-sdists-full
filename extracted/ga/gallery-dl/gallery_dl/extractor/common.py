@@ -677,7 +677,8 @@ class Extractor():
     def _init_cookies(self):
         """Populate the session's cookiejar"""
         if cookies := self.config("cookies"):
-            if select := self.config("cookies-select"):
+            if cookies.__class__ is not str and (
+                    select := self.config("cookies-select")):
                 if select == "rotate":
                     cookies = cookies[self.cookies_index % len(cookies)]
                     Extractor.cookies_index += 1

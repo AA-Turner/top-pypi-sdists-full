@@ -2,6 +2,27 @@
 build-backend = "hatchling.build"
 requires = ["hatchling"]
 
+[dependency-groups]
+dev = [
+  "prek==0.3.9",
+  "pyright==1.1.405",
+  "ruff==0.13.0",
+  "toml-sort==0.23.1"
+]
+docs = [
+  "hippogriffe==0.2.2",
+  "griffe==1.7.3",
+  "mkdocs==1.6.1",
+  "mkdocs-include-exclude-files==0.1.0",
+  "mkdocs-ipynb==0.1.1",
+  "mkdocs-material==9.6.7",
+  "mkdocstrings==0.28.3",
+  "mkdocstrings-python==1.16.8",
+  "pygments==2.20.0",
+  "pymdown-extensions==10.21.2"
+]
+tests = ["numpy", "pytest"]
+
 [project]
 authors = [
   {email = "contact@kidger.site", name = "Patrick Kidger"}
@@ -20,25 +41,16 @@ name = "wadler_lindig"
 readme = "README.md"
 requires-python = ">=3.10"
 urls = {repository = "https://github.com/patrick-kidger/wadler_lindig"}
-version = "0.1.7"
-
-[project.optional-dependencies]
-dev = ["numpy", "pre-commit", "pytest"]
-docs = [
-  "hippogriffe==0.1.0",
-  "mkdocs==1.6.1",
-  "mkdocs-include-exclude-files==0.1.0",
-  "mkdocs-ipynb==0.1.0",
-  "mkdocs-material==9.6.7",
-  "mkdocstrings[python]==0.28.3",
-  "pymdown-extensions==10.14.3"
-]
+version = "0.1.8"
 
 [tool.hatch.build]
 include = ["wadler_lindig/*"]
 
 [tool.pyright]
 include = ["wadler_lindig", "tests"]
+reportFunctionMemberAccess = false
+reportIncompatibleMethodOverride = true
+reportIncompatibleVariableOverride = false
 
 [tool.ruff]
 extend-include = ["*.ipynb"]
@@ -56,5 +68,9 @@ select = ["E", "F", "I001", "UP"]
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
 lines-after-imports = 2
 order-by-type = true
+
+[tool.uv]
+default-groups = ["dev", "docs", "tests"]

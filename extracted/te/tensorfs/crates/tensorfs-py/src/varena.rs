@@ -13,7 +13,7 @@ use pyo3::ffi;
 use pyo3::prelude::*;
 use tensorfs::format::Body;
 use varena::layout::Layout;
-use varena::{Backend, CudaBackend, Error, Fill, Fingerprint, GpuId, HostBackend, Level, Memory, Origin, Pass, Pin, Plan, RegionKind, Request, Retained, SetId, SetSpec, Step};
+use varena::{Backend, CudaBackend, Error, Fill, Fingerprint, GpuId, HostBackend, Level, Memory, Pass, Pin, Plan, RegionKind, Request, Retained, SetId, SetSpec, Step};
 
 use crate::store::PyCheckpoint;
 
@@ -37,7 +37,7 @@ fn error(py: Python<'_>, gpu: &str, e: Error) -> PyErr {
     let _ = v.setattr("cuda_code", cuda);
     if let Error::Exhausted(x) = e {
         let _ = (v.setattr("gpu", gpu), v.setattr("need", x.need), v.setattr("site", x.site));
-        let _ = Py::new(py, PyStats::from(x.stats)).and_then(|s| v.setattr("stats", s));
+        let _ = Py::new(py, x.stats).and_then(|s| v.setattr("stats", s));
     }
     err
 }
@@ -87,109 +87,6 @@ impl PyGpuId {
     #[new]
     fn new(uuid: String, model: String, memory: u64) -> Self {
         PyGpuId { uuid, model, memory }
-    }
-}
-
-#[pyclass(name = "Fills", module = "tensorfs.varena", frozen, get_all, skip_from_py_object)]
-#[derive(Clone)]
-pub struct PyFills {
-    bytes: u64,
-    ns: u64,
-}
-
-#[pyclass(name = "Moved", module = "tensorfs.varena", frozen, get_all, skip_from_py_object)]
-#[derive(Clone)]
-pub struct PyMoved {
-    kept: PyFills,
-    store: PyFills,
-    speculative: u64,
-}
-
-#[pyclass(name = "Ref", module = "tensorfs.varena", frozen, get_all, skip_from_py_object)]
-#[derive(Clone)]
-pub struct PyRef_ {
-    step: u32,
-    set: String,
-    block: u32,
-    bytes: u64,
-    origin: &'static str,
-    speculative: bool,
-}
-
-#[pyclass(name = "StepStats", module = "tensorfs.varena", frozen, get_all, skip_from_py_object)]
-#[derive(Clone)]
-pub struct PyStepStats {
-    capacity: u64,
-    evicted: Vec<u64>,
-}
-
-#[pyclass(name = "Stats", module = "tensorfs.varena", frozen, skip_from_py_object)]
-#[derive(Clone)]
-pub struct PyStats {
-    raw: varena::Stats,
-    #[pyo3(get)]
-    request: String,
-    #[pyo3(get)]
-    moved: PyMoved,
-    #[pyo3(get)]
-    trace: Vec<PyRef_>,
-    #[pyo3(get)]
-    steps: Vec<PyStepStats>,
-    #[pyo3(get)]
-    stall_ns: u64,
-    #[pyo3(get)]
-    evicted: Vec<u64>,
-    #[pyo3(get)]
-    peak: u64,
-    #[pyo3(get)]
-    compute: u64,
-    #[pyo3(get)]
-    leftover: u64,
-    /// Each make_room that took bytes: (step, trigger, need, freed, release events waited on).
-    #[pyo3(get)]
-    make_room: Vec<(u32, &'static str, u64, u64, u32)>,
-    /// Its torch blocks still live at its end (ptr, bytes, stream): the request-end audit.
-    #[pyo3(get)]
-    outlived: Vec<Outlived>,
-}
-
-impl From<varena::Fills> for PyFills {
-    fn from(f: varena::Fills) -> Self {
-        PyFills { bytes: f.bytes, ns: f.ns }
-    }
-}
-
-impl From<varena::Stats> for PyStats {
-    fn from(s: varena::Stats) -> Self {
-        let raw = s.clone();
-        let m = s.moved;
-        let origin = |o: Origin| match o {
-            Origin::Hit => "hit",
-            Origin::Kept => "kept",
-            Origin::Store => "store",
-        };
-        PyStats {
-            raw,
-            request: s.request,
-            moved: PyMoved { kept: m.kept.into(), store: m.store.into(), speculative: m.speculative },
-            trace: s.trace.into_iter().map(|r| PyRef_ { step: r.step, set: r.set, block: r.block, bytes: r.bytes, origin: origin(r.origin), speculative: r.speculative }).collect(),
-            steps: s.steps.into_iter().map(|t| PyStepStats { capacity: t.capacity, evicted: t.evicted.into() }).collect(),
-            stall_ns: s.stall_ns,
-            evicted: s.evicted.into(),
-            peak: s.peak,
-            compute: s.compute,
-            leftover: s.leftover,
-            make_room: s.make_room.into_iter().map(|m| (m.step, m.trigger, m.need, m.freed, m.waited)).collect(),
-            outlived: s.outlived.into_iter().map(|o| (o.ptr, o.bytes, o.stream)).collect(),
-        }
-    }
-}
-
-#[pymethods]
-impl PyStats {
-    /// The record as JSON, field for field (what a Runtime relays).
-    fn json(&self) -> PyResult<String> {
-        serde_json::to_string(&self.raw).map_err(|e| VarenaError::new_err(e.to_string()))
     }
 }
 
@@ -429,11 +326,13 @@ impl PyMemory {
         detached(py, &self.gpu.uuid, || self.memory().serve_standalone_torch().map(drop))
     }
 
-    /// Host pages of `gpu.memory` bytes (CPU, MPS), on the table `gpu.uuid` names.
+    /// Host pages of `gpu.memory` bytes (CPU, MPS), never past the host's limit (its tightest
+    /// cgroup's), on the table `gpu.uuid` names.
     #[staticmethod]
     fn host(py: Python<'_>, gpu: PyGpuId) -> PyResult<Self> {
-        let id = GpuId { uuid: gpu.uuid, model: gpu.model, memory: gpu.memory };
-        PyMemory::open(py, (KDL_CPU, 0), || Ok((id.clone(), Box::new(HostBackend::new(id.memory)) as Box<dyn Backend>)))
+        let memory = platform::contain::host_memory::limit().map_or(gpu.memory, |limit| limit.min(gpu.memory));
+        let id = GpuId { uuid: gpu.uuid, model: gpu.model, memory };
+        PyMemory::open(py, (KDL_CPU, 0), || Ok((id.clone(), Box::new(host_backend(id.memory)) as Box<dyn Backend>)))
     }
 
     /// Registers `set` and brings it to `level`; returns its id.
@@ -463,11 +362,15 @@ impl PyMemory {
 
     /// Block `block` of `set`, mapped and filled; `stream` (a `CUstream`, 0 the default) waits
     /// on the fill and is the only stream a tensor made from it may be consumed on. With
-    /// `evict` false it maps into free bytes only, `Exhausted` at once when they are short.
-    #[pyo3(signature = (set, block, stream = 0, evict = true))]
-    fn bind(&self, py: Python<'_>, set: u32, block: u32, stream: usize, evict: bool) -> PyResult<PyPin> {
+    /// `evict` false it maps into free bytes only, `Exhausted` at once when they are short. Its
+    /// fill and trace go to the request whose pass on this thread runs `set`, else to `request`
+    /// (a hold taken before its pass opens); the pin is no request's then.
+    #[pyo3(signature = (set, block, stream = 0, evict = true, request = None))]
+    fn bind(&self, py: Python<'_>, set: u32, block: u32, stream: usize, evict: bool, request: Option<PyRef<'_, PyRequest>>) -> PyResult<PyPin> {
         let m = self.memory();
-        let pin = detached(py, &self.gpu.uuid, || if evict { m.bind(SetId(set), block, stream) } else { m.bind_free(SetId(set), block, stream) })?;
+        let request = request.map(|r| r.get(py)).transpose()?;
+        let r = request.as_deref();
+        let pin = detached(py, &self.gpu.uuid, || if evict { m.bind(SetId(set), block, stream, r) } else { m.bind_free(SetId(set), block, stream, r) })?;
         Ok(PyPin { ptr: pin.ptr, len: pin.len, fresh: pin.fresh, stream, dl: self.dl, gpu: self.gpu.uuid.clone(), pin: Arc::new(Held::new(pin)) })
     }
 
@@ -488,8 +391,8 @@ impl PyMemory {
     }
 
     /// The record of the request that ended last.
-    fn stats(&self, py: Python<'_>) -> PyResult<Option<PyStats>> {
-        detached(py, &self.gpu.uuid, || Ok(self.memory().stats())).map(|s| s.map(Into::into))
+    fn stats(&self, py: Python<'_>) -> PyResult<Option<varena::Stats>> {
+        detached(py, &self.gpu.uuid, || Ok(self.memory().stats()))
     }
 }
 
@@ -612,16 +515,16 @@ impl PyRequest {
         Ok(PyAllocating(Mutex::new(Some(guard))))
     }
 
-    fn stats(&self, py: Python<'_>) -> PyResult<PyStats> {
+    fn stats(&self, py: Python<'_>) -> PyResult<varena::Stats> {
         let r = self.get(py)?;
-        detached(py, &self.gpu, || Ok(r.stats())).map(Into::into)
+        detached(py, &self.gpu, || Ok(r.stats()))
     }
 
     /// Ends the request: its pins and caches go. Refused while another call is in it.
-    fn end(&self, py: Python<'_>) -> PyResult<PyStats> {
+    fn end(&self, py: Python<'_>) -> PyResult<varena::Stats> {
         let r = lock(&self.request).take().ok_or_else(|| error(py, &self.gpu, Error::Closed("request ended".into())))?;
         match Arc::try_unwrap(r) {
-            Ok(r) => detached(py, &self.gpu, || Ok(r.end())).map(Into::into),
+            Ok(r) => detached(py, &self.gpu, || Ok(r.end())),
             Err(r) => {
                 *lock(&self.request) = Some(r);
                 Err(error(py, &self.gpu, Error::Invalid("a call is still running in the request".into())))
@@ -697,13 +600,10 @@ impl PyRegion {
         })
     }
 
-    /// Releases it: (allocated, peak, its blocks still live (ptr, bytes, stream)).
-    fn close(&self, py: Python<'_>) -> PyResult<(u64, u64, Vec<Outlived>)> {
-        let Some(region) = lock(&self.region).take() else { return Ok((0, 0, Vec::new())) };
-        detached(py, &self.gpu, || {
-            let e = region.close();
-            Ok((e.allocated, e.peak, e.outlived.into_iter().map(|o| (o.ptr, o.bytes, o.stream)).collect()))
-        })
+    /// Releases it: its arena's record (allocated, peak, its blocks still live).
+    fn close(&self, py: Python<'_>) -> PyResult<varena::arena::Ended> {
+        let Some(region) = lock(&self.region).take() else { return Ok(varena::arena::Ended::default()) };
+        detached(py, &self.gpu, || Ok(region.close()))
     }
 }
 
@@ -845,6 +745,13 @@ impl Drop for Held {
     }
 }
 
+/// The most this process's memory can reach: physical memory, or less under a limit on it (a
+/// cgroup); None when unreadable. What is sized to the host is sized from this.
+#[pyfunction]
+fn host_limit() -> Option<u64> {
+    platform::contain::host_memory::limit()
+}
+
 /// Pins the binding holds now (Python's pin objects and the tensors that keep one).
 #[pyfunction]
 fn pins_held() -> u64 {
@@ -948,6 +855,7 @@ unsafe extern "C" fn deleter(t: *mut DLManagedTensor) {
     if !t.is_null() {
         // SAFETY: both boxes were leaked by `__dlpack__` and are freed exactly once, here.
         let m = unsafe { Box::from_raw(t) };
+        // SAFETY: as above.
         drop(unsafe { Box::from_raw(m.manager_ctx as *mut Tensor) });
     }
 }
@@ -1042,11 +950,6 @@ impl PyWindow {
 }
 
 
-/// varena's torch allocator figures: (allocated, mapped, peak, per open request (id, allocated,
-/// peak)).
-/// A torch block still live at its arena's end: (ptr, bytes, stream).
-type Outlived = (u64, u64, usize);
-
 type TorchFigures = (u64, u64, u64, u64, Vec<(String, u64, u64)>, Vec<((u64, u64), u64, u64)>);
 
 fn torch_stats(memory: &Memory) -> TorchFigures {
@@ -1057,9 +960,20 @@ fn torch_stats(memory: &Memory) -> TorchFigures {
 // ---------------------------------------------------------------- the module
 
 /// `tensorfs._ext.varena`, importable as such (the package `tensorfs.varena` re-exports it).
+/// A request's record as plain dicts, lists and scalars, written by serde from the record itself
+/// (one definition: what a Runtime relays in its reply and `cozy run show` reads back).
+#[pyfunction]
+fn document<'py>(py: Python<'py>, stats: PyRef<'py, varena::Stats>) -> PyResult<Bound<'py, PyAny>> {
+    let value = serde_json::to_value(&*stats).map_err(|e| PyException::new_err(e.to_string()))?;
+    protocol::executor::to_python(py, &value)
+}
+
 pub fn install(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = parent.py();
     let m = PyModule::new(py, "varena")?;
+    // The lease protocol, read from the module here and from the extension's bytes by TensorD.
+    m.add("LEASE_PROTOCOL", varena::lease::MARKER)?;
+    varena::arena::on_blocking(release_gil, reacquire_gil);
     m.add_class::<PyGpuId>()?;
     m.add_class::<PyFill>()?;
     m.add_class::<PyLevel>()?;
@@ -1076,15 +990,70 @@ pub fn install(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyPin>()?;
     m.add_class::<PyRetained>()?;
     m.add_class::<PyWindow>()?;
-    m.add_class::<PyFills>()?;
-    m.add_class::<PyMoved>()?;
-    m.add_class::<PyRef_>()?;
-    m.add_class::<PyStepStats>()?;
-    m.add_class::<PyStats>()?;
+    m.add_class::<varena::Fills>()?;
+    m.add_class::<varena::Moved>()?;
+    m.add_class::<varena::Ref>()?;
+    m.add_class::<varena::Origin>()?;
+    m.add_class::<varena::StepStats>()?;
+    m.add_class::<varena::MakeRoom>()?;
+    m.add_class::<varena::Stats>()?;
+    m.add_class::<varena::arena::Outlived>()?;
+    m.add_class::<varena::arena::Ended>()?;
     m.add_function(wrap_pyfunction!(pins_held, &m)?)?;
+    m.add_function(wrap_pyfunction!(document, &m)?)?;
+    m.add_function(wrap_pyfunction!(host_limit, &m)?)?;
     m.add("VarenaError", py.get_type::<VarenaError>())?;
     m.add("Exhausted", py.get_type::<Exhausted>())?;
     m.add("StaleBinding", py.get_type::<StaleBinding>())?;
     parent.add_submodule(&m)?;
     py.import("sys")?.getattr("modules")?.set_item("tensorfs._ext.varena", &m)
+}
+
+/// Host pages spilling to the TensorFS home (the store's disk): under memory pressure the kernel
+/// writes them back and drops them, never OOM-kills the executor. With no spill directory they
+/// stay in shared anonymous memory, with a warning.
+fn host_backend(limit: u64) -> HostBackend {
+    let dir = tensorfs::home::resolve(None).map_err(|e| e.to_string()).map(|root| root.join("spill"));
+    match dir.and_then(|d| std::fs::create_dir_all(&d).map(|()| d).map_err(|e| e.to_string())) {
+        Ok(dir) => HostBackend::spilling(limit, dir),
+        Err(why) => {
+            tracing::warn!("varena: host pages stay in anonymous memory, which only swap pages: no spill directory ({why})");
+            HostBackend::new(limit)
+        }
+    }
+}
+
+/// torch's allocator waiting on varena (the manager, its own idle spans) gives up the GIL if
+/// its thread holds it, so an idle capture's thread can end its capture: the token is its
+/// saved thread state, 0 when it held none.
+#[cfg(unix)]
+fn release_gil() -> usize {
+    extern "C" {
+        // Outside the limited API but exported by every CPython since 3.4 (an abi3 extension
+        // resolves it from the interpreter at load): whether this thread holds the GIL.
+        fn PyGILState_Check() -> std::ffi::c_int;
+    }
+    // SAFETY: the interpreter runs (this extension is loaded in it); PyGILState_Check only
+    // reads, and PyEval_SaveThread is called only by the thread that holds the GIL.
+    unsafe {
+        if PyGILState_Check() == 1 {
+            ffi::PyEval_SaveThread() as usize
+        } else {
+            0
+        }
+    }
+}
+
+/// Windows links only the stable ABI's python3.dll, which has no PyGILState_Check: nothing is
+/// given up (TensorD leases Linux GPUs only so far).
+#[cfg(not(unix))]
+fn release_gil() -> usize {
+    0
+}
+
+fn reacquire_gil(token: usize) {
+    if token != 0 {
+        // SAFETY: `token` is the state PyEval_SaveThread returned on this thread.
+        unsafe { ffi::PyEval_RestoreThread(token as *mut ffi::PyThreadState) }
+    }
 }

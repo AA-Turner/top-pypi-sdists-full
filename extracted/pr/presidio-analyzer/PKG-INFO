@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: presidio_analyzer
-Version: 2.2.364
+Version: 2.2.365
 Summary: Presidio Analyzer package
 License-Expression: MIT
 Keywords: presidio_analyzer
@@ -41,6 +41,7 @@ Requires-Dist: onnxruntime (>=1.19) ; (python_version > "3.10") and (extra == "g
 Requires-Dist: onnxruntime (>=1.19,<1.24.1) ; (python_version == "3.10") and (extra == "gliner")
 Requires-Dist: openai (>=1.50.0,<3.0.0) ; extra == "langextract"
 Requires-Dist: phonenumbers (>=9.0.28,<10.0.0)
+Requires-Dist: preshed (<3.0.14)
 Requires-Dist: pydantic (>=2.12.5,<3.0.0)
 Requires-Dist: pyyaml (>=6.0.3,<7.0.0)
 Requires-Dist: regex (>=2023.0.0)

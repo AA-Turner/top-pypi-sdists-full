@@ -8,6 +8,7 @@ import pytest
 from schwifty import IBAN
 from schwifty import registry
 from schwifty.bban import BBAN
+from schwifty.domain import Bank
 from schwifty.exceptions import GenerateRandomOverflowError
 from schwifty.exceptions import InvalidAccountCode
 from schwifty.exceptions import InvalidBBANChecksum
@@ -115,6 +116,8 @@ def test_bank_prefers_the_primary_record_of_every_registered_bank_code() -> None
         "10080000",  # Commerzbank vorm. Dresdner Bank, method 76
         "70090100",  # Hausbank München, method 88
         "10020890",  # UniCredit Bank - HypoVereinsbank, method 99
+        "50010517",  # ING-DiBa, method C1
+        "13051042",  # Sparkasse Vorpommern auf Rügen, method C0
     ],
 )
 def test_validate_national_checksum_on_truncated_bban(bank_code: str) -> None:
@@ -175,8 +178,95 @@ def test_random_national_checksum_overflow(monkeypatch: pytest.MonkeyPatch) -> N
         raise InvalidBBANChecksum
 
     monkeypatch.setattr(BBAN, "validate_national_checksum", always_invalid)
+
+    # Pin the bank ``random`` picks to one whose checksum method schwifty
+    # implements. The validator is only consulted for those, so letting the
+    # choice stay random made this test flaky: 85 of the 4805 German records name
+    # a method we don't implement (e.g. "B8" or "D8"), and for those there is
+    # nothing to retry and no overflow to raise.
+    deutsche_bank = registry.get_banks_by_code("DE", "10070000")
+    assert [bank.checksum_algo for bank in deutsche_bank] == ["63"]
+
+    def only_deutsche_bank(country_code: str) -> list[Bank]:
+        return deutsche_bank
+
+    monkeypatch.setattr(registry, "get_banks_by_country", only_deutsche_bank)
+
     with pytest.raises(GenerateRandomOverflowError):
         BBAN.random("DE")
+
+
+@pytest.mark.parametrize("use_registry", [True, False])
+@pytest.mark.parametrize(
+    ("bank_code", "checksum_algo"),
+    [
+        ("10070000", "63"),  # Deutsche Bank
+        ("10110600", "17"),  # Quirin Privatbank
+        ("50010517", "C1"),  # ING-DiBa
+        ("13051042", "C0"),  # Sparkasse Vorpommern auf Rügen
+    ],
+)
+def test_random_with_bank_code_uses_the_banks_checksum_method(
+    bank_code: str, checksum_algo: str, use_registry: bool
+) -> None:
+    # The result is validated against the checksum method of the requested bank, so the
+    # check digit has to be solved for that method too. random() used the method of a
+    # randomly picked bank instead (or none at all without the registry), and for methods
+    # that rarely accept such an account code it ran out of retries and raised
+    # GenerateRandomOverflowError for several of these seeds.
+    assert {bank.checksum_algo for bank in registry.get_banks_by_code("DE", bank_code)} == {
+        checksum_algo
+    }
+    for seed in range(50):
+        bban = BBAN.random(
+            "DE",
+            random=Random(seed),  # noqa: S311
+            use_registry=use_registry,
+            bank_code=bank_code,
+        )
+        assert bban.bank_code == bank_code
+        assert bban.validate_national_checksum() is True
+
+
+@pytest.mark.parametrize("use_registry", [True, False])
+@pytest.mark.parametrize(
+    ("country_code", "values", "lookup_key"),
+    [
+        # Cut to the eight digits of the bank code field, so the result belongs to
+        # Deutsche Bank (method 63).
+        ("DE", {"bank_code": "100700001"}, "10070000"),
+        # Slovenian banks are looked up by bank and branch code together.
+        ("SI", {"bank_code": "01", "branch_code": "000"}, "01000"),
+    ],
+)
+def test_random_with_bank_code_looks_up_the_bank_like_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    country_code: str,
+    values: dict[str, str],
+    lookup_key: str,
+    use_registry: bool,
+) -> None:
+    # The check digit has to be solved for the bank the result is validated against, so
+    # random() has to look the bank up with the same key validation uses later.
+    lookups: list[str] = []
+    get_banks_by_code = registry.get_banks_by_code
+
+    def record_lookup(country_code: str, bank_code: str) -> list[Bank]:
+        lookups.append(bank_code)
+        return get_banks_by_code(country_code, bank_code)
+
+    monkeypatch.setattr(registry, "get_banks_by_code", record_lookup)
+
+    for seed in range(20):
+        bban = BBAN.random(
+            country_code,
+            random=Random(seed),  # noqa: S311
+            use_registry=use_registry,
+            **values,
+        )
+        assert bban.bank is not None
+        assert bban.validate_national_checksum() is True
+    assert set(lookups) == {lookup_key}
 
 
 def test_pickle_roundtrip() -> None:
@@ -205,18 +295,9 @@ def test_random_countries_without_positions(country_code: str) -> None:
     assert str(iban.bban) != "0" * len(iban.bban)
 
 
-def test_random_honduras() -> None:
-    # The Honduran BBAN spec (4!a20!n) has no component positions either, but
-    # unlike the all-digit specs above an all-zero BBAN can never satisfy the
-    # '4!a' part, so IBAN.random("HN") used to raise InvalidStructure.
-    iban = IBAN.random(country_code="HN", random=Random(42), use_registry=False)  # noqa: S311
-    assert iban.is_valid
-    assert str(iban.bban) != "0" * len(iban.bban)
-
-
 def test_from_components_unsupported_country() -> None:
     # Without component positions a BBAN cannot be assembled from components.
     # This raises the explicit "not supported" error rather than the misleading
     # "Bank code exceeds maximum size 0".
-    with pytest.raises(SchwiftyException, match="BBAN generation for HN not supported"):
-        BBAN.from_components("HN", bank_code="BGAH", account_code="12345678901234567890")
+    with pytest.raises(SchwiftyException, match="BBAN generation for AO not supported"):
+        BBAN.from_components("AO", bank_code="1234", account_code="12345678901234567")

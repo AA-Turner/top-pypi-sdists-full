@@ -15,7 +15,7 @@ from .config import (
     cosine,
 )
 from .engine import CompletedGroup, RolloutEngine
-from .env import Env, InfrastructureError, Tool, tool
+from .env import Env, InfrastructureError, Tool, TurnResult, tool
 from .evaluation import CheckpointSampler, Evaluation, Evaluator, WandbSink
 from .losses import (
     CISPO,
@@ -64,6 +64,7 @@ __all__ = [
     "Tool",
     "Trajectory",
     "Truncation",
+    "TurnResult",
     "WandbSink",
     "build_batch",
     "cosine",

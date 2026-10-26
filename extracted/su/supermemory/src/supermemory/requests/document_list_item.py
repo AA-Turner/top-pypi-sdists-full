@@ -8,7 +8,7 @@ from .document_list_item_system import DocumentListItemSystemParams
 
 class DocumentListItemParams(typing_extensions.TypedDict):
     """
-    A document in this namespace without its content
+    A document in this namespace, optionally including its content
     """
 
     id: str
@@ -26,6 +26,11 @@ class DocumentListItemParams(typing_extensions.TypedDict):
     Detected source or content type
     """
 
+    content: typing_extensions.NotRequired[typing.Optional[str]]
+    """
+    Last published extracted text when include.content is true; null before the first content publication
+    """
+
     summary: typing.Optional[str]
     """
     Generated summary of the document, when available
@@ -38,7 +43,7 @@ class DocumentListItemParams(typing_extensions.TypedDict):
 
     url: typing.Optional[str]
     """
-    Original source URL, when the document was ingested from the web
+    Source URL or uploaded file URL when available
     """
 
     system: DocumentListItemSystemParams

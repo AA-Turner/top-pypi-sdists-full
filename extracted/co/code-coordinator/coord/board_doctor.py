@@ -48,7 +48,7 @@ escalated once could never be re-alerted after it later resolves and recurs.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Sequence
 
@@ -77,6 +77,39 @@ _MERGE_QUEUE_STUCK_CAUSE: dict[str, str] = {
     "human_required": queue_diagnose.CAUSE_GATE_BLOCKED,
 }
 
+#: #3760 Action 1: a drive-queue row whose *live* evidence reads completely
+#: clear — review-approved (``gate_ready``), every check green, and PR
+#: mergeable — but whose entry is sitting in ``blocked`` only because it
+#: already gave up on #2972's fix-round ceiling. Deliberately just
+#: ``CAUSE_NOTHING_BLOCKING``, not ``CAUSE_CI_GREEN`` too:
+#: ``queue_diagnose._rule_ci_green`` fires on green checks alone, and sits
+#: BELOW ``_rule_nothing_blocking`` in rule order, so it is only ever
+#: reached when ``gate_ready``/``mergeable`` were NOT both confirmed true —
+#: i.e. exactly the rows this set must exclude. ``queue_diagnose.diagnose``
+#: itself must never be handed the entry's own stated reason to pick a
+#: cause — it reads live evidence only.
+_LIVE_CLEAR_CAUSES = frozenset({queue_diagnose.CAUSE_NOTHING_BLOCKING})
+
+#: A narrow cause minted by :func:`_reclassify_ceiling_blocked`, never by
+#: `queue_diagnose` itself. Keeping it separate from `_LIVE_CLEAR_CAUSES`
+#: is the whole point: promoting either of those two causes to auto-tier
+#: directly would hand every "nothing blocking"/"ci green" row — including
+#: ones that are not ceiling-blocked at all — to an auto-dispatcher, which
+#: would permanently cut them off from C4 escalation. Only a row this
+#: reclassifier has independently confirmed IS ceiling-blocked gets
+#: relabelled, so the broad causes stay alert-eligible for everything else.
+CAUSE_CEILING_BLOCKED_MERGEABLE = "ceiling-blocked-mergeable"
+
+#: A repo whose merge base has hit `coord.state.BASELINE_RED_STREAK_LIMIT`
+#: consecutive confirmed-red classifications (#3386) poisons every row in
+#: both queues for that repo — the rows are not individually stuck, the
+#: base is red. Never registered in `coord.board_doctor_policy.ALLOWLIST`:
+#: there is no safe auto-action for "the base is broken", only a human
+#: decision to go fix it. :func:`baseline_red_rows` collapses every
+#: affected repo to exactly ONE such row rather than one per queue entry,
+#: so a repo with ten blocked PRs produces one alert, not ten.
+CAUSE_BASELINE_RED = "baseline-red"
+
 
 def default_tier_of(cause: str) -> str:
     """Default `tier_of`: delegates to the real C2 policy.
@@ -93,16 +126,56 @@ def default_tier_of(cause: str) -> str:
     return policy_tier_of(cause)
 
 
+def default_investigate_capacity(config) -> Callable[[StuckRow], bool]:
+    """Default `capacity_check` builder: delegates to the real per-repo cap.
+
+    Mirrors :func:`default_tier_of`'s own rationale exactly: `sweep`/
+    `run_sweep` need a safe default that can never silently diverge from
+    the real policy, which lives in
+    :func:`coord.board_doctor_policy.make_investigate_capacity_check`
+    (#3770). Deferred import for the same reason as `default_tier_of` —
+    no import cycle once this module has finished loading.
+    """
+    from coord.board_doctor_policy import make_investigate_capacity_check  # noqa: PLC0415
+
+    return make_investigate_capacity_check(config)
+
+
+class _CapacityCheckUnset:
+    """Sentinel TYPE distinguishing "caller did not pass `capacity_check` at
+    all" (the default: `run_sweep` builds the real per-repo cap via
+    :func:`default_investigate_capacity`) from "caller explicitly passed
+    `capacity_check=None`" (disable capacity-gating entirely — e.g. a test
+    that wants `sweep`'s other behaviour with no cap in play). A plain
+    ``None`` default could not tell these two cases apart. A dedicated
+    class (rather than a bare ``object()``) lets `run_sweep`'s own
+    *capacity_check* parameter name this sentinel's type honestly in its
+    annotation instead of silently accepting a value outside it.
+    """
+
+
+_CAPACITY_CHECK_UNSET = _CapacityCheckUnset()
+
+
 @dataclass(frozen=True)
 class StuckRow:
     """One drive-queue or merge-queue row this sweep looked at."""
 
-    queue: str  # "drive-queue" or "merge-queue"
+    queue: str  # "drive-queue", "merge-queue", or "baseline-red"
     key: str
     state: str
     cause: str
     confidence: str
     evidence: tuple[str, ...] = ()
+    #: #3761: True for a real per-row entry :func:`collect_rows` is folding
+    #: into a repo-wide :func:`baseline_red_rows` alert rather than acting
+    #: on individually. :func:`sweep` must still count it as present (so
+    #: `clear_absent_rows` does not treat the fold as "resolved" and wipe
+    #: its convergence counter / dismiss its live escalation — the row's
+    #: own cause is untouched, only superseded for THIS sweep) while
+    #: skipping its own dispatch/counter update entirely — the collapsed
+    #: baseline-red row is what alerts, once per repo, not this one.
+    suppressed: bool = False
 
 
 @dataclass(frozen=True)
@@ -114,8 +187,9 @@ class Decision:
     key: str
     cause: str
     tier: str
-    #: "auto-dispatch" | "alert" | "would-alert" | "alert-failed" |
-    #: "alert-skipped" | "no-dispatcher" | "converged-noop"
+    #: "auto-dispatch" | "auto-dispatch-noop" | "alert" | "would-alert" |
+    #: "alert-failed" | "alert-skipped" | "no-dispatcher" | "converged-noop" |
+    #: "suppressed-baseline-red" | "investigate-deferred"
     action: str
     count: int
     escalated: bool
@@ -173,6 +247,40 @@ def merge_queue_rows(entries: Sequence[Any]) -> list[StuckRow]:
     return rows
 
 
+#: Synthetic issue number for the one-row-per-repo :func:`baseline_red_rows`
+#: key — never a real GitHub issue number (those start at 1), so it can
+#: never collide with a genuine per-issue row for the same repo in
+#: `coord.state`'s escalation/convergence tables.
+_BASELINE_RED_ROW_ISSUE = 0
+
+
+def baseline_red_rows(blocked_streaks: Mapping[str, int]) -> list[StuckRow]:
+    """One :class:`StuckRow` per repo whose base is confirmed red (#3386).
+
+    *blocked_streaks* is ``{repo: streak}`` for every repo already past
+    `coord.state.BASELINE_RED_STREAK_LIMIT` consecutive confirmed-red
+    classifications (`coord.state.baseline_red_merge_blocked`) — callers
+    build it by filtering `coord.state.baseline_red_streaks()` through
+    that predicate, never by re-deriving the threshold here (#2096: one
+    question, one answer). Collapses to exactly one row per repo — key
+    ``f"{repo}#{_BASELINE_RED_ROW_ISSUE}"`` — regardless of how many real
+    rows that repo has in either queue, so the escalation ladder files ONE
+    alert for the repo, not one per stuck PR: the rows underneath are not
+    individually wrong, the base is.
+    """
+    return [
+        StuckRow(
+            queue="baseline-red",
+            key=f"{repo_name}#{_BASELINE_RED_ROW_ISSUE}",
+            state="blocked",
+            cause=CAUSE_BASELINE_RED,
+            confidence=queue_diagnose.CONFIDENCE_HIGH,
+            evidence=(f"baseline_red_streak={streak}",),
+        )
+        for repo_name, streak in blocked_streaks.items()
+    ]
+
+
 def drive_queue_rows(diagnoses: Sequence[queue_diagnose.Diagnosis]) -> list[StuckRow]:
     """Adapt :func:`coord.queue_diagnose.run_pass` output to :class:`StuckRow`."""
     return [
@@ -222,6 +330,53 @@ def _episode_stuck_row(episode: dict) -> StuckRow | None:
     )
 
 
+def _reclassify_ceiling_blocked(rows: list[StuckRow]) -> list[StuckRow]:
+    """Relabel #2972-ceiling-blocked-but-live-clear rows (#3760 Action 1).
+
+    Runs strictly AFTER :func:`queue_diagnose.diagnose` has already picked
+    a cause from live evidence alone — this never feeds the entry's stated
+    reason into that classifier (#2235's invariant); it only reads the
+    drive-queue row's OWN stored state/reason afterward, through the one
+    existing predicate every other caller already uses
+    (:func:`coord.drive_queue.fix_round_ceiling_blocked_for_issue`), to ask
+    whether a cause this sweep would otherwise leave at the alert tier is
+    actually a ceiling a fresh budget would clear.
+
+    Also requires :data:`coord.queue_diagnose.CONFIDENCE_LOW` be absent —
+    a low-confidence verdict means the live probe that produced it was
+    itself incomplete (``live.probe_errors`` downgraded it), so "the live
+    reads are clear" has not actually been established for that row; this
+    reclassification, and the auto-dispatch it feeds, must not fire on an
+    unconfirmed reading.
+    """
+    from coord.drive_queue import fix_round_ceiling_blocked_for_issue  # noqa: PLC0415
+
+    reclassified: list[StuckRow] = []
+    for row in rows:
+        if (
+            row.queue == "drive-queue"
+            and row.cause in _LIVE_CLEAR_CAUSES
+            and row.confidence != queue_diagnose.CONFIDENCE_LOW
+        ):
+            repo_name, _, issue_text = row.key.rpartition("#")
+            if (
+                repo_name
+                and issue_text.isdigit()
+                and fix_round_ceiling_blocked_for_issue(repo_name, int(issue_text))
+            ):
+                row = replace(
+                    row,
+                    cause=CAUSE_CEILING_BLOCKED_MERGEABLE,
+                    evidence=row.evidence
+                    + (
+                        "drive_queue: blocked on the #2972 fix-round ceiling "
+                        "while live reads clear",
+                    ),
+                )
+        reclassified.append(row)
+    return reclassified
+
+
 def collect_rows(*, config, trigger: str = "board-doctor-sweep") -> list[StuckRow]:
     """The impure production walk over both queues (#3758).
 
@@ -250,7 +405,12 @@ def collect_rows(*, config, trigger: str = "board-doctor-sweep") -> list[StuckRo
     from coord.drive_queue import entries_from_rows  # noqa: PLC0415
     from coord.health.aggregate import local_fleet_health_block  # noqa: PLC0415
     from coord.merge_queue import load_queue as load_merge_queue  # noqa: PLC0415
-    from coord.state import build_board, list_drive_queue  # noqa: PLC0415
+    from coord.state import (  # noqa: PLC0415
+        baseline_red_merge_blocked,
+        baseline_red_streaks,
+        build_board,
+        list_drive_queue,
+    )
 
     episodes = [
         ep for ep in block_log.episodes(block_log.read_events()) if not ep.get("resolved")
@@ -278,7 +438,45 @@ def collect_rows(*, config, trigger: str = "board-doctor-sweep") -> list[StuckRo
     )
     rows = drive_queue_rows(diagnoses)
     rows.extend(row for ep in settled_episodes if (row := _episode_stuck_row(ep)) is not None)
+    rows = _reclassify_ceiling_blocked(rows)
     rows.extend(merge_queue_rows(load_merge_queue()))
+
+    blocked_streaks = {
+        repo_name: streak
+        for repo_name, streak in baseline_red_streaks().items()
+        if baseline_red_merge_blocked(repo_name)
+    }
+    if blocked_streaks:
+        # A red base poisons every row for that repo in both queues — they
+        # are not individually stuck, so this withdraws them from this
+        # sweep's OWN tier/dispatch decision (no C3 auto-action, no second
+        # C4 alert) in favor of the single synthetic row
+        # :func:`baseline_red_rows` builds. #3761 review: marking them
+        # ``suppressed=True`` rather than dropping them from *rows*
+        # entirely is load-bearing — :func:`sweep`'s ``clear_absent_rows``
+        # walk treats anything missing from *rows* as resolved (wrong
+        # here: the underlying cause is untouched, just superseded for
+        # this sweep) and would wipe their convergence counters and
+        # dismiss any live escalation filed against them, only for them
+        # to reappear un-escalated — and re-page — the moment the base
+        # flaps green. Keeping the row present (just suppressed) keeps it
+        # in `sweep`'s ``touched`` set instead.
+        #
+        # #3761 non-blocking: this also withdraws C3 safe auto-actions
+        # (e.g. a stale `CAUSE_PR_MERGED` row's cleanup) while the streak
+        # holds — deliberate, since any per-row action here would be
+        # against evidence this sweep no longer trusts (the base, not the
+        # row, is why the queue diagnosis is unreliable right now).
+        from coord.board_doctor_policy import _parse_row_key  # noqa: PLC0415
+
+        def _suppress_if_blocked(row: StuckRow) -> StuckRow:
+            parsed = _parse_row_key(row.key)
+            if parsed is not None and parsed[0] in blocked_streaks:
+                return replace(row, suppressed=True)
+            return row
+
+        rows = [_suppress_if_blocked(row) for row in rows]
+        rows.extend(baseline_red_rows(blocked_streaks))
     return rows
 
 
@@ -286,7 +484,7 @@ def sweep(
     rows: Sequence[StuckRow],
     *,
     tier_of: Callable[[str], str] = default_tier_of,
-    auto_dispatchers: Mapping[str, Callable[[StuckRow], None]] | None = None,
+    auto_dispatchers: Mapping[str, Callable[[StuckRow], bool]] | None = None,
     alert_dispatcher: Callable[[StuckRow], bool | str] | None = None,
     dry_run: bool = False,
     convergence_limit: int = CONVERGENCE_LIMIT,
@@ -294,6 +492,7 @@ def sweep(
     now: Callable[[], datetime] | None = None,
     clear_absent_rows: bool = True,
     escalation_resolver: Callable[[str, str], None] | None = None,
+    capacity_check: Callable[[StuckRow], bool] | None = None,
 ) -> SweepReport:
     """The pure harness core: classify-already-done rows in, decisions out.
 
@@ -323,11 +522,26 @@ def sweep(
       4. Auto tier: dispatch via ``auto_dispatchers[cause]`` while under
          *convergence_limit*; at/past the limit, fall back to the alert
          path exactly once instead of re-dispatching the same auto action
-         forever — the "stop being re-acted" half of #3758.
+         forever — the "stop being re-acted" half of #3758. An
+         ``auto_dispatchers`` callable returns ``True`` only once its action
+         is CONFIRMED to have done something (mirroring *alert_dispatcher*'s
+         own confirmed-truthy contract); a falsy return — the underlying C3
+         handler's primitive reported a no-op (row already gone, nothing to
+         requeue, …) — is recorded as ``action="auto-dispatch-noop"`` rather
+         than ``"auto-dispatch"``, so the decision log never claims an
+         action happened when the queue was, in fact, left untouched.
 
     *dry_run* classifies and logs but dispatches nothing and writes no
     convergence counter — a second sweep immediately after a dry run sees
     the SAME state a first sweep would, by construction.
+
+    A row with ``suppressed=True`` (:func:`collect_rows`'s baseline-red
+    fold, #3761) is counted as present — it is added to ``touched`` and
+    logged with ``action="suppressed-baseline-red"`` — but skips tier
+    decision, convergence counting, and both dispatch paths entirely: it
+    is withdrawn from THIS sweep's own decision in favor of the single
+    collapsed baseline-red row elsewhere in *rows*, not resolved, so it
+    must not be treated as absent by *clear_absent_rows* below.
 
     "CONSECUTIVE sweeps" (the module docstring's convergence contract) is
     only true if a row that stops appearing also stops counting. *rows* is
@@ -351,6 +565,25 @@ def sweep(
     failure interrupt the clear loop — that is the resolver's own
     responsibility to swallow, exactly like *alert_dispatcher* is expected
     to never raise.
+
+    *capacity_check*, if given, is consulted BEFORE the convergence
+    counter is bumped or ``tier_of``/dispatch runs (#3770): a row for
+    which ``capacity_check(row)`` returns ``True`` is deferred — logged
+    with ``action="investigate-deferred"`` at whatever count/escalated
+    state the prior sweep left it at, added to ``touched`` (so
+    *clear_absent_rows* leaves it alone; it is still present, just not
+    reached this sweep), and otherwise skipped entirely: no counter
+    movement, no dispatch, no escalation. Peeking ``capacity_check(row)``
+    never itself claims a slot — only a row whose dispatch is actually
+    CONFIRMED this sweep (``action == "auto-dispatch"``) does, via
+    ``capacity_check.confirm_dispatch(row)`` if that method exists (see
+    :class:`coord.board_doctor_policy.InvestigateCapacityGate`). That is
+    what makes "bounding how many legs one sweep can fan out" true
+    without ever starving a row outright: a row that is let through the
+    check but turns out to be a converged-noop, an internal alert-tier
+    fallback, or an in-flight no-op never holds a slot it never used, so
+    the next row in *rows* — not the same row again next sweep — is the
+    one that gets the freed capacity.
     """
     sweep_id = sweep_id or f"sweep-{(now or _utcnow)().strftime('%Y%m%dT%H%M%SZ')}"
     auto_dispatchers = auto_dispatchers or {}
@@ -387,6 +620,81 @@ def sweep(
 
     for row in rows:
         touched.add((row.queue, row.key))
+        if row.suppressed:
+            # #3761: present (so `clear_absent_rows` below leaves its
+            # counter and any live escalation alone) but deliberately
+            # neither counted nor dispatched — the collapsed baseline-red
+            # row elsewhere in *rows* is what alerts for this repo. Reads
+            # (never writes) the persisted counter purely so the decision
+            # log / CLI can still show what this row was last known at,
+            # instead of a misleading ``count=0``.
+            prior = state.board_doctor_row_state(row.queue, row.key) or {}
+            decision = Decision(
+                queue=row.queue,
+                key=row.key,
+                cause=row.cause,
+                tier=tier_of(row.cause),
+                action="suppressed-baseline-red",
+                count=int(prior.get("count", 0)),
+                escalated=bool(prior.get("escalated", False)),
+                dry_run=dry_run,
+            )
+            report.decisions.append(decision)
+            if not dry_run:
+                state.record_board_doctor_decision(
+                    {
+                        "sweep_id": sweep_id,
+                        "queue": decision.queue,
+                        "key": decision.key,
+                        "cause": decision.cause,
+                        "tier": decision.tier,
+                        "action": decision.action,
+                        "count": decision.count,
+                        "escalated": decision.escalated,
+                        "confidence": row.confidence,
+                        "evidence": list(row.evidence),
+                        "recorded_at": (now or _utcnow)().isoformat(),
+                    }
+                )
+            continue
+        if capacity_check is not None and capacity_check(row):
+            # #3770: the row's repo has no free investigate-tier slot this
+            # sweep — present (so `clear_absent_rows` leaves its counter
+            # and any live escalation alone) but deliberately neither
+            # counted nor dispatched, same shape as the suppressed branch
+            # above. Reads (never writes) the persisted counter so the
+            # decision log / CLI still shows the row's last known count
+            # instead of a misleading ``count=0``, and a deferred row
+            # carries no escalation side effect of its own.
+            prior = state.board_doctor_row_state(row.queue, row.key) or {}
+            decision = Decision(
+                queue=row.queue,
+                key=row.key,
+                cause=row.cause,
+                tier=tier_of(row.cause),
+                action="investigate-deferred",
+                count=int(prior.get("count", 0)),
+                escalated=bool(prior.get("escalated", False)),
+                dry_run=dry_run,
+            )
+            report.decisions.append(decision)
+            if not dry_run:
+                state.record_board_doctor_decision(
+                    {
+                        "sweep_id": sweep_id,
+                        "queue": decision.queue,
+                        "key": decision.key,
+                        "cause": decision.cause,
+                        "tier": decision.tier,
+                        "action": decision.action,
+                        "count": decision.count,
+                        "escalated": decision.escalated,
+                        "confidence": row.confidence,
+                        "evidence": list(row.evidence),
+                        "recorded_at": (now or _utcnow)().isoformat(),
+                    }
+                )
+            continue
         if dry_run:
             prior = state.board_doctor_row_state(row.queue, row.key) or None
             updated = state.next_board_doctor_counter(prior, row.cause)
@@ -404,14 +712,29 @@ def sweep(
         elif count < convergence_limit:
             dispatcher = auto_dispatchers.get(row.cause)
             if dispatcher is not None:
-                if not dry_run:
-                    dispatcher(row)
-                action = "auto-dispatch"
+                if dry_run:
+                    action = "auto-dispatch"
+                else:
+                    performed = dispatcher(row)
+                    action = "auto-dispatch" if performed else "auto-dispatch-noop"
             else:
                 action = "no-dispatcher"
         else:
             if not escalated:
                 escalated, action = _alert_action(row)
+
+        if action == "auto-dispatch" and capacity_check is not None:
+            # #3770: claim this row's capacity slot only now that its
+            # dispatch is CONFIRMED (dry-run's own "would dispatch" counts
+            # as confirmed too, same as the real-run branch above sets
+            # `action="auto-dispatch"` only once `dispatcher(row)` returns
+            # truthy) — never merely because `capacity_check` let the row
+            # through. `confirm_dispatch` is optional on *capacity_check*
+            # (a bare `Callable[[StuckRow], bool]` test double has none) so
+            # this is a no-op rather than an error for those callers.
+            confirm_dispatch = getattr(capacity_check, "confirm_dispatch", None)
+            if confirm_dispatch is not None:
+                confirm_dispatch(row)
 
         decision = Decision(
             queue=row.queue,
@@ -460,19 +783,34 @@ def run_sweep(
     *,
     config,
     tier_of: Callable[[str], str] = default_tier_of,
-    auto_dispatchers: Mapping[str, Callable[[StuckRow], None]] | None = None,
+    auto_dispatchers: Mapping[str, Callable[[StuckRow], bool]] | None = None,
     alert_dispatcher: Callable[[StuckRow], bool | str] | None = None,
     dry_run: bool = False,
     convergence_limit: int = CONVERGENCE_LIMIT,
     escalation_resolver: Callable[[str, str], None] | None = None,
+    capacity_check: Callable[[StuckRow], bool] | _CapacityCheckUnset | None = (
+        _CAPACITY_CHECK_UNSET
+    ),
 ) -> SweepReport:
     """Production entry point: :func:`collect_rows` then :func:`sweep` (#3758).
 
     The only function the CLI subcommand calls — everything it needs
     (`gh`, the board, the merge queue) is read here, so :func:`sweep` itself
     stays importable and runnable with none of that.
+
+    *capacity_check* defaults to the sentinel :data:`_CAPACITY_CHECK_UNSET`
+    rather than plain ``None`` (#3770): "caller did not pass it at all"
+    resolves to the real per-repo investigate-tier cap via
+    :func:`default_investigate_capacity`, while "caller explicitly passed
+    ``capacity_check=None``" disables capacity-gating entirely — a plain
+    ``None`` default could not tell those two cases apart.
     """
     rows = collect_rows(config=config)
+    resolved_capacity_check = (
+        default_investigate_capacity(config)
+        if capacity_check is _CAPACITY_CHECK_UNSET
+        else capacity_check
+    )
     return sweep(
         rows,
         tier_of=tier_of,
@@ -481,6 +819,7 @@ def run_sweep(
         dry_run=dry_run,
         convergence_limit=convergence_limit,
         escalation_resolver=escalation_resolver,
+        capacity_check=resolved_capacity_check,
     )
 
 

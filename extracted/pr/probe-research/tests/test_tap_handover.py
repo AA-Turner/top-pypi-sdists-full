@@ -51,6 +51,7 @@ argv = sys.argv[1:]
 with open(os.environ["PROBE_TEST_RECORDED"], "a") as handle:
     handle.write(json.dumps({"argv": argv, "source": os.environ.get("PROBE_TAP_SOURCE"),
                              "root": os.environ.get("CLAUDE_PLUGIN_ROOT"),
+                             "kimi_root": os.environ.get("KIMI_PLUGIN_ROOT"),
                              "pythonpath": os.environ.get("PYTHONPATH"),
                              "owned": {k: os.environ.get(k) for k in %r}}) + "\n")
 code = int(os.environ.get("PROBE_TEST_RECORD_EXIT", "0"))
@@ -263,6 +264,7 @@ def test_an_old_watcher_the_service_will_not_take_keeps_recording(box):
     assert old.poll() is None and Path(f"{box.stem}.pid").read_text() == str(old.pid)
 
 
+@pytest.mark.heavy
 def test_a_failed_tap_record_is_tried_again_later(box):
     """A failed `tap record` is not the end of it: a service restarting right
     after the update that brought this route (or a restart onto a newer tap
@@ -772,3 +774,91 @@ def test_only_a_provably_gone_pid_file_is_removed(monkeypatch):
     assert not th._gone(os.getpid(), sid), "an unreadable live pid is kept"
     monkeypatch.setattr(th, "_cmdline", lambda pid: f"bash -c : tap watch wrapper {sid}")
     assert not th._gone(os.getpid(), sid)
+
+
+# -- Kimi Code ------------------------------------------------------------------
+
+
+def _kimi_tap(managed: Path, version: str, *, handback: bool = True) -> Path:
+    root = managed / f"probe-research-tap@{version}"
+    (root / "tap").mkdir(parents=True)
+    (root / ".kimi-plugin").mkdir()
+    (root / ".kimi-plugin" / "plugin.json").write_text(json.dumps({"name": "probe-research-tap", "version": version}))
+    for name in ("__init__.py", "record_client.py", "hosted.py", *(("handback.py",) if handback else ())):
+        (root / "tap" / name).write_text(f'__version__ = "{version}"\n' if name == "__init__.py" else "")
+    (root / "tap" / "__main__.py").write_text(_TAP_MAIN)
+    return root
+
+
+@pytest.fixture
+def kimi(box):
+    """The box as a Kimi Code machine: Probe's plugin and two taps in Kimi's
+    `plugins/managed/<id>@<version>` folders, the newer tap recorded in its
+    `installed.json`, and this route run from the plugin's own managed copy
+    (Kimi's entry exports KIMI_PLUGIN_ROOT; its adapter sets CLAUDE_PLUGIN_ROOT
+    for the routes, `harness_io`)."""
+    import shutil
+
+    plugins = box.home / ".kimi-code" / "plugins"
+    managed = plugins / "managed"
+    copy = managed / "probe-research@0.177.0"
+    shutil.copytree(HOOKS, copy / "hooks", ignore=shutil.ignore_patterns("__pycache__"))
+    (copy / ".kimi-plugin").mkdir()
+    (copy / ".kimi-plugin" / "plugin.json").write_text(json.dumps({"name": "probe-research", "version": "0.177.0"}))
+    old, new = _kimi_tap(managed, "0.10.0", handback=False), _kimi_tap(managed, "0.10.20")
+    (plugins / "installed.json").write_text(json.dumps({"plugins": [
+        {"id": "probe-research", "root": str(copy)}, {"id": "probe-research-tap", "root": str(new)}]}))
+    box.env.pop("CLAUDECODE", None)
+    box.env.pop("CLAUDE_CODE_SESSION_ID", None)
+    box.env.update({"PROBE_AGENT": "kimi_code", "KIMI_PLUGIN_ROOT": str(copy), "CLAUDE_PLUGIN_ROOT": str(copy)})
+    box.kimi_copy, box.kimi_old, box.kimi_new = copy, old, new
+    box.tap_state = box.home / ".kimi-code" / "state" / "probe-research-tap"
+    return box
+
+
+def _kimi_prompt(box) -> subprocess.CompletedProcess:
+    payload = {"session_id": box.sid, "hook_event_name": "UserPromptSubmit", "prompt": "go",
+               "transcript_path": str(box.tmp / f"{box.sid}.jsonl"), "cwd": str(box.tmp)}
+    return subprocess.run([sys.executable, str(box.kimi_copy / "hooks" / "tap_handover.py")],
+                          input=json.dumps(payload), capture_output=True, text=True, timeout=30, env=box.env)
+
+
+def test_an_old_kimi_watcher_moves_to_the_service_on_the_tap_kimis_list_records(kimi):
+    """Kimi parity K1: Kimi's sessions share Claude Code's watcher prefix, and its
+    prompt entries run this route from the plugin copy its list records. A Kimi
+    session on a tap from before the hand-back moves at its next prompt, onto the
+    tap `installed.json` records, run as the tap's own hooks run it there
+    (KIMI_PLUGIN_ROOT is its folder)."""
+    old = kimi.wrapper()
+    done = _kimi_prompt(kimi)
+    assert done.returncode == 0 and done.stdout == "", done.stderr
+    _moved(kimi, 2)
+    record = kimi.records()[0]
+    assert record["source"] == "kimi_code" and record["pythonpath"] == str(kimi.kimi_new)
+    assert record["kimi_root"] == str(kimi.kimi_new)
+    argv = record["argv"]
+    assert argv[argv.index("--plugin-root") + 1] == str(kimi.kimi_new)
+    assert argv[argv.index("--transcript") + 1] == str(kimi.tmp / f"{kimi.sid}.jsonl")
+    assert wait_for(lambda: old.poll() is not None, 10), "the old wrapper still runs"
+
+
+def test_a_kimi_watcher_from_before_version_files_is_read_from_its_folder_name(kimi):
+    """Kimi's folders are `probe-research-tap@<version>`, not `<plugin>/<version>`."""
+    command = f"bash wrapper {kimi.kimi_old}/hooks/session-start.sh tap watch {kimi.sid}"
+    found = _load()._VERSIONED.search(command)
+    assert found is not None and found.group(2) == "0.10.0"
+
+
+def test_a_kimi_session_with_no_newer_recorded_tap_waits(kimi):
+    (kimi.home / ".kimi-code" / "plugins" / "installed.json").write_text(json.dumps({"plugins": [
+        {"id": "probe-research", "root": str(kimi.kimi_copy)}, {"id": "probe-research-tap", "root": str(kimi.kimi_old)}]}))
+    kimi.wrapper()
+    assert _kimi_prompt(kimi).returncode == 0
+    time.sleep(0.5)
+    assert kimi.records() == [] and Path(f"{_marker(kimi)}.later").exists()
+
+
+def test_the_route_runs_under_kimi():
+    """The route's shell no longer leaves Kimi's sessions alone."""
+    for plugin in ("probe-research", "probe-research-daemon"):
+        assert "KIMI_PLUGIN_ROOT" not in _command(plugin)

@@ -17,7 +17,8 @@ from nameparser._pipeline._state import (
 from nameparser._pipeline._tokenize import tokenize
 from nameparser._pipeline._vocab import (
     ambiguous_class_candidate, ambiguous_class_member,
-    caps_shape_candidate, surname_unit_facts, surname_unit_tags,
+    caps_shape_candidate, is_paired_initials, surname_unit_facts,
+    surname_unit_tags,
 )
 from nameparser._policy import Policy
 from nameparser._types import AmbiguityKind, Role
@@ -153,11 +154,11 @@ def test_bare_ambiguous_acronym_in_acronyms_is_not_suffix() -> None:
 
 
 def test_one_case_subset_member_is_an_initial_and_reports() -> None:
-    # rules/P3 says a one-case name carries no case evidence, so
+    # rules/P8 says a one-case name carries no case evidence, so
     # the vocabulary decides, and 'e' is marked as reading both ways.
     # (No colon after the rule id on purpose: tests/ is swept by
     # test_doc_citations.py, and the colon form must quote the rule
-    # verbatim and puts this file on P3's implemented: list.)
+    # verbatim and puts this file on P8's implemented: list.)
     for text in ("jose e maria santos", "JOSE E MARIA SANTOS"):
         out = _classified(text)
         letter = "e" if text.islower() else "E"
@@ -219,7 +220,7 @@ def test_the_catalan_link_reads_as_an_initial_in_a_one_case_name(
     # #397's letter through #527's fork, and the reason it ships
     # marked: a bare I initial is as common as a bare E, so a name
     # with no case evidence reads the letter as an initial and says
-    # so. rules/P3 says the marked set is where that answer lives.
+    # so. rules/P8 says the marked set is where that answer lives.
     for text in ("josep carod i rovira", "JOSEP CAROD I ROVIRA"):
         out = _classified(text)
         letter = "i" if text.islower() else "I"
@@ -257,7 +258,7 @@ def test_removing_the_link_from_the_subset_restores_joining() -> None:
 
 def test_an_orphan_marker_is_inert_even_in_the_emitter() -> None:
     # 'e' left in conjunctions_ambiguous but removed from conjunctions
-    # -- legal since the pair is not in _SUBSET_FIELDS (decisions/P3)
+    # -- legal since the pair is not in _SUBSET_FIELDS (decisions/P8)
     # -- never takes the fork, so 'E' in an all-upper name falls to the
     # else branch and is tagged "initial" by is_initial() alone, same as
     # any bare capital. Without the emitter's base-vocabulary gate this
@@ -359,7 +360,7 @@ def test_a_letter_after_the_maiden_marker_reads_as_its_capital(
         letter: str) -> None:
     # symmetric with the delimited-clause case: a word inside the
     # maiden clause itself is not one of the name's own words either,
-    # so it never enters P3's fork, which would read the marked 'e' as
+    # so it never enters P8's fork, which would read the marked 'e' as
     # an initial WITH a report and the unmarked 'y' as a connective.
     # It is read as its capital in the clause is (rules/T4, #723): an
     # initial, reported by nobody.
@@ -586,6 +587,10 @@ def test_delimited_content_never_joins_the_shape_class() -> None:
 @pytest.mark.parametrize("word,policy,one_case", [
     ("X.Y.Z.", Policy(), None),
     ("A.B.", Policy(), None),
+    # #864: paired initials of a cased script are held back from the
+    # class outside the comma; a caseless script's pair is not
+    ("B.K", Policy(), None),
+    ("พ.บ.", Policy(), None),
     ("M.A.", Policy(), None),
     ("A.B.C.", Policy(), None),
     ("Msc.Ed.", Policy(), None),
@@ -671,7 +676,13 @@ def test_ambiguous_class_candidate_agrees_with_the_tag(
     candidate = (ambiguous_class_candidate(word, lex, policy)
                  or (policy.unlisted_caps_suffixes
                      and caps_shape_candidate(word, lex, policy, one_case)))
-    assert candidate == ("vocab:suffix-ambiguous" in tags)
+    # rules/S3's paired initials, the one shape the two answers part
+    # on by design: the candidate (segment's, before the comma has
+    # been read) admits them, and classify holds the class tag back,
+    # which `_comma.decide` restores at the comma C5 reads (#864)
+    paired = (is_paired_initials(word) and word.upper() != word.lower()
+              and not ambiguous_class_member(word, lex))
+    assert (candidate and not paired) == ("vocab:suffix-ambiguous" in tags)
     shape_member = candidate and not ambiguous_class_member(word, lex)
     assert (SHAPE_ACRONYM_TAG in tags) == shape_member
 

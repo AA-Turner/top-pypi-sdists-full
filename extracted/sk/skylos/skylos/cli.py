@@ -1354,10 +1354,58 @@ def _detect_link_file(project_root: Path) -> Path | None:
         return None
 
 
-def _print_upload_destination(console: Console, project_root: Path):
+def _resolve_upload_destination(project_root: Path):
+    from skylos.cloud.upload_destination import resolve_upload_destination
+
+    try:
+        return resolve_upload_destination(project_root)
+    except Exception:
+        logger.debug("Could not resolve the Cloud upload destination", exc_info=True)
+        return None
+
+
+def _print_upload_receipt(console: Console, destination, upload_resp) -> None:
+    if destination is None or not isinstance(upload_resp, dict):
+        return
+    if not upload_resp.get("success"):
+        return
+    from skylos.api import BASE_URL
+    from skylos.cloud.upload_destination import receipt_lines
+
+    for line in receipt_lines(destination, upload_resp, BASE_URL):
+        console.print(_escape_markup(line), soft_wrap=True)
+
+
+def _refuse_mismatched_upload(console: Console | None, destination) -> bool:
+    from skylos.cloud.upload_destination import (
+        mismatch_refusal_lines,
+        should_refuse_upload,
+    )
+
+    if destination is None or not should_refuse_upload(destination):
+        return False
+    for line in mismatch_refusal_lines(destination):
+        if console is None:
+            print(line, file=sys.stderr)
+        else:
+            console.print(f"[bad]{_escape_markup(line)}[/bad]", soft_wrap=True)
+    return True
+
+
+def _print_upload_destination(console: Console, project_root: Path, destination=None):
     using_env = bool(os.getenv("SKYLOS_TOKEN"))
     link_path = _detect_link_file(project_root)
     has_link = link_path is not None
+
+    from skylos.cloud.upload_destination import UPLOAD_CONTENTS_LINE
+
+    if destination is not None and destination.key_source != "none":
+        from skylos.cloud.upload_destination import destination_lines
+
+        for line in destination_lines(destination):
+            console.print(f"[brand]{_escape_markup(line)}[/brand]", soft_wrap=True)
+        console.print(f"[muted]{_escape_markup(UPLOAD_CONTENTS_LINE)}[/muted]", soft_wrap=True)
+        return has_link, using_env
 
     if using_env:
         console.print("[brand]Auto-uploading:[/brand] SKYLOS_TOKEN")
@@ -1369,6 +1417,7 @@ def _print_upload_destination(console: Console, project_root: Path):
         console.print(
             "[warn]Upload destination:[/warn] default token (no repo link found)"
         )
+    console.print(f"[muted]{_escape_markup(UPLOAD_CONTENTS_LINE)}[/muted]", soft_wrap=True)
 
     return has_link, using_env
 
@@ -1445,52 +1494,6 @@ def _is_ci():
     )
 
 
-def _print_upload_cta(console: Console, project_root: Path):
-    if _is_ci():
-        return
-
-    has_link = _detect_link_file(project_root) is not None
-    has_env = bool(os.getenv("SKYLOS_TOKEN"))
-    connected = has_link or has_env
-
-    console.print()
-    if connected:
-        console.print(
-            Panel(
-                "\n".join(
-                    [
-                        "[bold]Upload to Skylos Cloud for trend tracking and PR blocking[/bold]",
-                        "",
-                        "  [bold cyan]skylos . --upload[/bold cyan]",
-                        "",
-                        "  [dim]Dashboard:[/dim] https://skylos.dev/dashboard",
-                    ]
-                ),
-                title="[bold]☁️  Skylos Cloud[/bold]",
-                border_style="blue",
-                padding=(1, 2),
-            )
-        )
-    else:
-        console.print(
-            Panel(
-                "\n".join(
-                    [
-                        "[bold]Upload to Skylos Cloud in one command[/bold]",
-                        "",
-                        "  [bold cyan]skylos . --upload[/bold cyan]",
-                        "",
-                        "  [dim]Browser opens → pick project → done![/dim]",
-                        "  [dim]Dashboard:[/dim] https://skylos.dev",
-                    ]
-                ),
-                title="[bold]☁️  Skylos Cloud[/bold]",
-                border_style="blue",
-                padding=(1, 2),
-            )
-        )
-
-
 def interactive_selection(
     console: Console, unused_functions, unused_imports, root_path=None
 ):
@@ -1561,6 +1564,7 @@ def print_badge(
     quality_count=0,
     show_badge=True,
     uncertainty_count=0,
+    summary=None,
 ):
     """Print the closing count line, plus a README badge unless one was shown.
 
@@ -1580,6 +1584,8 @@ def print_badge(
         if uncertainty_count:
             noun = "symbol" if uncertainty_count == 1 else "symbols"
             headline += f" Usage remains uncertain for {uncertainty_count} {noun}."
+        if summary:
+            headline = summary
         if not show_badge:
             console.print(headline)
             return
@@ -1612,6 +1618,8 @@ def print_badge(
         headline = f"Found {', '.join(counts[:-1])} and {counts[-1]}."
     else:
         headline = f"Found {counts[0]}."
+    if summary:
+        headline = summary
 
     if not show_badge:
         console.print(headline)
@@ -2424,6 +2432,12 @@ def _run_login_command(_argv):
     return run_login_command()
 
 
+def _run_cloud_command(argv):
+    from skylos.commands.cloud_cmd import run_cloud_command
+
+    return run_cloud_command(argv, cli_module=sys.modules[__name__])
+
+
 def _run_sync_command(argv):
     from skylos.commands.sync_cmd import run_sync_command
 
@@ -3065,7 +3079,9 @@ def _gate_requested(args) -> bool:
     return bool(getattr(args, "gate", False) or getattr(args, "strict", False))
 
 
-def _announce_gate_stop(console, args, reason: str, *, exit_code: int, hint=None):
+def _announce_gate_stop(
+    console, args, reason: str, *, exit_code: int, hint=None, fetch_hint=None
+):
     """A --gate/--strict run that stopped early still ends with a verdict.
 
     Rich and pretty output print on the console; every other format prints on
@@ -3077,6 +3093,8 @@ def _announce_gate_stop(console, args, reason: str, *, exit_code: int, hint=None
     lines = [verdict, f"   • {reason}"]
     if hint:
         lines.append(f"       {hint}")
+    if fetch_hint:
+        lines.append(f"       {fetch_hint}")
     if console is None or _is_main_machine_output(args):
         sys.stdout.flush()
         print("\n".join(lines), file=sys.stderr)
@@ -3101,17 +3119,47 @@ def _exit_config_error(parser, args, message: str):
     parser.print_usage(sys.stderr)
     print(f"{parser.prog}: error: {message}", file=sys.stderr)
     hint = POLICY_BASE_HINT if "PR policy base" in message else None
-    _announce_gate_stop(None, args, message, exit_code=2, hint=hint)
+    fetch_hint = None
+    if hint:
+        fetch_hint = _base_fetch_hint(args)
+    _announce_gate_stop(
+        None, args, message, exit_code=2, hint=hint, fetch_hint=fetch_hint
+    )
     raise SystemExit(2)
+
+
+def _base_fetch_hint(args):
+    """The git command that fetches a missing `--diff` base, or None."""
+    base = getattr(args, "diff_base", None) or getattr(args, "diff", None)
+    if base == "auto":
+        base = auto_diff_base_ref()
+    try:
+        from skylos.cicd.platforms import missing_base_hint
+
+        return missing_base_hint(
+            base, _resolve_main_project_root(getattr(args, "path", None) or ["."])
+        )
+    except Exception:
+        return None
 
 
 def _exit_diff_unavailable(args, message: str):
     """Stop with exit 2 when the diff base cannot be read; gates say so."""
     reason = f"Skylos diff unavailable: {message}"
+    fetch_hint = _base_fetch_hint(args)
     if _gate_requested(args):
-        _announce_gate_stop(None, args, reason, exit_code=2, hint=DIFF_UNAVAILABLE_HINT)
+        _announce_gate_stop(
+            None,
+            args,
+            reason,
+            exit_code=2,
+            hint=DIFF_UNAVAILABLE_HINT,
+            fetch_hint=fetch_hint,
+        )
     else:
         print(reason, file=sys.stderr)
+        if fetch_hint:
+            print(fetch_hint, file=sys.stderr)
     raise SystemExit(2)
 
 
@@ -4629,6 +4677,12 @@ def main() -> None:
                     ".hh",
                     ".hxx",
                     ".php",
+                    ".module",
+                    ".install",
+                    ".inc",
+                    ".theme",
+                    ".profile",
+                    ".engine",
                     ".rs",
                     ".dart",
                     ".kt",
@@ -5907,6 +5961,7 @@ def main() -> None:
                     strict=getattr(agent_args, "strict", False),
                     analysis_mode="hybrid",
                     analyzer_owned=True,
+                    failed_gate_note=bool(getattr(agent_args, "force", False)),
                 )
                 if not isinstance(upload_response, dict) or not upload_response.get(
                     "success"

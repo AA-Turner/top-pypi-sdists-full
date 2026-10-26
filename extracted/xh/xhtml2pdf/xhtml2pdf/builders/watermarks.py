@@ -131,12 +131,24 @@ class WaterMarks:
                     if bgfile.getMimeType().startswith("image/"):
                         # The background is an image, we need to generate a PDF backdrop for this
                         # image.
+                        width, height = pagetemplate.pagesize
+                        bleed = pagetemplate.bleed
+                        context = pgcontext
+                        position = (pgcontext or {}).get("object_position")
+                        if bleed and position:
+                            # The backdrop starts at the edge of the bleed; a
+                            # position is measured from the trim.
+                            x, y = position
+                            context = {
+                                **pgcontext,
+                                "object_position": (x + bleed, y + bleed),
+                            }
                         try:
                             bgfile = WaterMarks.generate_pdf_background(
                                 bgfile,
-                                pagetemplate.pagesize,
+                                (width + 2 * bleed, height + 2 * bleed),
                                 is_portrait=pagetemplate.isPortrait(),
-                                context=pagetemplate.backgroundContext,
+                                context=context,
                             )
                         except ResourceAccessError as e:
                             log.warning("Blocked by the resource policy: %s", e)
@@ -152,7 +164,38 @@ class WaterMarks:
                             )
                             continue
 
-                    yield range(page, pages[counter]), bgfile, int(pgcontext["step"])
+                    yield (
+                        range(page, pages[counter]),
+                        bgfile,
+                        int(pgcontext["step"]),
+                        pagetemplate,
+                    )
+
+    @staticmethod
+    def background_offset(pagebg: pypdf.PageObject, template) -> float:
+        """
+        Where the background goes on a page with bleed or marks.
+
+        Such a page is larger than its template, with the trim box moved in
+        from the corner (see xhtml2pdf.builders.printmarks). A background the
+        size of the trim plus its bleed -- an image background is always made
+        that size -- starts at the edge of the bleed; any other starts at the
+        corner of the trim, as it does on a page without bleed.
+        """
+        from xhtml2pdf.builders.printmarks import media_offset
+
+        bleed = template.bleed
+        offset = media_offset(bleed, template.marks)
+        if not offset:
+            return 0.0
+        width, height = template.pagesize
+        box = pagebg.mediabox
+        if (
+            abs(float(box.width) - (width + 2 * bleed)) < 1
+            and abs(float(box.height) - (height + 2 * bleed)) < 1
+        ):
+            return offset - bleed
+        return offset
 
     @staticmethod
     def pdf_background_allowed(bgfile: pisaFileObject) -> bool:
@@ -206,7 +249,9 @@ class WaterMarks:
         has_bg: bool = False
         # A page of another PDF is shown as it is in that PDF.
         inserted = inserted_pages(doc)
-        for pages, bgouter, step in WaterMarks.get_watermark(doc, len(pdfoutput.pages)):
+        for pages, bgouter, step, template in WaterMarks.get_watermark(
+            doc, len(pdfoutput.pages)
+        ):
             try:
                 bginput: pypdf.PdfReader = pypdf.PdfReader(bgouter.getBytesIO())
                 pagebg: pypdf.PageObject = bginput.pages[0]
@@ -224,7 +269,11 @@ class WaterMarks:
             for index, ctr in enumerate(pages):
                 page: pypdf.PageObject = pdfoutput.pages[ctr - 1]
                 if index % step == 0 and ctr not in inserted:
-                    page.merge_page(pagebg, over=False)
+                    offset = WaterMarks.background_offset(pagebg, template)
+                    if offset:
+                        page.merge_translated_page(pagebg, offset, offset, over=False)
+                    else:
+                        page.merge_page(pagebg, over=False)
                 has_bg = True
         if has_bg:
             if getattr(doc, "encrypt", None) is not None:

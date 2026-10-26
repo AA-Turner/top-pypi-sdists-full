@@ -1,0 +1,133 @@
+schema = 1
+
+[[word]]
+text = "גב'"
+salutation = { gender = "f", issue = 269, expands = "Mrs., the abbreviation", note = "the ASCII-quote spelling: the quote has no whitespace before it, so it opens no delimited span, and with no opener before it a dangling straight apostrophe is literal text (WORD_INTERNAL_DELIMITERS in _pipeline/_extract.py; probed 2026-07-17)", after_given = true }
+
+[[word]]
+text = "גב׳"
+salutation = { gender = "f", issue = 269, same_as = "גב'", expands = "the U+05F3 geresh spelling", after_given = true }
+
+[[word]]
+text = "גברת"
+salutation = { gender = "f", issue = 269, expands = "Mrs., Ms., the full form", after_given = true }
+
+[[word]]
+text = "מר"
+salutation = { gender = "m", issue = 269, expands = "Mr.", after_given = true }
+
+[[word]]
+text = "ד\"ר"
+academic = { issue = 269, expands = "doctor, ASCII quote", note = "the quote sits mid-word, with no whitespace before it and a letter after it, so it fails both extract_delimited's open and close boundary tests (_open_ok/_close_ok, probed 2026-07-17) and stays literal text; the gershayim spelling is no delimiter at all" }
+
+[[word]]
+text = "ד״ר"
+academic = { issue = 269, same_as = "ד\"ר", expands = "doctor, U+05F4 gershayim" }
+
+[[word]]
+text = "עו\"ד"
+academic = { issue = 269, expands = "advocate, ASCII quote" }
+
+[[word]]
+text = "עו״ד"
+academic = { issue = 269, same_as = "עו\"ד", expands = "advocate, U+05F4 gershayim" }
+
+[[word]]
+text = "פרופסור"
+academic = { issue = 269, expands = "professor, full form" }
+
+[[word]]
+text = "פרופ'"
+academic = { issue = 269, same_as = "פרופסור", expands = "professor abbreviation, ASCII apostrophe" }
+
+[[word]]
+text = "פרופ׳"
+academic = { issue = 269, same_as = "פרופסור", expands = "professor abbreviation, U+05F3 geresh" }
+
+[[word]]
+text = "rabbi"
+religious = { note = "addresses by the TITLE, not the given name ('Rabbi Cohen'), and the tradition keeps surnames, so it stays out of GIVEN_NAME_TITLES (#346)" }
+
+[[word]]
+text = "הרב"
+religious = { issue = 269, expands = "the rabbi", note = "the article form; bare רב is deferred under the collision rule, being also the ordinary word 'many'" }
+
+[[word]]
+text = "ג'וניור"
+generation = { issue = 679, note = "ASCII apostrophe" }
+
+[[word]]
+text = "ג׳וניור"
+generation = { issue = 679, note = "U+05F3 geresh" }
+
+[[word]]
+text = "ג’וניור"
+generation = { issue = 679, note = "U+2019 apostrophe" }
+
+[[word]]
+text = "האב"
+generation = { issue = 679, note = "the father" }
+
+[[word]]
+text = "הבן"
+generation = { issue = 679, note = "the son" }
+
+[[word]]
+text = "סניור"
+[word.excluded.generation]
+reason = "borne as a surname in Israel (אלי סניור, בוריס סניור)"
+issue = 679
+
+[[word]]
+text = "ז\"ל"
+[word.status]
+issue = 269
+note = "\"of blessed memory\" (deceased), ASCII quote; the mid-word quote is inert in extraction, like the ד\"ר title, and neither spelling is ever a name"
+
+[[word]]
+text = "ז״ל"
+status = { issue = 269, note = "the same, U+05F4 gershayim", same_as = "ז\"ל" }
+
+[[word]]
+text = "שליט\"א"
+courtesy = { issue = 269, note = "honorific for a living rabbi, ASCII quote" }
+
+[[word]]
+text = "שליט״א"
+courtesy = { issue = 269, note = "the same, U+05F4 gershayim", same_as = "שליט\"א" }
+
+[[word]]
+text = "bar"
+[word.patronymic]
+may_be_given = true
+expands = "son of, Aramaic: \"Bar-Lev\""
+gender = "m"
+note = "Bar Refaeli; a common modern Israeli given name. The native-script בר is excluded, in this file"
+
+[[word]]
+text = "bat"
+patronymic = { may_be_given = true, expands = "daughter of; native-script בת", gender = "f" }
+
+[[word]]
+text = "בן"
+[word.patronymic]
+may_be_given = false
+issue = 269
+expands = "son of: ben"
+gender = "m"
+note = "No Latin-script collision, and not a standalone given name in Hebrew usage."
+
+[[word]]
+text = "בר"
+[word.excluded.patronymic]
+reason = "Bar is a common modern Israeli given name, and the surname spelling is hyphenated anyway (Bar-Lev)"
+issue = 269
+
+[[word]]
+text = "בת"
+[word.patronymic]
+may_be_given = false
+issue = 269
+expands = "daughter of: bat"
+gender = "f"
+note = "no Latin-script collision, and not a standalone given name in Hebrew usage, as בן"

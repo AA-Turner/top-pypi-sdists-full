@@ -147,6 +147,35 @@ def test_the_installed_tap_under_codex_is_the_newest_version_folder_of_its_cache
     assert recorders.installed_tap(_session(checkout, CODEX_HOME=str(codex), HOME=str(tmp_path))) is None
 
 
+def test_the_installed_tap_under_kimi_is_the_one_its_plugin_list_records(tmp_path):
+    """Kimi parity K2: Kimi keeps one folder per version (`managed/probe-research-tap@<v>`)
+    and records the one it loads next in `installed.json`; the service follows that
+    record, as it follows Claude Code's ledger (rollbacks too)."""
+    import json
+
+    plugins = tmp_path / "home" / ".kimi-code" / "plugins"
+    managed = plugins / "managed"
+    old, new = _tap(managed / "probe-research-tap@0.10.12"), _tap(managed / "probe-research-tap@0.10.20")
+    listed = plugins / "installed.json"
+
+    def record(root):
+        listed.write_text(json.dumps({"plugins": [{"id": "probe-research", "root": str(managed / "probe-research@1")},
+                                                 {"id": "probe-research-tap", "root": str(root)}]}))
+
+    record(new)
+    assert recorders.installed_tap(_session(old)) == (str(new.resolve()), "0.10.20")
+    record(old)  # rolled back: followed too
+    assert recorders.installed_tap(_session(new)) == (str(old.resolve()), "0.10.12")
+    listed.write_text("not json")
+    assert recorders.installed_tap(_session(old)) is None
+    record(tmp_path / "elsewhere" / "probe-research-tap@0.10.30")  # not beside it: never followed
+    assert recorders.installed_tap(_session(old)) is None
+    half = managed / "probe-research-tap@0.10.31"
+    half.mkdir()  # recorded but holding no tap yet
+    record(half)
+    assert recorders.installed_tap(_session(old)) is None
+
+
 @pytest.mark.parametrize("fresh", ["", "tap", "hooks"])
 def test_a_codex_folder_still_being_written_is_not_the_installed_tap_yet(tmp_path, fresh):
     """Codex picks by listing, so its newest folder may be one it is still

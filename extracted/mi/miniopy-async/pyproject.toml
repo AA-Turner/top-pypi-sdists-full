@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "miniopy-async"
-version = "1.23.5"
+version = "1.23.6"
 description = "Asynchronous MinIO Client SDK for Python"
 authors = [
     "L-ING <hlf01@icloud.com>",
@@ -25,9 +25,9 @@ package-mode = true
 [tool.poetry.dependencies]
 python = "^3.10"
 aiohttp = "^3.11.14"
-certifi = "^2025.1.31"
+certifi = ">=2025.1.31"
 aiohttp-retry = "^2.9.1"
-argon2-cffi = "^23.1.0"
+argon2-cffi = ">=23.1.0"
 pycryptodome = "^3.22.0"
 
 [tool.poetry.group.dev.dependencies]

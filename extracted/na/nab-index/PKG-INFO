@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab-index
-Version: 0.0.22
+Version: 0.0.23
 Summary: PyPI Simple-API client and on-disk cache for nab
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
@@ -20,7 +20,8 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: nab-provider==0.0.22
+Requires-Dist: nab-provider==0.0.23
+Requires-Dist: nab-resolver==0.0.23
 Requires-Dist: packaging>=24.0
 Requires-Dist: truststore>=0.10
 Requires-Dist: typing-extensions>=4.6
@@ -52,4 +53,4 @@ It provides:
 Use `nab-index` if you need a typed PyPI Simple-API client with an on-disk cache. Most users want
 [`nab`](https://pypi.org/project/nab/) instead.
 
-The API is currently under rapid experimentation, if you use it pin to an exact version.
+The API is experimental. Pin an exact version when embedding it.

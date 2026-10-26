@@ -48,9 +48,11 @@ def _all_group_suffix_to_type_id() -> dict[str, str]:
     subclasses defined outside this package are picked up by the groups
     created after them.
     """
+    # Star-unpacking fails type checking here: mypy joins the `Trait` class object
+    # and the `type[Trait]` items of `__subclasses__()` into a bare `object`.
     return {
         cls.all_group.lower()[4:]: cls.type_id
-        for cls in (Trait, *Trait.__subclasses__())
+        for cls in [Trait] + Trait.__subclasses__()
     }
 
 
@@ -78,14 +80,14 @@ def extract_members(*other: _TNestedReferences) -> Iterator[Trait]:
     Can return duplicates.
     ```
     """
+    # A group needs no case of its own: _flatten() already iterates it into its
+    # traits.
     for item in _flatten(other):
         match item:
             case None:
                 continue
             case Trait():
                 yield item
-            case Group():
-                yield from item._members.values()
             case str():
                 yield from traits_from_ids(item)
             case _:

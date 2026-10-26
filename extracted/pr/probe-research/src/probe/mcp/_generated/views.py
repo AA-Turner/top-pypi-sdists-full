@@ -56,6 +56,7 @@ class View(StrEnum):
     PAPERS = "papers"
     INHERITED = "inherited"
     SUMMARY_HISTORY = "summary_history"
+    BRANCHES = "branches"
 
 
 #: What a view MEANS on a kind -- the union across both agent
@@ -69,6 +70,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
     ViewKind.EXPERIMENT: frozenset(
         {
             View.ARTIFACTS,
+            View.BRANCHES,
             View.CARD,
             View.CODE,
             View.GROUPS,
@@ -89,6 +91,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
     ViewKind.PROJECT: frozenset(
         {
             View.ARTIFACTS,
+            View.BRANCHES,
             View.CARD,
             View.CODE,
             View.LINEAGE,
@@ -133,6 +136,7 @@ VIEW_MATRIX: dict[ViewKind, frozenset[View]] = {
 #: (`available_views` stays a bare list). A view absent here prints bare.
 VIEW_PURPOSE: dict[View, str] = {
     View.ARTIFACTS: "the files the work produced at this grain",
+    View.BRANCHES: "lines of work: best value, effort, state; view_options.branch for one in full",
     View.CARD: "identity, status, and this kind's available_views",
     View.CODE: "the GitHub resolution at this grain; diff with view_options.compare_to",
     View.CONTENT: "the artifact's own bytes",

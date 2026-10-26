@@ -1,0 +1,88 @@
+schema = 1
+
+[[word]]
+text = "г-жа"
+salutation = { gender = "f", issue = 269, expands = "госпожа, Mrs.", after_given = true }
+
+[[word]]
+text = "г-н"
+salutation = { gender = "m", issue = 269, expands = "господин, Mr.", after_given = true }
+
+[[word]]
+text = "акад"
+academic = { issue = 269, expands = "academician" }
+
+[[word]]
+text = "д-р"
+academic = { issue = 269, expands = "doctor", note = "a plain title, the family name following it as after 'dr' (not GIVEN_NAME_TITLES: 'д-р Петров' families the surname just as 'Dr. Smith' does)" }
+
+[[word]]
+text = "проф"
+academic = { issue = 269, expands = "professor" }
+
+[[word]]
+text = "tsar"
+nobility = { gender = "m", expands = "the Russian emperor", native = "царь" }
+
+[[word]]
+text = "tsarina"
+nobility = { gender = "f", native = "царица" }
+
+[[word]]
+text = "мл"
+[word.generation]
+issue = 679
+note = "мл.; #679 found nothing it collides with in Cyrillic"
+
+[[word]]
+text = "младшая"
+generation = { issue = 661 }
+
+[[word]]
+text = "младший"
+generation = { issue = 661 }
+
+[[word]]
+text = "ст"
+[word.excluded.generation]
+reason = "barely attested after a name, and a plausible false positive among two-letter Cyrillic abbreviations; deferred since #269"
+issue = [269, 661, 679]
+
+[[word]]
+text = "старшая"
+generation = { issue = 661 }
+
+[[word]]
+text = "старший"
+generation = { issue = 661 }
+
+[[word]]
+text = "и"
+[word.conjunction]
+issue = 269
+[word.conjunction.excluded]
+may_be_initial = { reason = "#267 blessed the Cyrillic joining, and marking it would break that reading in the one-case spellings where nothing else decides", issue = [383, 479] }
+
+[[word]]
+text = "урожд"
+birth_marker = { issue = 274 }
+
+[[word]]
+text = "урождённая"
+birth_marker = { issue = 274, gender = "f" }
+
+[[word]]
+text = "урожденная"
+[word.birth_marker]
+issue = 274
+gender = "f"
+same_as = "урождённая"
+note = "the е spelling: case normalization does not fold ё, and running text routinely writes е"
+
+[[word]]
+text = "урождённый"
+birth_marker = { issue = 274, gender = "m" }
+
+[[word]]
+text = "урожденный"
+birth_marker = { issue = 274, gender = "m", same_as = "урождённый" }

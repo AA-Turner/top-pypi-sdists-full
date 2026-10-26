@@ -27,8 +27,8 @@ jobs:
             python-version: '3.14'
 
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  #v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Dependencies
@@ -43,7 +43,8 @@ jobs:
           if [ "${{ matrix.numpy-version }}" == "dev" ]; then
             python -m pip install numpy --pre --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple
             python -m pip install dask[array] jax[cpu]
-            if ["${{ matrix.python-version }}" != "3.14]; then
+            python -m pip install --index-url https://software.repos.intel.com/python/pypi dpnp
+            if [ "${{ matrix.python-version }}" != "3.14" ]; then
                python -m pip install sparse ndonnx
             fi
           elif [ "${{ matrix.numpy-version }}" == "1.22" ]; then
@@ -53,10 +54,20 @@ jobs:
           else
             python -m pip install numpy
             python -m pip install dask[array] jax[cpu]
-            if ["${{ matrix.python-version }}" != "3.14]; then
+            python -m pip install --index-url https://software.repos.intel.com/python/pypi dpnp
+            if [ "${{ matrix.python-version }}" != "3.14" ]; then
                python -m pip install sparse ndonnx
             fi
           fi
+
+          # mparray requires Python >=3.11 and NumPy >=2.
+          if [[ "${{ matrix.python-version }}" =~ ^3\.1[1-4]$ &&
+                "${{ matrix.numpy-version }}" =~ ^(latest|dev)$ ]]; then
+            python -m pip install mparray
+          fi
+ 
+      - name: Set environment variables  
+        run: echo "OCL_ICD_FILENAMES=$LD_LIBRARY_PATH/libintelocl.so" >> "$GITHUB_ENV"
 
       - name: Dump pip environment
         run: pip freeze

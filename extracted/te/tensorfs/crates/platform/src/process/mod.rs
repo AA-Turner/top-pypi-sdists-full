@@ -81,6 +81,13 @@ pub fn usage(pid: u32) -> Result<Usage> {
     sys::usage(pid).map_err(Error::os("read a process's usage"))
 }
 
+/// Where a thread of it sleeps uninterruptibly (Linux `D`: mid-fsync, a hung mount): its wait
+/// channel, empty when the kernel hides it. Until that wait ends it acts on no signal, SIGKILL
+/// included. `None`: no thread does, or the OS cannot say (macOS, Windows).
+pub fn in_kernel(pid: u32) -> Option<String> {
+    sys::in_kernel(pid)
+}
+
 /// This kernel's boot. Page cache and process starts belong to a boot.
 pub fn boot_id() -> Result<String> {
     sys::boot_id().map_err(Error::os("read the boot id"))
@@ -276,21 +283,41 @@ pub fn end_tree(tree: &[Exact]) -> Result<()> {
     Ok(())
 }
 
+/// Ends the process that holds the lock at `lock` (the birth it published) and everything it
+/// started, then waits until the kernel frees the lock. On Windows its stable parent too, which
+/// would start a killed service again. A free lock is nothing to end.
+pub fn end_holder(lock: &Path) -> Result<()> {
+    use crate::lock::{Kind, LockFile};
+    let lock = LockFile::new(lock);
+    if !lock.path().exists() || lock.try_lock(Kind::Exclusive)?.is_some() {
+        return Ok(());
+    }
+    let holder = lock.holder()?.and_then(|record| serde_json::from_slice::<Birth>(&record).ok());
+    let birth = holder.ok_or_else(|| Error::Io {
+        op: "read the holder of",
+        path: lock.path().into(),
+        source: io::Error::other("it names no process"),
+    })?;
+    // A parent is born before its child; an older PID's reuse is not.
+    #[cfg(windows)]
+    let birth = (parent_of(birth.pid).ok())
+        .and_then(|pid| Birth::of(pid).ok())
+        .filter(|parent| parent.start_ticks <= birth.start_ticks)
+        .unwrap_or(birth);
+    end_tree(&tree(birth.pid))?;
+    lock.lock(Kind::Exclusive).map(drop)
+}
+
 /// Every process in `leader`'s process group born with or after it: a leader's followers. A
-/// group number is not reused while a member lives. Empty on Windows, whose trees are Job Objects.
+/// group number is not reused while a member lives. Windows, which has no groups: its descendants.
 pub fn group_members(leader: &Birth) -> Vec<Birth> {
     sys::group_members(leader)
 }
 
 /// CPU nanoseconds used or owed (time runnable but waiting for a CPU) and bytes moved, the
-/// measure of a process's progress. `None`: unreadable, which decides nothing (Windows so far).
+/// measure of a process's progress. `None`: unreadable, which decides nothing.
 pub fn meter(pid: u32) -> Option<(u64, u64)> {
     sys::meter(pid)
-}
-
-/// `meter`'s two parts summed: Runtime's `proctree.progress_burn`.
-pub fn burn(pid: u32) -> Option<u64> {
-    meter(pid).map(|(cpu, moved)| cpu.saturating_add(moved))
 }
 
 /// The bytes a process has written: what an install lands (its downloads, unpacked wheels).
@@ -326,14 +353,72 @@ pub fn hand_on(handle: &impl std::os::windows::io::AsRawHandle) -> Result<u64> {
     sys::hand_on(handle).map_err(Error::os("hand on a handle"))
 }
 
-/// Windows: the handle `value` names, as [`hand_on`] handed it to this process; it goes no further.
-///
-/// # Safety
-/// `value` must name a handle this process inherited and nothing else owns.
+/// Windows: a copy of the handle `value` names, as [`hand_on`] handed it to this process. Neither
+/// goes further: the inherited handle is no longer inheritable.
 #[cfg(windows)]
-pub unsafe fn handed(value: u64) -> Result<std::os::windows::io::OwnedHandle> {
-    // SAFETY: the caller's promise.
-    unsafe { sys::handed(value) }.map_err(Error::os("take a handed handle"))
+pub fn take_handed(value: u64) -> Result<std::os::windows::io::OwnedHandle> {
+    sys::take_handed(value).map_err(Error::os("take a handed handle"))
+}
+
+/// Descriptors a process hands itself across an exec (Unix): the slots [`hand_on_exec`] fills
+/// and [`take_handed`] reads. After [`reserve_handed`] no owner in this process holds one.
+#[cfg(unix)]
+pub const HANDED: std::ops::RangeInclusive<std::os::fd::RawFd> = 3..=5;
+
+/// First thing in a process that hands descriptors on (Unix): every closed [`HANDED`] slot is
+/// held on `/dev/null`, so no file this process opens lands on one. Refused once a second
+/// thread exists.
+#[cfg(unix)]
+pub fn reserve_handed() -> Result<()> {
+    unix::reserve_handed().map_err(Error::os("reserve the handed descriptors"))
+}
+
+/// A copy of descriptor `fd` as its parent handed it (Unix), close-on-exec; `None` when it is
+/// not open. The slot itself is left as it was.
+#[cfg(unix)]
+pub fn take_handed(fd: std::os::fd::RawFd) -> Option<std::fs::File> {
+    unix::take_handed(fd)
+}
+
+/// `fd` at slot `at` of [`HANDED`] for the program this process execs next (Unix): inheritable
+/// there. Refused for any other slot, or before [`reserve_handed`].
+#[cfg(unix)]
+pub fn hand_on_exec(fd: &impl std::os::fd::AsRawFd, at: std::os::fd::RawFd) -> Result<()> {
+    unix::hand_on_exec(fd, at).map_err(Error::os("hand on a descriptor"))
+}
+
+/// The child `command` starts keeps `fds` open across its exec (Unix); run after
+/// [`inherit_nothing`]. A descriptor not open then fails the spawn.
+#[cfg(unix)]
+pub fn keep_open(command: &mut Command, fds: Vec<std::os::fd::RawFd>) {
+    unix::keep_open(command, fds)
+}
+
+/// Which side of a [`fork`] this is.
+#[cfg(unix)]
+pub enum Forked {
+    Child,
+    Parent(u32),
+}
+
+/// Forks this process (Unix), refused unless it has one thread: the child continues with
+/// nothing another thread held, so anything may run in it.
+#[cfg(unix)]
+pub fn fork() -> Result<Forked> {
+    unix::fork().map_err(Error::os("fork"))
+}
+
+/// A SIGCHLD stays pending for `sigwait` while blocked (Unix). macOS discards one nothing catches,
+/// blocked or not, so it gets a handler that does nothing; elsewhere there is nothing to do.
+#[cfg(unix)]
+pub fn keep_sigchld() -> Result<()> {
+    unix::keep_sigchld().map_err(Error::os("catch SIGCHLD"))
+}
+
+/// This machine's glibc version, as `gnu_get_libc_version` says it.
+#[cfg(all(target_os = "linux", target_env = "gnu"))]
+pub fn glibc_version() -> String {
+    unix::glibc_version()
 }
 
 /// An OS shortage that may clear by itself; nothing else justifies requeueing a launch.
@@ -399,7 +484,7 @@ pub fn spawn(mut command: Command) -> Result<Tree> {
 /// A process that outlives its spawner: its own session (Unix); no console, out of the spawner's
 /// job when allowed (Windows). It reads null and appends stdout and stderr to `log` (null without
 /// one), and inherits nothing else: a caller reading the spawner's output to its end, as
-/// `out=$(cozy up)` does, gets that end when the spawner exits.
+/// `out=$(cozy status)` does, gets that end when the spawner exits.
 pub fn detach(program: &Path, args: &[OsString], log: Option<&Path>) -> Result<Detached> {
     let log = log
         .map(|path| {
@@ -421,6 +506,11 @@ impl Detached {
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>> {
         self.0.try_wait().map_err(Error::os("wait for a process"))
+    }
+
+    /// Its exit: what a spawner that outlives it reaps, so no zombie stays behind (Unix).
+    pub fn wait(&mut self) -> Result<ExitStatus> {
+        self.0.wait().map_err(Error::os("wait for a process"))
     }
 }
 

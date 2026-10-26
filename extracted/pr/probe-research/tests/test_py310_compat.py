@@ -308,3 +308,36 @@ def test_generated_models_import_strenum_from_compat():
     )
     with pytest.raises(SystemExit):
         gen_models.py310_imports("from enum import Enum\n")
+
+
+@pytest.mark.parametrize(
+    "pydantic_import",
+    [
+        "from pydantic import BaseModel, Field\n",
+        "from pydantic import (\n    BaseModel,\n    Field,\n)\n",  # wrapped by the generator one day
+    ],
+)
+def test_split_enums_moves_the_enums_and_keeps_both_modules_valid(pydantic_import):
+    """The CLI imports the enums alone (`tests/test_cli_startup_imports.py`);
+    models.py imports them back after the WHOLE pydantic import, so a wrapped
+    one never swallows them."""
+    import ast
+
+    sys.path.insert(0, str(_PYPROJECT.parent / "scripts"))
+    try:
+        import gen_models
+    finally:
+        sys.path.pop(0)
+    source = (
+        "# GENERATED\n\nfrom __future__ import annotations\n\nfrom probe._compat import StrEnum\n\n"
+        + pydantic_import
+        + "\n\nclass Color(StrEnum):\n    \"\"\"A colour.\"\"\"\n\n    red = 'red'\n\n\n"
+        + "class Paint(BaseModel):\n    color: Color = Field(...)\n"
+    )
+    enums, models = gen_models.split_enums(source)
+    ast.parse(enums), ast.parse(models)
+    assert "class Color(StrEnum)" in enums and "class Color" not in models
+    assert "from .enums import (" in models and "    Color,\n" in models
+    assert "StrEnum" not in models.replace("from .enums", "")
+    with pytest.raises(SystemExit):
+        gen_models.split_enums("from pydantic import BaseModel\n")

@@ -1,5 +1,6 @@
 [package]
 name = "semantic-text-splitter"
+publish = false
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -19,9 +20,10 @@ crate-type = ["cdylib"]
 default = ["abi3"]
 abi3 = ["pyo3/abi3-py310"]
 abi3t = ["pyo3/abi3t-py315"]
+stubgen = ["pyo3/experimental-inspect"]
 
 [dependencies]
-pyo3 = "0.29"
+pyo3 = "0.30"
 rayon = "1.11"
 text-splitter = { path = "../..", features = [
     "code",

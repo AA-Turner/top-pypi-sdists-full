@@ -940,6 +940,19 @@ class ResearchOSSource:
             experiment_id, runs=runs, after=after, limit=limit, project_id=project_id
         )
 
+    def project_branches(self, project_id: str) -> dict:
+        """``GET /v1/projects/{P}/branches``: the project tree's lines of work."""
+        return self.client.project_branches(project_id)
+
+    def experiment_branch(self, experiment_id: str, *, project_id: str | None = None) -> dict:
+        """``GET /v1/projects/{P}/experiments/{E}/branch``: its line of work and
+        the ones it split from."""
+        return self.client.experiment_branch(experiment_id, project_id=project_id)
+
+    def workspace_branches(self, workspace_id: str) -> dict:
+        """``GET /v1/workspaces/{W}/branches``: the workspace's lines of work."""
+        return self.client.workspace_branches(workspace_id)
+
     def project_artifacts(self, project_id: str) -> list[dict]:
         return self.client.list_project_artifacts(project_id)
 

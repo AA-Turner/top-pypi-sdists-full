@@ -68,7 +68,7 @@ STEPS = [
         "title": "CI/CD Integration",
         "step": 5,
         "body": (
-            "[bold]Generate GitHub Actions workflow[/bold] (30-second setup):\n"
+            "[bold]Set up a pull request gate for your CI[/bold] (GitHub, GitLab, Jenkins, ...):\n"
             "  [bold cyan]skylos cicd init[/bold cyan]\n"
             "\n"
             "[bold]Quality gate[/bold] (fail CI on findings):\n"
@@ -88,8 +88,8 @@ STEPS = [
             "[bold]Get help on any command:[/bold]\n"
             "  [bold cyan]skylos <command> --help[/bold cyan]\n"
             "\n"
-            "[bold]Connect to Skylos Cloud:[/bold]\n"
-            "  [bold cyan]skylos login[/bold cyan]\n"
+            "[bold]Track results per branch on Skylos Cloud:[/bold]\n"
+            "  [bold cyan]skylos cloud[/bold cyan]\n"
             "\n"
             "[bold]Docs:[/bold] [blue]github.com/duriantaco/skylos[/blue]"
         ),

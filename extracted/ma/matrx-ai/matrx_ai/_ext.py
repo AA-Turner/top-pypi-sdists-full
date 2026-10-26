@@ -556,7 +556,11 @@ def get_spine_call_meter() -> Any:
 # routed through this single funnel).
 #
 # Contract:
-#   * ``async tracker(*, label: str, source_feature: str) -> settle | None``.
+#   * ``async tracker(*, label: str, source_feature: str, standalone_only: bool = False)
+#     -> settle | None``. ``execute_ai_request`` also calls it, with
+#     ``standalone_only=True``, so a one-shot call made outside any tracked run
+#     (a judge, a mandate code call, a probe) gets its own ROOT ledger; the host
+#     returns None whenever the context is already inside a tracked run.
 #     Called INSIDE the forked child context (so the host's ambient context
 #     carries the run's request_id / agent identity / source tags). Returns
 #     None when the run should not be tracked here (e.g. it is already inside

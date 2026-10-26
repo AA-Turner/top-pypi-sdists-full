@@ -94,10 +94,10 @@ class EromeAlbumExtractor(EromeExtractor):
         date = None
         groups = page.split('<div class="media-group"')
         for group in util.advance(groups, 1):
-            url = (text.extr(group, '<source src="', '"') or
+            src = (text.extr(group, '<source src="', '"') or
                    text.extr(group, 'data-src="', '"'))
-            if url:
-                urls.append(url)
+            if src:
+                urls.append(src)
             if not date:
                 ts = text.extr(group, '?v=', '"')
                 if len(ts) > 1:

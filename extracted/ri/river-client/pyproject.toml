@@ -49,7 +49,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Capture relies on the tested torch.export IR.
-custom-loss = ["sympy", "torch>=2.4,<2.12"]
+custom-loss = ["sympy", "torch>=2.4,<2.14"]
 hf-export = ["torch>=2.6", "safetensors>=0.5"]
 examples = [
     "datasets>=2.14.0",
@@ -74,7 +74,7 @@ path = "src/river_client/__init__.py"
 packages = ["src/river_client"]
 
 # Explicit allowlist: without one hatchling ships everything not gitignored,
-# leaking tests/, examples/, GUIDE.md and integration-tests/. Every pattern is
+# leaking tests/, examples/ and integration-tests/. Every pattern is
 # rooted — hatchling matches gitignore-style, so a bare "README.md" would also
 # match examples/*/README.md at any depth. proto/ and scripts/ are deliberately
 # absent: the stubs are committed, so an sdist never runs codegen and shipping

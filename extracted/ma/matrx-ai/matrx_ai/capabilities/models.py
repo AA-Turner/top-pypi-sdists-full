@@ -118,6 +118,11 @@ class ClientContext(BaseModel):
     """The surface binding (``agent.menu_surface.id``) whose Run door started this run. The host
     checks it as the caller (exists, in reach, binds this agent) before the request row records it
     as ``chat.user_request.binding_id``; an unproven id is ignored, never a refusal."""
+    capability_check: dict[str, Any] | None = None
+    """THE SAMPLED DRIFT CHECK (~1 send in 50, a browser knob): the composer's resolved tool view
+    for this turn, ``{v, tools: {name: origin}, surface, agent_id}``. The host compares it with the
+    toolset it resolved and files drift as an error row; it never changes the run and nothing is
+    sent back (aidream ``tooling/capability_drift.py``)."""
     apply_policy: Literal["auto", "ask", "off"] | None = None
     """Surface layer of the output-directive apply cascade (agent → SURFACE →
     user). The calling surface's policy for model-emitted side effects; overrides

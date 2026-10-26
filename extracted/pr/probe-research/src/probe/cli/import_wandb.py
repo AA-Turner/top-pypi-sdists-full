@@ -31,12 +31,14 @@ from __future__ import annotations
 
 import math
 from datetime import datetime
+from typing import TYPE_CHECKING
+
 from probe._compat import UTC
 
 import typer
 
-from ..models import MetricPointIn
-from ..sdk.run import Run, _metric_batch_body
+if TYPE_CHECKING:
+    from ..models import MetricPointIn
 
 import_app = typer.Typer(no_args_is_help=True, help="Import history from external trackers.")
 
@@ -78,6 +80,10 @@ def _load_wandb():
 
 
 def _row_points(row: dict, step: int, wall_clock: str) -> list[MetricPointIn]:
+    # Here, not at the top: every `probe` command imports this module to
+    # register it, and the wire models cost ~0.5 s to import.
+    from ..models import MetricPointIn
+
     points = []
     for key, value in row.items():
         # bool is an int subclass; NaN/Inf poison series min/max and strict
@@ -108,6 +114,8 @@ def import_wandb(
     ),
 ) -> None:
     """Mirror one W&B run's metric history into an existing probe run."""
+    from ..sdk.run import Run, _metric_batch_body
+
     if wandb_path.count("/") != 2:
         raise typer.BadParameter("wandb path must be entity/project/run_id")
     wandb = _load_wandb()

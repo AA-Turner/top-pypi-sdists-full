@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-webui
-Version: 0.12.3
+Version: 0.12.4
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Open WebUI License
@@ -69,7 +69,7 @@ Requires-Dist: accelerate==1.13.0
 Requires-Dist: aiocache==0.12.3
 Requires-Dist: aiodns==3.6.1
 Requires-Dist: aiofiles==25.1.0
-Requires-Dist: aiohttp==3.14.3
+Requires-Dist: aiohttp==3.14.5
 Requires-Dist: aiosqlite==0.22.1
 Requires-Dist: alembic==1.18.4
 Requires-Dist: anthropic==0.86.0
@@ -83,11 +83,11 @@ Requires-Dist: bcrypt==5.0.0
 Requires-Dist: beautifulsoup4==4.14.3
 Requires-Dist: black==26.5.1
 Requires-Dist: boto3==1.42.62
-Requires-Dist: brotli==1.2.0
-Requires-Dist: brotlicffi==1.2.0.1
+Requires-Dist: brotli==1.2.1
+Requires-Dist: brotlicffi==1.2.1.0
 Requires-Dist: chardet==7.4.3
 Requires-Dist: chromadb==1.5.9
-Requires-Dist: cryptography==48.0.0
+Requires-Dist: cryptography==48.0.1
 Requires-Dist: ddgs==9.14.4
 Requires-Dist: docx2txt==0.9
 Requires-Dist: einops==0.8.2
@@ -99,6 +99,7 @@ Requires-Dist: google-cloud-storage==3.9.0
 Requires-Dist: google-re2==1.1.20251105
 Requires-Dist: googleapis-common-protos==1.75.0
 Requires-Dist: hiredis==3.4.2
+Requires-Dist: httpx2==2.16.0
 Requires-Dist: httpx[brotli,cli,http2,socks,zstd]==0.28.1
 Requires-Dist: itsdangerous==2.2.0
 Requires-Dist: joserfc==1.7.4
@@ -109,7 +110,7 @@ Requires-Dist: ldap3==2.9.1
 Requires-Dist: loguru==0.7.3
 Requires-Dist: lxml==6.1.1
 Requires-Dist: markdown==3.10.2
-Requires-Dist: mcp==1.27.2
+Requires-Dist: mcp==2.3.0
 Requires-Dist: msoffcrypto-tool==6.0.0
 Requires-Dist: onnxruntime==1.26.0
 Requires-Dist: openai==2.29.0
@@ -118,7 +119,7 @@ Requires-Dist: openpyxl==3.1.5
 Requires-Dist: opensearch-py==3.2.0
 Requires-Dist: orjson==3.11.9
 Requires-Dist: pandas==3.0.3
-Requires-Dist: pillow==12.3.0
+Requires-Dist: pillow==13.0.0
 Requires-Dist: psutil==7.2.2
 Requires-Dist: psycopg[binary]==3.3.4
 Requires-Dist: pyarrow==20.0.0
@@ -129,7 +130,7 @@ Requires-Dist: pyjwt[crypto]==2.13.0
 Requires-Dist: pymysql==1.2.0
 Requires-Dist: pyotp==2.9.0
 Requires-Dist: pypandoc==1.17
-Requires-Dist: pypdf==6.7.5
+Requires-Dist: pypdf==6.21.2
 Requires-Dist: python-docx==1.2.0
 Requires-Dist: python-mimeparse==2.0.0
 Requires-Dist: python-multipart==0.0.32
@@ -151,7 +152,7 @@ Requires-Dist: starlette-compress==1.7.1
 Requires-Dist: starsessions[redis]==2.2.1
 Requires-Dist: tiktoken==0.13.0
 Requires-Dist: transformers==5.5.4
-Requires-Dist: uvicorn[standard]==0.51.0
+Requires-Dist: uvicorn[standard]==0.54.0
 Requires-Dist: validators==0.35.0
 Requires-Dist: xlrd==2.0.2
 Requires-Dist: youtube-transcript-api==1.2.4
@@ -163,6 +164,7 @@ Requires-Dist: oracledb==3.4.2; extra == 'all'
 Requires-Dist: pgvector==0.4.2; extra == 'all'
 Requires-Dist: pinecone==6.0.2; extra == 'all'
 Requires-Dist: playwright==1.60.0; extra == 'all'
+Requires-Dist: preshed==3.0.13; extra == 'all'
 Requires-Dist: psycopg2-binary==2.9.12; extra == 'all'
 Requires-Dist: pymilvus==2.6.14; extra == 'all'
 Requires-Dist: qdrant-client==1.18.0; extra == 'all'
@@ -174,6 +176,7 @@ Provides-Extra: postgres
 Requires-Dist: pgvector==0.4.2; extra == 'postgres'
 Requires-Dist: psycopg2-binary==2.9.12; extra == 'postgres'
 Provides-Extra: unstructured
+Requires-Dist: preshed==3.0.13; extra == 'unstructured'
 Requires-Dist: unstructured==0.22.31; extra == 'unstructured'
 Description-Content-Type: text/markdown
 
@@ -193,7 +196,7 @@ Open WebUI is **a home for AI**, a self-hosted AI platform that's **[extensible]
 
 Passionate about open-source AI? [Join our team →](https://careers.openwebui.com/)
 
-![Open WebUI Demo](./demo.png)
+![Open WebUI Demo](https://community.s3.openwebui.com/uploads/users/6d849fdd-b93f-411e-a611-eb25c73f1154/2026/10/25aebd3e-1d1c-4177-98b3-317ce60f75e9.gif)
 
 > [!TIP]  
 > **Looking for an [Enterprise Plan](https://docs.openwebui.com/enterprise)?** – **[Speak with Our Sales Team Today!](https://docs.openwebui.com/enterprise)**
@@ -288,7 +291,7 @@ We are incredibly grateful for the generous support of our sponsors. Their contr
 
 ### Installation via Python pip 🐍
 
-Open WebUI can be installed using pip, the Python package installer. Before proceeding, ensure you're using **Python 3.11** to avoid compatibility issues.
+Open WebUI can be installed using pip, the Python package installer. Before proceeding, ensure you're using **Python 3.12** to avoid compatibility issues.
 
 1. **Install Open WebUI**:
    Open your terminal and run the following command to install Open WebUI:

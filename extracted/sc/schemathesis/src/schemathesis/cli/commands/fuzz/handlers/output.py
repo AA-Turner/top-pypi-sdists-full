@@ -7,30 +7,24 @@ from typing import TYPE_CHECKING
 import click
 
 from schemathesis.cli.commands.run.handlers.base import BaseOutputHandler
-from schemathesis.cli.commands.run.handlers.output import (
-    display_warning_blocks,
-    get_status_icon,
-    unmatched_filter_block,
-)
 from schemathesis.cli.events import LoadingFinished, LoadingStarted
 from schemathesis.cli.output import (
     Indent,
     display_api_operations,
-    display_baseline_summary,
     display_errors,
-    display_errors_summary,
     display_failures,
-    display_failures_summary,
-    display_filtered_summary,
     display_final_line,
     display_header,
-    display_reports,
     display_section_name,
-    display_seed,
-    display_test_cases,
+    display_summary_counts,
+    display_summary_footer,
+    display_warning_blocks,
     duration_phrase,
+    get_status_icon,
+    issue_parts,
     make_console,
     print_lines,
+    unmatched_filter_block,
 )
 from schemathesis.core.output import pluralize
 from schemathesis.core.timing import Instant
@@ -138,12 +132,7 @@ class FuzzProgressManager:
         )
 
     def _counters_line(self) -> str:
-        errors = self.stats[Status.ERROR]
-        parts = []
-        if self.unique_failures:
-            parts.append(f"❌ {pluralize(self.unique_failures, 'unique failure')}")
-        if errors:
-            parts.append(f"🚫 {pluralize(errors, 'error')}")
+        parts = issue_parts(unique_failures=self.unique_failures, errors=self.stats[Status.ERROR])
         text = SEPARATOR.join(parts) if parts else "No issues found yet"
         return f"{_INDENT}{text}"
 
@@ -191,10 +180,7 @@ class FuzzProgressManager:
                 parts.append(f"⏭  {self.passed_scenarios} without checks")
             else:
                 parts.append(f"✅ {pluralize(self.passed_scenarios, 'scenario')}")
-        if self.unique_failures:
-            parts.append(f"❌ {pluralize(self.unique_failures, 'unique failure')}")
-        if errors:
-            parts.append(f"🚫 {pluralize(errors, 'error')}")
+        parts.extend(issue_parts(unique_failures=self.unique_failures, errors=errors))
         stats_line = "  ".join(parts) if parts else "No scenarios were run"
 
         duration_message = duration_phrase(self.started_at.elapsed_ms, interrupted=is_interrupted)
@@ -296,31 +282,16 @@ class FuzzOutputHandler(BaseOutputHandler["FuzzExecutionContext"]):
             click.echo(f"Stop reason: {_STOP_REASON_LABELS.get(event.stop_reason, str(event.stop_reason))}")
             click.echo()
 
-        if ctx.statistic.failures:
-            display_failures_summary(summary.failures)
-
-        if summary.baseline is not None:
-            display_baseline_summary(summary.baseline)
-
-        if ctx.statistic.filtered_failures:
-            display_filtered_summary(ctx.statistic.filtered_failures)
-
-        if ctx.errors:
-            display_errors_summary(summary.errors)
-
-        if ctx.summary_lines:
-            print_lines(ctx.summary_lines)
-            click.echo()
-
-        display_test_cases(summary.test_cases)
-        display_reports(ctx)
-        display_seed(ctx.config)
+        display_summary_counts(summary)
+        display_summary_footer(ctx, summary)
         display_final_line(
             failures=ctx.statistic.total_failures,
             errors=len(ctx.errors),
+            warnings=ctx.warning_collector.data.kind_count,
             running_time=event.running_time,
             total_cases=ctx.statistic.total_cases,
             nothing_tested_reason=ctx.nothing_tested_reason,
+            exit_code=ctx.exit_code,
             no_checks_ran=ctx.statistic.no_checks_ran,
             interrupted=event.stop_reason == StopReason.INTERRUPTED,
         )

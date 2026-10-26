@@ -1,0 +1,4955 @@
+schema = 1
+
+[[word]]
+text = "wm"
+excluded = { title = { reason = "William, abbreviated, and no title of any kind: #68 asked that 'Wm. Scott Magargee III' not read given name 'Wm.', a request judged mistaken, since Wm is the given name; a bare 'WM' opened the given part 69 times in the FEC donor list (re-measured 2026-10-24 on 08d130ed), every one read as a title. The dotted 'Wm.' opening the given part is still taken by the leading period-abbreviation shape rule whether listed or not", issue = [68, 789], decided = 2026-10-22 } }
+
+[[word]]
+text = "goodman"
+salutation = { gender = "m", expands = "the archaic Mr., 'Goodman Brown'", excluded = { after_given = "a common surname (Benny Goodman), and middle names are drawn from surnames" } }
+given = { us_ssa = 22, wikidata = 11, as_of = 2026-10-24 }
+family = { us_census_2010 = 73136, wikidata = 743, as_of = 2026-10-24 }
+
+[[word]]
+text = "goodwife"
+salutation = { gender = "f", expands = "the archaic Mrs., 'Goodwife Proctor'", after_given = true }
+
+[[word]]
+text = "madam"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "madame"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "master"
+salutation = { addresses = "given", gender = "m", expands = "the style for a boy, 'Master Harry'", excluded = { after_given = "a surname and a given name, borne as a middle name either way" } }
+given = { us_ssa = 476, wikidata = 2, as_of = 2026-10-24 }
+family = { us_census_2010 = 2735, wikidata = 61, as_of = 2026-10-24 }
+
+[[word]]
+text = "miss"
+salutation = { gender = "f", after_given = true }
+family = { us_census_2010 = 164, wikidata = 4, as_of = 2026-10-24, note = "kept for after_given (decisions/H8): a middle name of this spelling is the accepted cost" }
+
+[[word]]
+text = "misses"
+salutation = { gender = "f", expands = "the plural of miss, 'the Misses Smith'", after_given = true }
+
+[[word]]
+text = "mr"
+salutation = { gender = "m", after_given = true }
+given = { us_ssa = 5, as_of = 2026-10-24, note = "kept for after_given (decisions/H8)" }
+
+[[word]]
+text = "mister"
+salutation = { gender = "m", same_as = "mr", excluded = { after_given = "a given name and a surname, borne as a middle name either way" } }
+given = { us_ssa = 746, as_of = 2026-10-24 }
+family = { us_census_2010 = 1211, wikidata = 2, as_of = 2026-10-24 }
+
+[[word]]
+text = "mrs"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "ms"
+salutation = { gender = "f" }
+[word.credential]
+note = "NOT may_be_name, though #296's audit table put it there for the leading-title collision: the gate is position-blind and the collision is not (gated, 'John Smith, MS' read title 'MS'); a title/credential dual that position decides (decisions/C8)"
+
+[[word]]
+text = "mx"
+salutation = { gender = "n", after_given = true }
+
+[[word]]
+text = "doyen"
+style = {}
+
+[[word]]
+text = "eminence"
+style = {}
+
+[[word]]
+text = "excellency"
+style = {}
+
+[[word]]
+text = "highness"
+style = {}
+
+[[word]]
+text = "holiness"
+style = {}
+
+[[word]]
+text = "honorable"
+style = {}
+
+[[word]]
+text = "hon"
+style = { same_as = "honorable", note = "kept though Hon is a given name: the judges' Hon. was judged the commoner reading" }
+
+[[word]]
+text = "honourable"
+style = { same_as = "honorable" }
+
+[[word]]
+text = "majesty"
+style = {}
+
+[[word]]
+text = "advocate"
+academic = { expands = "the address of an advocate, 'Adv. Smith' in South Africa and India" }
+
+[[word]]
+text = "attorney"
+academic = { expands = "the address of a lawyer, 'Atty. Cruz'" }
+
+[[word]]
+text = "engineer"
+academic = { expands = "the address of an engineer, 'Engr. Cruz' in the Philippines and Nigeria" }
+
+[[word]]
+text = "nurse"
+academic = { expands = "the address of a nurse, 'Nurse Smith'" }
+
+[[word]]
+text = "abbess"
+religious = { gender = "f" }
+
+[[word]]
+text = "abbot"
+religious = { gender = "m" }
+
+[[word]]
+text = "acolyte"
+religious = {}
+
+[[word]]
+text = "adept"
+religious = {}
+
+[[word]]
+text = "archbishop"
+religious = {}
+
+[[word]]
+text = "archdeacon"
+religious = {}
+
+[[word]]
+text = "archdruid"
+religious = {}
+
+[[word]]
+text = "arhat"
+religious = {}
+
+[[word]]
+text = "bishop"
+religious = {}
+
+[[word]]
+text = "bp"
+religious = { same_as = "bishop" }
+
+[[word]]
+text = "blessed"
+religious = { expands = "beatified, 'Blessed Teresa'" }
+
+[[word]]
+text = "bodhisattva"
+religious = {}
+
+[[word]]
+text = "brother"
+religious = { addresses = "given", gender = "m", expands = "a member of a religious order, 'Brother Roger'" }
+
+[[word]]
+text = "buddha"
+religious = {}
+
+[[word]]
+text = "canon"
+religious = {}
+
+[[word]]
+text = "cardinal"
+religious = {}
+
+[[word]]
+text = "catholicos"
+religious = {}
+
+[[word]]
+text = "chaplain"
+religious = {}
+
+[[word]]
+text = "deacon"
+religious = {}
+
+[[word]]
+text = "dcn"
+religious = { same_as = "deacon" }
+
+[[word]]
+text = "druid"
+religious = {}
+
+[[word]]
+text = "evangelist"
+religious = {}
+
+[[word]]
+text = "father"
+religious = { addresses = "given", gender = "m", expands = "a priest, 'Father Brown'" }
+
+[[word]]
+text = "fr"
+religious = { expands = "Father, Friar" }
+
+[[word]]
+text = "friar"
+religious = {}
+
+[[word]]
+text = "metropolitan"
+religious = {}
+
+[[word]]
+text = "met"
+religious = { same_as = "metropolitan" }
+
+[[word]]
+text = "mgr"
+religious = { expands = "Monsignor, Monseigneur" }
+
+[[word]]
+text = "monk"
+religious = {}
+
+[[word]]
+text = "monsignor"
+religious = {}
+
+[[word]]
+text = "mother"
+religious = { addresses = "given", gender = "f", expands = "a mother superior, 'Mother Teresa'" }
+
+[[word]]
+text = "pastor"
+religious = {}
+
+[[word]]
+text = "patriarch"
+religious = {}
+
+[[word]]
+text = "pope"
+religious = { addresses = "given" }
+
+[[word]]
+text = "prelate"
+religious = {}
+
+[[word]]
+text = "presbyter"
+religious = {}
+
+[[word]]
+text = "priest"
+religious = {}
+
+[[word]]
+text = "priestess"
+religious = { gender = "f" }
+
+[[word]]
+text = "primate"
+religious = {}
+
+[[word]]
+text = "prior"
+religious = {}
+
+[[word]]
+text = "reverend"
+religious = {}
+
+[[word]]
+text = "rev"
+religious = { same_as = "reverend" }
+
+[[word]]
+text = "saint"
+religious = {}
+
+[[word]]
+text = "saoshyant"
+religious = {}
+
+[[word]]
+text = "siddha"
+religious = {}
+
+[[word]]
+text = "sister"
+religious = { addresses = "given", gender = "f", expands = "a nun or religious sister, 'Sister Mary'" }
+
+[[word]]
+text = "st"
+religious = { expands = "Saint, abbreviated" }
+[word.saint]
+may_be_given = true
+expands = "Saint, abbreviated"
+note = "Also in TITLES and consumed there before particle logic runs, so moving it between the may-be-given and never-given halves changes nothing; kept for the load-bearing TITLES intersection"
+
+[[word]]
+text = "tirthankar"
+religious = {}
+
+[[word]]
+text = "venerable"
+religious = { note = "stays out of GIVEN_NAME_TITLES: its traditions split on surname retention (Buddhist monastics drop the family name, Anglican archdeacons keep it), and addresses cannot say 'sometimes' (#346)" }
+
+[[word]]
+text = "vicar"
+religious = {}
+
+[[word]]
+text = "archduchess"
+nobility = { gender = "f" }
+
+[[word]]
+text = "archduke"
+nobility = { gender = "m" }
+
+[[word]]
+text = "baron"
+nobility = { gender = "m" }
+
+[[word]]
+text = "baroness"
+nobility = { gender = "f" }
+
+[[word]]
+text = "chief"
+nobility = { expands = "a chief of a people or clan, 'Chief Obafemi Awolowo'" }
+
+[[word]]
+text = "chieftain"
+nobility = {}
+
+[[word]]
+text = "count"
+nobility = { gender = "m" }
+
+[[word]]
+text = "countess"
+nobility = { gender = "f" }
+
+[[word]]
+text = "dame"
+nobility = { addresses = "given", gender = "f", expands = "the female knighthood, 'Dame Judi Dench'" }
+
+[[word]]
+text = "duke"
+given = { us_ssa = 11595, wikidata = 151, as_of = 2026-10-19, note = "male births only" }
+family = { us_census_2010 = 35053, wikidata = 315, as_of = 2026-10-19 }
+excluded = { nobility = "a common given name (Duke Kahanamoku), and a surname besides" }
+
+[[word]]
+text = "dutchess"
+nobility = { gender = "f", note = "a misspelling of duchess, shipped as written; duchess itself is not in the vocabulary" }
+
+[[word]]
+text = "emperor"
+nobility = { gender = "m" }
+
+[[word]]
+text = "empress"
+nobility = { gender = "f" }
+
+[[word]]
+text = "heir"
+nobility = {}
+
+[[word]]
+text = "heiress"
+nobility = { gender = "f" }
+
+[[word]]
+text = "king"
+nobility = { addresses = "given", gender = "m" }
+
+[[word]]
+text = "knight"
+nobility = { gender = "m", expands = "the rank the post-nominal knt names", issue = 606, note = "borne (Gladys Knight, who keeps family Knight in the forms she writes); one of the three words #606 proposed the graf class for" }
+
+[[word]]
+text = "lady"
+nobility = { gender = "f", note = "stays out of GIVEN_NAME_TITLES, decided: the given-name form ('Lady Diana') is a courtesy style for the daughters of the senior ranks alone, while every wife takes the title or surname ('Lady Thatcher'), and the text does not carry the rank (#519)" }
+
+[[word]]
+text = "lord"
+nobility = { gender = "m", note = "stays out of GIVEN_NAME_TITLES, decided: the given-name form ('Lord Peter') is a courtesy style for the children of the senior ranks alone, while every peer takes the title or surname ('Lord Byron'), and the text does not carry the rank (#519)" }
+
+[[word]]
+text = "marchess"
+nobility = { gender = "f" }
+
+[[word]]
+text = "marchioness"
+nobility = { gender = "f" }
+
+[[word]]
+text = "marquess"
+nobility = { gender = "m" }
+
+[[word]]
+text = "marquis"
+nobility = { gender = "m" }
+
+[[word]]
+text = "marquise"
+nobility = { gender = "f" }
+
+[[word]]
+text = "pharaoh"
+nobility = {}
+
+[[word]]
+text = "prince"
+nobility = { addresses = "given", gender = "m", issue = 519, note = "addresses by the GIVEN name ('Prince Harry', 'Princess Anne'); membership decides only which field the one word behind it takes, and 'Prince Fielder' is #348's collision either way" }
+
+[[word]]
+text = "princess"
+nobility = { addresses = "given", gender = "f", issue = 519, note = "addresses by the GIVEN name ('Prince Harry', 'Princess Anne'); membership decides only which field the one word behind it takes, and 'Prince Fielder' is #348's collision either way" }
+
+[[word]]
+text = "queen"
+nobility = { addresses = "given", gender = "f" }
+
+[[word]]
+text = "sir"
+nobility = { addresses = "given", gender = "m", expands = "a knight or baronet, 'Sir John'" }
+
+[[word]]
+text = "viscount"
+nobility = { gender = "m" }
+
+[[word]]
+text = "1lt"
+military = { expands = "First Lieutenant" }
+
+[[word]]
+text = "1stlt"
+military = { same_as = "1lt" }
+
+[[word]]
+text = "1sgt"
+military = { expands = "First Sergeant" }
+
+[[word]]
+text = "1stsgt"
+military = { same_as = "1sgt" }
+
+[[word]]
+text = "2lt"
+military = { expands = "Second Lieutenant" }
+
+[[word]]
+text = "2ndlt"
+military = { same_as = "2lt" }
+
+[[word]]
+text = "a1c"
+military = { expands = "Airman First Class" }
+
+[[word]]
+text = "ab"
+military = { expands = "Airman Basic" }
+
+[[word]]
+text = "adjutant"
+military = {}
+
+[[word]]
+text = "admiral"
+military = {}
+
+[[word]]
+text = "adm"
+military = { same_as = "admiral" }
+
+[[word]]
+text = "amn"
+military = { expands = "Airman" }
+
+[[word]]
+text = "bg"
+military = { expands = "Brigadier General" }
+
+[[word]]
+text = "bgen"
+military = { same_as = "bg" }
+
+[[word]]
+text = "briggen"
+military = { same_as = "bg" }
+
+[[word]]
+text = "brigadier"
+military = {}
+
+[[word]]
+text = "captain"
+military = {}
+
+[[word]]
+text = "capt"
+military = { same_as = "captain" }
+
+[[word]]
+text = "cpt"
+military = { same_as = "captain" }
+credential = {}
+
+[[word]]
+text = "ccmsgt"
+military = { expands = "Command Chief Master Sergeant" }
+
+[[word]]
+text = "cmsaf"
+military = { expands = "Chief Master Sergeant of the Air Force" }
+
+[[word]]
+text = "cmsgt"
+military = { expands = "Chief Master Sergeant" }
+
+[[word]]
+text = "colonel"
+military = {}
+
+[[word]]
+text = "col"
+military = { same_as = "colonel" }
+
+[[word]]
+text = "commander"
+military = {}
+
+[[word]]
+text = "cdr"
+military = { same_as = "commander" }
+
+[[word]]
+text = "commander-in-chief"
+military = {}
+
+[[word]]
+text = "commodore"
+military = {}
+
+[[word]]
+text = "corporal"
+military = {}
+
+[[word]]
+text = "cpl"
+military = { same_as = "corporal" }
+credential = {}
+
+[[word]]
+text = "cpo"
+military = { expands = "Chief Petty Officer" }
+credential = {}
+
+[[word]]
+text = "csm"
+military = { expands = "Command Sergeant Major" }
+credential = {}
+
+[[word]]
+text = "cwo2"
+military = { expands = "Chief Warrant Officer 2" }
+
+[[word]]
+text = "cwo-2"
+military = { same_as = "cwo2" }
+
+[[word]]
+text = "cwo3"
+military = { expands = "Chief Warrant Officer 3" }
+
+[[word]]
+text = "cwo-3"
+military = { same_as = "cwo3" }
+
+[[word]]
+text = "cwo4"
+military = { expands = "Chief Warrant Officer 4" }
+
+[[word]]
+text = "cwo-4"
+military = { same_as = "cwo4" }
+
+[[word]]
+text = "cwo5"
+military = { expands = "Chief Warrant Officer 5" }
+
+[[word]]
+text = "cwo-5"
+military = { same_as = "cwo5" }
+
+[[word]]
+text = "detective"
+military = { expands = "the police rank, 'Detective Smith'" }
+
+[[word]]
+text = "ens"
+military = { expands = "Ensign" }
+
+[[word]]
+text = "fadm"
+military = { expands = "Fleet Admiral" }
+
+[[word]]
+text = "gaf"
+military = { expands = "General of the Air Force" }
+
+[[word]]
+text = "general"
+military = {}
+
+[[word]]
+text = "gen"
+military = { same_as = "general" }
+
+[[word]]
+text = "generalissimo"
+military = {}
+
+[[word]]
+text = "gysgt"
+military = { expands = "Gunnery Sergeant" }
+
+[[word]]
+text = "lcdr"
+military = { expands = "Lieutenant Commander" }
+
+[[word]]
+text = "lcpl"
+military = { expands = "Lance Corporal" }
+
+[[word]]
+text = "lieutenant"
+military = {}
+
+[[word]]
+text = "lt"
+military = { same_as = "lieutenant" }
+credential = {}
+
+[[word]]
+text = "ltc"
+military = { expands = "Lieutenant Colonel" }
+
+[[word]]
+text = "ltcol"
+military = { same_as = "ltc" }
+
+[[word]]
+text = "ltg"
+military = { expands = "Lieutenant General" }
+
+[[word]]
+text = "ltgen"
+military = { same_as = "ltg" }
+
+[[word]]
+text = "ltjg"
+military = { expands = "Lieutenant (junior grade)" }
+
+[[word]]
+text = "maj"
+military = { expands = "Major" }
+
+[[word]]
+text = "marshal"
+excluded = { military = { reason = "a given name (Marshal Yanda); the accepted cost is that 'Field Marshal Bernard Montgomery' reads title Field, given Marshal", issue = 606, decided = 2026-10-04 } }
+
+[[word]]
+text = "mcpo"
+military = { expands = "Master Chief Petty Officer" }
+
+[[word]]
+text = "mcpoc"
+military = { expands = "Master Chief Petty Officer of the Coast Guard" }
+
+[[word]]
+text = "mcpon"
+military = { expands = "Master Chief Petty Officer of the Navy" }
+
+[[word]]
+text = "mg"
+military = { expands = "Major General" }
+
+[[word]]
+text = "majgen"
+military = { same_as = "mg" }
+
+[[word]]
+text = "mgysgt"
+military = { expands = "Master Gunnery Sergeant" }
+
+[[word]]
+text = "mpco-cg"
+military = { note = "as shipped; the rank is MCPOCG, Master Chief Petty Officer of the Coast Guard, already listed as mcpoc" }
+
+[[word]]
+text = "msg"
+military = { expands = "Master Sergeant" }
+
+[[word]]
+text = "msgt"
+military = { same_as = "msg" }
+
+[[word]]
+text = "officer"
+military = { expands = "the police rank, 'Officer Smith'" }
+
+[[word]]
+text = "pfc"
+military = { expands = "Private First Class" }
+
+[[word]]
+text = "po1"
+military = { expands = "Petty Officer First Class" }
+
+[[word]]
+text = "po2"
+military = { expands = "Petty Officer Second Class" }
+
+[[word]]
+text = "po3"
+military = { expands = "Petty Officer Third Class" }
+
+[[word]]
+text = "private"
+military = {}
+
+[[word]]
+text = "pvt"
+military = { same_as = "private" }
+
+[[word]]
+text = "pv2"
+military = { expands = "Private (E-2)" }
+
+[[word]]
+text = "radm"
+military = { expands = "Rear Admiral" }
+
+[[word]]
+text = "rdml"
+military = { same_as = "radm" }
+
+[[word]]
+text = "sa"
+family = { us_census_2010 = 1600, wikidata = 182, as_of = 2026-10-24, note = "The Census writes no diacritics, so its 1,600 is Sa and Sá together (37.88% Asian/PI, so much of it is Korean, Chinese or Vietnamese Sa); Wikidata is a lower bound: 110 as Sá (Portugal, Brazil) plus 72 as Sa" }
+given = { us_ssa = 73, wikidata = 2, as_of = 2026-10-24, note = "US SSA births summed over both sexes; Wikidata is a lower bound; nam_dict band 5 (banded in 3 countries: Korea, Vietnam, China)" }
+excluded = { military = { reason = "Seaman Apprentice, with no bearer in any corpus: every name read with SA as its title in the committed and local corpora is a person whose given name is Sa (Sa Liu, Mohamad Sa Haichal) or the Arabic Sa ad (Sa ad Hariri), or whose Portuguese surname Sá is written without its accent (Ricardo Sa Pinto); as a title it also took the slot after a family comma and ahead of a name", issue = 857, decided = 2026-10-25 }, credential = { reason = "no person in the corpora writes it: the corpora's SA and S.A. suffixes are companies (Galderma S.A.), the South African qualifier in FCP(SA), and the initials S.A. typed without stops (MANN, S.A.); the Portuguese surname Sá written without its accent (Maria de Sa) is the reading to protect, and as a credential it needed the may_be_name flag, which left a capitals name ending in SA a suffix (MARIA DE SA). NPPES lists 167 US healthcare providers who write it, unread by item", issue = 857, decided = 2026-10-25 } }
+
+[[word]]
+text = "scpo"
+military = { expands = "Senior Chief Petty Officer" }
+
+[[word]]
+text = "sergeant"
+military = {}
+
+[[word]]
+text = "sgt"
+military = { same_as = "sergeant" }
+
+[[word]]
+text = "sfc"
+military = { expands = "Sergeant First Class" }
+
+[[word]]
+text = "sgm"
+military = { expands = "Sergeant Major" }
+credential = {}
+
+[[word]]
+text = "sgtmaj"
+military = { same_as = "sgm" }
+
+[[word]]
+text = "sgtmajmc"
+military = { expands = "Sergeant Major of the Marine Corps" }
+
+[[word]]
+text = "sma"
+military = { expands = "Sergeant Major of the Army" }
+
+[[word]]
+text = "smsgt"
+military = { expands = "Senior Master Sergeant" }
+
+[[word]]
+text = "sn"
+military = { expands = "Seaman" }
+
+[[word]]
+text = "spc"
+military = { expands = "Specialist" }
+
+[[word]]
+text = "ssg"
+military = { expands = "Staff Sergeant" }
+
+[[word]]
+text = "ssgt"
+military = { same_as = "ssg" }
+
+[[word]]
+text = "subaltern"
+military = {}
+
+[[word]]
+text = "tsgt"
+military = { expands = "Technical Sergeant" }
+
+[[word]]
+text = "vadm"
+military = { expands = "Vice Admiral" }
+
+[[word]]
+text = "wo1"
+military = { expands = "Warrant Officer 1" }
+
+[[word]]
+text = "wo-1"
+military = { same_as = "wo1" }
+
+[[word]]
+text = "wo2"
+military = { expands = "Warrant Officer 2" }
+
+[[word]]
+text = "wo3"
+military = { expands = "Warrant Officer 3" }
+
+[[word]]
+text = "wo4"
+military = { expands = "Warrant Officer 4" }
+
+[[word]]
+text = "wo5"
+military = { expands = "Warrant Officer 5" }
+
+[[word]]
+text = "administrator"
+office = { issue = 606, note = "one of #606's English offices, completing runs like 'Police Commissioner'" }
+
+[[word]]
+text = "alderman"
+office = {}
+
+[[word]]
+text = "almoner"
+office = {}
+
+[[word]]
+text = "ambassador"
+office = {}
+
+[[word]]
+text = "arbitrator"
+office = {}
+
+[[word]]
+text = "attaché"
+office = {}
+
+[[word]]
+text = "attache"
+office = { same_as = "attaché" }
+
+[[word]]
+text = "bailiff"
+office = {}
+
+[[word]]
+text = "burgess"
+office = {}
+
+[[word]]
+text = "ceo"
+office = {}
+
+[[word]]
+text = "cfo"
+office = {}
+
+[[word]]
+text = "chair"
+office = {}
+
+[[word]]
+text = "chairs"
+office = { same_as = "chair" }
+
+[[word]]
+text = "chancellor"
+office = {}
+
+[[word]]
+text = "chargé"
+office = { expands = "chargé d'affaires, the head of a mission below an ambassador" }
+
+[[word]]
+text = "charge"
+office = { same_as = "chargé", note = "unaccented 'chargé', like attaché/'attache'" }
+
+[[word]]
+text = "clerk"
+office = {}
+
+[[word]]
+text = "co-chair"
+office = {}
+
+[[word]]
+text = "co-chairs"
+office = { same_as = "co-chair" }
+
+[[word]]
+text = "commissioner"
+office = { issue = 606, note = "one of #606's English offices, completing runs like 'Police Commissioner'" }
+
+[[word]]
+text = "comptroller"
+office = {}
+
+[[word]]
+text = "controller"
+office = {}
+
+[[word]]
+text = "councillor"
+office = {}
+
+[[word]]
+text = "cllr"
+office = { same_as = "councillor", issue = 847, note = "British abbreviation, written without the period; opens 508 of 15,214 names in ukec-individuals (2026-10-23), none borne as a name in any source" }
+
+[[word]]
+text = "counsel"
+office = { issue = 606, note = "borne: ~730 surnames (Australia, the US, England), forebears.io, worldwide, rounded, 2026-10-04; shipped under the graf class (decisions/salutation-titles)" }
+
+[[word]]
+text = "courtier"
+office = {}
+
+[[word]]
+text = "delegate"
+office = {}
+
+[[word]]
+text = "deputy"
+office = {}
+
+[[word]]
+text = "dpty"
+office = { same_as = "deputy" }
+
+[[word]]
+text = "director"
+office = {}
+
+[[word]]
+text = "dir"
+office = { same_as = "director" }
+
+[[word]]
+text = "envoy"
+office = {}
+
+[[word]]
+text = "governor"
+office = {}
+
+[[word]]
+text = "gov"
+office = { same_as = "governor" }
+
+[[word]]
+text = "headman"
+office = {}
+
+[[word]]
+text = "intendant"
+office = {}
+
+[[word]]
+text = "judge"
+office = {}
+
+[[word]]
+text = "justice"
+excluded = { office = { reason = "a given name (Justice Smith); the accepted cost is that 'Chief Justice John Roberts' reads title Chief, given Justice", issue = 606, decided = 2026-10-04 } }
+
+[[word]]
+text = "leader"
+office = {}
+
+[[word]]
+text = "magistrate"
+office = {}
+
+[[word]]
+text = "mag"
+office = { same_as = "magistrate" }
+
+[[word]]
+text = "magistrate-judge"
+office = {}
+
+[[word]]
+text = "mag-judge"
+office = { same_as = "magistrate-judge" }
+
+[[word]]
+text = "mag/judge"
+office = { same_as = "magistrate-judge" }
+
+[[word]]
+text = "mayor"
+office = {}
+
+[[word]]
+text = "minister"
+office = {}
+
+[[word]]
+text = "prefect"
+office = {}
+
+[[word]]
+text = "premier"
+office = {}
+
+[[word]]
+text = "president"
+office = {}
+
+[[word]]
+text = "pres"
+office = { same_as = "president" }
+
+[[word]]
+text = "principal"
+office = {}
+
+[[word]]
+text = "prin"
+office = { same_as = "principal" }
+
+[[word]]
+text = "provost"
+office = {}
+
+[[word]]
+text = "pslc"
+office = { issue = 9, expands = "Pro Se Law Clerk" }
+
+[[word]]
+text = "pursuivant"
+office = {}
+
+[[word]]
+text = "registrar"
+office = {}
+
+[[word]]
+text = "representative"
+office = {}
+
+[[word]]
+text = "rep"
+office = { same_as = "representative" }
+
+[[word]]
+text = "secretary"
+office = {}
+
+[[word]]
+text = "senator"
+office = {}
+
+[[word]]
+text = "senior-judge"
+office = {}
+
+[[word]]
+text = "sheriff"
+office = {}
+
+[[word]]
+text = "speaker"
+office = {}
+
+[[word]]
+text = "swordbearer"
+office = {}
+
+[[word]]
+text = "treasurer"
+office = {}
+
+[[word]]
+text = "vc"
+office = { expands = "Vice-Chancellor" }
+credential = {}
+
+[[word]]
+text = "verderer"
+office = {}
+
+[[word]]
+text = "warden"
+office = {}
+
+[[word]]
+text = "abolitionist"
+occupation = {}
+
+[[word]]
+text = "academic"
+occupation = {}
+
+[[word]]
+text = "activist"
+occupation = {}
+
+[[word]]
+text = "actor"
+occupation = {}
+
+[[word]]
+text = "actress"
+occupation = { gender = "f" }
+
+[[word]]
+text = "adviser"
+occupation = {}
+
+[[word]]
+text = "anarchist"
+occupation = {}
+
+[[word]]
+text = "animator"
+occupation = {}
+
+[[word]]
+text = "anthropologist"
+occupation = {}
+
+[[word]]
+text = "apprentice"
+occupation = {}
+
+[[word]]
+text = "archeologist"
+occupation = {}
+
+[[word]]
+text = "architect"
+occupation = {}
+
+[[word]]
+text = "arranger"
+occupation = {}
+
+[[word]]
+text = "astronomer"
+occupation = {}
+
+[[word]]
+text = "author"
+occupation = {}
+
+[[word]]
+text = "bandleader"
+occupation = {}
+
+[[word]]
+text = "banker"
+occupation = {}
+
+[[word]]
+text = "bard"
+occupation = {}
+
+[[word]]
+text = "barrister"
+occupation = {}
+
+[[word]]
+text = "bibliographer"
+occupation = {}
+
+[[word]]
+text = "biochemist"
+occupation = {}
+
+[[word]]
+text = "biographer"
+occupation = {}
+
+[[word]]
+text = "biologist"
+occupation = {}
+
+[[word]]
+text = "blogger"
+occupation = {}
+
+[[word]]
+text = "bookseller"
+occupation = {}
+
+[[word]]
+text = "botanist"
+occupation = {}
+
+[[word]]
+text = "broadcaster"
+occupation = {}
+
+[[word]]
+text = "businessman"
+occupation = { gender = "m" }
+
+[[word]]
+text = "businesswoman"
+occupation = { gender = "f" }
+
+[[word]]
+text = "cartographer"
+occupation = {}
+
+[[word]]
+text = "cartoonist"
+occupation = {}
+
+[[word]]
+text = "celebrity"
+occupation = {}
+
+[[word]]
+text = "chef"
+occupation = {}
+
+[[word]]
+text = "chemist"
+occupation = {}
+
+[[word]]
+text = "choreographer"
+occupation = {}
+
+[[word]]
+text = "clergyman"
+occupation = {}
+
+[[word]]
+text = "co-founder"
+occupation = {}
+
+[[word]]
+text = "coach"
+occupation = {}
+
+[[word]]
+text = "collector"
+occupation = {}
+
+[[word]]
+text = "comedian"
+occupation = {}
+
+[[word]]
+text = "comedienne"
+occupation = { gender = "f" }
+
+[[word]]
+text = "comic"
+occupation = {}
+
+[[word]]
+text = "composer"
+occupation = {}
+
+[[word]]
+text = "conductor"
+occupation = {}
+
+[[word]]
+text = "consultant"
+occupation = {}
+
+[[word]]
+text = "correspondent"
+occupation = {}
+
+[[word]]
+text = "counselor"
+occupation = {}
+
+[[word]]
+text = "criminologist"
+occupation = {}
+
+[[word]]
+text = "critic"
+occupation = {}
+
+[[word]]
+text = "curator"
+occupation = {}
+
+[[word]]
+text = "cyclist"
+occupation = {}
+
+[[word]]
+text = "dancer"
+occupation = {}
+
+[[word]]
+text = "designer"
+occupation = {}
+
+[[word]]
+text = "developer"
+occupation = {}
+
+[[word]]
+text = "diplomat"
+occupation = {}
+
+[[word]]
+text = "dissident"
+occupation = {}
+
+[[word]]
+text = "dramatist"
+occupation = {}
+
+[[word]]
+text = "drummer"
+occupation = {}
+
+[[word]]
+text = "ecologist"
+occupation = {}
+
+[[word]]
+text = "economist"
+occupation = {}
+
+[[word]]
+text = "editor"
+occupation = {}
+
+[[word]]
+text = "educator"
+occupation = {}
+
+[[word]]
+text = "entertainer"
+occupation = {}
+
+[[word]]
+text = "entrepreneur"
+occupation = {}
+
+[[word]]
+text = "essayist"
+occupation = {}
+
+[[word]]
+text = "expert"
+occupation = {}
+
+[[word]]
+text = "forester"
+occupation = {}
+
+[[word]]
+text = "founder"
+occupation = {}
+
+[[word]]
+text = "guitarist"
+occupation = {}
+
+[[word]]
+text = "historian"
+occupation = {}
+
+[[word]]
+text = "host"
+occupation = {}
+
+[[word]]
+text = "illustrator"
+occupation = {}
+
+[[word]]
+text = "industrialist"
+occupation = {}
+
+[[word]]
+text = "instructor"
+occupation = {}
+
+[[word]]
+text = "inventor"
+occupation = {}
+
+[[word]]
+text = "investigator"
+occupation = {}
+
+[[word]]
+text = "investor"
+occupation = {}
+
+[[word]]
+text = "journalist"
+occupation = {}
+
+[[word]]
+text = "journeyman"
+occupation = {}
+
+[[word]]
+text = "jurist"
+occupation = {}
+
+[[word]]
+text = "keyboardist"
+occupation = {}
+
+[[word]]
+text = "lawyer"
+occupation = {}
+
+[[word]]
+text = "lecturer"
+occupation = {}
+
+[[word]]
+text = "librarian"
+occupation = {}
+
+[[word]]
+text = "linguist"
+occupation = {}
+
+[[word]]
+text = "lyricist"
+occupation = {}
+
+[[word]]
+text = "magnate"
+occupation = {}
+
+[[word]]
+text = "maid"
+occupation = { addresses = "given", gender = "f", expands = "'Maid Marian'" }
+
+[[word]]
+text = "manager"
+occupation = {}
+
+[[word]]
+text = "mathematician"
+occupation = {}
+
+[[word]]
+text = "memoirist"
+occupation = {}
+
+[[word]]
+text = "merchant"
+occupation = {}
+
+[[word]]
+text = "missionary"
+occupation = {}
+
+[[word]]
+text = "mobster"
+occupation = {}
+
+[[word]]
+text = "model"
+occupation = {}
+
+[[word]]
+text = "mountaineer"
+occupation = {}
+
+[[word]]
+text = "musician"
+occupation = {}
+
+[[word]]
+text = "musicologist"
+occupation = {}
+
+[[word]]
+text = "nanny"
+occupation = {}
+
+[[word]]
+text = "narrator"
+occupation = {}
+
+[[word]]
+text = "naturalist"
+occupation = {}
+
+[[word]]
+text = "neuroscientist"
+occupation = {}
+
+[[word]]
+text = "novelist"
+occupation = {}
+
+[[word]]
+text = "obstetritian"
+occupation = { note = "a misspelling of obstetrician, shipped as written" }
+
+[[word]]
+text = "ornithologist"
+occupation = {}
+
+[[word]]
+text = "painter"
+occupation = {}
+
+[[word]]
+text = "paleontologist"
+occupation = {}
+
+[[word]]
+text = "pediatrician"
+occupation = {}
+
+[[word]]
+text = "personality"
+occupation = {}
+
+[[word]]
+text = "philantropist"
+occupation = { note = "a misspelling of philanthropist, shipped as written" }
+
+[[word]]
+text = "philosopher"
+occupation = {}
+
+[[word]]
+text = "photographer"
+occupation = {}
+
+[[word]]
+text = "physician"
+occupation = {}
+
+[[word]]
+text = "physicist"
+occupation = {}
+
+[[word]]
+text = "pianist"
+occupation = {}
+
+[[word]]
+text = "pilot"
+occupation = {}
+
+[[word]]
+text = "pioneer"
+occupation = {}
+
+[[word]]
+text = "player"
+occupation = {}
+
+[[word]]
+text = "playwright"
+occupation = {}
+
+[[word]]
+text = "poet"
+occupation = {}
+
+[[word]]
+text = "politician"
+occupation = {}
+
+[[word]]
+text = "printer"
+occupation = {}
+
+[[word]]
+text = "printmaker"
+occupation = {}
+
+[[word]]
+text = "producer"
+occupation = {}
+
+[[word]]
+text = "psychiatrist"
+occupation = {}
+
+[[word]]
+text = "psychologist"
+occupation = {}
+
+[[word]]
+text = "publisher"
+occupation = {}
+
+[[word]]
+text = "ranger"
+occupation = {}
+
+[[word]]
+text = "researcher"
+occupation = {}
+
+[[word]]
+text = "sailor"
+occupation = {}
+
+[[word]]
+text = "satirist"
+occupation = {}
+
+[[word]]
+text = "scholar"
+occupation = {}
+
+[[word]]
+text = "schoolmaster"
+occupation = {}
+
+[[word]]
+text = "scientist"
+occupation = {}
+
+[[word]]
+text = "screenwriter"
+occupation = {}
+
+[[word]]
+text = "servant"
+occupation = {}
+
+[[word]]
+text = "singer"
+occupation = {}
+
+[[word]]
+text = "singer-songwriter"
+occupation = {}
+
+[[word]]
+text = "sociologist"
+occupation = {}
+
+[[word]]
+text = "soldier"
+occupation = {}
+
+[[word]]
+text = "solicitor"
+occupation = {}
+
+[[word]]
+text = "soprano"
+occupation = {}
+
+[[word]]
+text = "suffragist"
+occupation = {}
+
+[[word]]
+text = "surgeon"
+occupation = {}
+
+[[word]]
+text = "teacher"
+occupation = {}
+
+[[word]]
+text = "technologist"
+occupation = {}
+
+[[word]]
+text = "tenor"
+occupation = {}
+
+[[word]]
+text = "theologian"
+occupation = {}
+
+[[word]]
+text = "theorist"
+occupation = {}
+
+[[word]]
+text = "translator"
+occupation = {}
+
+[[word]]
+text = "vocalist"
+occupation = {}
+
+[[word]]
+text = "woodman"
+occupation = {}
+
+[[word]]
+text = "writer"
+occupation = {}
+
+[[word]]
+text = "zoologist"
+occupation = {}
+
+[[word]]
+text = "aunt"
+kinship = { addresses = "given", gender = "f" }
+
+[[word]]
+text = "auntie"
+kinship = { addresses = "given", gender = "f", same_as = "aunt" }
+
+[[word]]
+text = "matriarch"
+kinship = { gender = "f" }
+
+[[word]]
+text = "uncle"
+kinship = { addresses = "given", gender = "m" }
+
+[[word]]
+text = "10th"
+modifier = {}
+
+[[word]]
+text = "1st"
+modifier = {}
+
+[[word]]
+text = "2nd"
+modifier = {}
+
+[[word]]
+text = "3rd"
+modifier = {}
+
+[[word]]
+text = "4th"
+modifier = {}
+
+[[word]]
+text = "5th"
+modifier = {}
+
+[[word]]
+text = "6th"
+modifier = {}
+
+[[word]]
+text = "7th"
+modifier = {}
+
+[[word]]
+text = "8th"
+modifier = {}
+
+[[word]]
+text = "9th"
+modifier = {}
+
+[[word]]
+text = "advertising"
+modifier = {}
+
+[[word]]
+text = "air"
+modifier = {}
+
+[[word]]
+text = "analytics"
+modifier = {}
+
+[[word]]
+text = "appellate"
+modifier = {}
+
+[[word]]
+text = "army"
+modifier = {}
+
+[[word]]
+text = "assistant"
+modifier = {}
+
+[[word]]
+text = "asst"
+modifier = { same_as = "assistant" }
+
+[[word]]
+text = "associate"
+modifier = {}
+
+[[word]]
+text = "assoc"
+modifier = { same_as = "associate" }
+
+[[word]]
+text = "award-winning"
+modifier = {}
+
+[[word]]
+text = "ballet"
+modifier = {}
+
+[[word]]
+text = "banner"
+modifier = {}
+
+[[word]]
+text = "baseball"
+modifier = {}
+
+[[word]]
+text = "bearer"
+modifier = { expands = "Standard Bearer, Sword Bearer" }
+
+[[word]]
+text = "behavioral"
+modifier = {}
+
+[[word]]
+text = "bench"
+modifier = {}
+
+[[word]]
+text = "biblical"
+modifier = {}
+
+[[word]]
+text = "blues"
+modifier = {}
+
+[[word]]
+text = "british"
+modifier = {}
+
+[[word]]
+text = "burlesque"
+modifier = {}
+
+[[word]]
+text = "business"
+modifier = {}
+
+[[word]]
+text = "civil"
+modifier = {}
+
+[[word]]
+text = "classical"
+modifier = {}
+
+[[word]]
+text = "computer"
+modifier = {}
+
+[[word]]
+text = "corporate"
+modifier = {}
+
+[[word]]
+text = "credit"
+modifier = {}
+
+[[word]]
+text = "criminal"
+modifier = {}
+
+[[word]]
+text = "customs"
+modifier = {}
+
+[[word]]
+text = "d'affaires"
+modifier = { expands = "the second word of chargé d'affaires" }
+
+[[word]]
+text = "designated"
+modifier = { issue = 9, expands = "Designated Judge" }
+
+[[word]]
+text = "discovery"
+modifier = { issue = 9 }
+
+[[word]]
+text = "district"
+modifier = {}
+
+[[word]]
+text = "division"
+modifier = {}
+
+[[word]]
+text = "docket"
+modifier = { issue = 9, expands = "Docket Clerk" }
+
+[[word]]
+text = "edmi"
+modifier = { issue = 9, note = "from #9's list of federal judges' titles; its meaning is not recorded there" }
+
+[[word]]
+text = "english"
+modifier = {}
+
+[[word]]
+text = "excellent"
+modifier = { expands = "'His Most Excellent Majesty'" }
+
+[[word]]
+text = "executive"
+modifier = {}
+
+[[word]]
+text = "exec"
+modifier = { same_as = "executive" }
+
+[[word]]
+text = "family"
+modifier = { issue = 9, note = "added with #9's judicial titles (0c2596c7); the phrase it was for is not recorded" }
+
+[[word]]
+text = "federal"
+modifier = {}
+
+[[word]]
+text = "field"
+modifier = {}
+
+[[word]]
+text = "film"
+modifier = {}
+
+[[word]]
+text = "financial"
+modifier = {}
+
+[[word]]
+text = "first"
+modifier = {}
+
+[[word]]
+text = "flag"
+modifier = {}
+
+[[word]]
+text = "flying"
+modifier = {}
+
+[[word]]
+text = "foreign"
+modifier = {}
+
+[[word]]
+text = "grand"
+modifier = {}
+
+[[word]]
+text = "group"
+modifier = {}
+
+[[word]]
+text = "her"
+modifier = { gender = "f", expands = "'Her Majesty'" }
+
+[[word]]
+text = "hereditary"
+modifier = {}
+
+[[word]]
+text = "high"
+modifier = {}
+
+[[word]]
+text = "his"
+modifier = { gender = "m", expands = "'His Holiness'" }
+
+[[word]]
+text = "information"
+modifier = {}
+
+[[word]]
+text = "intelligence"
+modifier = {}
+
+[[word]]
+text = "judicial"
+modifier = {}
+
+[[word]]
+text = "king's"
+modifier = { expands = "King's Counsel" }
+
+[[word]]
+text = "kingdom"
+modifier = {}
+
+[[word]]
+text = "knowledge"
+modifier = {}
+
+[[word]]
+text = "law"
+modifier = {}
+
+[[word]]
+text = "legal"
+modifier = {}
+
+[[word]]
+text = "literary"
+modifier = {}
+
+[[word]]
+text = "marcher"
+modifier = { expands = "Marcher Lord" }
+
+[[word]]
+text = "marketing"
+modifier = {}
+
+[[word]]
+text = "mathematics"
+modifier = {}
+
+[[word]]
+text = "member"
+modifier = {}
+
+[[word]]
+text = "military"
+modifier = {}
+
+[[word]]
+text = "most"
+modifier = { expands = "'Most Reverend'" }
+
+[[word]]
+text = "municipal"
+modifier = {}
+
+[[word]]
+text = "mystery"
+modifier = {}
+
+[[word]]
+text = "national"
+modifier = {}
+
+[[word]]
+text = "navy"
+modifier = {}
+
+[[word]]
+text = "opera"
+modifier = {}
+
+[[word]]
+text = "operating"
+modifier = {}
+
+[[word]]
+text = "petty"
+modifier = {}
+
+[[word]]
+text = "police"
+modifier = {}
+
+[[word]]
+text = "political"
+modifier = {}
+
+[[word]]
+text = "presiding"
+modifier = {}
+
+[[word]]
+text = "prime"
+modifier = {}
+
+[[word]]
+text = "pro"
+modifier = { issue = 9, expands = "Pro Se Law Clerk" }
+
+[[word]]
+text = "queen's"
+modifier = { expands = "Queen's Counsel" }
+
+[[word]]
+text = "radio"
+modifier = {}
+
+[[word]]
+text = "rear"
+modifier = {}
+
+[[word]]
+text = "resident"
+modifier = {}
+
+[[word]]
+text = "revenue"
+modifier = {}
+
+[[word]]
+text = "right"
+modifier = { expands = "'Right Honourable', 'Right Reverend'" }
+
+[[word]]
+text = "rt"
+modifier = { same_as = "right" }
+
+[[word]]
+text = "risk"
+modifier = {}
+
+[[word]]
+text = "rock"
+modifier = {}
+
+[[word]]
+text = "royal"
+modifier = {}
+
+[[word]]
+text = "security"
+modifier = {}
+
+[[word]]
+text = "senior"
+modifier = {}
+[word.excluded]
+generation = { reason = "Senior is a surname (3,864 US Census bearers)", issue = 679 }
+
+[[word]]
+text = "soccer"
+modifier = {}
+
+[[word]]
+text = "social"
+modifier = {}
+
+[[word]]
+text = "software"
+modifier = {}
+
+[[word]]
+text = "special"
+modifier = {}
+
+[[word]]
+text = "staff"
+modifier = {}
+
+[[word]]
+text = "state"
+modifier = {}
+
+[[word]]
+text = "states"
+modifier = {}
+
+[[word]]
+text = "strategy"
+modifier = {}
+
+[[word]]
+text = "superior"
+modifier = { expands = "'Mother Superior'" }
+
+[[word]]
+text = "supreme"
+modifier = {}
+
+[[word]]
+text = "tax"
+modifier = {}
+
+[[word]]
+text = "technical"
+modifier = {}
+
+[[word]]
+text = "television"
+modifier = {}
+
+[[word]]
+text = "theater"
+modifier = {}
+
+[[word]]
+text = "theatre"
+modifier = { same_as = "theater" }
+
+[[word]]
+text = "travel"
+modifier = {}
+
+[[word]]
+text = "uk"
+modifier = {}
+
+[[word]]
+text = "united"
+modifier = {}
+
+[[word]]
+text = "us"
+modifier = {}
+
+[[word]]
+text = "vice"
+modifier = {}
+
+[[word]]
+text = "voice"
+modifier = {}
+
+[[word]]
+text = "warrant"
+modifier = {}
+
+[[word]]
+text = "wing"
+modifier = {}
+
+[[word]]
+text = "jr"
+generation = {}
+
+[[word]]
+text = "jnr"
+generation = { same_as = "jr" }
+
+[[word]]
+text = "junior"
+generation = { same_as = "jr" }
+
+[[word]]
+text = "sr"
+generation = {}
+
+[[word]]
+text = "snr"
+generation = { same_as = "sr" }
+
+[[word]]
+text = "8-vsb"
+credential = {}
+
+[[word]]
+text = "aas"
+credential = {}
+
+[[word]]
+text = "aba"
+family = { us_census_2010 = 231, wikidata = 18, as_of = 2026-10-21 }
+given = { us_ssa = 32, wikidata = 40, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 183 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "abc"
+credential = {}
+
+[[word]]
+text = "abd"
+[word.credential]
+expands = "All But Dissertation"
+note = "also the Latin transliteration of the Arabic bound given name abd; position decides at the two ends but not in a family comma's given slot, where 'Smith, Abd' reads suffix 'Abd' (decisions/P5)"
+
+[[word]]
+text = "abpp"
+credential = {}
+
+[[word]]
+text = "abr"
+credential = {}
+
+[[word]]
+text = "aca"
+family = { us_census_2010 = 375, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 141 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "acas"
+credential = {}
+
+[[word]]
+text = "ace"
+family = { us_census_2010 = 1199, wikidata = 8, as_of = 2026-10-21 }
+given = { us_ssa = 26483, wikidata = 45, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 9 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "acha"
+family = { us_census_2010 = 477, wikidata = 26, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "acp"
+credential = {}
+
+[[word]]
+text = "ae"
+credential = {}
+
+[[word]]
+text = "aem"
+credential = {}
+
+[[word]]
+text = "afasma"
+credential = {}
+
+[[word]]
+text = "afc"
+credential = {}
+
+[[word]]
+text = "afm"
+credential = {}
+
+[[word]]
+text = "agacnp-bc"
+credential = { expands = "Adult-Gerontology Acute Care Nurse Practitioner, Board Certified", note = "NPPES 4,421 US healthcare providers (August 2026 file); 2 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "agsf"
+credential = {}
+
+[[word]]
+text = "aia"
+credential = {}
+
+[[word]]
+text = "aicp"
+credential = {}
+
+[[word]]
+text = "ala"
+family = { us_census_2010 = 743, wikidata = 14, as_of = 2026-10-21 }
+given = { us_ssa = 943, wikidata = 163, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 3 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "alc"
+credential = {}
+
+[[word]]
+text = "alp"
+family = { us_census_2010 = 116, wikidata = 55, as_of = 2026-10-21 }
+given = { us_ssa = 467, wikidata = 75, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "am"
+credential = {}
+
+[[word]]
+text = "amd"
+credential = {}
+
+[[word]]
+text = "ame"
+credential = {}
+
+[[word]]
+text = "amieee"
+credential = {}
+
+[[word]]
+text = "ams"
+family = { us_census_2010 = 135, wikidata = 2, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 5 US healthcare providers write it (healthcare only, August 2026 file). Surname reading is the larger of the two small counts (#796's revised rule).", issue = 796 }
+
+[[word]]
+text = "aphr"
+credential = {}
+
+[[word]]
+text = "apn"
+credential = {}
+
+[[word]]
+text = "apr"
+credential = {}
+
+[[word]]
+text = "aprn"
+credential = {}
+
+[[word]]
+text = "aprn-cnp"
+credential = { expands = "Advanced Practice Registered Nurse, Certified Nurse Practitioner", note = "NPPES 3,944 US healthcare providers (August 2026 file); 2 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "apss"
+credential = {}
+
+[[word]]
+text = "aqp"
+credential = {}
+
+[[word]]
+text = "arm"
+family = { us_census_2010 = 283, wikidata = 8, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "arrc"
+credential = {}
+
+[[word]]
+text = "asa"
+family = { us_census_2010 = 508, wikidata = 5, as_of = 2026-10-21 }
+given = { us_ssa = 23067, wikidata = 283, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 3 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "asc"
+credential = {}
+
+[[word]]
+text = "asid"
+credential = {}
+
+[[word]]
+text = "asla"
+credential = {}
+
+[[word]]
+text = "asp"
+family = { us_census_2010 = 733, wikidata = 63, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "atc"
+credential = {}
+
+[[word]]
+text = "awb"
+credential = {}
+
+[[word]]
+text = "ba"
+[word.credential]
+may_be_name = true
+expands = "Bachelor of Arts"
+issue = 342
+note = "Ba is a real surname (Vietnamese; Senegalese Fula) about as common as BA is a credential, the ma/Ma shape"
+
+[[word]]
+text = "bca"
+credential = {}
+
+[[word]]
+text = "bcl"
+credential = {}
+
+[[word]]
+text = "bcss"
+credential = {}
+
+[[word]]
+text = "bds"
+credential = {}
+
+[[word]]
+text = "bem"
+family = { us_census_2010 = 339, wikidata = 29, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "bls-i"
+credential = {}
+
+[[word]]
+text = "bn"
+credential = {}
+
+[[word]]
+text = "bpe"
+credential = {}
+
+[[word]]
+text = "bpi"
+credential = {}
+
+[[word]]
+text = "bpt"
+credential = {}
+
+[[word]]
+text = "bs"
+credential = { expands = "Bachelor of Science", note = "NPPES 18,880 US healthcare providers (August 2026 file); 449 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "bsc"
+credential = { cased = "BSc" }
+
+[[word]]
+text = "bt"
+credential = { cased = "Bt" }
+
+[[word]]
+text = "btcs"
+credential = {}
+
+[[word]]
+text = "bts"
+credential = {}
+
+[[word]]
+text = "cacts"
+credential = {}
+
+[[word]]
+text = "cae"
+credential = {}
+
+[[word]]
+text = "caha"
+family = { us_census_2010 = 116, wikidata = 28, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "caia"
+credential = {}
+
+[[word]]
+text = "cams"
+credential = {}
+
+[[word]]
+text = "cap"
+credential = {}
+
+[[word]]
+text = "capa"
+family = { us_census_2010 = 175, wikidata = 7, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 11 US healthcare providers write it (healthcare only, August 2026 file). Surname reading is the larger of the two small counts (#796's revised rule).", issue = 796 }
+
+[[word]]
+text = "capm"
+credential = {}
+
+[[word]]
+text = "capp"
+family = { us_census_2010 = 1588, wikidata = 13, as_of = 2026-10-21 }
+given = { us_ssa = 5, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 7 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "caps"
+credential = {}
+
+[[word]]
+text = "caro"
+family = { us_census_2010 = 10064, wikidata = 236, as_of = 2026-10-21 }
+given = { us_ssa = 274, wikidata = 50, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "cas"
+credential = {}
+
+[[word]]
+text = "casp"
+credential = {}
+
+[[word]]
+text = "cb"
+credential = {}
+
+[[word]]
+text = "cbe"
+credential = {}
+
+[[word]]
+text = "cbm"
+credential = {}
+
+[[word]]
+text = "cbne"
+credential = {}
+
+[[word]]
+text = "cbnt"
+credential = {}
+
+[[word]]
+text = "cbp"
+credential = {}
+
+[[word]]
+text = "cbrte"
+credential = {}
+
+[[word]]
+text = "cbs"
+credential = {}
+
+[[word]]
+text = "cbsp"
+credential = {}
+
+[[word]]
+text = "cbt"
+credential = {}
+
+[[word]]
+text = "cbte"
+credential = {}
+
+[[word]]
+text = "cbv"
+credential = {}
+
+[[word]]
+text = "cca"
+credential = {}
+
+[[word]]
+text = "ccc"
+credential = {}
+
+[[word]]
+text = "ccc-a"
+credential = { expands = "Certificate of Clinical Competence in Audiology", note = "NPPES 3,581 US healthcare providers (August 2026 file); 3 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "ccc-slp"
+credential = { expands = "Certificate of Clinical Competence in Speech-Language Pathology", note = "NPPES 68,726 US healthcare providers (August 2026 file); 50 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "ccc/slp"
+credential = { same_as = "ccc-slp", expands = "Certificate of Clinical Competence in Speech-Language Pathology", note = "NPPES 4,039 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "ccca"
+credential = {}
+
+[[word]]
+text = "cccm"
+credential = {}
+
+[[word]]
+text = "cce"
+credential = {}
+
+[[word]]
+text = "cchp"
+credential = {}
+
+[[word]]
+text = "ccie"
+credential = {}
+
+[[word]]
+text = "ccim"
+credential = {}
+
+[[word]]
+text = "cciso"
+credential = {}
+
+[[word]]
+text = "ccm"
+credential = {}
+
+[[word]]
+text = "ccmt"
+credential = {}
+
+[[word]]
+text = "ccna"
+credential = {}
+
+[[word]]
+text = "ccnp"
+credential = {}
+
+[[word]]
+text = "ccp"
+credential = {}
+
+[[word]]
+text = "ccp-c"
+credential = {}
+
+[[word]]
+text = "ccpr"
+credential = {}
+
+[[word]]
+text = "ccs"
+credential = {}
+
+[[word]]
+text = "ccufc"
+credential = {}
+
+[[word]]
+text = "cd"
+credential = {}
+
+[[word]]
+text = "cdal"
+credential = {}
+
+[[word]]
+text = "cdfm"
+credential = {}
+
+[[word]]
+text = "cdmp"
+credential = {}
+
+[[word]]
+text = "cds"
+credential = {}
+
+[[word]]
+text = "cdt"
+credential = {}
+
+[[word]]
+text = "cea"
+family = { us_census_2010 = 1275, wikidata = 21, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 13 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "ceas"
+credential = {}
+
+[[word]]
+text = "cebs"
+credential = {}
+
+[[word]]
+text = "ceds"
+credential = {}
+
+[[word]]
+text = "ceh"
+credential = {}
+
+[[word]]
+text = "cela"
+family = { us_census_2010 = 637, wikidata = 18, as_of = 2026-10-21 }
+given = { us_ssa = 90, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "cem"
+credential = {}
+
+[[word]]
+text = "cep"
+credential = {}
+
+[[word]]
+text = "cera"
+family = { us_census_2010 = 1224, wikidata = 18, as_of = 2026-10-21 }
+given = { us_ssa = 1410, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "cet"
+credential = {}
+
+[[word]]
+text = "cf-slp"
+credential = { expands = "Clinical Fellow in Speech-Language Pathology", note = "NPPES 5,570 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "cfa"
+credential = {}
+
+[[word]]
+text = "cfc"
+credential = {}
+
+[[word]]
+text = "cfcc"
+credential = {}
+
+[[word]]
+text = "cfce"
+credential = {}
+
+[[word]]
+text = "cfcm"
+credential = {}
+
+[[word]]
+text = "cfe"
+credential = {}
+
+[[word]]
+text = "cfeds"
+credential = {}
+
+[[word]]
+text = "cfi"
+credential = {}
+
+[[word]]
+text = "cfm"
+credential = {}
+
+[[word]]
+text = "cfp"
+credential = {}
+
+[[word]]
+text = "cfps"
+credential = {}
+
+[[word]]
+text = "cfr"
+credential = {}
+
+[[word]]
+text = "cfre"
+credential = {}
+
+[[word]]
+text = "cga"
+credential = {}
+
+[[word]]
+text = "cgap"
+credential = {}
+
+[[word]]
+text = "cgb"
+credential = {}
+
+[[word]]
+text = "cgc"
+credential = {}
+
+[[word]]
+text = "cgfm"
+credential = {}
+
+[[word]]
+text = "cgfo"
+credential = {}
+
+[[word]]
+text = "cgm"
+credential = {}
+
+[[word]]
+text = "cgma"
+credential = {}
+
+[[word]]
+text = "cgp"
+credential = {}
+
+[[word]]
+text = "cgr"
+credential = {}
+
+[[word]]
+text = "cgsp"
+credential = {}
+
+[[word]]
+text = "ch"
+credential = {}
+
+[[word]]
+text = "cha"
+[word.excluded.credential]
+reason = "Cha, the Korean 차, dominates CHA (Certified Hotel Administrator): removed 2026-09-07 by the relative-frequency criterion (decisions/suffix-acronym-collisions)"
+issue = 342
+
+[[word]]
+text = "chba"
+credential = {}
+
+[[word]]
+text = "chdm"
+credential = {}
+
+[[word]]
+text = "che"
+family = { us_census_2010 = 2393, wikidata = 5936, as_of = 2026-10-21 }
+given = { us_ssa = 2469, wikidata = 48, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 16 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "ches"
+credential = {}
+
+[[word]]
+text = "chfc"
+credential = { cased = "ChFC" }
+
+[[word]]
+text = "chi"
+family = { us_census_2010 = 7273, wikidata = 219, as_of = 2026-10-21 }
+given = { us_ssa = 1326, wikidata = 123, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+[word.credential]
+may_be_name = true
+issue = 791
+note = "Chi is a common surname (Census 2010: 7,273 family-name bearers, rank 4,843; Wikidata 219+ family) and a Vietnamese given name; measured 2026-10-21 by tools/name_usage.py. No expansion is recorded: the 2019 bulk import (af5bdab, #93) carried none"
+
+[[word]]
+text = "chmc"
+credential = {}
+
+[[word]]
+text = "chmm"
+credential = {}
+
+[[word]]
+text = "chp"
+credential = {}
+
+[[word]]
+text = "chpa"
+credential = {}
+
+[[word]]
+text = "chpe"
+credential = {}
+
+[[word]]
+text = "chpln"
+credential = {}
+
+[[word]]
+text = "chpse"
+credential = {}
+
+[[word]]
+text = "chrm"
+credential = {}
+
+[[word]]
+text = "chsc"
+credential = {}
+
+[[word]]
+text = "chse"
+credential = {}
+
+[[word]]
+text = "chse-a"
+credential = {}
+
+[[word]]
+text = "chsos"
+credential = {}
+
+[[word]]
+text = "chss"
+credential = {}
+
+[[word]]
+text = "cht"
+credential = {}
+
+[[word]]
+text = "cia"
+credential = {}
+
+[[word]]
+text = "cic"
+credential = {}
+
+[[word]]
+text = "cie"
+credential = {}
+
+[[word]]
+text = "cig"
+credential = {}
+
+[[word]]
+text = "cip"
+credential = {}
+
+[[word]]
+text = "cipm"
+credential = {}
+
+[[word]]
+text = "cips"
+credential = {}
+
+[[word]]
+text = "ciro"
+family = { us_census_2010 = 265, wikidata = 6, as_of = 2026-10-21 }
+given = { us_ssa = 2587, wikidata = 409, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "cisa"
+credential = {}
+
+[[word]]
+text = "cism"
+credential = {}
+
+[[word]]
+text = "cissp"
+credential = {}
+
+[[word]]
+text = "cla"
+credential = {}
+
+[[word]]
+text = "clsd"
+credential = {}
+
+[[word]]
+text = "cltd"
+credential = {}
+
+[[word]]
+text = "clu"
+credential = {}
+
+[[word]]
+text = "cm"
+credential = {}
+
+[[word]]
+text = "cma"
+credential = {}
+
+[[word]]
+text = "cmas"
+credential = {}
+
+[[word]]
+text = "cmc"
+credential = {}
+
+[[word]]
+text = "cmfo"
+credential = {}
+
+[[word]]
+text = "cmg"
+credential = {}
+
+[[word]]
+text = "cmp"
+credential = {}
+
+[[word]]
+text = "cms"
+credential = {}
+
+[[word]]
+text = "cmsp"
+credential = {}
+
+[[word]]
+text = "cmt"
+credential = {}
+
+[[word]]
+text = "cna"
+credential = {}
+
+[[word]]
+text = "cnm"
+credential = {}
+
+[[word]]
+text = "cnp"
+credential = {}
+
+[[word]]
+text = "cota/l"
+credential = { expands = "Certified Occupational Therapy Assistant, Licensed", note = "NPPES 11,917 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "cp"
+credential = {}
+
+[[word]]
+text = "cp-c"
+credential = {}
+
+[[word]]
+text = "cpa"
+credential = {}
+
+[[word]]
+text = "cpacc"
+credential = {}
+
+[[word]]
+text = "cpbe"
+credential = {}
+
+[[word]]
+text = "cpcm"
+credential = {}
+
+[[word]]
+text = "cpcu"
+credential = {}
+
+[[word]]
+text = "cpe"
+credential = {}
+
+[[word]]
+text = "cpfa"
+credential = {}
+
+[[word]]
+text = "cpfo"
+credential = {}
+
+[[word]]
+text = "cpg"
+credential = {}
+
+[[word]]
+text = "cph"
+credential = {}
+
+[[word]]
+text = "cpht"
+credential = { cased = "CPhT" }
+
+[[word]]
+text = "cpim"
+credential = {}
+
+[[word]]
+text = "cplp"
+credential = {}
+
+[[word]]
+text = "cpm"
+credential = {}
+
+[[word]]
+text = "cpnp-pc"
+credential = { expands = "Certified Pediatric Nurse Practitioner, Primary Care", note = "NPPES 2,697 US healthcare providers (August 2026 file); 6 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "cpp"
+credential = {}
+
+[[word]]
+text = "cppm"
+credential = {}
+
+[[word]]
+text = "cprc"
+credential = {}
+
+[[word]]
+text = "cpre"
+credential = {}
+
+[[word]]
+text = "cprp"
+credential = {}
+
+[[word]]
+text = "cpsc"
+credential = {}
+
+[[word]]
+text = "cpsi"
+credential = {}
+
+[[word]]
+text = "cpss"
+credential = {}
+
+[[word]]
+text = "cpwa"
+credential = {}
+
+[[word]]
+text = "crde"
+credential = {}
+
+[[word]]
+text = "crisc"
+credential = {}
+
+[[word]]
+text = "crma"
+credential = {}
+
+[[word]]
+text = "crme"
+credential = {}
+
+[[word]]
+text = "crna"
+credential = {}
+
+[[word]]
+text = "cro"
+credential = {}
+
+[[word]]
+text = "crp"
+credential = {}
+
+[[word]]
+text = "crt"
+credential = {}
+
+[[word]]
+text = "crtt"
+credential = {}
+
+[[word]]
+text = "csa"
+credential = {}
+
+[[word]]
+text = "csbe"
+credential = {}
+
+[[word]]
+text = "csc"
+credential = {}
+
+[[word]]
+text = "cscp"
+credential = {}
+
+[[word]]
+text = "cscu"
+credential = {}
+
+[[word]]
+text = "csep"
+credential = {}
+
+[[word]]
+text = "csi"
+family = { wikidata = 590, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 95 US healthcare providers write it (healthcare only, August 2026 file). Surname evidence is Wikidata only (no Census bearers); marked on C-i.", issue = 796 }
+
+[[word]]
+text = "csp"
+credential = {}
+
+[[word]]
+text = "cspo"
+credential = {}
+
+[[word]]
+text = "csre"
+credential = {}
+
+[[word]]
+text = "csrte"
+credential = {}
+
+[[word]]
+text = "csslp"
+credential = {}
+
+[[word]]
+text = "cssm"
+credential = {}
+
+[[word]]
+text = "cst"
+credential = {}
+
+[[word]]
+text = "cste"
+credential = {}
+
+[[word]]
+text = "ctbs"
+credential = {}
+
+[[word]]
+text = "ctfa"
+credential = {}
+
+[[word]]
+text = "cto"
+credential = {}
+
+[[word]]
+text = "ctp"
+credential = {}
+
+[[word]]
+text = "cts"
+credential = {}
+
+[[word]]
+text = "cua"
+family = { us_census_2010 = 1082, wikidata = 3, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 2 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "cusp"
+credential = {}
+
+[[word]]
+text = "cva"
+credential = {}
+
+[[word]]
+text = "cvo"
+credential = {}
+
+[[word]]
+text = "cvp"
+credential = {}
+
+[[word]]
+text = "cvrs"
+credential = {}
+
+[[word]]
+text = "cwap"
+credential = {}
+
+[[word]]
+text = "cwb"
+credential = {}
+
+[[word]]
+text = "cwdp"
+credential = {}
+
+[[word]]
+text = "cwep"
+credential = {}
+
+[[word]]
+text = "cwna"
+credential = {}
+
+[[word]]
+text = "cwne"
+credential = {}
+
+[[word]]
+text = "cwp"
+credential = {}
+
+[[word]]
+text = "cwsp"
+credential = {}
+
+[[word]]
+text = "cxa"
+credential = {}
+
+[[word]]
+text = "cyds"
+credential = {}
+
+[[word]]
+text = "cysa"
+credential = {}
+
+[[word]]
+text = "dabfm"
+credential = {}
+
+[[word]]
+text = "dabvlm"
+credential = {}
+
+[[word]]
+text = "dacvim"
+credential = {}
+
+[[word]]
+text = "dbe"
+credential = {}
+
+[[word]]
+text = "dc"
+credential = {}
+
+[[word]]
+text = "dcb"
+credential = {}
+
+[[word]]
+text = "dcm"
+credential = {}
+
+[[word]]
+text = "dcmg"
+credential = {}
+
+[[word]]
+text = "dcvo"
+credential = {}
+
+[[word]]
+text = "dd"
+credential = {}
+
+[[word]]
+text = "dds"
+credential = {}
+
+[[word]]
+text = "ded"
+[word.credential]
+[word.credential.excluded]
+cased = { reason = "a mask applies in every role, and Ded is an Albanian given name: 'ded gjo luli' would render 'DEd Gjo Luli' (measured 2026-09-24)", issue = 459 }
+
+[[word]]
+text = "dep"
+credential = {}
+
+[[word]]
+text = "dfc"
+credential = {}
+
+[[word]]
+text = "dfm"
+credential = {}
+
+[[word]]
+text = "diplac"
+credential = { cased = "DiplAc" }
+
+[[word]]
+text = "diplom"
+credential = {}
+
+[[word]]
+text = "djur"
+credential = {}
+
+[[word]]
+text = "dm"
+credential = { expands = "Doctor of Medicine", note = "NPPES 80 US healthcare providers (August 2026 file); 471 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "dma"
+credential = {}
+
+[[word]]
+text = "dmd"
+credential = {}
+
+[[word]]
+text = "dmin"
+credential = { cased = "DMin" }
+
+[[word]]
+text = "dmsc"
+credential = { cased = "DMSc", expands = "Doctor of Medical Science", note = "NPPES 221 US healthcare providers (August 2026 file); 674 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "dmsci"
+credential = { cased = "DMSci", expands = "Doctor of Medical Science", note = "107 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21), and no NPPES provider, write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "dnp"
+credential = {}
+
+[[word]]
+text = "do"
+credential = { may_be_name = true, expands = "Doctor of Osteopathic Medicine" }
+
+[[word]]
+text = "dphil"
+credential = { cased = "DPhil", expands = "Doctor of Philosophy", note = "NPPES 72 US healthcare providers (August 2026 file); 296 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "dpm"
+credential = {}
+
+[[word]]
+text = "dpt"
+credential = {}
+
+[[word]]
+text = "drb"
+credential = {}
+
+[[word]]
+text = "drmp"
+credential = {}
+
+[[word]]
+text = "drph"
+credential = { cased = "DrPH" }
+
+[[word]]
+text = "dsc"
+credential = { cased = "DSc" }
+
+[[word]]
+text = "dsm"
+credential = {}
+
+[[word]]
+text = "dso"
+credential = {}
+
+[[word]]
+text = "dss"
+credential = {}
+
+[[word]]
+text = "dtr"
+credential = {}
+
+[[word]]
+text = "dvep"
+credential = {}
+
+[[word]]
+text = "dvm"
+credential = {}
+
+[[word]]
+text = "ea"
+family = { us_census_2010 = 496, wikidata = 2, as_of = 2026-10-21 }
+given = { us_ssa = 11, wikidata = 11, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 2 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "ed"
+credential = { may_be_name = true, expands = "Doctor of Education" }
+
+[[word]]
+text = "edd"
+[word.credential]
+[word.credential.excluded]
+cased = { reason = "a mask applies in every role, and Edd is borne as a given name: 'edd smith' would render 'EdD Smith' and 'EDD KIMBER' 'EdD Kimber' (measured 2026-09-24)", issue = 459 }
+
+[[word]]
+text = "ei"
+family = { us_census_2010 = 127, wikidata = 3, as_of = 2026-10-21 }
+given = { wikidata = 4, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 12 US healthcare providers write it (healthcare only, August 2026 file). Not a healthcare credential (usually Engineer Intern): NPPES says nothing about it; marked under C-i's default under uncertainty.", issue = 796 }
+
+[[word]]
+text = "eit"
+credential = {}
+
+[[word]]
+text = "els"
+family = { us_census_2010 = 362, wikidata = 9, as_of = 2026-10-21 }
+given = { wikidata = 322, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "emd"
+credential = {}
+
+[[word]]
+text = "emt-b"
+credential = {}
+
+[[word]]
+text = "emt-i/85"
+credential = {}
+
+[[word]]
+text = "emt-i/99"
+credential = {}
+
+[[word]]
+text = "emt-p"
+credential = {}
+
+[[word]]
+text = "enp"
+credential = {}
+
+[[word]]
+text = "erd"
+family = { us_census_2010 = 222, wikidata = 1, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "evp"
+credential = {}
+
+[[word]]
+text = "faafp"
+credential = {}
+
+[[word]]
+text = "faan"
+credential = {}
+
+[[word]]
+text = "faap"
+credential = {}
+
+[[word]]
+text = "fac-c"
+credential = {}
+
+[[word]]
+text = "facc"
+credential = {}
+
+[[word]]
+text = "facd"
+credential = {}
+
+[[word]]
+text = "facem"
+credential = {}
+
+[[word]]
+text = "facep"
+credential = {}
+
+[[word]]
+text = "facha"
+credential = {}
+
+[[word]]
+text = "facofp"
+credential = {}
+
+[[word]]
+text = "facog"
+credential = {}
+
+[[word]]
+text = "facp"
+credential = {}
+
+[[word]]
+text = "facph"
+credential = {}
+
+[[word]]
+text = "facs"
+credential = {}
+
+[[word]]
+text = "faia"
+family = { us_census_2010 = 271, wikidata = 7, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "faicp"
+credential = {}
+
+[[word]]
+text = "fala"
+credential = {}
+
+[[word]]
+text = "fashp"
+credential = {}
+
+[[word]]
+text = "fasid"
+credential = {}
+
+[[word]]
+text = "fasla"
+credential = {}
+
+[[word]]
+text = "fasma"
+credential = {}
+
+[[word]]
+text = "faspen"
+credential = {}
+
+[[word]]
+text = "fca"
+credential = {}
+
+[[word]]
+text = "fcas"
+credential = {}
+
+[[word]]
+text = "fcela"
+credential = {}
+
+[[word]]
+text = "fd"
+credential = {}
+
+[[word]]
+text = "fec"
+credential = {}
+
+[[word]]
+text = "fhames"
+credential = {}
+
+[[word]]
+text = "fic"
+family = { wikidata = 22, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 1 US healthcare provider writes it (healthcare only, August 2026 file). Surname evidence is Wikidata only (no Census bearers); marked on C-i.", issue = 796 }
+
+[[word]]
+text = "ficf"
+credential = {}
+
+[[word]]
+text = "fieee"
+credential = {}
+
+[[word]]
+text = "fmp"
+credential = {}
+
+[[word]]
+text = "fmva"
+credential = {}
+
+[[word]]
+text = "fnp-bc"
+credential = { expands = "Family Nurse Practitioner, Board Certified", note = "NPPES 26,133 US healthcare providers (August 2026 file); 29 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "fnp-c"
+credential = { expands = "Family Nurse Practitioner, Certified", note = "NPPES 43,585 US healthcare providers (August 2026 file); 12 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "fnss"
+credential = {}
+
+[[word]]
+text = "fp&a"
+credential = {}
+
+[[word]]
+text = "fp-c"
+credential = {}
+
+[[word]]
+text = "fpc"
+credential = {}
+
+[[word]]
+text = "frm"
+credential = {}
+
+[[word]]
+text = "fsa"
+credential = {}
+
+[[word]]
+text = "fsdp"
+credential = {}
+
+[[word]]
+text = "fws"
+credential = {}
+
+[[word]]
+text = "gba"
+credential = {}
+
+[[word]]
+text = "gbe"
+credential = {}
+
+[[word]]
+text = "gc"
+[word.excluded.credential]
+reason = "G.C. (Gharti Chhetri) is a Nepali surname written as two dotted initials, ending 80 of 126,981 name pairs in Nepal's 2079 BS local election candidates, where GC as a credential (the George Cross among its expansions) is written by 239 of 4,824,544 NPPES providers and no ClinicalTrials.gov official after a comma: removed 2026-10-24 by the relative-frequency criterion (decisions/suffix-acronym-collisions). Unlisted, G.C. reads as the paired initials rules/S3 leaves to the name, and GC as any unlisted capitals"
+issue = 864
+
+[[word]]
+text = "gcb"
+credential = {}
+
+[[word]]
+text = "gchs"
+credential = {}
+
+[[word]]
+text = "gcie"
+credential = {}
+
+[[word]]
+text = "gcmg"
+credential = {}
+
+[[word]]
+text = "gcsi"
+credential = {}
+
+[[word]]
+text = "gcvo"
+credential = {}
+
+[[word]]
+text = "gisp"
+credential = {}
+
+[[word]]
+text = "git"
+credential = {}
+
+[[word]]
+text = "gm"
+credential = {}
+
+[[word]]
+text = "gmb"
+credential = {}
+
+[[word]]
+text = "gmr"
+credential = {}
+
+[[word]]
+text = "gphr"
+credential = {}
+
+[[word]]
+text = "gri"
+credential = {}
+
+[[word]]
+text = "grp"
+credential = {}
+
+[[word]]
+text = "gsmieee"
+credential = {}
+
+[[word]]
+text = "hccp"
+credential = {}
+
+[[word]]
+text = "hrs"
+credential = {}
+
+[[word]]
+text = "iaccp"
+credential = {}
+
+[[word]]
+text = "iaee"
+credential = {}
+
+[[word]]
+text = "iccm-d"
+credential = {}
+
+[[word]]
+text = "iccm-f"
+credential = {}
+
+[[word]]
+text = "idsm"
+credential = {}
+
+[[word]]
+text = "ifgict"
+credential = {}
+
+[[word]]
+text = "iom"
+credential = {}
+
+[[word]]
+text = "ipep"
+credential = {}
+
+[[word]]
+text = "ipm"
+credential = {}
+
+[[word]]
+text = "iso"
+credential = {}
+
+[[word]]
+text = "issp-csp"
+credential = {}
+
+[[word]]
+text = "issp-sa"
+credential = {}
+
+[[word]]
+text = "itil"
+credential = {}
+
+[[word]]
+text = "jd"
+credential = { may_be_name = true, expands = "Juris Doctor" }
+
+[[word]]
+text = "jp"
+credential = {}
+
+[[word]]
+text = "kbe"
+credential = {}
+
+[[word]]
+text = "kcb"
+credential = {}
+
+[[word]]
+text = "kchs/dchs"
+credential = {}
+
+[[word]]
+text = "kcie"
+credential = {}
+
+[[word]]
+text = "kcmg"
+credential = {}
+
+[[word]]
+text = "kcsi"
+credential = {}
+
+[[word]]
+text = "kcvo"
+credential = {}
+
+[[word]]
+text = "kg"
+credential = {}
+
+[[word]]
+text = "khs/dhs"
+credential = {}
+
+[[word]]
+text = "knt"
+credential = { expands = "Knight", issue = 606, note = "the older spelling of kt", cased = "Knt" }
+
+[[word]]
+text = "kp"
+credential = {}
+
+[[word]]
+text = "kt"
+credential = { cased = "Kt" }
+
+[[word]]
+text = "lac"
+[word.credential]
+may_be_name = true
+expands = "Licensed Acupuncturist"
+issue = 540
+note = "Lac is a Vietnamese given name (the trailing word in native order, Nguyen Van Lac) and a French surname"
+[word.credential.excluded]
+cased = { reason = "a mask applies in every role, and Lac is a Vietnamese given name and a French surname: 'tran lac' would render 'Tran LAc' (measured 2026-09-25, #540)", issue = 459 }
+
+[[word]]
+text = "lcmt"
+credential = {}
+
+[[word]]
+text = "lcpc"
+credential = {}
+
+[[word]]
+text = "lcsw"
+credential = {}
+
+[[word]]
+text = "lcsw-c"
+credential = { expands = "Licensed Certified Social Worker-Clinical", note = "NPPES 6,745 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "lcsw-r"
+credential = { note = "NPPES 3,023 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "ld"
+given = { us_ssa = 45, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { note = "NPPES 11,703 US healthcare providers (August 2026 file); 45 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Not marked: 45 SSA births against 11,703 providers, the credential reading far the larger (C-i, 2026-10-21 rule)", issue = 797 }
+
+[[word]]
+text = "lg"
+credential = {}
+
+[[word]]
+text = "lisw-s"
+credential = { expands = "Licensed Independent Social Worker, Supervisor", note = "NPPES 2,537 US healthcare providers (August 2026 file); 0 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "litk"
+credential = {}
+
+[[word]]
+text = "litl"
+credential = {}
+
+[[word]]
+text = "litp"
+credential = {}
+
+[[word]]
+text = "llm"
+credential = {}
+
+[[word]]
+text = "lm"
+credential = {}
+
+[[word]]
+text = "lmsw"
+credential = {}
+
+[[word]]
+text = "lmt"
+credential = {}
+
+[[word]]
+text = "lp"
+credential = {}
+
+[[word]]
+text = "lpa"
+credential = {}
+
+[[word]]
+text = "lpc"
+credential = {}
+
+[[word]]
+text = "lpn"
+credential = {}
+
+[[word]]
+text = "lpss"
+credential = {}
+
+[[word]]
+text = "lsi"
+credential = {}
+
+[[word]]
+text = "lsit"
+credential = {}
+
+[[word]]
+text = "lvn"
+credential = {}
+
+[[word]]
+text = "lvo"
+credential = {}
+
+[[word]]
+text = "lvt"
+credential = {}
+
+[[word]]
+text = "ma"
+credential = { may_be_name = true, expands = "Master of Arts" }
+
+[[word]]
+text = "maaa"
+credential = {}
+
+[[word]]
+text = "mai"
+[word.excluded.credential]
+reason = "Mai, a Vietnamese given and family name, a Chinese surname (麥) and a Japanese given name, dominates MAI (Member, Appraisal Institute): removed 2026-10-16 by the relative-frequency criterion (decisions/suffix-acronym-collisions)"
+issue = 687
+
+[[word]]
+text = "mb"
+credential = { expands = "Bachelor of Medicine", note = "NPPES 596 US healthcare providers (August 2026 file); 314 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mba"
+credential = {}
+
+[[word]]
+text = "mbbch"
+credential = { cased = "MBBCh", expands = "Bachelor of Medicine, Bachelor of Surgery", note = "NPPES 813 US healthcare providers (August 2026 file); 190 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mbchb"
+credential = { cased = "MBChB", expands = "Bachelor of Medicine, Bachelor of Surgery", note = "NPPES 568 US healthcare providers (August 2026 file); 1,154 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mbe"
+credential = {}
+
+[[word]]
+text = "mbs"
+credential = {}
+
+[[word]]
+text = "mc"
+[word.clan]
+may_be_given = false
+issue = 360
+expands = "son of, Mac contracted"
+same_as = "mac"
+note = "Unlike 'mac' (Mac Miller) it is not a standalone given name. Measured misparse: \"Mc Donald\" gave given='Mc'. Also in SUFFIX_ACRONYMS as Master of Ceremonies, but that is trailing position and unaffected -- \"John Smith MC\" still reads suffix (#360)."
+[word.credential]
+note = "NOT may_be_name though also a particle: #454 closed by design, neither mc nor vd is a borne name (rules/P6's Accepted clause)"
+
+[[word]]
+text = "mcct"
+credential = {}
+
+[[word]]
+text = "mcdba"
+credential = {}
+
+[[word]]
+text = "mches"
+credential = {}
+
+[[word]]
+text = "mcm"
+credential = {}
+
+[[word]]
+text = "mcp"
+credential = {}
+
+[[word]]
+text = "mcpd"
+credential = {}
+
+[[word]]
+text = "mcsa"
+credential = {}
+
+[[word]]
+text = "mcsd"
+credential = {}
+
+[[word]]
+text = "mcse"
+credential = {}
+
+[[word]]
+text = "mct"
+credential = {}
+
+[[word]]
+text = "md"
+credential = {}
+excluded = { academic = { reason = "a leading Md abbreviates Muhammad, a given name: 1,246 of 1,300 UK PSC filers with Md first in the forename box typed it there alone (2026-10-23), and a title reading took it from them", issue = 853 } }
+
+[[word]]
+text = "mdiv"
+credential = { cased = "MDiv" }
+
+[[word]]
+text = "mdphd"
+credential = { cased = "MDPhD", expands = "Doctor of Medicine and Doctor of Philosophy", note = "NPPES 61 US healthcare providers (August 2026 file); 129 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mem"
+credential = {}
+
+[[word]]
+text = "meng"
+[word.credential]
+may_be_name = true
+expands = "Master of Engineering"
+issue = 540
+note = "Meng is a Chinese surname and given name"
+[word.credential.excluded]
+cased = { reason = "a mask applies in every role, and Meng is borne as a given name and a surname: 'MENG LI' would render 'MEng Li' and 'meng wang' 'MEng Wang' (measured 2026-09-24)", issue = 459 }
+
+[[word]]
+text = "mfa"
+credential = {}
+
+[[word]]
+text = "mhsc"
+credential = { cased = "MHSc", expands = "Master of Health Science", note = "NPPES 80 US healthcare providers (August 2026 file); 104 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "micp"
+credential = {}
+
+[[word]]
+text = "mieee"
+credential = {}
+
+[[word]]
+text = "mirm"
+credential = {}
+
+[[word]]
+text = "mle"
+credential = {}
+
+[[word]]
+text = "mls"
+credential = {}
+
+[[word]]
+text = "mlse"
+credential = {}
+
+[[word]]
+text = "mlt"
+credential = {}
+
+[[word]]
+text = "mm"
+credential = {}
+
+[[word]]
+text = "mmad"
+credential = {}
+
+[[word]]
+text = "mmas"
+credential = {}
+
+[[word]]
+text = "mmed"
+credential = { cased = "MMed", expands = "Master of Medicine", note = "NPPES 25 US healthcare providers (August 2026 file); 189 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mmsc"
+credential = { cased = "MMSc", expands = "Master of Medical Science", note = "NPPES 432 US healthcare providers (August 2026 file); 111 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mnaa"
+credential = {}
+
+[[word]]
+text = "mnae"
+credential = {}
+
+[[word]]
+text = "mp"
+credential = {}
+
+[[word]]
+text = "mpa"
+credential = {}
+
+[[word]]
+text = "mph"
+credential = {}
+
+[[word]]
+text = "mphil"
+credential = { cased = "MPhil", expands = "Master of Philosophy", note = "NPPES 153 US healthcare providers (August 2026 file); 110 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mpse"
+credential = {}
+
+[[word]]
+text = "mra"
+credential = {}
+
+[[word]]
+text = "msa"
+credential = {}
+
+[[word]]
+text = "msc"
+credential = { cased = "MSc" }
+
+[[word]]
+text = "mscmsm"
+credential = {}
+
+[[word]]
+text = "msm"
+credential = {}
+
+[[word]]
+text = "mt"
+credential = {}
+
+[[word]]
+text = "mt-bc"
+credential = { expands = "Music Therapist, Board Certified", note = "NPPES 2,984 US healthcare providers (August 2026 file); 29 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "mts"
+credential = {}
+
+[[word]]
+text = "mvo"
+credential = {}
+
+[[word]]
+text = "nbc-his"
+credential = {}
+
+[[word]]
+text = "nbcch"
+credential = {}
+
+[[word]]
+text = "nbcch-ps"
+credential = {}
+
+[[word]]
+text = "nbcdch"
+credential = {}
+
+[[word]]
+text = "nbcdch-ps"
+credential = {}
+
+[[word]]
+text = "nbcfch"
+credential = {}
+
+[[word]]
+text = "nbcfch-ps"
+credential = {}
+
+[[word]]
+text = "nbct"
+credential = {}
+
+[[word]]
+text = "ncarb"
+credential = {}
+
+[[word]]
+text = "nccp"
+credential = {}
+
+[[word]]
+text = "ncidq"
+credential = {}
+
+[[word]]
+text = "ncps"
+credential = {}
+
+[[word]]
+text = "ncso"
+credential = {}
+
+[[word]]
+text = "ncto"
+credential = {}
+
+[[word]]
+text = "nd"
+credential = {}
+
+[[word]]
+text = "ndtr"
+credential = {}
+
+[[word]]
+text = "nmd"
+credential = {}
+
+[[word]]
+text = "np"
+credential = {}
+
+[[word]]
+text = "np-c"
+credential = { expands = "Nurse Practitioner, Certified", note = "NPPES 15,578 US healthcare providers (August 2026 file); 5 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "nraemt"
+credential = {}
+
+[[word]]
+text = "nremr"
+credential = {}
+
+[[word]]
+text = "nremt"
+credential = {}
+
+[[word]]
+text = "nrp"
+credential = {}
+
+[[word]]
+text = "obe"
+credential = {}
+
+[[word]]
+text = "obi"
+family = { us_census_2010 = 1403, wikidata = 28, as_of = 2026-10-21 }
+given = { us_ssa = 299, wikidata = 17, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "oca"
+family = { us_census_2010 = 344, wikidata = 2, as_of = 2026-10-21 }
+given = { us_ssa = 16, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 0 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "ocm"
+credential = {}
+
+[[word]]
+text = "ocp"
+credential = {}
+
+[[word]]
+text = "od"
+credential = {}
+
+[[word]]
+text = "om"
+family = { us_census_2010 = 784, wikidata = 135, as_of = 2026-10-21 }
+given = { us_ssa = 2321, wikidata = 10, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 66 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "oscp"
+credential = {}
+
+[[word]]
+text = "ot"
+credential = {}
+
+[[word]]
+text = "otr/l"
+credential = { expands = "Occupational Therapist Registered, Licensed", note = "NPPES 61,789 US healthcare providers (August 2026 file); 103 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "pa"
+family = { us_census_2010 = 739, as_of = 2026-10-21 }
+given = { us_ssa = 1343, wikidata = 36, as_of = 2026-10-21, note = "US SSA births summed over both sexes, almost all female; Wikidata is a lower bound" }
+credential = { may_be_name = true, expands = "Physician Assistant", note = "NPPES 54,128 US healthcare providers (August 2026 file); 23 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it. Marked on C-i: the surname reading is substantial (Census 2010 bearers 739, over the 200 threshold)", issue = 797 }
+
+[[word]]
+text = "pa-c"
+credential = {}
+
+[[word]]
+text = "pcc"
+credential = {}
+
+[[word]]
+text = "pci"
+credential = {}
+
+[[word]]
+text = "pe"
+family = { us_census_2010 = 582, wikidata = 305, as_of = 2026-10-21 }
+credential = { may_be_name = true, note = "NPPES 44 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "pfmp"
+credential = {}
+
+[[word]]
+text = "pg"
+credential = {}
+
+[[word]]
+text = "pgmp"
+credential = {}
+
+[[word]]
+text = "pharmd"
+credential = { cased = "PharmD" }
+
+[[word]]
+text = "phc"
+credential = { cased = "PhC" }
+
+[[word]]
+text = "phd"
+credential = { expands = "Doctor of Philosophy", cased = "PhD" }
+
+[[word]]
+text = "phr"
+credential = {}
+
+[[word]]
+text = "phrca"
+credential = {}
+
+[[word]]
+text = "pi"
+family = { us_census_2010 = 1006, wikidata = 634, as_of = 2026-10-21, note = "Wikidata is a lower bound" }
+[word.excluded.credential]
+reason = "PI is Principal Investigator, a role and not a credential (102 ClinicalTrials.gov study officials write it after a comma, data 2026-10-21; 8 NPPES providers), and Pi is a surname (Census 2010 1,006 bearers, Wikidata 634 family): held out of #797 by the relative-frequency criterion (decisions/suffix-acronym-collisions)"
+issue = 797
+
+[[word]]
+text = "pla"
+credential = {}
+
+[[word]]
+text = "pls"
+credential = {}
+
+[[word]]
+text = "pmc"
+credential = {}
+
+[[word]]
+text = "pmhnp-bc"
+credential = { expands = "Psychiatric-Mental Health Nurse Practitioner, Board Certified", note = "NPPES 13,952 US healthcare providers (August 2026 file); 2 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "pmi-acp"
+credential = {}
+
+[[word]]
+text = "pmp"
+credential = {}
+
+[[word]]
+text = "pp"
+credential = {}
+
+[[word]]
+text = "pps"
+credential = {}
+
+[[word]]
+text = "prm"
+credential = {}
+
+[[word]]
+text = "psm"
+credential = {}
+
+[[word]]
+text = "psp"
+credential = {}
+
+[[word]]
+text = "psyd"
+credential = { cased = "PsyD" }
+
+[[word]]
+text = "pt"
+credential = {}
+
+[[word]]
+text = "pta"
+credential = {}
+
+[[word]]
+text = "qam"
+credential = {}
+
+[[word]]
+text = "qc"
+credential = {}
+
+[[word]]
+text = "qcsw"
+credential = {}
+
+[[word]]
+text = "qfsm"
+credential = {}
+
+[[word]]
+text = "qgm"
+credential = {}
+
+[[word]]
+text = "qpm"
+credential = {}
+
+[[word]]
+text = "qsd"
+credential = {}
+
+[[word]]
+text = "qsp"
+credential = {}
+
+[[word]]
+text = "ra"
+credential = {}
+
+[[word]]
+text = "rai"
+[word.excluded.credential]
+reason = "Rai, a common surname across Hindi- and Bengali-speaking regions, dominates RAI (RETA Authorized Instructor): removed 2026-09-07 by the relative-frequency criterion (decisions/suffix-acronym-collisions)"
+issue = 342
+
+[[word]]
+text = "rba"
+credential = {}
+
+[[word]]
+text = "rci"
+credential = {}
+
+[[word]]
+text = "rcp"
+credential = {}
+
+[[word]]
+text = "rd"
+credential = {}
+
+[[word]]
+text = "rdcs"
+credential = {}
+
+[[word]]
+text = "rdh"
+credential = {}
+
+[[word]]
+text = "rdms"
+credential = {}
+
+[[word]]
+text = "rdn"
+credential = {}
+
+[[word]]
+text = "res"
+credential = {}
+
+[[word]]
+text = "rfp"
+credential = {}
+
+[[word]]
+text = "rhca"
+credential = {}
+
+[[word]]
+text = "rid"
+credential = {}
+
+[[word]]
+text = "rls"
+credential = {}
+
+[[word]]
+text = "rmsks"
+credential = {}
+
+[[word]]
+text = "rn"
+credential = {}
+
+[[word]]
+text = "rp"
+credential = {}
+
+[[word]]
+text = "rpa"
+credential = {}
+
+[[word]]
+text = "rpa-c"
+credential = { expands = "Registered Physician Assistant, Certified", note = "NPPES 2,162 US healthcare providers (August 2026 file); 1 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "rph"
+credential = { cased = "RPh" }
+
+[[word]]
+text = "rpl"
+credential = {}
+
+[[word]]
+text = "rrc"
+credential = {}
+
+[[word]]
+text = "rrt"
+credential = {}
+
+[[word]]
+text = "rrt-accs"
+credential = {}
+
+[[word]]
+text = "rrt-nps"
+credential = {}
+
+[[word]]
+text = "rrt-sds"
+credential = {}
+
+[[word]]
+text = "rtrp"
+credential = {}
+
+[[word]]
+text = "rvm"
+credential = {}
+
+[[word]]
+text = "rvt"
+credential = {}
+
+[[word]]
+text = "same"
+credential = {}
+
+[[word]]
+text = "sasm"
+credential = {}
+
+[[word]]
+text = "sccp"
+credential = {}
+
+[[word]]
+text = "scd"
+credential = { cased = "ScD", expands = "Doctor of Science", note = "NPPES 145 US healthcare providers (August 2026 file); 593 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "scm"
+credential = { cased = "ScM", expands = "Master of Science", note = "NPPES 108 US healthcare providers (August 2026 file); 102 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "scmp"
+credential = {}
+
+[[word]]
+text = "se"
+family = { us_census_2010 = 384, wikidata = 1, as_of = 2026-10-21 }
+given = { us_ssa = 18, wikidata = 1, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+credential = { may_be_name = true, note = "NPPES 18 US healthcare providers write it (healthcare only, August 2026 file). Marked on C-i: the surname reading is substantial (Census 2010 or Wikidata).", issue = 796 }
+
+[[word]]
+text = "secb"
+credential = {}
+
+[[word]]
+text = "sfp"
+credential = {}
+
+[[word]]
+text = "shrm-cp"
+credential = {}
+
+[[word]]
+text = "shrm-scp"
+credential = {}
+
+[[word]]
+text = "si"
+family = { us_census_2010 = 1166, wikidata = 275, as_of = 2026-10-21 }
+given = { us_ssa = 185, wikidata = 124, as_of = 2026-10-21, note = "US SSA births summed over both sexes; Wikidata is a lower bound" }
+[word.credential]
+may_be_name = true
+issue = 791
+note = "Si is a common surname (Census 2010: 1,166 family-name bearers; Wikidata 275+ family) and a Vietnamese and Chinese given name; measured 2026-10-21 by tools/name_usage.py. No expansion is recorded: the 2019 bulk import (af5bdab, #93) carried none"
+
+[[word]]
+text = "siie"
+credential = {}
+
+[[word]]
+text = "smieee"
+credential = {}
+
+[[word]]
+text = "sphr"
+credential = {}
+
+[[word]]
+text = "sscp"
+credential = {}
+
+[[word]]
+text = "stmieee"
+credential = {}
+
+[[word]]
+text = "tbr-ct"
+credential = {}
+
+[[word]]
+text = "td"
+credential = {}
+
+[[word]]
+text = "thd"
+credential = { cased = "ThD" }
+
+[[word]]
+text = "thm"
+credential = { cased = "ThM" }
+
+[[word]]
+text = "ud"
+credential = {}
+
+[[word]]
+text = "usa"
+credential = {}
+
+[[word]]
+text = "usaf"
+credential = {}
+
+[[word]]
+text = "usar"
+credential = {}
+
+[[word]]
+text = "uscg"
+credential = {}
+
+[[word]]
+text = "usmc"
+credential = {}
+
+[[word]]
+text = "usn"
+credential = {}
+
+[[word]]
+text = "usnr"
+credential = {}
+
+[[word]]
+text = "uxc"
+credential = {}
+
+[[word]]
+text = "uxmc"
+credential = {}
+
+[[word]]
+text = "vcp"
+credential = {}
+
+[[word]]
+text = "vd"
+[word.credential]
+note = "NOT may_be_name though also a particle: #454 closed by design, neither mc nor vd is a borne name (rules/P6's Accepted clause)"
+
+[[word]]
+text = "vrd"
+credential = {}
+
+[[word]]
+text = "whnp-bc"
+credential = { expands = "Women's Health Nurse Practitioner, Board Certified", note = "NPPES 2,246 US healthcare providers (August 2026 file); 2 ClinicalTrials.gov study officials after a comma, as typed (data 2026-10-21) write it; no Census 2010 (floor 100), SSA (floor 5 a year) or Wikidata bearer", issue = 797 }
+
+[[word]]
+text = "ret"
+[word.status]
+issue = 111
+note = "bare, not '(ret)': a parenthesized entry would match literally instead of going through nickname/suffix disambiguation, the #111 bug"
+
+[[word]]
+text = "vet"
+status = { issue = 111, note = "bare, not '(vet)', for the reason recorded on ret" }
+
+[[word]]
+text = "esq"
+courtesy = {}
+
+[[word]]
+text = "esquire"
+courtesy = { same_as = "esq" }
+
+[[word]]
+text = "mac"
+[word.clan]
+may_be_given = true
+expands = "son of"
+note = "Mac Miller: a real given name. This is the case that shows #360's vowel heuristic was not the criterion -- 'mac' and 'mc' differ by attestation, not by shape"
+
+[[word]]
+text = "and"
+conjunction = {}
+
+[[word]]
+text = "of"
+conjunction = {}
+
+[[word]]
+text = "the"
+conjunction = {}
+
+[[word]]
+text = "né"
+birth_marker = { gender = "m" }
+
+[[word]]
+text = "née"
+birth_marker = { gender = "f" }
+
+[[word]]
+text = "nee"
+birth_marker = { issue = 274, same_as = "née", gender = "f", note = "née typed without its accent" }

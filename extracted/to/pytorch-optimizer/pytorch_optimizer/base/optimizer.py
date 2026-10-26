@@ -1,7 +1,7 @@
 import math
 from abc import ABC, abstractmethod
 from collections import deque
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 
 import torch
 from torch.optim import Optimizer
@@ -18,16 +18,21 @@ from pytorch_optimizer.base.type import (
     ParamsT,
     State,
 )
-from pytorch_optimizer.optimizer.foreach_utils import foreach_rsqrt_
+from pytorch_optimizer.optimizer.utils.foreach import compile_foreach_step, foreach_rsqrt, foreach_rsqrt_
 
 
 class BaseOptimizer(ABC, Optimizer):
     """Shared update, validation, and state helpers for optimizers."""
 
     state: State
+    _supports_compiled_foreach: bool = False
+    _step_foreach: Callable
 
     def __init__(self, params: ParamsT, defaults: Defaults) -> None:
         super().__init__(params, defaults)
+
+    def _compile_foreach(self, compile_kwargs: dict | None = None) -> None:
+        self._step_foreach = compile_foreach_step(self._step_foreach, compile_kwargs)
 
     def load_state_dict(self, state_dict: dict) -> None:
         """Restore state while preserving non-floating tensor types and container metadata."""
@@ -76,6 +81,11 @@ class BaseOptimizer(ABC, Optimizer):
             return optimizer(params, **kwargs)
 
         raise ValueError('need to pass `params` when you pass the `torch.optim.Optimizer` instance.')
+
+    @staticmethod
+    def get_device_from_param_groups(param_groups: list[ParamGroup]) -> torch.device:
+        """Return the first parameter's device, defaulting to CPU when all parameter groups are empty."""
+        return next((p.device for group in param_groups for p in group['params']), torch.device('cpu'))
 
     @staticmethod
     @torch.no_grad()
@@ -166,7 +176,7 @@ class BaseOptimizer(ABC, Optimizer):
 
             h_zs = torch.autograd.grad(grads, params, grad_outputs=zs, retain_graph=i < num_samples - 1)
             for h_z, z, p in zip(h_zs, zs, params):
-                state[p]['hessian'].add_(h_z * z, alpha=alpha / num_samples)
+                state[p]['hessian'].addcmul_(h_z, z, value=alpha / num_samples)
 
     @staticmethod
     def apply_weight_decay(
@@ -190,28 +200,13 @@ class BaseOptimizer(ABC, Optimizer):
             ratio: Optional scaling factor for decoupled weight decay.
 
         """
+        if weight_decay == 0.0:
+            return
+
         if weight_decouple:
             p.mul_(1.0 - weight_decay * (1.0 if fixed_decay else lr) * (ratio if ratio is not None else 1.0))
         elif weight_decay > 0.0 and grad is not None:
             grad.add_(p, alpha=weight_decay)
-
-    @staticmethod
-    def apply_cautious_weight_decay(
-        p: torch.Tensor,
-        update: torch.Tensor,
-        lr: float,
-        weight_decay: float,
-    ) -> None:
-        """Decay parameter entries whose signs agree with the update, in place.
-
-        Args:
-            p: Parameter tensor to apply weight decay to.
-            update: Update tensor.
-            lr: Learning rate to scale the update.
-            weight_decay: Weight decay coefficient (L2 penalty).
-
-        """
-        p.copy_(torch.where(update * p >= 0, p * (1.0 - weight_decay * lr), p))
 
     @staticmethod
     def apply_ams_bound(
@@ -241,6 +236,35 @@ class BaseOptimizer(ABC, Optimizer):
             de_nom = exp_avg_sq.add(exp_avg_sq_eps)
 
         return de_nom.sqrt_().add_(eps)
+
+    @staticmethod
+    def apply_ams_bound_foreach(
+        ams_bound: bool,
+        exp_avg_sqs: list[torch.Tensor],
+        max_exp_avg_sqs: list[torch.Tensor],
+        eps: float,
+        exp_avg_sq_eps: float = 1e-15,
+    ) -> Sequence[torch.Tensor]:
+        """Compute batched adaptive denominators with optional running maximum second moments.
+
+        Args:
+            ams_bound: Whether to apply the AMSBound variant.
+            exp_avg_sqs: Exponential moving averages of squared gradients.
+            max_exp_avg_sqs: Running elementwise maxima, updated in place for AMSBound.
+            eps: Small epsilon value for numerical stability.
+            exp_avg_sq_eps: Epsilon added to second moments before taking square roots.
+
+        """
+        if ams_bound:
+            torch._foreach_maximum_(max_exp_avg_sqs, exp_avg_sqs)
+            de_noms = torch._foreach_add(max_exp_avg_sqs, exp_avg_sq_eps)
+        else:
+            de_noms = torch._foreach_add(exp_avg_sqs, exp_avg_sq_eps)
+
+        torch._foreach_sqrt_(de_noms)
+        torch._foreach_add_(de_noms, eps)
+
+        return de_noms
 
     @staticmethod
     def debias(beta: float, step: int) -> float:
@@ -319,7 +343,7 @@ class BaseOptimizer(ABC, Optimizer):
             else:
                 rt = -1.0
 
-            step_size *= rt
+            step_size = step_size * rt
 
         return step_size, n_sma
 
@@ -347,7 +371,7 @@ class BaseOptimizer(ABC, Optimizer):
         exp_grad_norm.mul_(r).add_(grad_norm, alpha=1.0 - r)
 
         if grad_norm > 0 and exp_grad_norm > grad_norm:
-            return grad.mul(exp_grad_norm).div_(grad_norm)
+            return grad.mul(exp_grad_norm.reshape(())).div_(grad_norm)
 
         return grad
 
@@ -391,9 +415,10 @@ class BaseOptimizer(ABC, Optimizer):
         foreach_rsqrt_(r_factors)
         r_factors = [r_factor.unsqueeze(-1) for r_factor in r_factors]
 
-        c_factors = [c_factor.unsqueeze(-2).rsqrt() for c_factor in exp_avg_sq_col]
+        c_factors = [c_factor.unsqueeze(-2) for c_factor in foreach_rsqrt(exp_avg_sq_col)]
 
-        torch._foreach_copy_(output, torch._foreach_mul(r_factors, c_factors))
+        for r_factor, c_factor, update in zip(r_factors, c_factors, output):
+            torch.mul(r_factor, c_factor, out=update)
 
     @staticmethod
     def apply_cautious(update: torch.Tensor, grad: torch.Tensor) -> None:
@@ -439,12 +464,20 @@ class BaseOptimizer(ABC, Optimizer):
             p.grad.copy_(g_ortho.view_as(p.grad))
 
     @staticmethod
-    def can_use_foreach(group: ParamGroup, foreach: bool | None) -> bool:
+    def can_use_foreach(
+        group: ParamGroup,
+        foreach: bool | None,
+        *,
+        dtypes: tuple[torch.dtype, ...] | None = None,
+        default_on_cuda: bool = False,
+    ) -> bool:
         """Check whether a parameter group supports batched tensor updates.
 
         Args:
             group: Parameter group to inspect.
             foreach: Set to `False` to disable batched updates. `True` and `None` check tensor compatibility.
+            dtypes: Allowed parameter dtypes. `None` allows all real dtypes.
+            default_on_cuda: Enable automatic batching only for groups with CUDA gradients. Explicit `True` allows CPU.
 
         Returns:
             bool: `True` if at least one parameter has a gradient and all such parameters
@@ -463,6 +496,12 @@ class BaseOptimizer(ABC, Optimizer):
             has_param = True
             if g.is_sparse or torch.is_complex(p):
                 return False
+
+            if dtypes is not None and p.dtype not in dtypes:
+                return False
+
+        if foreach is None and default_on_cuda:
+            return any(p.is_cuda for p in group['params'] if p.grad is not None)
 
         return has_param
 

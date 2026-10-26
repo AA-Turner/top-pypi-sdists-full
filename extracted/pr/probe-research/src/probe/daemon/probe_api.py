@@ -23,7 +23,10 @@ from urllib.parse import quote
 
 import httpx
 
+from probe.daemon import runctx
+
 from probe import __version__
+from probe._compat import StrEnum
 from probe.client_headers import client_version_headers
 from probe.sdk.config import DEFAULT_BASE_URL
 from probe.sdk.key_refusal import credential_refused
@@ -41,6 +44,10 @@ _REF_RE = re.compile(r"^(id:)?[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$")
 #: The last answer to `GET /v1/server/features`, and until when it holds.
 _features: frozenset[str] | None = None
 _features_until = 0.0
+#: Each run's own in the daemon host (`runctx.Shared`): runs may talk to
+#: different servers.
+_features_shared = runctx.Shared(globals(), "_features")
+_features_until_shared = runctx.Shared(globals(), "_features_until", float)
 #: How long a server's "I declare nothing" (a 404) is believed before it is asked
 #: again: a server upgraded while the daemon runs is noticed within this.
 NO_FEATURES_RECHECK_S = 300.0
@@ -121,9 +128,9 @@ async def server_features(env: dict[str, str]) -> frozenset[str] | None:
     nothing, re-asked after `NO_FEATURES_RECHECK_S`. None when Probe could not be
     asked (no answer, an error, a body that is not a listing): NOT cached, and
     never read as "no trash". `KeyRefused` when Probe refused the key."""
-    global _features, _features_until
-    if _features is not None and _clock() < _features_until:
-        return _features
+    features = _features_shared.get()
+    if features is not None and _clock() < _features_until_shared.get():
+        return features
     try:
         async with await _client(env) as client:
             resp = await client.get("/v1/server/features")
@@ -131,8 +138,9 @@ async def server_features(env: dict[str, str]) -> frozenset[str] | None:
         return None
     _refuse_key(resp)
     if resp.status_code == 404:
-        _features, _features_until = frozenset(), _clock() + NO_FEATURES_RECHECK_S
-        return _features
+        _features_shared.set(frozenset())
+        _features_until_shared.set(_clock() + NO_FEATURES_RECHECK_S)
+        return frozenset()
     if resp.status_code != 200:
         return None
     try:
@@ -141,8 +149,10 @@ async def server_features(env: dict[str, str]) -> frozenset[str] | None:
         return None
     if not isinstance(listed, list):
         return None
-    _features, _features_until = frozenset(f for f in listed if isinstance(f, str)), float("inf")
-    return _features
+    features = frozenset(f for f in listed if isinstance(f, str))
+    _features_shared.set(features)
+    _features_until_shared.set(float("inf"))
+    return features
 
 
 async def has_trash(env: dict[str, str]) -> bool | None:
@@ -386,6 +396,83 @@ async def run_alerts(env: dict[str, str], session_id: str) -> list[dict] | None:
     if not isinstance(alerts, list):
         return None
     return [a for a in alerts if isinstance(a, dict)]
+
+
+#: Session messages (swarm visibility G7, `session_messages.py`): a poll or an
+#: ack, start to finish, like the run-alert poll.
+SESSION_MESSAGES_TIMEOUT_S = 10.0
+#: What the ack says: in the agent's mailbox, or shown to the agent.
+ACK_ACKED = "acked"
+ACK_DELIVERED_TO_AGENT = "delivered_to_agent"
+#: Which daemon polls and acks: its machine's id (`app/sessions/messages.py`).
+DAEMON_INSTANCE_HEADER = "X-Probe-Daemon-Instance"
+
+
+class AckResult(StrEnum):
+    """What Probe said to an ack."""
+
+    RECORDED = "recorded"
+    #: Another daemon of the session holds the message's delivery: drop this copy.
+    LEASE_LOST = "lease_lost"
+    #: No answer, or one that says nothing: say it again at the next poll.
+    RETRY = "retry"
+
+
+async def session_messages(env: dict[str, str], session_id: str, instance: str,
+                           held: "list[str] | None" = None) -> dict | None:
+    """`{"messages", "revoked"}` (`GET /v1/sessions/{id}/messages`).
+    `messages`: those Probe holds for this session that its agent has not been
+    shown and no other daemon holds, oldest first, each now leased to this
+    daemon (`instance`) for 2 minutes: `[{"id", "body", "created_at",
+    "acked_at", "sender": {"kind", "name", "session_title"}}]`. `revoked`: of
+    `held` (the ids this daemon has a waiting copy of), those it may no longer
+    deliver. None when Probe could not say -- no
+    answer, a server from before the route, a session it has not recorded (404),
+    one this key may not read (403: another person's, or none's), a 5xx, a
+    body that is no listing -- and the poller asks again later; it never raises
+    for those. `KeyRefused` when Probe refused the key itself."""
+    segment = quote(session_id, safe="")
+    try:
+        async with await _client(env) as client:
+            client.timeout = httpx.Timeout(SESSION_MESSAGES_TIMEOUT_S)
+            resp = await client.get(f"/v1/sessions/{segment}/messages", params={"held": list(held or [])},
+                                    headers={DAEMON_INSTANCE_HEADER: instance})
+    except httpx.HTTPError:
+        return None
+    _refuse_key(resp)
+    if resp.status_code != 200:
+        return None
+    try:
+        body = resp.json()
+        rows, revoked = body.get("messages"), body.get("revoked", [])
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(rows, list) or not isinstance(revoked, list):
+        return None
+    return {"messages": [r for r in rows if isinstance(r, dict)],
+            "revoked": [r for r in revoked if isinstance(r, str)]}
+
+
+async def ack_session_message(env: dict[str, str], session_id: str, message_id: str, state: str,
+                              instance: str) -> AckResult:
+    """Tell Probe where message `message_id` got to (`POST /v1/sessions/{id}/
+    messages/{mid}/ack`): `acked` once it is in the agent's mailbox,
+    `delivered_to_agent` once a hook took it. RECORDED when Probe took it;
+    LEASE_LOST (409) when another daemon of the session holds the message;
+    RETRY for anything else, and the poller says it again at its next poll (an
+    ack is idempotent). `KeyRefused` when Probe refused the key itself."""
+    segment, mid = quote(session_id, safe=""), quote(str(message_id), safe="")
+    try:
+        async with await _client(env) as client:
+            client.timeout = httpx.Timeout(SESSION_MESSAGES_TIMEOUT_S)
+            resp = await client.post(f"/v1/sessions/{segment}/messages/{mid}/ack", json={"state": state},
+                                     headers={DAEMON_INSTANCE_HEADER: instance})
+    except httpx.HTTPError:
+        return AckResult.RETRY
+    _refuse_key(resp)
+    if resp.status_code == 200:
+        return AckResult.RECORDED
+    return AckResult.LEASE_LOST if resp.status_code == 409 else AckResult.RETRY
 
 
 #: What `others_from` answers when it cannot read the tally: someone else's data.

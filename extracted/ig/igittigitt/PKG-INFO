@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: igittigitt
-Version: 2.2.9
+Version: 2.3.0
 Summary: A spec-compliant .gitignore parser and path filter, 100% git-compatible, with an include/whitelist mode and a streaming, memory-bounded CLI
 Project-URL: Homepage, https://github.com/bitranox/igittigitt
 Project-URL: Repository, https://github.com/bitranox/igittigitt.git
@@ -25,7 +25,7 @@ Requires-Python: >=3.10
 Requires-Dist: click>=8.5.0
 Requires-Dist: lib-cli-exit-tools>=2.4.1
 Requires-Dist: lib-layered-config>=7.3.0
-Requires-Dist: lib-log-rich>=6.5.6
+Requires-Dist: lib-log-rich>=6.5.7
 Requires-Dist: orjson>=3.13.0
 Requires-Dist: pydantic>=2.14.1
 Requires-Dist: python-dotenv>=1.2.4
@@ -36,7 +36,7 @@ Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
 Requires-Dist: certifi>=2026.10.19; extra == 'dev'
 Requires-Dist: hatchling>=1.32.4; extra == 'dev'
-Requires-Dist: httpx2>=2.13.1; extra == 'dev'
+Requires-Dist: httpx2>=2.14.0; extra == 'dev'
 Requires-Dist: hypothesis>=6.168.5; extra == 'dev'
 Requires-Dist: import-linter>=2.15; extra == 'dev'
 Requires-Dist: jaraco-context>=6.1.2; extra == 'dev'
@@ -47,11 +47,11 @@ Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest>=9.1.1; extra == 'dev'
 Requires-Dist: python-multipart>=0.0.32; extra == 'dev'
 Requires-Dist: rtoml>=0.14.0; extra == 'dev'
-Requires-Dist: ruff>=0.17.0; extra == 'dev'
+Requires-Dist: ruff>=0.17.1; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Requires-Dist: urllib3>=2.8.0; extra == 'dev'
-Requires-Dist: virtualenv>=21.14.9; extra == 'dev'
+Requires-Dist: virtualenv>=21.14.11; extra == 'dev'
 Requires-Dist: wheel>=0.48.0; extra == 'dev'
 Description-Content-Type: text/markdown
 

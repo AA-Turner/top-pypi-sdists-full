@@ -6,12 +6,17 @@ from tests.fixtures import make_parameter
 from tests.utils import build_optimizer
 
 
-def test_rose_optimizer():
+@pytest.mark.parametrize('foreach', [False, True])
+def test_rose_optimizer(foreach):
     with pytest.raises(ValueError):
         load_optimizer('rose')([make_parameter()], compute_dtype=torch.bfloat16)
 
-    opt = build_optimizer('rose', [make_parameter(())])
-    opt.step()
+    scalar, matrix = make_parameter((), grad=1.0), make_parameter(grad=1.0)
+    optimizer = build_optimizer(
+        'rose', [scalar, matrix], lr=0.1, bf16_sr=False, compute_dtype=torch.float32, foreach=foreach
+    )
+    optimizer.step()
 
-    opt = build_optimizer('rose', [make_parameter()], bf16_sr=False, compute_dtype=torch.float32)
-    opt.step()
+    torch.testing.assert_close(scalar, torch.tensor(-0.1))
+    torch.testing.assert_close(matrix, torch.zeros_like(matrix))
+    torch.testing.assert_close(matrix.grad, torch.ones_like(matrix))

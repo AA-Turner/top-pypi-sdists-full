@@ -8,7 +8,9 @@ from dataclasses import dataclass
 import pytest
 
 from probe.cli import backfill_reconstruction as rec
+from probe.cli import import_agent_settings as settings_mod
 from probe.cli.backfill_reconstruction import _generate as generate_draft
+from probe.cli.import_agent_settings import Lane
 
 
 @dataclass
@@ -131,7 +133,7 @@ def setup(tmp_path, monkeypatch):
     coverage, client = Coverage(tmp_path), Client()
     calls = []
 
-    def generate(inputs, directory, *, agent):
+    def generate(inputs, directory, *, agent, agents=None):
         calls.append(inputs)
         return rec._render(
             json.dumps(
@@ -527,7 +529,7 @@ def test_fabricated_or_uncited_sources_cannot_be_published(refs):
         rec._render(raw, {"sources": {"F001": {"url": "/artifacts/a"}}})
 
 
-@pytest.mark.parametrize("agent", list(rec.bf.DIGEST_MODEL))
+@pytest.mark.parametrize("agent", list(rec.bf.Agent))
 def test_reconstruction_launch_records_its_selected_model_and_reuses_valid_output(
     tmp_path, monkeypatch, agent
 ):
@@ -546,16 +548,18 @@ def test_reconstruction_launch_records_its_selected_model_and_reuses_valid_outpu
             client, root, coverage, None, agent=agent, interactive=False, yes=False
         )
     assert len(calls) == 1 and not client.writes
-    expected = "sonnet" if agent is rec.bf.Agent.CLAUDE else rec.bf.DIGEST_MODEL[agent]
-    assert calls[0][1]["model"] == expected
+    # Today's draft models: Claude on sonnet, the others on their own default.
+    expected = "sonnet" if agent is rec.bf.Agent.CLAUDE else None
+    assert calls[0][1]["settings"].model == expected
+    assert calls[0][1]["settings"].lane is Lane.DRAFT
     assert calls[0][0]["model"] == (expected or "configured_default")
     assert coverage.meta("reconstruction:p")["model"] == (expected or "configured_default")
     if agent is rec.bf.Agent.CLAUDE:
         previous = coverage.meta("reconstruction:p")["input_id"]
-        monkeypatch.setitem(rec.MODEL, agent, "opus")
+        monkeypatch.setitem(settings_mod.BUILTIN, agent, {Lane.DRAFT: {"model": "opus"}})
         rec.complete_reconstruction(
             client, root, coverage, None, agent=agent, interactive=False, yes=False
         )
-        assert len(calls) == 2 and calls[1][1]["model"] == "opus"
+        assert len(calls) == 2 and calls[1][1]["settings"].model == "opus"
         assert coverage.meta("reconstruction:p")["input_id"] != previous
         assert coverage.meta("reconstruction:p:" + previous)["model"] == "sonnet"

@@ -14,7 +14,6 @@
 #include "slang/ast/Patterns.h"
 #include "slang/ast/expressions/ConversionExpression.h"
 #include "slang/ast/expressions/MiscExpressions.h"
-#include "slang/ast/statements/ConditionalStatements.h"
 #include "slang/ast/symbols/ParameterSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/AllTypes.h"
@@ -1630,11 +1629,14 @@ ConstantValue ConditionalExpression::evalImpl(EvalContext& context) const {
     ConstantValue cp;
     for (auto& cond : conditions) {
         cp = cond.expr->eval(context);
-        if (cond.pattern)
-            cp = cond.pattern->eval(context, cp, CaseStatementCondition::Normal);
-
         if (cp.bad())
             return nullptr;
+
+        if (cond.pattern) {
+            cp = cond.pattern->eval(context, cp, CaseStatementCondition::Normal);
+            if (cp.bad())
+                return nullptr;
+        }
 
         if (!cp.isTrue())
             break;
@@ -1650,6 +1652,16 @@ ConstantValue ConditionalExpression::evalImpl(EvalContext& context) const {
 
         if (cvl.isInteger() && cvr.isInteger())
             return SVInt::conditional(cp.integer(), cvl.integer(), cvr.integer());
+
+        // [11.4.11] says that both sides are compared for logical equivalence,
+        // and if they are equal the result is either of them. Only otherwise
+        // does the result depend on the type.
+        ConstantValue equal = OpInfo::eval(BinaryOperator::Equality, cvl, cvr);
+        if (!equal)
+            return nullptr;
+
+        if (equal.isTrue())
+            return cvl;
 
         auto combineArrays = [&](auto& result, auto& la, auto& ra) -> ConstantValue {
             ConstantValue defaultElement = type->getArrayElementType()->getDefaultValue();
@@ -1981,7 +1993,9 @@ Expression& ConcatenationExpression::fromSyntax(Compilation& comp,
             }
             else {
                 Expression* expr = buffer[i];
-                if (expr->type->isString()) {
+
+                // Zero-width replication operands contribute nothing, so leave them unconverted.
+                if (expr->type->isString() || expr->type->isVoid()) {
                     selfDetermined(context, expr);
                 }
                 else {
@@ -2180,9 +2194,28 @@ Expression& ReplicationExpression::fromSyntax(Compilation& compilation,
         return badExpr(compilation, result);
     }
 
+    // Converts any string literal operands to string and gives the result string type.
+    auto makeStringReplication = [&]() -> Expression& {
+        contextDetermined(context, right, result, compilation.getStringType(), {});
+        result->concat_ = right;
+        result->type = &compilation.getStringType();
+        return *result;
+    };
+
     // If the multiplier isn't constant this must be a string replication.
     EvalContext evalCtx(context, EvalFlags::CacheResults);
     if (ConstantValue leftVal = left.eval(evalCtx); !leftVal) {
+        // Parameters in an uninstantiated body have no values (they are forced
+        // invalid), so a multiplier that names one cannot be evaluated, and an
+        // operand that names one counts as an implicit string. Neither says
+        // the replication is a string one: `{N{E}}` with integral parameters is
+        // an ordinary vector. Typing it `string` would make every integral use
+        // of it (`~{N{E}}`, `{N{E}} + 1`) report a spurious error in a body
+        // that is never elaborated, so give up on it quietly instead. A real
+        // string operand keeps the string replication.
+        if (context.scope->isUninstantiated() && !right->type->isString())
+            return badExpr(compilation, result);
+
         if (!right->isImplicitString()) {
             // They probably meant for this to be a constant (non-string) replication,
             // so do the normal error reporting for that case.
@@ -2190,11 +2223,7 @@ Expression& ReplicationExpression::fromSyntax(Compilation& compilation,
             return badExpr(compilation, result);
         }
 
-        contextDetermined(context, right, result, compilation.getStringType(), {});
-
-        result->concat_ = right;
-        result->type = &compilation.getStringType();
-        return *result;
+        return makeStringReplication();
     }
 
     std::optional<int32_t> count = context.evalInteger(left);
@@ -2206,8 +2235,18 @@ Expression& ReplicationExpression::fromSyntax(Compilation& compilation,
         return badExpr(compilation, result);
     }
 
+    // A replication of a string is a string whatever the count, and a zero count yields the
+    // empty string (LRM Table 6-9).
+    if (right->type->isString())
+        return makeStringReplication();
+
     if (*count == 0) {
         if (!context.flags.has(ASTFlags::InsideConcatenation)) {
+            // Zero copies of string literals are the empty string here, rather than a zero-width
+            // integral (LRM Table 6-9).
+            if (right->isImplicitString())
+                return makeStringReplication();
+
             context.addDiag(diag::ReplicationZeroOutsideConcat, left.sourceRange);
             return badExpr(compilation, result);
         }
@@ -2220,11 +2259,6 @@ Expression& ReplicationExpression::fromSyntax(Compilation& compilation,
 
     selfDetermined(context, right);
     result->concat_ = right;
-
-    if (right->type->isString()) {
-        result->type = &compilation.getStringType();
-        return *result;
-    }
 
     auto width = context.requireValidBitWidth(
         SVInt(32, uint64_t(*count), true) * right->type->getBitWidth(), syntax.sourceRange());
@@ -2367,9 +2401,8 @@ Expression& StreamingConcatenationExpression::fromSyntax(
             // Unpacked unions get "unwrapped" to their first member when streaming.
             if (argType->isUnpackedUnion() && !argType->isTaggedUnion()) {
                 auto& uu = argType->getCanonicalType().as<UnpackedUnionType>();
-                auto members = uu.members();
-                if (members.begin() != members.end())
-                    argType = &members.begin()->as<ValueSymbol>().getType();
+                if (!uu.fields.empty())
+                    argType = &uu.fields[0]->getType();
             }
 
             if (!argType->isBitstreamType(isDestination)) {

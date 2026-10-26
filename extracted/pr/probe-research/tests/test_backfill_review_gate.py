@@ -201,28 +201,27 @@ def test_a_failed_revision_keeps_the_plan_they_were_reading(folder, monkeypatch)
     assert created == ["odyssey"], "the original plan must still be what imports"
 
 
-def test_an_untrustworthy_revision_is_discarded_not_imported(folder, monkeypatch):
-    """A revision that stops accounting for every file is the one case where
-    accepting it silently would upload against a plan nobody approved."""
+def test_a_plan_naming_a_path_the_walk_lacks_drops_it_and_still_imports(folder, monkeypatch):
+    """Plans are built from validated selections, so an unwalked path is a bug
+    in OUR code -- reported and dropped, never a reason to throw the whole plan
+    away (that is what cost 52 minutes over two typos on 2026-10-25)."""
     files = _all_files(folder)
     good = _plan(dict.fromkeys(files, "odyssey"))
-    # Names a file the walk never saw, and drops the ones it did: `unknown`
-    # fires, so `trustworthy` is False.
-    broken = _plan({"ghost.py": "odyssey"})
+    odd = _plan({**dict.fromkeys(files, "odyssey"), "ghost.py": "odyssey"})
 
     pages: list[list[str]] = []
-    _review_dialog(monkeypatch, feedback=["break it"], pages=pages)
+    _review_dialog(monkeypatch, feedback=["add the ghost"], pages=pages)
 
     monkeypatch.setattr(br, "classify", lambda *a, **k: (good, "", "s"))
-    monkeypatch.setattr(br, "revise", lambda *a, **k: (broken, "", "s"))
+    monkeypatch.setattr(br, "revise", lambda *a, **k: (odd, "", "s"))
     monkeypatch.setattr(br, "run_units", lambda *a, **k: [])
     monkeypatch.setattr(br, "enqueue_manifests", lambda *a, **k: (0, []))
     client = _Client()
     br.execute(client_factory=lambda: client, folder=folder, agent=bf.Agent.CLAUDE)
     created = sorted(row["slug"] for row in client.projects.values())
 
-    assert any("discarded" in line for line in pages[1])
-    assert created == ["odyssey"], "the broken revision must not reach the import"
+    assert any("were dropped" in line for line in pages[1])
+    assert created == ["odyssey"]
 
 
 @pytest.mark.parametrize("interactive,yes", [(False, False), (False, True), (True, True)])

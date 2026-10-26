@@ -78,6 +78,7 @@ add_executable(test-z3
   interval.cpp
   karr.cpp
   lcube.cpp
+  lp_evidence.cpp
   len_abs.cpp
   list.cpp
   main.cpp
@@ -115,6 +116,8 @@ add_executable(test-z3
   permutation.cpp
   ff_domain.cpp
   ff_solver.cpp
+  ff_euf.cpp
+  ff_native_proof.cpp
   finite_field.cpp
   polynomial.cpp
   polynomial_factorization.cpp
@@ -136,8 +139,12 @@ add_executable(test-z3
   region.cpp
   regex_range_collapse.cpp
   sat_local_search.cpp
+  sat_config.cpp
   sat_lookahead.cpp
   sat_user_scope.cpp
+  sat_smt_proof_scope.cpp
+  smt_proof_checker.cpp
+  smt_proof_weakening.cpp
   scoped_timer.cpp
   scoped_vector.cpp
   seq_power.cpp

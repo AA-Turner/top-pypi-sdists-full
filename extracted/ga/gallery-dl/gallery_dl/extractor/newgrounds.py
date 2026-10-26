@@ -225,7 +225,7 @@ class NewgroundsExtractor(Extractor):
 
         if image_data := extr("let imageData =", "\n];"):
             multi = self._extract_images_multi(image_data)
-        elif art_images := extr('<div class="art-images', '\n\t\t</div>'):
+        elif art_images := extr('<div class="art-images', '\n        </div>'):
             multi = self._extract_images_art(art_images)
         else:
             # single image post

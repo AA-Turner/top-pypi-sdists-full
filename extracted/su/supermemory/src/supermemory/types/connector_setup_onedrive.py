@@ -7,6 +7,7 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .google_drive_config import GoogleDriveConfig
 
 
 class ConnectorSetupOnedrive(UncheckedBaseModel):
@@ -27,6 +28,8 @@ class ConnectorSetupOnedrive(UncheckedBaseModel):
     """
     Maximum documents this connector imports
     """
+
+    config: typing.Optional[GoogleDriveConfig] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

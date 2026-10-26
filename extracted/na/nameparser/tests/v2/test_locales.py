@@ -1079,8 +1079,8 @@ def test_non_interference_all_packs_combined() -> None:
 # -- #269: non-Latin default vocabulary (Cyrillic, Greek, Arabic,
 # Hebrew, Devanagari, Bengali) --
 #
-# This is DEFAULT vocabulary (nameparser/config/titles.py,
-# conjunctions.py, prefixes.py), not a locale pack -- it lives here
+# This is DEFAULT vocabulary (nameparser/vocab/*.toml, which file a
+# word is in by its language), not a locale pack -- it lives here
 # because it's the non-Latin counterpart to the pack tests above. Every
 # row was verified live against a runtime-augmented Lexicon.default()
 # before the data landed (2026-07-17), so these pin actual observed
@@ -1236,7 +1236,7 @@ def test_non_interference_all_packs_combined() -> None:
     # mid-word (no preceding whitespace before '"', and for the
     # trailing "'" no following word boundary), so it never satisfies
     # the boundary-valid open/close test and is left as literal text.
-    # Both spellings are shipped; see the titles.py comment.
+    # Both spellings are shipped; see their notes in nameparser/vocab/he.toml.
     ('ד"ר דוד לוי', "title", 'ד"ר'),
     ("גב' דוד לוי", "title", "גב'"),
     ("ד״ר דוד לוי", "title", "ד״ר"),
@@ -1310,7 +1310,9 @@ def test_non_interference_all_packs_combined() -> None:
     ("র. কে. নারায়ণ", "given", "র."),
     ("র. কে. নারায়ণ", "middle", "কে."),
     ("র. কে. নারায়ণ", "family", "নারায়ণ"),
-    # The mirror of cases.py's audit_md_leading_stays_a_title. Both
+    # These mirrored Latin md until #853 made a leading Md the given
+    # name (cases.py's audit_md_leading_is_the_given_name); the Bengali
+    # spellings stay titles, no filed data reaching them. Both
     # spellings of the abbreviation ship: the visarga form মোঃ (the visarga ঃ (U+0983) is a spacing
     # combining mark, and the lookup fold strips only edge periods and
     # whitespace, so it reaches the lexicon intact) and the period
@@ -1328,8 +1330,8 @@ def test_non_interference_all_packs_combined() -> None:
     ("মি. রহমান", "title", "মি."),
     ("মি. রহমান", "family", "রহমান"),
     # The exclusion holds: ঠাকুর is Tagore, a surname, and is
-    # deliberately not a title (decisions/vocabulary-exclusions,
-    # Excluded (TITLES)).
+    # deliberately not a title (its `excluded` entry in
+    # nameparser/vocab/bn.toml).
     # LEADING position is where the exclusion is load-bearing --
     # TITLES is leading-only, so the trailing spelling reads the same
     # whether or not the word ships and cannot guard anything.

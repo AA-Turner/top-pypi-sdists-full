@@ -340,15 +340,23 @@ def write_gmo(gmo_path: Path, text: str) -> None:
 def close_deck(text: str) -> str:
     """``text`` closed by ``EN`` when no line of it is one (momwire#1488).
 
-    For a deck whose file names came from stdin: 4nec2 writes no ``EN``, and
-    NEC's own card reader closes a deck at end of file.  A deck that has an
+    For every deck that arrives as a file (momwire#1698; at first only the
+    stdin form's, since 4nec2 writes no ``EN``): NEC's own card reader closes
+    a deck at end of file.  A deck that has an
     ``EN`` anywhere is returned unchanged, which keeps everything after it out
-    of the deck exactly as before.
+    of the deck exactly as before.  So is one whose last card is ``NX``: a
+    chain that stops after a structure (SimNEC's recorded streams) reads as
+    the stream form reads it, with no empty structure after it.
     """
+    last = ""
     for line in text.splitlines():
         tokens = line.strip().replace(",", " ").split()
         if tokens and tokens[0][:2].upper() == "EN":
             return text
+        if tokens:
+            last = tokens[0][:2].upper()
+    if last == "NX":
+        return text
     if text and not text.endswith(("\n", "\r")):
         text += "\n"
     return text + "EN\n"
@@ -366,10 +374,14 @@ def render_files(
     (momwire#1488).  The NEC-4.2 slot never writes one: 4nec2 asks none of
     its NEC-4.2 engine (momwire#1592).
 
-    ``en_optional`` is the stdin form's, in either slot: the deck is closed
-    by :func:`close_deck` before anything reads it.
+    Every NEC-5 or NEC-4.2 deck that arrives as a file is closed by
+    :func:`close_deck` before anything reads it, as the licensed NEC-5
+    closes a deck at end of file (momwire#1698).  The NEC-2 front end's own
+    reader already closes one there, and an ``EN`` added would print as a
+    card echo of its own, so ``nec2`` keeps the stdin form's rule: closed
+    when ``en_optional`` says the names came from stdin (momwire#1488).
     """
-    if en_optional:
+    if en_optional or dialect != "nec2":
         text = close_deck(text)
     printout = render(text, basis=basis, dialect=dialect)
     gmo = _gmo.gmo_text(text) if dialect == "nec5" else None

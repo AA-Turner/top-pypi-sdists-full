@@ -592,6 +592,22 @@ def test_the_read_advisory_of_notes_show_is_in_tokens(wired, capsys, monkeypatch
     assert "94% full (28,270 of 30,000 tokens)" in err
 
 
+def test_notes_find_prints_only_the_paragraphs_that_mention_the_words(wired, capsys, monkeypatch):
+    """Daemon cost round 7, S1: the paragraph an edit changes, verbatim, without
+    the whole note; nothing found says so."""
+    note = "# P\n\n## Where it stands\n\nThe lr sweep is done.\n\n## Decisions\n\nWe chose lr 3e-4.\n"
+    monkeypatch.setattr("sys.stdin", io.StringIO(note))
+    cli.main(["notes", "write", "--project", "p", "-"])
+    capsys.readouterr()
+
+    assert cli.main(["notes", "find", "--project", "p", "3e-4"]) == 0
+    out = capsys.readouterr().out
+    assert "1 of " in out and "[Decisions · line 9]\nWe chose lr 3e-4." in out
+    assert "The lr sweep is done." not in out
+    assert cli.main(["notes", "find", "--project", "p", "tokenizer"]) == 0
+    assert 'no paragraph mentions "tokenizer"' in capsys.readouterr().out
+
+
 # -- the sweep ----------------------------------------------------------------
 #
 # The piece that makes "which documents are near full?" answerable at all. It was

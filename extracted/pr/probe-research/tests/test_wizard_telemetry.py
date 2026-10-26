@@ -545,15 +545,18 @@ def test_backfill_no_plan_emits_summary(captured, folder_harness, monkeypatch):
     assert not folder_harness.created
 
 
-def test_backfill_untrusted_classification_emits_summary(captured, folder_harness, monkeypatch):
+def test_a_plan_naming_an_unwalked_path_is_reported_never_refused(captured, folder_harness, monkeypatch):
+    """`trustworthy` is an invariant on our own code now; a broken one goes to
+    analytics and the walked files still import."""
     from probe.cli.backfill_plan import Assignment, Plan, ProjectSpec
 
-    plan = Plan([ProjectSpec("project")], [Assignment("ghost.py", "project")])
+    plan = Plan([ProjectSpec("project")], [Assignment("ghost.py", "project"), Assignment("a.py", "project")])
     monkeypatch.setattr(backfill_run, "classify", lambda *args, **kwargs: (plan, "", None))
+    monkeypatch.setattr(folder_harness.client, "_wake_delivery", folder_harness.drain)
     _run_folder(folder_harness)
     assert _props(captured, tm.EVENT_BACKFILL_PLAN_READY)["trustworthy"] is False
-    assert _props(captured, tm.EVENT_BACKFILL_SUMMARY)["outcome"] == "untrusted_classification"
-    assert not folder_harness.created
+    assert _props(captured, tm.EVENT_BACKFILL_SUMMARY)["outcome"] == "success"
+    assert folder_harness.created
 
 
 def test_backfill_project_create_failure_emits_summary(captured, folder_harness, monkeypatch):
@@ -811,3 +814,18 @@ def test_probe_logout_reports_the_sign_out_for_the_person(captured, monkeypatch)
     assert order == ["pin", "revoke"]
     signed_out = _props(captured, tm.EVENT_WIZARD_SIGNED_OUT)
     assert signed_out["agent_count"] == 0 and signed_out["warnings"] == 0
+
+
+def test_diagnose_asks_the_agents_own_cli_not_its_record(captured, wizard_stubs, monkeypatch):
+    """The wizard reads plugin records (`capabilities.plugin_records`), but
+    Diagnose shows what each agent's own CLI says: a `claude` that cannot
+    start is what it is there to show. One agent picked, the common case."""
+    from probe.cli import capabilities
+
+    reads: list[bool] = []
+    monkeypatch.setattr(
+        doctor_mod, "collect", lambda: reads.append(capabilities._read_records.get()) or Capabilities()
+    )
+    assert main_mod.main(["wizard", "--action", "diagnose", "--agent", "claude"]) == 0
+    assert reads[0] is True  # the menu's state read
+    assert reads[-1] is False  # Diagnose's

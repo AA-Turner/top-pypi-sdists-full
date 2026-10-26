@@ -2,11 +2,8 @@ import json
 import logging
 import logging.config
 import os
-import shlex
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any, List, Literal, Optional
+from typing import IO, Any, List, Literal, Optional
 
 import click
 
@@ -20,8 +17,9 @@ from robotcode.plugin import (
 )
 from robotcode.plugin._agent_detection import is_running_in_ai_agent
 from robotcode.plugin.click_helper.aliases import AliasedGroup
+from robotcode.plugin.click_helper.exit_codes import has_robot_exit_codes
 from robotcode.plugin.click_helper.types import EnumChoice
-from robotcode.plugin.click_helper.wrappable import WRAPPER_APPLIED_ENV, is_wrappable
+from robotcode.plugin.click_helper.wrappable import WRAPPER_APPLIED_ENV, invoked_command_is_wrappable, is_wrappable
 from robotcode.plugin.manager import PluginManager
 
 from .__version__ import __version__
@@ -50,101 +48,68 @@ class RobotCodeFormatter(logging.Formatter):
         super().__init__(*args, defaults=defaults, **kwargs)
 
 
-def _maybe_reexec_under_wrapper(
-    ctx: click.Context, app: Application, cli_wrapper: Optional[str] = None, no_wrapper: bool = False
-) -> None:
-    """Re-execute this process through a configured ``wrapper`` command.
+def _warn_about_ignored_wrapper(ctx: click.Context, app: Application) -> None:
+    """Warn about a ``--wrapper`` that does not apply.
 
-    When a ``wrapper`` is configured - either via ``--wrapper`` on the command
-    line (``cli_wrapper``) or the selected profile's ``wrapper`` (e.g. to run
-    the tests inside a specific X11/Wayland session) - and the invoked command
-    is ``@wrappable`` (i.e. it executes Robot Framework), the process
-    re-executes itself **once** through that command before Robot Framework
-    starts. ``--wrapper`` overrides the profile; ``--no-wrapper`` disables
-    wrapping for this run. The guard env var prevents infinite recursion and
-    lets an outer layer suppress the re-exec by setting it itself.
+    The command itself starts robotcode under the ``wrapper``, once it has loaded its
+    configuration (see `robotcode.plugin.click_helper.wrappable.run_under_wrapper`).
     """
-    if no_wrapper:
-        if cli_wrapper:
+    if app.config.no_wrapper:
+        if app.config.wrapper:
             app.warning("Ignoring --wrapper because --no-wrapper was given.")
         return
-    if os.environ.get(WRAPPER_APPLIED_ENV):
+    if not app.config.wrapper or os.environ.get(WRAPPER_APPLIED_ENV) or not ctx.invoked_subcommand:
         return
+    if not invoked_command_is_wrappable(ctx):
+        app.warning(f"Ignoring --wrapper: '{ctx.invoked_subcommand}' does not execute Robot Framework.")
 
-    sub_name = ctx.invoked_subcommand
-    if not sub_name:
-        return
-    # The command itself opts in via @wrappable; aliases resolve to the same
-    # command object, so this is alias-safe and needs no central name list.
-    sub_cmd = ctx.command.get_command(ctx, sub_name) if isinstance(ctx.command, click.Group) else None
-    if sub_cmd is None or not is_wrappable(sub_cmd):
-        if cli_wrapper:
-            app.warning(f"Ignoring --wrapper: '{sub_name}' does not execute Robot Framework.")
-        return
 
-    from robotcode.robot.config.loader import load_robot_config_from_path
-    from robotcode.robot.config.utils import get_config_files
+class RobotDataError(click.ClickException):
+    """An error robotcode reports itself for a command that passes on Robot Framework's
+    exit codes.
 
-    profile_wrapper = None
-    try:
-        config_files, _, _ = get_config_files(
-            config_files=app.config.config_files,
-            root_folder=app.config.root,
-            no_vcs=app.config.no_vcs,
-            verbose_callback=app.verbose,
-        )
-        # `evaluated_with_env` also applies the profile's `env` to `os.environ`,
-        # so the wrapper command can rely on it.
-        profile = (
-            load_robot_config_from_path(*config_files, verbose_callback=app.verbose)
-            .combine_profiles(*(app.config.profiles or []), verbose_callback=app.verbose, error_callback=app.error)
-            .evaluated_with_env(verbose_callback=app.verbose, error_callback=app.error)
-        )
-        profile_wrapper = profile.wrapper
-    except Exception as e:
-        # Don't fail early on config problems here; the actual command loads the
-        # config again and reports errors properly. An explicit --wrapper is
-        # still honored below.
-        message = str(e)
-        app.verbose(lambda: f"Skipping profile wrapper detection: {message}")
+    Shows the original error unchanged, but exits with Robot Framework's code for invalid
+    data or command line options instead of Click's 1 or 2.
+    """
 
-    # `--wrapper` overrides the profile's `wrapper`. The evaluated profile turns
-    # StringExpression entries into plain strings.
-    if cli_wrapper:
-        wrapper = shlex.split(cli_wrapper)
-    elif profile_wrapper:
-        wrapper = [str(w) for w in profile_wrapper]
-    else:
-        return
+    exit_code = 252
 
-    # Rebuild the invocation the way this process was actually started, so the
-    # re-exec finds robotcode even when it runs from a bundled path (VS Code) and
-    # is not installed in the interpreter. `launcher_script` is set only when we
-    # were started through a bundled entry (its `__main__` sets it) or an explicit
-    # `--launcher-script`; otherwise robotcode is importable directly and
-    # `-m robotcode.cli` is correct. We deliberately do NOT consult the
-    # ROBOTCODE_BUNDLED_ROBOTCODE_MAIN env var: VS Code sets it in every terminal,
-    # so a directly started robotcode would be diverted to the bundled copy.
-    # Mirrors the debug launcher's `debugger_script` handling.
-    entry = [str(app.config.launcher_script)] if app.config.launcher_script else ["-m", "robotcode.cli"]
-    command = [*wrapper, sys.executable, *entry, *sys.argv[1:]]
-    app.verbose(lambda: "Running under wrapper: " + " ".join(command))
+    def __init__(self, error: click.ClickException) -> None:
+        super().__init__(error.message)
+        self.error = error
 
-    # Run robotcode again under the wrapper; the guard env stops the spawned
-    # robotcode from wrapping a second time. On POSIX we replace this process with
-    # execvp (no extra process); Windows has no such exec, so there we spawn the
-    # command, wait, and forward its exit code.
-    os.environ[WRAPPER_APPLIED_ENV] = "1"
-    try:
-        if sys.platform == "win32":
-            sys.exit(subprocess.run(command).returncode)
-        os.execvp(command[0], command)
-    except OSError as e:
-        raise click.ClickException(f"Failed to execute wrapper command {wrapper!r}: {e}") from e
+    def show(self, file: Optional[IO[Any]] = None) -> None:
+        self.error.show(file)
+
+
+class RobotCodeGroup(AliasedGroup):
+    """The root command group.
+
+    Commands that run Robot Framework (`wrappable`) or pass on the exit code of a Robot
+    Framework tool (`robot_exit_codes`) answer with its exit codes, where 1-250 counts the
+    failed tests. An error robotcode reports itself for such a command - a Click error with
+    exit code 1 or 2, such as a broken configuration, a wrapper that doesn't start or an
+    invalid option - exits with Robot Framework's 252 instead. Robot Framework's own exit
+    codes never arrive as Click errors, so they pass through unchanged, and so does any
+    other code.
+    """
+
+    def invoke(self, ctx: click.Context) -> Any:
+        try:
+            return super().invoke(ctx)
+        except click.ClickException as e:
+            if e.exit_code in (1, 2) and self._passes_on_robot_exit_codes(ctx):
+                raise RobotDataError(e) from e
+            raise
+
+    def _passes_on_robot_exit_codes(self, ctx: click.Context) -> bool:
+        name = ctx.invoked_subcommand
+        cmd = self.get_command(ctx, name) if name else None
+        return cmd is not None and (is_wrappable(cmd) or has_robot_exit_codes(cmd))
 
 
 @click.group(
-    cls=AliasedGroup,
+    cls=RobotCodeGroup,
     context_settings={"auto_envvar_prefix": "ROBOTCODE"},
     invoke_without_command=False,
 )
@@ -205,8 +170,9 @@ def _maybe_reexec_under_wrapper(
     "color",
     default=None,
     help=(
-        "Force or disable colored output. Default (no flag): auto-detect — colors only when stdout is a TTY,"
-        " disabled if `NO_COLOR` is set, forced if `FORCE_COLOR` is set."
+        "Enable or disable colored output. Color codes are written only to a terminal; set `FORCE_COLOR` to get"
+        " them in a pipe. Default (no flag): auto-detect — colors only when stdout is a TTY, disabled if `NO_COLOR`"
+        " is set, forced if `FORCE_COLOR` is set."
     ),
     show_envvar=True,
 )
@@ -215,7 +181,8 @@ def _maybe_reexec_under_wrapper(
     "pager",
     default=None,
     help=(
-        "Force or disable the pager. Default (no flag): auto-page when the rendered output exceeds the terminal height."
+        "Force or disable the pager on a terminal; no pager starts when stdout isn't a TTY. Default (no flag):"
+        " auto-page when the rendered output exceeds the terminal height."
     ),
     show_envvar=True,
 )
@@ -409,8 +376,10 @@ def robotcode(
     app.config.log_enabled = log
     app.config.log_level = log_level
     app.config.log_calls = log_calls
+    app.config.wrapper = wrapper
+    app.config.no_wrapper = no_wrapper
 
-    _maybe_reexec_under_wrapper(ctx, app, wrapper, no_wrapper)
+    _warn_about_ignored_wrapper(ctx, app)
 
     if log_config:
         if log_calls:

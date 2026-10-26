@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: langchain-litellm
-Version: 0.11.1
+Version: 0.11.2
 Summary: An integration package connecting LiteLLM and LangChain
 Project-URL: Homepage, https://docs.langchain.com/oss/python/integrations/providers/litellm
 Project-URL: Documentation, https://docs.langchain.com/oss/python/integrations/chat/litellm
@@ -29,13 +29,13 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.11
-Requires-Dist: httpx<0.29.0,>=0.28.1
+Requires-Dist: httpx>=0.28.1
 Requires-Dist: langchain-core<2.0.0,>=1.6.1
-Requires-Dist: litellm<2.0.0,>=1.101.0
-Requires-Dist: pydantic<3.0.0,>=2.11.0; python_version < '3.14'
-Requires-Dist: pydantic<3.0.0,>=2.12.0; python_version >= '3.14'
-Requires-Dist: typing-extensions<5.0.0,>=4.13.0; python_version < '3.14'
-Requires-Dist: typing-extensions<5.0.0,>=4.14.1; python_version >= '3.14'
+Requires-Dist: litellm[mcp]!=1.107.0,>=1.106.2
+Requires-Dist: pydantic>=2.11.0; python_version < '3.14'
+Requires-Dist: pydantic>=2.12.0; python_version >= '3.14'
+Requires-Dist: typing-extensions>=4.13.0; python_version < '3.14'
+Requires-Dist: typing-extensions>=4.14.1; python_version >= '3.14'
 Description-Content-Type: text/markdown
 
 # langchain-litellm
@@ -101,8 +101,6 @@ See our [Releases](https://docs.langchain.com/oss/python/release-policy) and [Ve
 As an open-source project in a rapidly developing field, we are extremely open to contributions, whether it be in the form of a new feature, improved infrastructure, or better documentation.
 
 For detailed information on how to contribute, see the [Contributing Guide](https://docs.langchain.com/oss/python/contributing/overview).
-
-Unsorted imports do not block a pull request: before merging, a maintainer runs the **Sort imports** workflow, which commits the fix to the PR branch. On a fork, keep **Allow edits by maintainers** checked so it can push.
 
 ## 👤 Maintainer
 

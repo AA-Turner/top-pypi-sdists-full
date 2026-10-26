@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from pathlib import Path
 import subprocess  # noqa: F401 - tests patch `plugin_cli.subprocess.run`; the call is `claude_cli.capture`
 
 from probe.cli import claude_cli
@@ -186,6 +187,22 @@ def codex_marketplace_source(name: str) -> tuple[bool, str | None]:
             src = entry.get("marketplaceSource")
             return True, str(src.get("source") or "") if isinstance(src, dict) else ""
     return True, None
+
+
+def marketplace_checkout(source: str, name: str) -> Path | None:
+    """Where `source` keeps its clone of the marketplace `name` (it need not
+    exist), or None for a source with no clone. Claude Code: its plugins folder
+    (`capabilities.claude_plugin_ledger`), `marketplaces/<name>`; Codex:
+    `$CODEX_HOME/.tmp/marketplaces/<name>`."""
+    if source == CLAUDE:
+        from probe.cli.capabilities import claude_plugin_ledger  # noqa: PLC0415 - imports this module
+
+        return claude_plugin_ledger().parent / "marketplaces" / name
+    if source == CODEX:
+        from probe.cli.codex_config import codex_home  # noqa: PLC0415
+
+        return codex_home() / ".tmp" / "marketplaces" / name
+    return None
 
 
 def refresh_marketplace(source: str, marketplace: str) -> claude_cli.Result:

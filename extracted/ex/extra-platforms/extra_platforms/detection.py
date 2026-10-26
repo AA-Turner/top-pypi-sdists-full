@@ -181,6 +181,15 @@ name) are what carry the smoking gun.
 """
 
 
+_CHROMEOS_IDS = frozenset(("chromeos", "chromiumos"))
+"""``os-release`` IDs of ChromeOS and of the open-source ChromiumOS builds.
+
+Only these IDs identify the running system as {data}`~extra_platforms.CHROMEOS`.
+The Crostini marker that {func}`is_chromeos` also reads shows inside a container
+too, so {func}`is_generic_linux` checks the IDs alone.
+"""
+
+
 _DUMB_TERMS = frozenset(("", "dumb", "su", "unknown"))
 """``TERM`` values declaring a terminal with no capabilities, so no emulator.
 
@@ -302,6 +311,32 @@ def is_aarch64() -> bool:
 
 
 @cache
+def is_arm() -> bool:
+    """Return {data}`True` if current architecture is {data}`~extra_platforms.ARM`.
+
+    ```{hint}
+    This is a fallback detection for generic ARM architecture. It will return
+    `True` for any ARM architecture not specifically covered by the more precise
+    variants: {func}`~extra_platforms.is_aarch64`,
+    {func}`~extra_platforms.is_armv5tel`,
+    {func}`~extra_platforms.is_armv6l`,
+    {func}`~extra_platforms.is_armv7l` or
+    {func}`~extra_platforms.is_armv8l`.
+    ```
+    """
+    return bool(
+        platform.machine().startswith("arm")
+        and not any((
+            is_aarch64(),
+            is_armv5tel(),
+            is_armv6l(),
+            is_armv7l(),
+            is_armv8l(),
+        ))
+    )
+
+
+@cache
 def is_armv5tel() -> bool:
     """Return {data}`True` if current architecture is
     {data}`~extra_platforms.ARMV5TEL`.
@@ -334,32 +369,6 @@ def is_armv8l() -> bool:
 
 
 @cache
-def is_arm() -> bool:
-    """Return {data}`True` if current architecture is {data}`~extra_platforms.ARM`.
-
-    ```{hint}
-    This is a fallback detection for generic ARM architecture. It will return
-    `True` for any ARM architecture not specifically covered by the more precise
-    variants: {func}`~extra_platforms.is_aarch64`,
-    {func}`~extra_platforms.is_armv5tel`,
-    {func}`~extra_platforms.is_armv6l`,
-    {func}`~extra_platforms.is_armv7l` or
-    {func}`~extra_platforms.is_armv8l`.
-    ```
-    """
-    return bool(
-        platform.machine().startswith("arm")
-        and not any((
-            is_aarch64(),
-            is_armv5tel(),
-            is_armv6l(),
-            is_armv7l(),
-            is_armv8l(),
-        ))
-    )
-
-
-@cache
 def is_i386() -> bool:
     """Return {data}`True` if current architecture is {data}`~extra_platforms.I386`."""
     return platform.machine() in ("i386", "i486")
@@ -378,35 +387,17 @@ def is_i686() -> bool:
 
 
 @cache
-def is_x86_64() -> bool:
-    """Return {data}`True` if current architecture is {data}`~extra_platforms.X86_64`.
-
-    ```{caution}
-    Windows returns `AMD64` in uppercase, so we normalize to lowercase.
-    ```
-
-    ```{hint}
-    Solaris and illumos answer `i86pc`, which names the machine family rather
-    than the ISA, the same way `sun4u` and `sun4v` do for {func}`is_sparc64`.
-    Both keep that string on 64-bit hardware, and neither ships a 32-bit kernel
-    any more. Measured on OpenIndiana Hipster 2026.04.
-    ```
+def is_loongarch64() -> bool:
+    """Return {data}`True` if current architecture is
+    {data}`~extra_platforms.LOONGARCH64`.
     """
-    return platform.machine().lower() in ("x86_64", "amd64", "i86pc")
+    return platform.machine() == "loongarch64"
 
 
 @cache
 def is_mips() -> bool:
     """Return {data}`True` if current architecture is {data}`~extra_platforms.MIPS`."""
     return platform.machine() == "mips"
-
-
-@cache
-def is_mipsel() -> bool:
-    """Return {data}`True` if current architecture is
-    {data}`~extra_platforms.MIPSEL`.
-    """
-    return platform.machine() == "mipsel"
 
 
 @cache
@@ -423,6 +414,14 @@ def is_mips64el() -> bool:
     {data}`~extra_platforms.MIPS64EL`.
     """
     return platform.machine() == "mips64el"
+
+
+@cache
+def is_mipsel() -> bool:
+    """Return {data}`True` if current architecture is
+    {data}`~extra_platforms.MIPSEL`.
+    """
+    return platform.machine() == "mipsel"
 
 
 @cache
@@ -462,6 +461,12 @@ def is_riscv64() -> bool:
 
 
 @cache
+def is_s390x() -> bool:
+    """Return {data}`True` if current architecture is {data}`~extra_platforms.S390X`."""
+    return platform.machine() == "s390x"
+
+
+@cache
 def is_sparc() -> bool:
     """Return {data}`True` if current architecture is {data}`~extra_platforms.SPARC`."""
     return platform.machine() == "sparc"
@@ -473,20 +478,6 @@ def is_sparc64() -> bool:
     {data}`~extra_platforms.SPARC64`.
     """
     return platform.machine() in ("sparc64", "sun4u", "sun4v")
-
-
-@cache
-def is_s390x() -> bool:
-    """Return {data}`True` if current architecture is {data}`~extra_platforms.S390X`."""
-    return platform.machine() == "s390x"
-
-
-@cache
-def is_loongarch64() -> bool:
-    """Return {data}`True` if current architecture is
-    {data}`~extra_platforms.LOONGARCH64`.
-    """
-    return platform.machine() == "loongarch64"
 
 
 @cache
@@ -509,6 +500,24 @@ def is_wasm64() -> bool:
     ```
     """
     return sys.platform == "emscripten" and platform.architecture()[0] == "64bit"
+
+
+@cache
+def is_x86_64() -> bool:
+    """Return {data}`True` if current architecture is {data}`~extra_platforms.X86_64`.
+
+    ```{caution}
+    Windows returns `AMD64` in uppercase, so we normalize to lowercase.
+    ```
+
+    ```{hint}
+    Solaris and illumos answer `i86pc`, which names the machine family rather
+    than the ISA, the same way `sun4u` and `sun4v` do for {func}`is_sparc64`.
+    Both keep that string on 64-bit hardware, and neither ships a 32-bit kernel
+    any more. Measured on OpenIndiana Hipster 2026.04.
+    ```
+    """
+    return platform.machine().lower() in ("x86_64", "amd64", "i86pc")
 
 
 @cache
@@ -576,6 +585,12 @@ def is_arch() -> bool:
 
 
 @cache
+def is_artix() -> bool:
+    """Return {data}`True` if current platform is {data}`~extra_platforms.ARTIX`."""
+    return os_release_id() == "artix"
+
+
+@cache
 def is_buildroot() -> bool:
     """Return {data}`True` if current platform is {data}`~extra_platforms.BUILDROOT`."""
     return os_release_id() == "buildroot"
@@ -618,10 +633,7 @@ def is_chromeos() -> bool:
     own distribution.
     ```
     """
-    return (
-        os_release_id() in ("chromeos", "chromiumos")
-        or Path("/dev/.cros_milestone").is_file()
-    )
+    return os_release_id() in _CHROMEOS_IDS or Path("/dev/.cros_milestone").is_file()
 
 
 @cache
@@ -705,15 +717,18 @@ def is_generic_linux() -> bool:
     """Return {data}`True` if current platform is
     {data}`~extra_platforms.GENERIC_LINUX`.
 
-    Matches when running on a Linux kernel whose distribution cannot be
-    identified: minimal containers and build chroots shipping no `/etc/os-release`
-    and reaching no `systemd-hostnamed`.
+    Matches when running on a Linux kernel whose distribution no other platform
+    identifies: a distribution with an `os-release` ID no platform recognizes yet,
+    or a minimal container or build chroot shipping no `/etc/os-release` and
+    reaching no `systemd-hostnamed`. This keeps an unrecognized distribution in the
+    {data}`~extra_platforms.LINUX` group, and in every group built on it.
 
     ```{note}
     A distribution identified by another marker is no generic Linux, like
     {data}`~extra_platforms.SLITAZ` from its `/etc/slitaz-release` file.
-    {data}`~extra_platforms.CHROMEOS` does not count: it hosts the Crostini
-    container, whose own distribution stays unidentified.
+    {data}`~extra_platforms.CHROMEOS` counts only through its own `os-release`
+    ID: its Crostini marker also shows inside a container, whose own
+    distribution stays unidentified.
     ```
     """
     # Lazy imports to avoid circular dependencies.
@@ -722,7 +737,7 @@ def is_generic_linux() -> bool:
 
     return (
         sys.platform == "linux"
-        and not os_release_id()
+        and os_release_id() not in _CHROMEOS_IDS
         and not any(
             plat.current for plat in LINUX if plat not in (CHROMEOS, GENERIC_LINUX)
         )
@@ -1535,6 +1550,10 @@ def _tree_from_ps() -> tuple[tuple[str, str], ...]:
             ("ps", "-A", "-o", "pid=", "-o", "ppid=", "-o", "args="),
             capture_output=True,
             text=True,
+            # Any process on the host can hold bytes that are no UTF-8 in its
+            # arguments: replace them, as _tree_from_proc does.
+            encoding="UTF-8",
+            errors="replace",
             check=True,
             timeout=2,
         )
@@ -2123,17 +2142,6 @@ def is_tmux() -> bool:
 
 
 @cache
-def is_unknown_terminal() -> bool:
-    """Return {data}`True` if current terminal is
-    {data}`~extra_platforms.UNKNOWN_TERMINAL`.
-    """
-    # Lazy import to avoid circular dependencies.
-    from .terminal_data import UNKNOWN_TERMINAL
-
-    return current_terminal() is UNKNOWN_TERMINAL
-
-
-@cache
 def is_vscode_terminal() -> bool:
     """Return {data}`True` if current terminal is
     {data}`~extra_platforms.VSCODE_TERMINAL`.
@@ -2173,6 +2181,17 @@ def is_xterm() -> bool:
 def is_zellij() -> bool:
     """Return {data}`True` if current terminal is {data}`~extra_platforms.ZELLIJ`."""
     return "ZELLIJ" in environ
+
+
+@cache
+def is_unknown_terminal() -> bool:
+    """Return {data}`True` if current terminal is
+    {data}`~extra_platforms.UNKNOWN_TERMINAL`.
+    """
+    # Lazy import to avoid circular dependencies.
+    from .terminal_data import UNKNOWN_TERMINAL
+
+    return current_terminal() is UNKNOWN_TERMINAL
 
 
 # =============================================================================
@@ -2573,6 +2592,14 @@ def current_platform(strict: bool = False) -> Platform:
     Returns {data}`~extra_platforms.UNKNOWN_PLATFORM` if not running inside a recognized
     platform. To raise an error instead, set `strict` to `True`.
 
+    ```{note}
+    When {data}`sys.platform` is `linux`, the result is never
+    {data}`~extra_platforms.UNKNOWN_PLATFORM`. A distribution that no platform
+    recognizes gives {data}`~extra_platforms.GENERIC_LINUX`, and logs a warning
+    that asks for a report. In `strict` mode, an unrecognized `os-release` ID
+    raises an error instead.
+    ```
+
     ```{important}
     If multiple platforms match the current environment, this function will try to
     select the best, informative one. Raises an error if we can't decide on a single,
@@ -2597,9 +2624,13 @@ def current_platform(strict: bool = False) -> Platform:
     }
 
     # A lone GENERIC_LINUX match means the Linux distribution itself was not
-    # identified, which is worth reporting.
+    # identified, which is worth reporting. Strict mode raises only on an
+    # os-release ID that no platform recognizes: a system with no os-release
+    # leaves nothing more to identify.
     if matching == {GENERIC_LINUX}:
-        _report_unrecognized("Linux distribution", strict=False)
+        _report_unrecognized(
+            "Linux distribution", strict=strict and bool(os_release_id())
+        )
         return GENERIC_LINUX
 
     # Remove low-specificity platforms until a single match remains. Starts

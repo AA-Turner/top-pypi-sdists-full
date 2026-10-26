@@ -1,9 +1,9 @@
 """Zvec-backed file store: chunk JSONL stays authoritative; a zvec collection replaces the linear vector scan."""
 
-import hashlib
 import json
 import shutil
 import time
+from collections.abc import Callable
 from uuid import uuid4
 
 import aiofiles
@@ -226,26 +226,6 @@ class ZvecLocalFileStore(LocalFileStore):
 
     # -- persistence ------------------------------------------------------
 
-    def _chunks_embedding_digest(self) -> str:
-        """Order-independent digest of the live (chunk_id, embedding) set.
-
-        Hashes float16 canonical bytes (the chunk JSONL serialization dtype) so
-        the value is identical whether an embedding sits fresh in memory or has
-        round-tripped through the JSONL. Written into the sidecar at dump time
-        and recomputed from ``self.file_chunks`` at load time: a mismatch means
-        the collection belongs to a different chunk generation than the
-        authoritative JSONL.
-        """
-        digest = hashlib.sha256()
-        eligible = sorted(
-            cid for cid, chunk in self.file_chunks.items() if self._embedding_dim_matches(chunk.embedding)
-        )
-        for cid in eligible:
-            digest.update(cid.encode("utf-8"))
-            digest.update(b"\x00")
-            digest.update(np.asarray(self.file_chunks[cid].embedding, dtype=np.float16).tobytes())
-        return digest.hexdigest()
-
     async def load(self) -> None:
         """Load chunks via the parent, then attach the zvec collection (open or rebuild)."""
         await super().load()
@@ -455,18 +435,19 @@ class ZvecLocalFileStore(LocalFileStore):
             return []
 
         vector = np.asarray(query_embedding, dtype=np.float32).tolist()
+        matches = self._prepare_search_filter(search_filter)
         ntotal = len(self._indexed_ids)
 
         if not search_filter:
             hits = self._query_collection(collection, vector, min(limit, ntotal))
-            return self._collect_hits(hits, limit, search_filter)
+            return self._collect_hits(hits, limit, matches=matches)
 
         # With a post-filter: progressively increase k until we collect enough
         # results or exhaust the reachable index.
         k = min(ntotal, 3 * limit)
         while True:
             hits = self._query_collection(collection, vector, k)
-            results = self._collect_hits(hits, limit, search_filter)
+            results = self._collect_hits(hits, limit, matches=matches)
             if len(results) >= limit or k >= ntotal:
                 return results
             k = min(ntotal, k * 2)
@@ -484,12 +465,16 @@ class ZvecLocalFileStore(LocalFileStore):
         hits: list[tuple[str, float]],
         limit: int,
         search_filter: dict | None = None,
+        *,
+        matches: Callable[[FileChunk], bool] | None = None,
     ) -> list[FileChunk]:
         """Map zvec hits back to chunks, skipping stale ids and filtered-out chunks."""
+        if matches is None:
+            matches = self._prepare_search_filter(search_filter)
         results: list[FileChunk] = []
         for chunk_id, score in hits:
             chunk = self.file_chunks.get(chunk_id)
-            if chunk is None or not self._matches_search_filter(chunk, search_filter):
+            if chunk is None or not matches(chunk):
                 continue
             results.append(chunk.model_copy(update={"scores": {"vector": score, "score": score}}))
             if len(results) >= limit:

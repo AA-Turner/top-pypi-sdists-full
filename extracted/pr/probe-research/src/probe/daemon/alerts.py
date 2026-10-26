@@ -42,6 +42,7 @@ from pathlib import Path
 
 from probe._compat import StrEnum
 from probe._shared import telemetry
+from probe.daemon import runctx
 
 #: What Slack shows of an error: its first line, after scrubbing, cut here.
 ERROR_TEXT_CHARS = 300
@@ -94,13 +95,15 @@ class Kind(StrEnum):
 
 
 _base_url: str | None = None
+#: The run's own in the daemon host: one session's self-hosted server never
+#: gates another's reports (`runctx.Shared`).
+_base = runctx.Shared(globals(), "_base_url")
 
 
 def configure(base_url: str | None) -> None:
     """The Probe API the daemon talks to: the hosted gate is checked against it.
     Until this is called nothing is sent (an unknown backend fails closed)."""
-    global _base_url
-    _base_url = base_url
+    _base.set(base_url)
 
 
 def _links(exc: BaseException, depth: int = 0):
@@ -233,7 +236,7 @@ def report(kind: Kind, *, session_id: str, lane: str, exc: BaseException | None 
     try:
         error_type = type(exc).__name__ if exc is not None else None
         status = status_of(exc)
-        ctx = telemetry.detached_context(_base_url, via=telemetry.Via.DAEMON)
+        ctx = telemetry.detached_context(_base.get(), via=telemetry.Via.DAEMON)
         if not ctx.enabled:  # the opt-out or self-host: send nothing, stamp nothing
             return False
         from probe.daemon.store import state_dir

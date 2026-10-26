@@ -20,35 +20,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .backfill import REFERENCE_ABOVE_BYTES, human_bytes, vocabulary_text
+from .backfill import vocabulary_text
 
 # -- shared invariants -------------------------------------------------------
-
-#: The rule that breaks the dashboard when it is broken. The folder tree is
-#: built by splitting `name` on '/', and the preview is chosen from the
-#: extension at its end -- so a sentence appended to a name breaks both.
-NAMING = """\
-NAMING, and this one is not stylistic.
-
-    An artifact's --name is the file's RELATIVE PATH and nothing else.
-    The dashboard builds the folder tree by splitting that name on '/', and
-    works out how to preview a file from the extension at its end. A
-    description appended to a name breaks both.
-
-    Descriptions go in the manifest's "notes". Never in the name."""
-
-#: Uploading a 10GB checkpoint is neither possible nor useful, and on a shared
-#: mount a file:// reference resolves from every other researcher's pod anyway.
-REFERENCES = f"""\
-LARGE FILES.
-
-    At or over {human_bytes(REFERENCE_ABOVE_BYTES)} -- checkpoints, datasets,
-    archives, weights -- record the PATH instead of the bytes:
-
-        --reference --allow-missing
-
-    Do NOT pass --hash on those. Fingerprinting a 10GB file over a shared
-    mount costs minutes and buys nothing here."""
 
 #: The one mistake in this flow that used to be unrecoverable. It is now
 #: recoverable (artifacts move laterally), but a split record is still a mess
@@ -102,7 +76,8 @@ LEAVE OUT WHAT IS NOT RESEARCH.
 
     Code for a shipped product (its web or mobile app, CLI or service, with that
     product's tests and assets), vendored code, build output and caches are not
-    research. Put those rows in `left_out` with a short why; they are not uploaded.
+    research. Mark them with `probe-backfill-plan leave-out --why "<short>"`; they
+    are not uploaded.
 
     Keep research code, configs, notebooks, results, logs and checkpoints, even
     inside a code repository."""
@@ -219,6 +194,45 @@ def _block(*fragments: str) -> str:
     return "\n\n".join(f for f in fragments if f)
 
 
+#: How every filing agent answers (2026-10-25): it SELECTS files with a checked
+#: command and never writes paths back. A model asked to copy 10,537 rows back
+#: "verbatim" mistyped two random-hex directory names, the plan was refused, and
+#: 52 minutes of work went with it. `backfill_plan_tool` is the command.
+def plan_tool(*, scope: str, can_declare: bool, finish: str = "") -> str:
+    declare = (
+        """
+    probe-backfill-plan project <slug> --name "<name>" --description "<one or two sentences>"
+        declares a NEW project before you assign to it; one that already exists
+        needs nothing."""
+        if can_declare
+        else ""
+    )
+    return f"""\
+FILE THE FILES WITH `probe-backfill-plan`. Do not write a list of paths in your
+answer: nothing you write there is read. The command checks every choice
+against the real file list as you make it and refuses a name that does not
+exist, telling you the nearest real names -- fix it and run it again.
+
+    probe-backfill-plan assign <project> --under <dir>     every file under a directory
+    probe-backfill-plan assign <project> --file <path>     one file
+    probe-backfill-plan assign <project> --rest            every file still undecided
+    probe-backfill-plan leave-out --under <dir> --why "<short>"   (or --file, --rest)
+    probe-backfill-plan status                             what is decided and what is not
+    probe-backfill-plan show <dir>                         what is under a directory
+    probe-backfill-plan apply --from <file.jsonl>          many at once, one JSON object a line:
+        {{"op": "assign", "project": "<slug>", "under": "<dir>"}}
+        {{"op": "leave_out", "file": "<path>", "why": "<short>"}}{declare}
+
+Paths are relative to the folder, as the evidence lists them. Choose by
+DIRECTORY wherever a directory holds one line of work and name single files only
+for the exceptions: a later choice overrides an earlier one for the files it
+covers, so you can file a directory and then move one file out of it. Add
+`--low --why "<short>"` to an assignment you are unsure of; those are what a
+person checks first.
+
+{finish or f"Finish when `status` says 0 undecided for this {scope}, then end with one sentence saying what it holds."}"""
+
+
 # -- pass 1: classify --------------------------------------------------------
 
 
@@ -279,8 +293,8 @@ EVIDENCE. One JSON object per line, in TWO shapes.
     sampled. They are counted rather than listed. `files`, `bytes`, `ext` and
     `mtime_span` describe the group.
 
-    ASSIGN A ROLLUP ROW BY ITS "dir" VALUE, exactly as written, and every file
-    under it goes with it. Do not invent per-file paths for them.
+    A rollup row's "dir" is a directory: `--under <dir>` files every file in
+    it, so nobody has to name its files one by one.
 
 {mtime_note}{caveat}
 
@@ -300,36 +314,28 @@ TAIL FILES INHERIT. A checkpoint carries no evidence of what it belongs to, so
 place it with its neighbours and say which neighbours decided it. An inherited
 placement a reader cannot audit is a guess wearing a rule's clothes.
 
-Answer with JSON on its own line and nothing after it:
+NAME THE PROJECTS AS YOU GO: declare each new one with `probe-backfill-plan
+project` before you assign files to it.
 
-{{"projects": [{{"slug": "...", "name": "...", "description": "...",
-                "tags": ["..."]}}],
-  "assignments": [{{"path": "<a row's \"path\", or a rollup row's \"dir\", verbatim>",
-                   "project": "<slug>",
-                   "confidence": "high"|"low", "why": "<short>"}}],
-  "left_out": [{{"path": "<a row's \"path\" or \"dir\", verbatim>", "why": "<short>"}}],
-  "unsure": ["<relative path>", ...],
-  "summary": "<one sentence on what this folder contains>"}}
-
-Every ROW above must appear exactly once, in `assignments` or `left_out` -- a
-rollup row counts once and carries all its files with it. Put
-anything you are genuinely unsure about in `unsure` as well -- that list is what
-the human reviews first, and a short honest one is worth more than none.
+{plan_tool(scope="folder", can_declare=True)}
 """
 
 
 # -- pass 1b: revise the plan a human just read ------------------------------
 
 
-def revise(*, feedback: str, root, work_dir: str, resumed: bool) -> str:
-    """Fold a reviewer's correction back into the classification.
+def revise(*, feedback: str, root, work_dir: str, resumed: bool, plan_view: str) -> str:
+    """Fold a reviewer's correction into the plan, by selection.
 
-    Sent into the SAME agent session where possible, which is the whole point:
-    the evidence is already in its context, so a correction costs one turn
-    instead of re-reading the folder. `resumed` says whether that worked --
-    when it did not, the agent is starting cold and has to be told so, because
-    a cold agent asked to "revise your plan" has no plan to revise and will
-    invent one that ignores everything the reviewer did not mention.
+    The session starts from the plan the reviewer read: `probe-backfill-plan`
+    already holds every decision, so the agent changes only what the correction
+    touches and nothing it does not mention can be lost by being left out of an
+    answer. That is also why a correction on a 144k-file folder is ONE session:
+    the evidence does not fit, and it does not need to -- `plan_view` and
+    `show`/`status` let the agent find what the reviewer meant.
+
+    Resumed into the classifying session when there is one (its evidence is
+    already in context). `resumed` says whether that worked.
 
     The correction is quoted rather than paraphrased into instructions. A
     reviewer who writes "lockfiles aren't part of the research" is stating a
@@ -339,18 +345,17 @@ def revise(*, feedback: str, root, work_dir: str, resumed: bool) -> str:
     context = (
         "You proposed a classification for this folder a moment ago and the reviewer has read it."
         if resumed
-        else (
-            "A classification for this folder was proposed and the reviewer has "
-            "read it. YOU DO NOT HAVE IT -- your previous session could not be "
-            "resumed, so re-read the evidence and produce a fresh plan that "
-            "honours the correction below."
-        )
+        else "A classification for this folder was proposed and the reviewer has read it."
     )
     return f"""\
 {context}
 
 FOLDER: {root}
 {readonly(root=root, work_dir=work_dir)}
+
+THE PLAN THEY READ (largest directories first; `probe-backfill-plan show <dir>` for detail):
+
+{plan_view}
 
 THE REVIEWER SAYS:
 
@@ -359,42 +364,35 @@ THE REVIEWER SAYS:
 Apply it, and apply what it IMPLIES. A correction is usually a rule, not a
 one-off: "lockfiles are not research" means every lockfile, not the two that
 happened to be on screen. Where the rule is genuinely ambiguous, do the narrow
-thing and say so in `summary`.
+thing and say so.
 
 Do not take the correction as licence to redo placements it says nothing
-about. A reviewer who fixes one directory has implicitly accepted the rest,
-and a plan that shuffles everything makes their next read start over.
+about. Every file already has its decision from the plan above; change only
+what the correction reaches. A reviewer who fixes one directory has implicitly
+accepted the rest.
 
-Answer with the SAME JSON shape as before, complete and on its own line --
-every row of the evidence appears exactly once, in `assignments` or `left_out`,
-not just the ones you changed:
-
-{{"projects": [{{"slug": "...", "name": "...", "description": "...",
-                "tags": ["..."]}}],
-  "assignments": [{{"path": "...", "project": "...",
-                   "confidence": "high"|"low", "why": "<short>"}}],
-  "left_out": [{{"path": "...", "why": "<short>"}}],
-  "unsure": ["..."],
-  "summary": "<one sentence, saying what you changed and why>"}}
+{plan_tool(scope="folder", can_declare=True, finish="When the correction is applied, end with one sentence saying what you changed.")}
 """
 
 
 # -- pass 2: import one unit -------------------------------------------------
 
 
-def import_unit(*, root, project: str, paths: list[str], manifest_path: str) -> str:
-    """Upload and describe one unit's files, all bound for one project.
+def import_unit(*, root, project: str, paths: list[str], work_dir: str) -> str:
+    """Describe one unit's files, all bound for one project. Uploads are code's.
 
-    The agent WRITES A MANIFEST rather than shelling out per file. One process
-    then enqueues the lot. At two hundred thousand files, a process start and a
-    slug lookup per file is tens of CPU-hours before any bytes move; the agent's
-    judgement is what we are paying for, not its ability to run a loop.
+    The upload list is written by code before the agent starts: every file of
+    the unit, with the size rule deciding which go up as references. The agent
+    used to write it, copying up to 400 paths back "exactly as listed", and a
+    copy that slipped dropped that file from the unit (2026-10-25: the model
+    cannot be trusted to regurgitate). What a model is FOR here is saying what
+    the files are, so that is all it does, through `probe-backfill-plan note`.
     """
     listing = "\n".join(f"    {p}" for p in paths)
     # The shared vocabulary goes on THIS prompt, because this is the one the
     # importing agent is actually given. It is appended at the end so the
-    # unit's own instructions -- which files, which project, where the manifest
-    # goes -- are read first and are never pushed down by reference material.
+    # unit's own instructions are read first and never pushed down by
+    # reference material.
     reference = vocabulary_text()
     reference = f"\n{reference}" if reference else ""
     return f"""\
@@ -403,61 +401,42 @@ You are importing part of a research folder into Probe.
 FOLDER: {root}
 PROJECT: {project}     (already created -- do not create any project)
 
-{readonly(root=root, work_dir=str(Path(manifest_path).parent))}
+{readonly(root=root, work_dir=work_dir)}
 
 These {len(paths):,} files, and only these, are yours (relative to the folder):
 
 {listing}
 
-Read them, then WRITE A MANIFEST describing what to upload. Do not run
-`probe artifact add` yourself -- one process enqueues the whole manifest
-afterwards, which is thousands of times faster than one call per file.
-
-Write JSONL to: {manifest_path}
-One object per line, and ONLY these four keys -- an unrecognised key fails that
-row, and booleans must be bare `true`/`false`, never the strings "true"/"false":
-
-    {{"path": "<path relative to the folder, exactly as listed above>",
-      "notes": "<what it is, what produced it, what it shows -- never uploaded>",
-      "reference": true|false,
-      "allow_missing": true|false}}
-
-    Set "allow_missing": true alongside "reference": true for anything on a
-    shared mount the uploading machine may not see at the same path. It is
-    ignored unless "reference" is true.
-
-    "path" is RELATIVE even though you read the file by its absolute path. The
-    process that enqueues this manifest runs with the folder as its working
-    directory; an absolute path there uploads the file under a name with
-    somebody's home directory baked into it.
-
-    Put NOTHING else in this file. Your closing summary is your own output, not
-    a manifest row -- appended here it fails as one.
-{NAMING}
-
-{REFERENCES}
-
-    Set "reference": true for those. Leave it false or omit it otherwise.
+THEY ARE ALREADY ON THE UPLOAD LIST. Every one of them is imported whatever you
+do, and you cannot add or drop one. Your job is to say what they are.
 
 {DESCRIBE_ARTIFACTS}
 
-    Not every file earns a note. Build noise, caches and lockfiles do not.
-    A file with nothing worth saying still goes in the manifest, just without
-    `notes` -- the manifest is the upload list, and a file you leave out is a
-    file that does not get imported.
+    Write each line with `probe-backfill-plan`:
+
+        probe-backfill-plan note --file <path> --text "<what it is, what produced it, what it shows>"
+        probe-backfill-plan note --under <dir> --text "<one line for every file under it>"
+        probe-backfill-plan apply --from <file.jsonl>    many at once, one JSON object a line:
+            {{"op": "note", "file": "<path>", "notes": "<one line>"}}
+
+    Paths are relative to the folder, as listed above. A note is at most
+    2,000 characters; one line is the norm. The command refuses a path that is
+    not one of yours, telling you the nearest real names -- fix it and run it
+    again. Notes are never uploaded: the project's documentation is written
+    from them once the import ends.
+
+    Not every file earns a note. Build noise, caches and lockfiles do not, and a
+    file with nothing worth saying needs none: it is imported all the same.
 
 {GROUPING}
 
     If you do create an experiment, do it with `probe experiment create` and say
-    so in your summary. The files that convinced you go in the manifest as usual.
+    so in your summary.
 
 Do NOT write the project's notes. Something else writes those once, at the end,
 so that it can see the whole import instead of your slice of it.
 
-Finish with JSON on its own line:
-
-{{"manifest": "{manifest_path}", "rows": N, "described": N,
-  "experiments_created": N, "summary": "<one sentence>"}}
+Finish with one sentence saying what these files are.
 {reference}"""
 
 
@@ -742,8 +721,8 @@ THE PROJECTS. Use these and only these. You may not invent one or rename one:
 {projects}
 
 EVIDENCE. One JSON object per line. A row with "path" is one file. A row with
-"dir" is every remaining file in that directory, rolled up -- assign it by its
-"dir" value, exactly as written, and every file under it goes with it.
+"dir" is every remaining file in that directory, rolled up: `--under <dir>` files
+all of them.
 
 {evidence_jsonl}
 {caveat}
@@ -758,16 +737,10 @@ place it with its neighbours and say which neighbours decided it.
 If a row is research but fits no project, put it in the closest one and mark it
 low confidence.
 
-Answer with JSON on its own line and nothing after it:
+Every file in this slice must end up assigned or left out -- {index} of {total}
+slices is still all of this slice. Only the projects above exist here.
 
-{{"assignments": [{{"path": "<a row's \"path\", or a rollup row's \"dir\", verbatim>",
-                   "project": "<one of the slugs above>",
-                   "confidence": "high"|"low", "why": "<short>"}}],
-  "left_out": [{{"path": "<a row's \"path\" or \"dir\", verbatim>", "why": "<short>"}}],
-  "unsure": ["<path>", ...]}}
-
-EVERY row above must appear exactly once, in `assignments` or `left_out` --
-{index} of {total} slices is still all of this slice.
+{plan_tool(scope="slice", can_declare=False)}
 """
 
 

@@ -5,7 +5,8 @@ import torch
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGroup, ParamsT
-from pytorch_optimizer.optimizer.galore_utils import GaLoreProjector
+from pytorch_optimizer.optimizer.utils.foreach import group_tensors_by_device_and_dtype
+from pytorch_optimizer.optimizer.utils.galore import GaLoreProjector, update_unprojected_foreach
 
 
 class GaLore(BaseOptimizer):
@@ -21,17 +22,22 @@ class GaLore(BaseOptimizer):
         weight_decay: Weight decay coefficient.
         eps: Term added to the denominator to improve numerical stability.
         maximize: Maximize the objective instead of minimizing it.
+        foreach: Batch unprojected parameter updates. `None` enables batching for supported groups.
 
     """
+
+    _supports_compiled_foreach = True
+    _step_foreach = staticmethod(update_unprojected_foreach)
 
     def __init__(
         self,
         params: ParamsT,
-        lr: float = 1e-3,
+        lr: float | torch.Tensor = 1e-3,
         betas: Betas = (0.9, 0.999),
         weight_decay: float = 0.0,
         eps: float = 1e-6,
         maximize: bool = False,
+        foreach: bool | None = None,
         **kwargs,
     ):
         self.validate_learning_rate(lr)
@@ -46,6 +52,7 @@ class GaLore(BaseOptimizer):
             'betas': betas,
             'weight_decay': weight_decay,
             'eps': eps,
+            'foreach': foreach,
             **kwargs,
         }
 
@@ -69,6 +76,12 @@ class GaLore(BaseOptimizer):
             if torch.is_complex(p):
                 raise NoComplexParameterError(str(self))
 
+            state = self.state[p]
+
+            if ('rank' not in group or p.dim() != 2) and 'exp_avg' not in state:
+                state['exp_avg'] = torch.zeros_like(p)
+                state['exp_avg_sq'] = torch.zeros_like(p)
+
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
         loss: Loss = None
@@ -87,8 +100,31 @@ class GaLore(BaseOptimizer):
 
             step_size: float = group['lr'] * bias_correction2_sq / bias_correction1
 
+            use_foreach = self.can_use_foreach(group, group.get('foreach'))
+
+            if use_foreach:
+                dense_group = {
+                    **group,
+                    'params': [p for p in group['params'] if ('rank' not in group or p.dim() != 2)],
+                }
+                params, grads, state = self.collect_trainable_params(
+                    dense_group, self.state, ['exp_avg', 'exp_avg_sq']
+                )
+
+                for batch in group_tensors_by_device_and_dtype(params, grads, state):
+                    self._step_foreach(
+                        group,
+                        batch['params'],
+                        batch['grads'],
+                        batch['exp_avg'],
+                        batch['exp_avg_sq'],
+                        step_size,
+                        group['lr'],
+                        self.maximize,
+                    )
+
             for p in group['params']:
-                if p.grad is None:
+                if p.grad is None or (use_foreach and ('rank' not in group or p.dim() != 2)):
                     continue
 
                 grad = p.grad
@@ -118,7 +154,8 @@ class GaLore(BaseOptimizer):
 
                 de_nom = exp_avg_sq.sqrt().add_(group['eps'])
 
-                norm_grad = exp_avg / de_nom
+                norm_grad = de_nom
+                torch.div(exp_avg, de_nom, out=norm_grad)
 
                 if 'rank' in group and p.dim() == 2:
                     norm_grad = state['projector'].project_back(norm_grad)

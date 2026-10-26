@@ -4,6 +4,8 @@ import json
 
 import pytest
 
+from backfill_plan_agent import filing
+
 from probe.cli import backfill as bf, backfill_run as runner, import_jobs_ui, tui
 from tests.test_backfill_background import background_harness as background_harness
 
@@ -63,7 +65,7 @@ def test_cancelled_read_is_cached_but_never_replaces_explicit_approval(
         reviews.append(title)
         return "cancel"
 
-    monkeypatch.setattr(bf, "launch_agent", launch)
+    monkeypatch.setattr(bf, "launch_agent", filing(launch))
     monkeypatch.setattr(bf, "git_context", lambda *args: None)
     monkeypatch.setattr(tui, "review", cancel)
     for _ in range(2):

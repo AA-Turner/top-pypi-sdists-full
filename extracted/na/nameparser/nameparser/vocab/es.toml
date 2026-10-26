@@ -1,0 +1,101 @@
+schema = 1
+
+[[word]]
+text = "señor"
+salutation = { gender = "m", excluded = { after_given = "spelled SENOR, a surname (Census 2010), and middle names are drawn from surnames" } }
+family = { us_census_2010 = 282, wikidata = 2, as_of = 2026-10-24, note = "the Census count is of SENOR, which writes no diacritics" }
+
+[[word]]
+text = "sr"
+salutation = { gender = "m", same_as = "señor" }
+
+[[word]]
+text = "señora"
+salutation = { gender = "f", excluded = { after_given = "a given name (US SSA, as Senora), borne as a middle name" } }
+given = { us_ssa = 1065, as_of = 2026-10-24, note = "counted as SENORA, the SSA writing no diacritics" }
+
+[[word]]
+text = "sra"
+salutation = { gender = "f", same_as = "señora", after_given = true }
+given = { us_ssa = 27, as_of = 2026-10-24 }
+family = { us_census_2010 = 149, as_of = 2026-10-24, note = "kept for after_given (decisions/H8)" }
+
+[[word]]
+text = "señores"
+salutation = { expands = "the plural of señor", after_given = true }
+
+[[word]]
+text = "sres"
+salutation = { same_as = "señores", after_given = true }
+
+[[word]]
+text = "señorita"
+salutation = { gender = "f", after_given = true }
+given = { us_ssa = 6, as_of = 2026-10-24, note = "counted as SENORITA; kept for after_given (decisions/H8)" }
+
+[[word]]
+text = "srta"
+salutation = { gender = "f", same_as = "señorita", after_given = true }
+
+[[word]]
+text = "señoritas"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "srtas"
+salutation = { gender = "f", same_as = "señoritas", after_given = true }
+
+[[word]]
+text = "dra"
+academic = { gender = "f", expands = "Doctora, Doutora" }
+
+[[word]]
+text = "de"
+preposition = { may_be_given = false, expands = "of" }
+
+[[word]]
+text = "del"
+[word.preposition]
+may_be_given = true
+expands = "of the"
+note = "BOTH readings attested: Del Shannon (given name) and del Toro (particle). The ambiguity flag is the answer"
+
+[[word]]
+text = "la"
+[word.article]
+may_be_given = true
+expands = "the, fem. sg."
+note = "La Shawn, La Toya: a given-name element. The Romance article is the particle reading; its PLURALS ('las', 'los') are never-given, being no one's name"
+
+[[word]]
+text = "las"
+[word.article]
+may_be_given = false
+issue = 360
+expands = "the, fem. pl."
+note = "Added #360: 'la' was here as AMBIGUOUS (La Shawn, La Toya) but the plurals are not name elements -- no bearer in any position."
+
+[[word]]
+text = "los"
+[word.article]
+may_be_given = false
+issue = [360, 390]
+expands = "the, masc. pl."
+note = "Same as 'las' -- and the pair is why the #390 fold narrowing regressed \"de los Santos\" to given='Santos', family='de los'."
+
+[[word]]
+text = "san"
+[word.saint]
+may_be_given = true
+expands = "Saint: \"San Martín\""
+note = "San San Chiou: a given-name element in Burmese and Chinese naming"
+
+[[word]]
+text = "santa"
+saint = { may_be_given = true, expands = "Saint, fem." }
+
+[[word]]
+text = "y"
+[word.conjunction]
+[word.conjunction.excluded]
+may_be_initial = { reason = "the commonest Hispanic double-surname link and this library's oldest fixture, 'Velasquez y Garcia': marking it would read the link of every one-case Hispanic record as a middle initial; a caller who wants the Dutch reading adds it", issue = [383, 479] }

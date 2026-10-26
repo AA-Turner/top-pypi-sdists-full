@@ -548,7 +548,7 @@ def test_on_macos_kimi_reads_as_its_binary_and_is_still_found(isolated, monkeypa
 def test_the_hook_offers_kimis_title_and_its_binary(isolated, monkeypatch):
     io = _io()
     seen = []
-    monkeypatch.setattr(io._session_marker, "record_harness_process", lambda *args: seen.append(args))
+    monkeypatch.setattr(io._session_marker, "record_harness_process", lambda *args, **kwargs: seen.append(args))
     row = io._hook_harness.current()  # PROBE_AGENT=kimi_code (the fixture)
     io._record({"hook_event_name": "SessionStart", "session_id": "659a3020-6ec3-45c7-8f7b-274f811549be"}, row)
     assert seen == [("kimi_code", "659a3020-6ec3-45c7-8f7b-274f811549be", ("kimi-code", "kimi"))]

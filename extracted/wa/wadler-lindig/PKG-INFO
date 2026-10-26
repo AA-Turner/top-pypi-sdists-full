@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: wadler_lindig
-Version: 0.1.7
+Version: 0.1.8
 Summary: A Wadler–Lindig pretty-printer for Python.
 Project-URL: repository, https://github.com/patrick-kidger/wadler_lindig
 Author-email: Patrick Kidger <contact@kidger.site>
@@ -212,18 +212,6 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.10
-Provides-Extra: dev
-Requires-Dist: numpy; extra == 'dev'
-Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: pytest; extra == 'dev'
-Provides-Extra: docs
-Requires-Dist: hippogriffe==0.1.0; extra == 'docs'
-Requires-Dist: mkdocs-include-exclude-files==0.1.0; extra == 'docs'
-Requires-Dist: mkdocs-ipynb==0.1.0; extra == 'docs'
-Requires-Dist: mkdocs-material==9.6.7; extra == 'docs'
-Requires-Dist: mkdocs==1.6.1; extra == 'docs'
-Requires-Dist: mkdocstrings[python]==0.28.3; extra == 'docs'
-Requires-Dist: pymdown-extensions==10.14.3; extra == 'docs'
 Description-Content-Type: text/markdown
 
 <h1 align="center">A Wadler–Lindig ✨pretty-printer✨ for Python</h1>
@@ -235,7 +223,7 @@ This library is for you if you need:
 
 Main features:
 
-- Absolutely tiny implementation (77 lines of code for the main Wadler–Lindig algorithm, 223 more for teaching it how to handle all Python types).
+- Absolutely tiny implementation (96 lines of code for the main Wadler–Lindig algorithm, 342 more for teaching it how to handle all Python types).
 - Simpler than the original algorithm by Wadler & Lindig (removes some dead code).
 - Supports multi-line unbroken text strings.
 - Supports ANSI escape codes and colours.

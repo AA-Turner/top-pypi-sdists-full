@@ -15,6 +15,8 @@ import uuid
 
 import pytest
 
+from backfill_plan_agent import filing, note, unit_paths
+
 from probe.cli import backfill as bf
 from probe.cli import backfill_github as gh
 from probe.cli import backfill_import as imp
@@ -75,7 +77,7 @@ class Harness:
         self.monkeypatch = monkeypatch
         self.client = self.new_client()
         monkeypatch.setattr(runner, "classify", self.classify)
-        monkeypatch.setattr(bf, "launch_agent", self.launch)
+        monkeypatch.setattr(bf, "launch_agent", filing(self.launch))
         real_run_units = runner.run_units
 
         def units(*args, **kwargs):
@@ -165,24 +167,13 @@ class Harness:
 
     def launch(self, folder, prompt, **kwargs):
         if self.failed_model:
-            return False, "model failed before writing a manifest"
-        destination = next(
-            line.split("Write JSONL to:", 1)[1].strip()
-            for line in prompt.splitlines()
-            if line.strip().startswith("Write JSONL to:")
-        )
-        paths = (
-            prompt.split("are yours (relative to the folder):\n\n", 1)[1]
-            .split("\n\nRead them", 1)[0]
-            .splitlines()
-        )
-        rows = []
-        for path in paths:
-            if path.strip():
-                value = (folder / path.strip()).read_text()
-                self.manifested.append((path.strip(), value))
-                rows.append({"path": path.strip(), "notes": value.strip()})
-        Path(destination).write_text("".join(json.dumps(row) + "\n" for row in rows))
+            return False, "model failed before writing a note"
+        notes = {}
+        for path in unit_paths(prompt):
+            value = (folder / path).read_text()
+            self.manifested.append((path, value))
+            notes[path] = value.strip()
+        note(kwargs, notes)
         return self.model_success, ""
 
     def collect(self, *args, **kwargs):
@@ -294,6 +285,33 @@ def test_new_file_added_during_resume_stays_unreviewed_until_next_delta(scoped_h
     h.run()
     assert h.classified == [["a.py"], ["b.py"]]
     assert h.drain().delivered == 1
+
+
+def test_files_nobody_classified_wait_for_the_next_run_and_only_they_are_reclassified(
+    scoped_harness, monkeypatch,
+):
+    """A failed classifier session costs its own files, not the folder: they are
+    not uploaded, not guessed from neighbours, and stay `new` -- so the next run
+    classifies exactly them."""
+    h = scoped_harness
+    (h.folder / "b.py").write_text("value = 2\n")
+    real = h.classify
+
+    def one_session_failed(folder, evidence, **kwargs):
+        plan, tail, session = real(folder, evidence, **kwargs)
+        plan.assignments = [a for a in plan.assignments if a.path != "b.py"]
+        plan.excluded = ["b.py"]
+        return plan, tail, session
+
+    monkeypatch.setattr(runner, "classify", one_session_failed)
+    monkeypatch.setattr(h.client, "_wake_delivery", h.drain)
+    h.run()
+    assert h.report()["new"] == ["b.py"]
+    assert [path for path, _ in h.manifested] == ["a.py"]
+    assert h.outcome == telemetry.BackfillOutcome.PARTIAL_CLASSIFICATION
+    monkeypatch.setattr(runner, "classify", real)
+    h.run()
+    assert h.classified[-1] == ["b.py"]
 
 
 def _manifest_line(h, path: str) -> str:
@@ -557,17 +575,20 @@ def test_remote_acceptance_before_receipt_does_not_create_false_completion(
     assert h.report()["delivered"] == ["a.py"] and len(h.remote.records) == 1
 
 
-def test_failed_agent_exit_stays_partial_even_when_valid_rows_are_delivered(
-    scoped_harness, monkeypatch
-):
+def test_a_crashed_agents_unit_uploads_nothing_until_its_retry(scoped_harness, monkeypatch):
+    """The upload list is code's, but a unit whose agent crashed is retried
+    whole, as before: a file sent now would keep none of the retry's notes."""
     h = scoped_harness
     h.model_success = False
     monkeypatch.setattr(h.client, "_wake_delivery", h.drain)
     lines = h.run()
-    assert h.report()["delivered"] == ["a.py"]
+    assert h.report()["delivered"] == []
     assert h.outcome == telemetry.BackfillOutcome.PARTIAL
     assert any("Backfill is partial" in line for line in lines)
-    assert not any("Every observed file" in line for line in lines)
+    h.model_success = True
+    h.run()
+    assert h.report()["delivered"] == ["a.py"]
+    assert len(h.classified) == 1
 
 
 @pytest.mark.parametrize("interactive,yes", [(False, False), (False, True), (True, True)])

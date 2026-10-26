@@ -1,4 +1,4 @@
-"""Challenge detection for 21 WAF types.
+"""Challenge detection for supported WAF types.
 
 Pure logic, no I/O. Inspects status code, headers, and body to identify
 which WAF/challenge system is blocking a request.
@@ -14,6 +14,7 @@ import logging
 import re
 from urllib.parse import urlparse
 
+from wafer._brave import is_brave_challenge
 from wafer._solvers import (
     is_cookie_gate,
     is_pow_challenge,
@@ -160,6 +161,8 @@ class ChallengeType(enum.Enum):
     TMD = "tmd"
     AMAZON = "amazon"
     REDDIT = "reddit"
+    SEARCHGUARD = "searchguard"
+    BRAVE = "brave"
     VERCEL = "vercel"
     ARKOSE = "arkose"
     GEETEST = "geetest"
@@ -189,6 +192,7 @@ TERMINAL_CHALLENGES = frozenset({ChallengeType.CLOUDFLARE_BLOCK})
 # same IP rarely helps, and each failed attempt poisons the IP for
 # the subsequent browser solve.
 JS_ONLY_CHALLENGES = frozenset({
+    ChallengeType.BRAVE,
     ChallengeType.AWSWAF,
     ChallengeType.CLOUDFLARE,
     ChallengeType.DATADOME,
@@ -198,6 +202,7 @@ JS_ONLY_CHALLENGES = frozenset({
     ChallengeType.HCAPTCHA,
     ChallengeType.RECAPTCHA,
     ChallengeType.GENERIC_JS,
+    ChallengeType.SEARCHGUARD,
 })
 
 
@@ -212,6 +217,7 @@ INLINE_CHALLENGES = frozenset({
     ChallengeType.COOKIE_GATE,
     ChallengeType.POW,
     ChallengeType.RADWARE,
+    ChallengeType.SEARCHGUARD,
 })
 
 
@@ -383,6 +389,23 @@ def is_google_sorry_page(body: str) -> bool:
     )
 
 
+def is_google_searchguard(body: str, url: str) -> bool:
+    """Recognize Google's SearchGuard shell only on a Google search URL."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme != "https" or parsed.path != "/search":
+        return False
+    if not re.fullmatch(r"(?:www\.)?google\.[a-z]{2,}(?:\.[a-z]{2,})?", host):
+        return False
+    if len(body) > 300_000:
+        return False
+    body_lower = body.lower()
+    return all(
+        marker in body_lower
+        for marker in ("knitsail", "challenge_version", "sg_ss", "enablejs")
+    )
+
+
 # Reddit's gate copy, tolerant of a curly apostrophe or reflowed whitespace.
 _REDDIT_BLOCK_COPY_RE = re.compile(r"blocked\s+by\s+network\s+security", re.IGNORECASE)
 # Without a URL, a small page is only taken for Reddit's verification when it
@@ -410,11 +433,19 @@ def detect_challenge(
     """
     set_cookie = headers.get("set-cookie", "")
 
+    if url is not None and is_google_searchguard(body, url):
+        logger.info("Challenge detected: searchguard")
+        return ChallengeType.SEARCHGUARD
+
     # Fast path: header-only detection (no body decode needed)
     result = _header_fast_path(status_code, headers, set_cookie)
     if result is not None:
         logger.info("Challenge detected (header): %s", result.value)
         return result
+
+    if url is not None and is_brave_challenge(body, url):
+        logger.info("Challenge detected: brave")
+        return ChallengeType.BRAVE
 
     # --- Inline-solvable challenges (cheapest first) ---
 

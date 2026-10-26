@@ -577,6 +577,11 @@ class Census:
     #: while it was (their gap file, `probe.service.capture_gate`): Probe off
     #: means the session is not captured, and an import never backfills one.
     switched_off: int = 0
+    #: Sessions Probe's own folder import ran (their working directory is
+    #: inside the import's state): its classifier and upload agents, never the
+    #: researcher's work. 45 of them were imported as one researcher's history
+    #: on 2026-10-25.
+    import_agents: int = 0
     #: Every directory actually walked, so an empty result can say WHERE it
     #: looked instead of only that it found nothing.
     roots: list[Path] = field(default_factory=list)
@@ -606,6 +611,8 @@ def discover(
     than guessed -- see `transcript_roots`. Omitted, discovery still works from
     the override and the default; it just cannot find a relocated tree.
     """
+    from .backfill_ledger import is_import_agent_cwd
+
     tracked = tracked or set()
     plugin_dirs = plugin_dirs or {}
     census = Census()
@@ -653,11 +660,15 @@ def discover(
                     continue
                 if stat.st_size <= by_session[key].size:
                     continue
+            cwd = read_cwd(path, agent)
+            if is_import_agent_cwd(cwd):
+                census.import_agents += 1
+                continue
             by_session[key] = Transcript(
                 path=path,
                 session_id=session_id,
                 agent=agent,
-                cwd=read_cwd(path, agent),
+                cwd=cwd,
                 size=stat.st_size,
                 mtime=stat.st_mtime,
             )

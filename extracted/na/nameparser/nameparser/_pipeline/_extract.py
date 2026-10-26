@@ -44,9 +44,9 @@ from nameparser._pipeline._vocab import (
 from nameparser._types import AmbiguityKind, Role, Span
 
 
-# rules/S1: "a bracketed clause whose content is suffix-shaped is
-# not a nickname: the brackets are dropped and the content reads
-# exactly as if written bare"
+# rules/S1: "an enclosed clause whose content is suffix-shaped is
+# not a nickname: the brackets or quotes are dropped and the content
+# reads exactly as if written bare"
 def _suffix_shaped(content: str, lexicon: Lexicon) -> bool:
     """v1 parse_nicknames' escape (parser.py:1125-1141): an unambiguous
     suffix_words member (edge-normalized), an unambiguous acronym
@@ -70,9 +70,10 @@ def _maiden_marked(content: str, lexicon: Lexicon) -> bool:
     clause's word (it may be the surname Nee). A PHRASE marker is one
     marker, so the word after is the word after the whole run --
     '(z domu Nowak)' has one, '(z domu)' has none. The word after is
-    not tested for anything -- M3's Accepted line, and the reason a
-    bracketed '(née V)' reads maiden 'V' where the bare 'née V' gives
-    M2 a suffix.
+    not tested for anything, which is
+    rules/M3's Accepted bullet "The word taken after the marker is not tested"
+    (decisions/M3) and the reason a bracketed '(née PhD)' reads maiden
+    'PhD' where the bare 'née PhD' gives M2 a suffix.
 
     This stage runs before tokenize, so it calls maiden_marker_run
     itself rather than reading the tags classify will set. The two
@@ -170,10 +171,12 @@ def _unmatched(open_: str, offset: int) -> tuple[int, PendingAmbiguity]:
 
 
 # rules/N1: "a clause enclosed by a configured nickname delimiter
-# pair reads as the nickname and is lifted out of the name" (its
-# punctuation is tokenize's half of the rule)
-# rules/M1: "with a delimiter pair configured for maiden names, its
-# enclosed clause reads as the maiden name" (history: decisions/M1)
+# pair reads as the nickname and is lifted out of the name" -- Then,
+# and the empty enclosure it drops; its punctuation is tokenize's half
+# of the rule (decisions/N1)
+# rules/M1: "its enclosed clause reads as the maiden name" -- Then,
+# the pair being one the caller configured for maiden names; the
+# marker drop is group's half (decisions/M1)
 def extract_delimited(state: ParseState) -> ParseState:
     text = state.original
     policy = state.policy

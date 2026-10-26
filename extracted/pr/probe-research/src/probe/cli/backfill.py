@@ -27,6 +27,7 @@ log` runs inside training loops and must not pay for any of this.
 from __future__ import annotations
 
 import os
+import contextlib
 import re
 import shlex
 import shutil
@@ -36,6 +37,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 from dataclasses import dataclass, field
 from functools import lru_cache
 from probe._compat import StrEnum
@@ -90,12 +92,78 @@ def _backfill_cli_bin() -> tempfile.TemporaryDirectory:
         return _BACKFILL_CLI_BIN
 
 
-def _backfill_agent_env() -> dict[str, str]:
-    return {
-        **os.environ,
-        "PROBE_ATTRIBUTION": "backfill",
-        "PATH": _backfill_cli_bin().name + os.pathsep + os.environ.get("PATH", ""),
-    }
+def _backfill_agent_env(path_prepend: str | None = None) -> dict[str, str]:
+    path = _backfill_cli_bin().name + os.pathsep + os.environ.get("PATH", "")
+    if path_prepend:
+        path = path_prepend + os.pathsep + path
+    return {**os.environ, "PROBE_ATTRIBUTION": "backfill", "PATH": path}
+
+
+#: The classifier's filing tool, as the agent types it. See `plan_tool_launcher`.
+PLAN_TOOL_COMMAND = "probe-backfill-plan"
+
+
+@dataclass(frozen=True)
+class PlanTool:
+    """One classifier session's `probe-backfill-plan` state.
+
+    `ref_dir` holds the session's file list and project list and sits OUTSIDE
+    the agent's work dir, so the agent can read it but not rewrite what it is
+    checked against. `log` is the decisions log and sits INSIDE the work dir,
+    because Codex's sandbox confines the tool's writes as well as the agent's.
+    """
+
+    ref_dir: Path
+    log: Path
+
+
+@contextlib.contextmanager
+def plan_tool_launcher(tool: PlanTool):
+    """A `probe` for ONE agent session, with its plan state baked in.
+
+    Per launch because classifier sessions run concurrently in one work dir,
+    and baked into the script rather than passed as environment variables
+    because Codex filters what reaches its shell; PATH is the one channel the
+    import already depends on. It runs the stdlib-only tool module by file path
+    (importing `probe.cli` costs ~0.8 s a call).
+
+    ITS OWN EXECUTABLE, `probe-backfill-plan`, not a `probe` subcommand,
+    because it is not a Probe command: no network, no credential, no team
+    record read or written. It edits one local file in the agent's own work dir
+    (the decisions log) after checking each line against a local file list --
+    the same file the agent could already write with its `Write` tool, minus the
+    checking. The researcher's tracking guard governs `probe` commands, which
+    reach the team's records; a session-local helper is outside what it guards,
+    exactly like `Write` or `ls`, so there is nothing for it to allow or refuse.
+    Being a `probe` subcommand would also have put it behind the CLI's whole
+    import path (~0.8 s a call) and behind each machine's installed plugin
+    allowlist, which a CLI release does not update.
+    """
+    directory = tempfile.TemporaryDirectory(prefix="probe-backfill-plan-")
+    # ABSOLUTE: the agent's shell runs in its work dir, so a relative state
+    # path baked in here would resolve against the wrong directory and every
+    # call would fail to find its file list.
+    tool = PlanTool(ref_dir=Path(os.path.abspath(tool.ref_dir)), log=Path(os.path.abspath(tool.log)))
+    try:
+        tool_file = Path(__file__).resolve().with_name("backfill_plan_tool.py")
+        fast = (
+            "import importlib.util, sys; "
+            f"spec = importlib.util.spec_from_file_location('probe_backfill_plan_tool', {str(tool_file)!r}); "
+            "m = importlib.util.module_from_spec(spec); sys.modules[spec.name] = m; "
+            "spec.loader.exec_module(m); raise SystemExit(m.main(sys.argv[1:]))"
+        )
+        launcher = Path(directory.name) / PLAN_TOOL_COMMAND
+        launcher.write_text(
+            "#!/bin/sh\n"
+            f"PROBE_PLAN_REF={shlex.quote(str(tool.ref_dir))}; export PROBE_PLAN_REF\n"
+            f"PROBE_PLAN_LOG={shlex.quote(str(tool.log))}; export PROBE_PLAN_LOG\n"
+            "exec " + shlex.quote(sys.executable) + " -c " + shlex.quote(fast) + ' "$@"\n',
+            encoding="utf-8",
+        )
+        launcher.chmod(0o700)
+        yield directory.name
+    finally:
+        directory.cleanup()
 
 
 #: Never walked, never offered, never counted. Not a judgment call about what
@@ -307,19 +375,22 @@ AGENT_COPY: dict[Agent, tuple[str, str]] = {
 #: output IS a file it writes; the deny rule above is what keeps that file out
 #: of the imported folder. Bash stays scoped to `probe` so the CLI is reachable
 #: and nothing else is -- an unscoped Bash would route around the deny rule with
-#: one `echo >`.
-AGENT_TOOLS = "Bash(probe:*),Read,Glob,Grep,Task,Write,Edit"
+#: one `echo >`. `probe-backfill-plan` is the classifier's filing tool
+#: (`plan_tool_launcher`): it touches only the agent's own work dir, see there.
+AGENT_TOOLS = "Bash(probe:*),Bash(probe-backfill-plan:*),Read,Glob,Grep,Task,Write,Edit"
 
 #: The RECONSTRUCTION lane's allowlist, PER AGENT. Its one caller is
 #: `backfill_reconstruction.py`, which launches a project-summary draft with
 #: `tools=bf.DIGEST_TOOLS.get(agent)`; the `DIGEST_` name is the job these
-#: three tables were sized for -- one agent, one rendered input file, one
-#: written output -- and the reconstruction draft is that same job. (The
-#: per-transcript digest lane that shared them retired server-side.) Per agent
+#: tables were sized for -- one agent, one rendered input file, one written
+#: output -- and the reconstruction draft is that same job. (The
+#: per-transcript digest lane that shared them retired server-side, and with
+#: it the digest's model table: a draft's model is the `draft` lane's,
+#: `import_agent_settings.BUILTIN`.) Per agent
 #: because the tool names are not a shared vocabulary: Claude Code spells them
 #: `Read,Write` and pi spells them `read,write`, and a lowercase name in
 #: Claude's `--allowedTools` is not an error, it is an allowlist that matches
-#: nothing. Keyed like `DIGEST_MODEL` below so the caller writes
+#: nothing. Keyed by agent so the caller writes
 #: `DIGEST_TOOLS[agent]` and cannot pick the wrong spelling; Codex is None
 #: because it has no allowlist flag at all (its confinement is the OS
 #: sandbox), not because it is unrestricted. The pi entry is also what
@@ -338,18 +409,29 @@ DIGEST_TOOLS: dict[Agent, str | None] = {
     Agent.PI: "read,write",
 }
 
-#: Model override per agent, same caller. Claude gets haiku -- summarizing one
-#: pre-rendered view is a haiku-class task and the launcher's default was
-#: silently the session default model; `backfill_reconstruction.MODEL` layers
-#: sonnet over this table for its cross-document drafts, which need more.
-#: Codex and pi keep their configured defaults: neither has a stable cheap
-#: alias worth pinning here, and a `None` entry is what says so rather than
-#: an absent key a lookup would KeyError on.
-DIGEST_MODEL: dict[Agent, str | None] = {
-    Agent.CLAUDE: "haiku",
-    Agent.CODEX: None,
-    Agent.PI: None,
+#: The reasoning efforts each agent accepts, and the ONLY values an effort can
+#: reach an argv as (`agent_argv`): Codex's own API error lists its set
+#: ("Supported values are: 'none', 'minimal', ...", codex-cli 0.164.0) and
+#: `claude --help` lists Claude's (2.1.296). pi takes none. The server refuses
+#: anything else (`app.core.config.IMPORT_AGENT_EFFORTS`, the same lists).
+EFFORTS: dict[Agent, tuple[str, ...]] = {
+    Agent.CODEX: ("none", "minimal", "low", "medium", "high", "xhigh", "max"),
+    Agent.CLAUDE: ("low", "medium", "high", "xhigh", "max"),
 }
+
+#: Codex's effort goes in through `-c key=value`, whose value Codex parses as
+#: TOML: a string built from input could carry a second key. So the argument is
+#: looked up here, never formatted from the setting -- an effort not in this
+#: table never reaches the argv at all.
+CODEX_EFFORT_CONFIG: dict[str, str] = {
+    effort: f'model_reasoning_effort="{effort}"' for effort in EFFORTS[Agent.CODEX]
+}
+
+#: A model name an argv may carry: one element (no shell is involved), and
+#: never a leading dash an agent's option parser could read as a flag. Model
+#: names look like `sonnet`, `gpt-6-astra`, `openai/gpt-6`. The server checks
+#: the same pattern.
+MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,79}")
 
 #: How long ONE reconstruction draft may take (`backfill_reconstruction.py`
 #: passes it as `timeout=`). Far tighter than the import's deadlines
@@ -394,8 +476,16 @@ CODEX_ARGS = (
 _UNRULEABLE = ("(", ")")
 
 
-def readonly_settings(folder: Path) -> str:
-    """Claude settings JSON that makes `folder` unwritable.
+def readonly_settings(folder: Path | None) -> str:
+    """Claude settings JSON for an agent the import launches.
+
+    `folder`, when given, is made unwritable (the confinement rule). Every such
+    agent also runs with NO HOOKS. It is Probe's own automation, not a session
+    the researcher started: the researcher's hooks -- the Probe plugins' capture,
+    daemon and guard among them -- would register it as theirs, and Probe then
+    uploaded its own classifier sessions as the researcher's history (45 in one
+    tenant on 2026-10-25). Its confinement does not come from hooks: it is the
+    tool allowlist and this deny rule.
 
     Returned as a JSON string for `--settings`, which takes either that or a
     path. A string keeps the rule in the argv the test can read, rather than in
@@ -403,7 +493,10 @@ def readonly_settings(folder: Path) -> str:
     """
     import json
 
-    return json.dumps({"permissions": {"deny": [f"Edit({folder}/**)"]}})
+    settings: dict = {"disableAllHooks": True}
+    if folder is not None:
+        settings["permissions"] = {"deny": [f"Edit({folder}/**)"]}
+    return json.dumps(settings)
 
 
 def unruleable(folder: Path) -> bool:
@@ -1044,12 +1137,10 @@ Step 3 — group into experiments ONLY if the evidence is there.
     wrong answer that looks like a right one.
 
         probe experiment create <slug> --project <project> \\
-            --name "<human name>" --question "<what it tests>" \\
-            --description "<what this experiment is, up to 3 sentences>"
+            --name "<human name>" --question "<what it tests>"
 
-    --description here too, and for the same reason: only a terminal run
-    generates one, and this import creates none. Missed one? Add it with
-    `probe experiment set <slug> --description "..."`. The files that convinced
+    The question IS the experiment's description: an experiment has no
+    separate one, and `--description` is refused. The files that convinced
     you this was a real experiment go in `probe notes write`, not here.
 
 {_subdivide_line(agent)}
@@ -1092,16 +1183,13 @@ REQUIRED_FLAGS: dict[Agent, tuple[str, ...]] = {
 #: load-bearing for correctness or confinement, and refusing to import a
 #: researcher's folder over a compaction hint is the wrong trade.
 #:
-#: NOT A LIST OF EVERY DROPPABLE FLAG, and `--model` is the one that proves it.
-#: This table feeds `degraded_note`, which is printed by the FOLDER IMPORT lane
-#: and only there -- the lane that never sends `--model` at all. Listing it here
-#: would tell someone importing a research folder that their import is running
-#: degraded because of a flag their import does not use, which is a false
-#: statement in the wrong lane's copy. The `_has(supported, "--model")` gate in
-#: `agent_argv` is untouched by this: `supported_flags` asks the binary, and
-#: owes nothing to this table. The one lane that still sends `--model`, the
-#: reconstruction draft (`backfill_reconstruction.py`), prints no degraded
-#: note at all, so a dropped `--model` is surfaced nowhere today.
+#: NOT A LIST OF EVERY DROPPABLE FLAG: `--model` and `--effort` are dropped the
+#: same way (`_settings_argv`) but are not here, because an import sends them
+#: only when its settings name a model or an effort
+#: (`import_agent_settings`). Listed here, they would tell everyone whose
+#: import sends neither that it runs degraded over flags it does not use.
+#: `degraded_note` names them only when this import's settings would send them
+#: (`wanted`).
 OPTIONAL_FLAGS: dict[Agent, tuple[str, ...]] = {
     Agent.CLAUDE: ("--autocompact", *CONTEXT_FLAGS),
     Agent.CODEX: (),
@@ -1200,6 +1288,30 @@ def _supported_flags_cached(binary: str, help_argv: tuple[str, ...]) -> frozense
     return frozenset(found) or None
 
 
+@lru_cache(maxsize=8)
+def codex_features(binary: str) -> frozenset[str] | None:
+    """Feature names `codex features list` reports, or None if it would not say.
+
+    Unlike `supported_flags`, unknown here means "do not pass": a feature name
+    Codex does not know is an error, not an ignored option.
+    """
+    try:
+        done = subprocess.run(
+            [binary, "features", "list"],
+            capture_output=True,
+            text=True,
+            timeout=HELP_TIMEOUT_S,
+            stdin=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    names = {line.split()[0] for line in (done.stdout or "").splitlines()
+             if line.strip() and re.match(r"[a-z][a-z0-9_]*\s", line)}
+    return frozenset(names) or None
+
+
 def unsupported_flags(agent: Agent, binary: str) -> tuple[list[str], list[str]]:
     """``(required_missing, optional_missing)`` for this binary."""
     supported = supported_flags(binary, agent)
@@ -1246,7 +1358,7 @@ def _describe(agent: Agent, binary: str) -> str:
     return f"This {name} ({version})" if version else f"This {name}"
 
 
-def degraded_note(agent: Agent) -> str | None:
+def degraded_note(agent: Agent, wanted: tuple[str, ...] = ()) -> str | None:
     """What this binary is too old to be given, or None if nothing.
 
     Said out loud rather than dropped quietly. Each of these costs something a
@@ -1254,11 +1366,17 @@ def degraded_note(agent: Agent) -> str | None:
     classification has less context headroom, and without the isolation flags
     the agent runs with whatever MCP servers and slash commands the user has
     configured, inside an import that is supposed to see only the folder.
+
+    `wanted` are the settings flags THIS import would send (`--model`,
+    `--effort`; `import_agent_settings.AgentSettings.flags`): named when the
+    binary would drop them, never when the import does not use them.
     """
     binary = which_agent(agent)
     if binary is None:
         return None
     _, optional = unsupported_flags(agent, binary)
+    supported = supported_flags(binary, agent)
+    optional += [flag for flag in wanted if not _has(supported, flag) and flag not in optional]
     if not optional:
         return None
     return (
@@ -1388,6 +1506,33 @@ def check_argv(argv: list[str]) -> list[str]:
     return argv
 
 
+def _settings_argv(
+    agent: Agent, supported: frozenset[str] | None, model: str | None, effort: str | None
+) -> list[str]:
+    """The model and effort flags one launch carries. Nothing when neither is set.
+
+    Each half is dropped on its own, never the launch: a model that is not a
+    `MODEL_NAME`, an effort not on the agent's `EFFORTS`, or a flag this binary
+    does not advertise (`supported_flags`; unknown counts as yes, see `_has`).
+    Codex's effort is a `CODEX_EFFORT_CONFIG` lookup, never a formatted string.
+    pi takes a model and no effort.
+    """
+    model = model if model and MODEL_NAME.fullmatch(model) else None
+    args: list[str] = []
+    if agent is Agent.CODEX:
+        if model and _has(supported, "--model"):
+            args += ["-m", model]
+        config = CODEX_EFFORT_CONFIG.get(effort or "")
+        if config and _has(supported, "--config"):
+            args += ["-c", config]
+        return args
+    if model and _has(supported, "--model"):
+        args += ["--model", model]
+    if agent is Agent.CLAUDE and effort in EFFORTS[Agent.CLAUDE] and _has(supported, "--effort"):
+        args += ["--effort", effort]
+    return args
+
+
 def agent_argv(
     agent: Agent,
     binary: str,
@@ -1398,6 +1543,7 @@ def agent_argv(
     model: str | None = None,
     session_id: str | None = None,
     resume: str | None = None,
+    effort: str | None = None,
 ) -> list[str]:
     """The headless invocation for one agent. THE PROMPT IS NOT IN IT.
 
@@ -1439,13 +1585,14 @@ def agent_argv(
     Codex has no equivalent, so its units restart clean. That is why `resume` is
     ignored for it rather than approximated with something that looks similar.
 
-    `tools` and `model` are the digest lane's two overrides -- the caller sends
-    `DIGEST_TOOLS[agent]` and `DIGEST_MODEL[agent]`, both keyed because the tool
-    names are spelled differently per agent. Absent, both mean "exactly what the
-    importer has always sent": the allowlist stays `AGENT_TOOLS` and no
-    `--model` is passed at all, which is not the same as passing a default we
-    picked. Codex takes neither -- it has no allowlist flag, and its
-    `DIGEST_MODEL` entry is None on purpose.
+    `tools` is the digest lane's allowlist (`DIGEST_TOOLS[agent]`, keyed because
+    the tool names are spelled differently per agent); Codex has no allowlist
+    flag. `model` and `effort` come from the import's settings
+    (`import_agent_settings`) and go through `_settings_argv`: Codex `-m <model>`
+    and `-c model_reasoning_effort="<effort>"`, Claude `--model` and `--effort`.
+    Absent, each means "exactly what the importer has always sent": no flag at
+    all, which is not the same as passing a default we picked -- the agent runs
+    as the researcher configured it.
     """
     supported = supported_flags(binary, agent)
     if agent is Agent.PI:
@@ -1469,8 +1616,7 @@ def agent_argv(
             for f in ("--no-extensions", "--no-skills", "--no-context-files")
             if _has(supported, f)
         ]
-        if model and _has(supported, "--model"):
-            argv += ["--model", model]
+        argv += _settings_argv(agent, supported, model, effort)
         return check_argv(argv)
     if agent is Agent.CLAUDE:
         argv = [
@@ -1488,8 +1634,7 @@ def agent_argv(
         if _has(supported, "--autocompact"):
             argv += ["--autocompact", "auto"]
         argv += [f for f in CONTEXT_FLAGS if _has(supported, f)]
-        if model and _has(supported, "--model"):
-            argv += ["--model", model]
+        argv += _settings_argv(agent, supported, model, effort)
         # RESOLVED, not compared as written: the question is whether these are
         # the same directory on disk, and a scratch path reached through a
         # symlink (macOS `/var` -> `/private/var`, a `..` in a caller's path)
@@ -1512,6 +1657,9 @@ def agent_argv(
                 "--settings",
                 readonly_settings(folder),
             ]
+        else:
+            # No second tree to protect, but still no hooks (`readonly_settings`).
+            argv += ["--settings", readonly_settings(None)]
         if resume:
             argv += ["--resume", resume]
         elif session_id:
@@ -1526,8 +1674,15 @@ def agent_argv(
             "exec",
             "--json",
             *CODEX_ARGS,
+            *_settings_argv(agent, supported, model, effort),
             "-C",
             str(workdir if workdir is not None else folder),
+            # No hooks: Probe's own automation is not the researcher's session
+            # (`readonly_settings`). Only when this Codex names a `hooks`
+            # feature: `--disable` with a name it does not know is a hard
+            # "Unknown feature flag" exit (0.80.0), and a Codex without the
+            # feature has no hooks to disable.
+            *(["--disable", "hooks"] if "hooks" in (codex_features(binary) or ()) else []),
             # No positional prompt and no `-`: stdin alone is the instructions.
         ]
     )
@@ -1572,6 +1727,21 @@ class Activity:
     ticks: int = 0
     seen: set = field(default_factory=set)
     queued: bool = False
+    #: The agent process was started (and registered): only then is this a
+    #: launch to count, and its outcome the agent's.
+    started: bool = False
+    #: Tokens summed from the run's usage events (`USAGE_FIELDS`), or None while
+    #: none has arrived. None is not 0: a run killed before its terminal event
+    #: spent tokens nobody counted, and must not read as free.
+    usage: dict | None = None
+    #: A tool call or a work item has happened, so the run may have written
+    #: something (a plan decision, a note). A relaunch is never safe after it.
+    acted: bool = False
+    #: The setting the agent refused, from its own structured error: "model" or
+    #: "effort" (`_refusal`). None for every other failure.
+    refused: str | None = None
+    #: The effort this launch carried: an effort error is recognised by naming it.
+    sent_effort: str | None = None
 
     @property
     def done(self) -> int:
@@ -1663,6 +1833,134 @@ def _shorten(command: str) -> str:
     return text
 
 
+#: The token counts an import records per launch and lane
+#: (`import_agent_settings.Meter`). Codex's `turn.completed` carries exactly
+#: these; Claude's `result` is mapped onto them (`_usage`) so the two read the
+#: same way: input is every prompt token, cache reads and writes included, and
+#: output includes reasoning, as both providers bill it.
+USAGE_FIELDS = (
+    "input_tokens",
+    "cached_input_tokens",
+    "cache_write_input_tokens",
+    "output_tokens",
+    "reasoning_output_tokens",
+)
+
+
+def _count(value) -> int:
+    """A token count, or 0 for anything that is not a non-negative integer."""
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 0
+
+
+def _usage(kind, event: dict) -> dict[str, int] | None:
+    """The token counts one terminal event reports, or None if it has none.
+
+    Codex: `{"type":"turn.completed","usage":{"input_tokens":30047,
+    "cached_input_tokens":12288,"cache_write_input_tokens":0,"output_tokens":5,
+    "reasoning_output_tokens":0}}` (codex-cli 0.164.0). Claude: the `result`
+    event's `usage`, whose `input_tokens` EXCLUDES cache reads and writes and
+    whose thinking sits in `output_tokens_details` (2.1.296).
+    """
+    usage = event.get("usage")
+    if not isinstance(usage, dict):
+        return None
+    if kind == "turn.completed":
+        return {name: _count(usage.get(name)) for name in USAGE_FIELDS}
+    read = _count(usage.get("cache_read_input_tokens"))
+    written = _count(usage.get("cache_creation_input_tokens"))
+    details = usage.get("output_tokens_details")
+    return {
+        "input_tokens": _count(usage.get("input_tokens")) + read + written,
+        "cached_input_tokens": read,
+        "cache_write_input_tokens": written,
+        "output_tokens": _count(usage.get("output_tokens")),
+        "reasoning_output_tokens": _count(details.get("thinking_tokens")) if isinstance(details, dict) else 0,
+    }
+
+
+def _refusal(kind, event: dict, sent_effort: str | None) -> str | None:
+    """"model" or "effort" when this event is the agent refusing that setting.
+
+    Only the agents' structured errors, never prose matching on the tail, and
+    only the shapes measured on 2026-10-25:
+
+    * Codex, a model this account cannot use: an `error` and then a
+      `turn.failed` whose message is the API's JSON,
+      `{"error":{"type":"invalid_request_error","code":"model_not_found",...}}`.
+    * Codex, an effort the model does not take: the same two events with
+      `invalid_request_error`, "Invalid value: '<effort>'. Supported values
+      are: ..." -- recognised by naming the effort this launch sent, or by
+      naming reasoning (`param` `reasoning.effort`).
+    * Claude, an unknown model: `result` with `is_error` and
+      `api_error_status` 404. An effort: 400 naming effort.
+
+    Whether the refused setting was actually SENT is `launch_agent`'s call.
+    """
+    import json
+
+    if kind == "result":
+        if event.get("is_error") is not True:
+            return None
+        status = event.get("api_error_status")
+        if status == 404:
+            return "model"
+        if status == 400 and "effort" in str(event.get("result") or "").lower():
+            return "effort"
+        return None
+    if kind == "error":
+        message = event.get("message")
+    elif kind == "turn.failed" and isinstance(event.get("error"), dict):
+        message = event["error"].get("message")
+    else:
+        return None
+    try:
+        body = json.loads(message) if isinstance(message, str) else None
+    except ValueError:
+        return None
+    error = body.get("error") if isinstance(body, dict) else None
+    if not isinstance(error, dict):
+        return None
+    if error.get("code") == "model_not_found":
+        return "model"
+    text = f"{error.get('message') or ''} {error.get('param') or ''}"
+    if error.get("type") == "invalid_request_error" and (
+        "reasoning" in text.lower() or (sent_effort and f"value: '{sent_effort}'" in text)
+    ):
+        return "effort"
+    return None
+
+
+def _account(kind, event: dict, state: Activity) -> None:
+    """The cost and safety half of folding: usage, work done, refusals.
+
+    Separate from the display half below, which returns early on most events.
+    """
+    if kind in ("assistant", "user"):
+        # Claude: a tool call, or the tool result that answers one.
+        message = event.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        if isinstance(content, list) and any(
+            isinstance(block, dict) and block.get("type") in ("tool_use", "tool_result")
+            for block in content
+        ):
+            state.acted = True
+    elif kind in ("item.started", "item.completed"):
+        # Codex's own warnings arrive as `error` items before the turn starts
+        # ("Model metadata for `x` not found"); every other item is work.
+        item = event.get("item")
+        if not (isinstance(item, dict) and item.get("type") == "error"):
+            state.acted = True
+    if kind in ("turn.completed", "result"):
+        usage = _usage(kind, event)
+        if usage is not None:
+            state.usage = {
+                name: (state.usage or {}).get(name, 0) + usage[name] for name in USAGE_FIELDS
+            }
+    refused = _refusal(kind, event, state.sent_effort)
+    if refused is not None:
+        state.refused = refused
+
+
 def fold_event(raw: str, state: Activity) -> bool:
     """Fold one stdout line into `state`. True if it said something new.
 
@@ -1670,6 +1968,9 @@ def fold_event(raw: str, state: Activity) -> bool:
     prints the connectors warning there, Codex a stdin notice and tracing), and
     a parser that treated that as fatal would blank the display for the rest of
     the run.
+
+    Also counts what the run cost and whether it refused a setting
+    (`_account`); neither changes what the display shows.
     """
     import json
 
@@ -1684,6 +1985,7 @@ def fold_event(raw: str, state: Activity) -> bool:
         return False
 
     kind = event.get("type")
+    _account(kind, event, state)
 
     # Claude: assistant turns carry tool_use blocks.
     if kind == "assistant":
@@ -2020,8 +2322,126 @@ def launch_agent(
     resume: str | None = None,
     paint_to=None,
     cancel_event: threading.Event | None = None,
+    path_prepend: str | None = None,
+    settings=None,
+    meter=None,
+    on_relaunch=None,
+) -> tuple[bool, str]:
+    """Run one headless agent over `folder`; `(ok, tail)`. See `_launch_once`.
+
+    `settings` is the import lane's model and effort
+    (`import_agent_settings.LaneSettings`), in place of `model`; `meter`
+    (`import_agent_settings.Meter`) counts the launch, its tokens or their
+    absence, and a refusal, under `settings.lane`. Without them the launch is
+    exactly what it was before either existed.
+
+    ONE RELAUNCH, WITHOUT THE OVERRIDE, and only when all three hold: this
+    launch carried a model or effort the lane's built-in value would not have
+    (env or server); the agent refused THAT setting in its own structured error
+    (`_refusal`); and it refused before any tool call or work item (`acted`),
+    so nothing it was asked to do has been written. A model one account type
+    cannot use is the case this exists for: about four seconds, no output
+    tokens. The relaunch runs the lane's built-in settings under a FRESH
+    session id (a refused Claude session may already exist under the old one)
+    and hands that id to `on_relaunch`, so a caller tracking its session
+    follows. Any other failure, or a second one, is returned as always.
+    """
+    effort = None
+    if settings is not None:
+        model, effort = settings.model, settings.effort
+    options = dict(
+        agent=agent, workdir=workdir, tools=tools, heading=heading, label=label,
+        timeout=timeout, stream=stream, raw_stream=raw_stream, progress=progress,
+        total=total, paint_to=paint_to, cancel_event=cancel_event, path_prepend=path_prepend,
+    )
+    state = Activity(total=total or 0, sent_effort=effort)
+    ok, tail = _launch_once(
+        folder, prompt, model=model, effort=effort, session_id=session_id, resume=resume,
+        state=state, **options,
+    )
+    _meter_launch(meter, settings, state)
+    if ok or not _relaunchable(agent, settings, state, cancel_event):
+        return ok, tail
+    if meter is not None:
+        meter.rejected(settings.lane)
+    fresh = str(uuid.uuid4()) if agent is Agent.CLAUDE and (session_id or resume) else None
+    if on_relaunch is not None:
+        on_relaunch(fresh)
+    fallback = settings.fallback()
+    state = Activity(total=total or 0, sent_effort=fallback.effort)
+    ok, tail = _launch_once(
+        folder, prompt, model=fallback.model, effort=fallback.effort, session_id=fresh,
+        resume=None, state=state, **options,
+    )
+    _meter_launch(meter, settings, state)
+    return ok, tail
+
+
+def _meter_launch(meter, settings, state: Activity) -> None:
+    """One started launch into its lane's counts. Never raises: metering is
+    observability, and an import must not stop over it."""
+    if meter is None or settings is None or not state.started:
+        return
+    try:
+        meter.launched(settings.lane, state.usage)
+    except Exception:
+        pass
+
+
+def _carried(agent: Agent, supported: frozenset[str] | None, model, effort) -> dict:
+    """What `_settings_argv` would actually put on this binary's argv."""
+    args = _settings_argv(agent, supported, model, effort)
+    pairs = dict(zip(args[::2], args[1::2]))
+    return {"model": pairs.get("-m") or pairs.get("--model"),
+            "effort": pairs.get("--effort") or pairs.get("-c")}
+
+
+def _relaunchable(agent: Agent, settings, state: Activity, cancel_event) -> bool:
+    """Whether a failed launch may run again without its override (see
+    `launch_agent`): the agent refused a setting this launch carried and the
+    lane's built-in value would not have, before doing any work."""
+    if settings is None or not state.started or state.acted or state.refused is None:
+        return False
+    if cancel_event is not None and cancel_event.is_set():
+        return False
+    binary = which_agent(agent)
+    if binary is None:
+        return False
+    supported = supported_flags(binary, agent)
+    fallback = settings.fallback()
+    sent = _carried(agent, supported, settings.model, settings.effort)[state.refused]
+    return sent is not None and sent != _carried(
+        agent, supported, fallback.model, fallback.effort
+    )[state.refused]
+
+
+def _launch_once(
+    folder: Path,
+    prompt: str,
+    *,
+    agent: Agent = Agent.CLAUDE,
+    workdir: Path | None = None,
+    tools: str | None = None,
+    model: str | None = None,
+    effort: str | None = None,
+    heading: str = "",
+    label: str = "",
+    timeout: float | None = None,
+    stream=None,
+    raw_stream=None,
+    progress: bool = True,
+    total: int = 0,
+    session_id: str | None = None,
+    resume: str | None = None,
+    paint_to=None,
+    cancel_event: threading.Event | None = None,
+    path_prepend: str | None = None,
+    state: Activity,
 ) -> tuple[bool, str]:
     """Run one headless agent over `folder`, showing what it is doing.
+
+    `state` is filled as the run goes (`fold_event`): `started` once the
+    process is registered, then its usage, work and any refusal.
 
     ONE self-updating line, not the transcript. A raw agent transcript is
     thousands of lines nobody reads, and the previous version showed neither --
@@ -2032,9 +2452,9 @@ def launch_agent(
     `workdir` is the agent's scratch directory and the only place it may write;
     `folder` stays read-only. See CONFINEMENT.
 
-    `tools` and `model` override the allowlist and the model for one launch --
-    the digest lane's two, `DIGEST_TOOLS[agent]` and `DIGEST_MODEL[agent]`.
-    Absent, the importer's launch is byte-for-byte what it always was.
+    `tools`, `model` and `effort` override the allowlist, the model and the
+    reasoning effort for one launch (`agent_argv`). Absent, the importer's
+    launch is byte-for-byte what it always was.
 
     `timeout` is an IDLE DEADLINE for claude/codex: the longest this may go
     WITHOUT AN EVENT, not the longest it may run. That is what the numbers have
@@ -2124,7 +2544,6 @@ def launch_agent(
     raw_out = raw_stream if raw_stream is not None else out
 
     live = progress and hasattr(out, "isatty") and out.isatty()
-    state = Activity(total=total or 0)
     started = time.monotonic()
     tail: list[str] = []
     tag = f"{label} " if label else ""
@@ -2193,6 +2612,7 @@ def launch_agent(
             model=model,
             session_id=session_id,
             resume=resume,
+            effort=effort,
         )
         if cancel_event is not None and cancel_event.is_set():
             if board is not None:
@@ -2206,7 +2626,7 @@ def launch_agent(
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
-            env=_backfill_agent_env(),
+            env=_backfill_agent_env(path_prepend),
             # ITS OWN PROCESS GROUP, so the whole tree can be killed at once.
             # An agent is not one process: it starts MCP servers, subagents and
             # shells of its own, and `proc.kill()` reaps only the direct child
@@ -2227,6 +2647,7 @@ def launch_agent(
         if board is not None:
             board.close(erase=True)
         return False, "agent cancelled"
+    state.started = True
 
     ticker = threading.Thread(target=tick, daemon=True)
     if live:

@@ -13,6 +13,8 @@ from typing import Annotated, Literal, Union, get_args, get_origin, get_type_hin
 
 from river_client.renderers import Message
 
+from .config import _integer
+
 
 def _schema(annotation):
     origin, args = get_origin(annotation), get_args(annotation)
@@ -138,6 +140,29 @@ class InfrastructureError(RuntimeError):
     """
 
 
+@dataclass(frozen=True)
+class TurnResult:
+    """``Env.on_turn`` result that also sets the next turn's token cap.
+
+    Attributes:
+        messages: New environment messages, or ``[]`` after ``traj.rewrite``.
+        max_turn_tokens: Cap on generated tokens in the next turn. It replaces
+            ``Budget.max_turn_tokens`` for that turn only; ``None`` keeps the
+            budget's cap.
+    """
+
+    messages: list[Message]
+    max_turn_tokens: int | None = None
+
+    def __post_init__(self):
+        if not isinstance(self.messages, list):
+            raise TypeError(
+                "TurnResult.messages must be a list; return None to end the rollout"
+            )
+        if self.max_turn_tokens is not None:
+            _integer(self.max_turn_tokens, "max_turn_tokens", 1)
+
+
 class Env:
     """Define the prompts, tools, rewards, and turn transitions for a rollout.
 
@@ -162,13 +187,14 @@ class Env:
         """Return the final reward for a completed trajectory."""
         raise NotImplementedError
 
-    async def on_turn(self, traj) -> list[Message] | None:
+    async def on_turn(self, traj) -> list[Message] | TurnResult | None:
         """Return new environment messages after the latest model turn.
 
         The default executes tool calls and returns their results, or ``None``
         when the model has no more tool calls. Overrides should return only
         new messages, without re-rendering prior model output. Use
         ``traj.rewrite`` explicitly if you need to compact the conversation.
+        Return a ``TurnResult`` to give the next turn its own token cap.
         """
         message = traj.messages[-1]
         calls = message.get("tool_calls", [])

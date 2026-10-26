@@ -12,7 +12,7 @@ from ._utils import PythonVersion, get_arch_platform
 if TYPE_CHECKING:
     from typing import Literal
 
-    import httpx
+    import httpx2
     from _typeshed import StrPath
 
     PythonImplementation = Literal["cpython", "pypy"]
@@ -39,6 +39,7 @@ def get_download_link(
     implementation: PythonImplementation = "cpython",
     build_dir: bool = False,
     free_threaded: bool = False,
+    base_url: str | None = None,
 ) -> tuple[PythonVersion, PythonFile]:
     """Get the download URL matching the given requested version.
 
@@ -49,6 +50,7 @@ def get_download_link(
         implementation: The implementation of Python to install, allowed values are 'cpython' and 'pypy'
         build_dir: Whether to include the `build/` directory from indygreg builds
         free_threaded: Whether to install the freethreaded version of Python
+        base_url: Override the download base URL. Defaults to `PBS_INSTALLER_BASE_URL` when unset.
 
     Returns:
         A tuple of the PythonVersion and the download URL
@@ -58,12 +60,14 @@ def get_download_link(
         (PythonVersion(kind='cpython', major=3, minor=10, micro=13),
         'https://github.com/indygreg/python-build-standalone/releases/download/20240224/cpython-3.10.13%2B20240224-x86_64-unknown-linux-gnu-pgo%2Blto-full.tar.zst')
     """
-    from ._versions import PYTHON_VERSIONS
+    from ._versions import PYTHON_VERSIONS, get_python_versions
+
+    versions = PYTHON_VERSIONS if base_url is None else get_python_versions(base_url)
 
     if free_threaded and not request.endswith("t"):
         request += "t"
 
-    for py_ver, urls in PYTHON_VERSIONS.items():
+    for py_ver, urls in versions.items():
         if not py_ver.matches(request, implementation):
             continue
 
@@ -78,7 +82,7 @@ def get_download_link(
 
 
 def download(
-    python_file: PythonFile, destination: StrPath, client: httpx.Client | None = None
+    python_file: PythonFile, destination: StrPath, client: httpx2.Client | None = None
 ) -> str:
     """Download the given url to the destination.
 
@@ -96,12 +100,12 @@ def download(
     url, checksum = python_file
     logger.debug("Downloading url %s to %s", url, destination)
     try:
-        import httpx
+        import httpx2
     except ModuleNotFoundError:
-        raise RuntimeError("You must install httpx to use this function") from None
+        raise RuntimeError("You must install httpx2 to use this function") from None
 
     if client is None:
-        client = httpx.Client(trust_env=True, follow_redirects=True)
+        client = httpx2.Client(trust_env=True, follow_redirects=True)
 
     filename = unquote(url.rsplit("/")[-1])
     hasher = hashlib.sha256()
@@ -160,12 +164,13 @@ def install(
     request: str,
     destination: StrPath,
     version_dir: bool = False,
-    client: httpx.Client | None = None,
+    client: httpx2.Client | None = None,
     arch: str | None = None,
     platform: str | None = None,
     implementation: PythonImplementation = "cpython",
     build_dir: bool = False,
     free_threaded: bool = False,
+    base_url: str | None = None,
 ) -> None:
     """Download and install the requested python version.
 
@@ -176,12 +181,13 @@ def install(
         request: The version of Python to install, e.g. 3.8,3.10.4
         destination: The directory to install to
         version_dir: Whether to install to a subdirectory named with the python version
-        client: A httpx.Client to use for downloading
+        client: A httpx2.Client to use for downloading
         arch: The architecture to install, e.g. x86_64, arm64
         platform: The platform to install, e.g. linux, macos
         implementation: The implementation of Python to install, allowed values are 'cpython' and 'pypy'
         build_dir: Whether to include the `build/` directory from indygreg builds
         free_threaded: Whether to install the freethreaded version of Python
+        base_url: Override the download base URL. Defaults to `PBS_INSTALLER_BASE_URL` when unset.
     Examples:
         >>> install("3.10", "./python")
         Installing cpython@3.10.4 to ./python
@@ -200,6 +206,7 @@ def install(
         implementation=implementation,
         build_dir=build_dir,
         free_threaded=free_threaded,
+        base_url=base_url,
     )
     if version_dir:
         destination = os.path.join(destination, str(ver))

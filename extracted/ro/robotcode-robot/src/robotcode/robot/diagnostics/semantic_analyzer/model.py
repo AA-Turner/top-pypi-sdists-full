@@ -1,15 +1,18 @@
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, FrozenSet, List, Optional
 
-from .enums import NodeKind
+from .enums import NodeKind, TokenKind
 from .nodes import (
     DefinitionBlock,
     DefinitionStatement,
+    KeywordCallStatement,
+    RunKeywordCallStatement,
     SemanticBlock,
     SemanticNode,
     SemanticStatement,
     SemanticToken,
 )
+from .variable_tokenizer import _MATCH_EXTENDED
 
 _SECTION_KINDS: FrozenSet[NodeKind] = frozenset(
     {
@@ -20,6 +23,13 @@ _SECTION_KINDS: FrozenSet[NodeKind] = frozenset(
         NodeKind.COMMENT_SECTION,
         NodeKind.INVALID_SECTION,
     }
+)
+
+# The namespace and the name of a keyword reference; the span from the first to the
+# last of them also covers the "." between. An inner call of a Run Keyword variant
+# carries its name as KEYWORD_INNER.
+_KEYWORD_REFERENCE_KINDS: FrozenSet[TokenKind] = frozenset(
+    {TokenKind.NAMESPACE, TokenKind.KEYWORD, TokenKind.KEYWORD_INNER}
 )
 
 if TYPE_CHECKING:
@@ -192,6 +202,37 @@ class SemanticModel:
                     SemanticModel._collect_token_path(sub, line, col, path)
                     return
 
+    def keyword_call_at(self, line: int, col: int) -> Optional[KeywordCallStatement]:
+        """Get the keyword call whose keyword reference covers a position.
+
+        The keyword reference is the namespace and the keyword name with the
+        "." between them, without a BDD prefix; its end counts as covered, as
+        in the legacy check of a keyword token. Besides the call that
+        `statement_at()` returns, this finds the calls in the body of an
+        inline IF, which are statements of their own on the line, and the
+        inner calls of a Run Keyword variant, searched recursively.
+        O(n) in statements.
+        """
+        for stmt in self.statements:
+            if isinstance(stmt, KeywordCallStatement) and stmt.line_start <= line <= stmt.line_end:
+                call = self._keyword_call_covering(stmt, line, col)
+                if call is not None:
+                    return call
+        return None
+
+    @staticmethod
+    def _keyword_call_covering(stmt: KeywordCallStatement, line: int, col: int) -> Optional[KeywordCallStatement]:
+        reference = [token for token in stmt.tokens if token.kind in _KEYWORD_REFERENCE_KINDS]
+        if reference and reference[0].line == line:
+            if reference[0].col_offset <= col <= reference[-1].col_offset + reference[-1].length:
+                return stmt
+        if isinstance(stmt, RunKeywordCallStatement):
+            for inner in stmt.inner_calls:
+                call = SemanticModel._keyword_call_covering(inner, line, col)
+                if call is not None:
+                    return call
+        return None
+
     def enclosing_definition(self, line: int) -> Optional["DefinitionBlock | DefinitionStatement"]:
         """Find the enclosing definition (Keyword/TestCase) containing the given line.
 
@@ -287,8 +328,10 @@ class SemanticModel:
         self,
         name: str,
         line: int,
+        col: Optional[int] = None,
         skip_commandline_variables: bool = False,
         skip_local_variables: bool = False,
+        extended: bool = True,
     ) -> Optional["VariableDefinition"]:
         """Position-aware variable lookup. Replaces ScopeTree.find_variable().
 
@@ -298,11 +341,39 @@ class SemanticModel:
         - ``${SPACE * 5}`` → strips `` * 5`` → looks up ``${SPACE}``
         - ``${{expr}}`` → inline Python expression, no variable lookup
 
+        ``extended=False`` disables the extended-syntax stripping — the raw
+        lookup the legacy resolution performs before its extended fallback.
+
+        When ``col`` is given, visibility on the *defining* line is
+        column-aware like the legacy scope tree: arguments become visible
+        after their defining cell, assign targets from the start of their
+        defining name.
+
         Search order:
-        1. Block-local variables (visible_from_line <= line) in enclosing definition
-        2. File-scope variables (command-line, own, imported, builtin)
+        1. Environment variables (``%{NAME}``, ``%{NAME=default}``)
+        2. Block-local variables (visible_from_line <= line) in enclosing definition
+        3. File-scope variables (command-line, own, imported, builtin)
         """
-        base_name = self._normalize_variable_name(name)
+        from ..entities import (
+            ArgumentDefinition,
+            EmbeddedArgumentDefinition,
+            EnvironmentVariableDefinition,
+        )
+
+        if name[:2] == "%{" and name[-1:] == "}":
+            var_name, sep, default_value = name[2:-1].partition("=")
+            return EnvironmentVariableDefinition(
+                0,
+                0,
+                0,
+                0,
+                "",
+                f"%{{{var_name}}}",
+                None,
+                default_value=default_value if sep else None,
+            )
+
+        base_name = self._normalize_variable_name(name, extended=extended)
         if base_name is None:
             return None
 
@@ -310,7 +381,22 @@ class SemanticModel:
             definition = self.enclosing_definition(line)
             if definition is not None:
                 for var_def, visible_from in reversed(definition.local_variables):
-                    if visible_from <= line and var_def.matcher.match(base_name):
+                    if visible_from > line:
+                        continue
+                    if col is not None and visible_from == line and var_def.line_no == line:
+                        if isinstance(var_def, ArgumentDefinition) and not isinstance(
+                            var_def, EmbeddedArgumentDefinition
+                        ):
+                            # Legacy registers `[Arguments]` definitions
+                            # visible from the end of their defining cell;
+                            # everything else (assigns, embedded arguments)
+                            # from the start of the defining name.
+                            boundary = self._defining_cell_end(var_def, line)
+                        else:
+                            boundary = var_def.col_offset or 0
+                        if col < boundary:
+                            continue
+                    if var_def.matcher == base_name:
                         return var_def
 
         if self.file_scope is not None:
@@ -322,8 +408,20 @@ class SemanticModel:
 
         return None
 
+    def _defining_cell_end(self, var_def: "VariableDefinition", line: int) -> int:
+        """End column of the statement cell containing a definition's name —
+        the column from which legacy makes an argument visible on its own
+        defining line."""
+        stmt = self.statement_at(line)
+        if stmt is not None and var_def.col_offset is not None:
+            for token in stmt.tokens:
+                if token.line == line and token.col_offset <= var_def.col_offset < token.col_offset + token.length:
+                    return token.col_offset + token.length
+        # Fallback: end of the stripped name plus its closing brace.
+        return (var_def.end_col_offset or 0) + 1
+
     @staticmethod
-    def _normalize_variable_name(name: str) -> Optional[str]:
+    def _normalize_variable_name(name: str, extended: bool = True) -> Optional[str]:
         """Strip Extended Syntax, Index Access, and Expression syntax
         to recover the base variable name for lookup.
 
@@ -344,13 +442,16 @@ class SemanticModel:
                 break
             base = base[:bracket_start]
 
-        # Strip extended syntax inside braces: ${obj.attr} → ${obj}
-        if base.startswith(("${", "@{", "&{", "%{")):
+        # Strip extended syntax inside braces: ${obj.attr} → ${obj}. Like the
+        # legacy matcher, extended syntax starts at the first character that is
+        # neither a word character nor whitespace — a space alone is part of
+        # the name (`${name with space}`).
+        if extended and base.startswith(("${", "@{", "&{", "%{")):
             inner = base[2:-1]
-            for i, ch in enumerate(inner):
-                if ch in ".[ ":
-                    prefix = base[:2]
-                    return f"{prefix}{inner[:i]}}}"
+            extended_match = _MATCH_EXTENDED.match(inner)
+            if extended_match is not None:
+                prefix = base[:2]
+                return f"{prefix}{extended_match.group(1).strip()}}}"
         return base
 
     def get_variables_at(

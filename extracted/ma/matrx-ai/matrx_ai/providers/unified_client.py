@@ -1704,6 +1704,11 @@ _WIRE_CAPTURED_CLIENT_ATTRS: frozenset[str] = frozenset(
 class _SkipSpendGates(Exception):
     """Internal: capture mode passes the spend gates (nothing is sent or spent)."""
 
+# Characters per token for a provider that reports no usage (Fastino). The same ratio the
+# Fastino client windows long text by; the estimate is stamped on the call's usage.
+_EXTRACTION_CHARS_PER_TOKEN = 4
+
+
 class UnifiedAIClient:
     """Unified client for all AI providers.
 
@@ -2790,9 +2795,11 @@ class UnifiedAIClient:
         extractor is fed the last user message text plus the labels/threshold the
         agent declared in ``config.metadata['extraction']`` (a label list is
         required — an extraction agent with no labels is a misconfiguration and
-        raises loudly). Usage is zero (GLiNER pricing is a placeholder); when real
-        Pioneer/Fastino rates land, populate ``input_tokens`` from the char count
-        here.
+        raises loudly). The Fastino gateway reports no usage, and Pioneer bills
+        GLiNER2 per token ($0.15/1M in and out, offering pricing since 2026-10-26),
+        so usage is ESTIMATED at the ~4 chars/token ratio the client already windows
+        by (``FASTINO_MAX_INPUT_CHARS``) and the estimate is stamped on the usage —
+        a reported 0 billed every call at $0 behind a real price.
         """
         import json as _json
 
@@ -2859,10 +2866,13 @@ class UnifiedAIClient:
 
         message = UnifiedMessage(role="assistant", content=[TextContent(text=payload)])
         usage = TokenUsage(
-            input_tokens=0,
-            output_tokens=0,
+            input_tokens=-(-len(text) // _EXTRACTION_CHARS_PER_TOKEN),
+            output_tokens=-(-len(payload) // _EXTRACTION_CHARS_PER_TOKEN),
             matrx_model_name=model_name,
             api=wire_format,
+        )
+        usage.metadata["usage_estimated"] = (
+            f"{_EXTRACTION_CHARS_PER_TOKEN} chars/token — the Fastino gateway reports no usage"
         )
         return UnifiedResponse(
             messages=[message],

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydivert
-Version: 4.0.0
+Version: 4.0.1
 Summary: Python binding to WinDivert (Windows) and eBPFDivert (Linux) for packet capture, filtering and injection
 Project-URL: Homepage, https://github.com/ffalcinelli/pydivert
 Project-URL: Repository, https://github.com/ffalcinelli/pydivert.git

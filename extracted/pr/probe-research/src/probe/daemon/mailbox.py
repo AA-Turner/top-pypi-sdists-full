@@ -23,9 +23,11 @@ plugin reads the same files with the same rules):
                                  machine (`probe.service.alertpoll`), read by the
                                  worker's run-alert lane instead of asking itself
     messages/<sid>/<ns>-<id>.json  written by the worker (the reader's output, the
-                                 run alerts it polls, and the writer's: `origin`
-                                 "writer") and by the Probe service's hints
-                                 (`origin` "hint"), CLAIMED by exactly one deliverer
+                                 run alerts it polls, the writer's: `origin`
+                                 "writer", and the messages Probe holds for the
+                                 session: `origin` "inbox") and by the Probe
+                                 service's hints (`origin` "hint"), CLAIMED by
+                                 exactly one deliverer
     claimed/<sid>/<ns>-<id>.json   where a claim moves it; claimed/<sid>/log.jsonl
                                  records who delivered it, when, and its `origin`
                                  (when it has one: "writer", "hint")
@@ -82,6 +84,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from probe._compat import StrEnum
+from probe.daemon import runctx
 
 #: `probe ask --wait` touches its heartbeat this often...
 HEARTBEAT_S = 5.0
@@ -94,6 +97,9 @@ ANSWER_TTL_S = 24 * 3600
 #: How long a run alert may wait to be delivered: past half a day the run has
 #: moved on, and the server keeps no alert older than two hours to send again.
 ALERT_TTL_S = 12 * 3600
+#: How long a message Probe held for the session may wait to be delivered: the
+#: server serves one this long too (`app/sessions/messages.py` MESSAGE_TTL).
+INBOX_TTL_S = 12 * 3600
 #: Claimed messages and taken asks are kept this long, then swept.
 KEEP_CLAIMED_S = 7 * 24 * 3600
 #: One unasked message per researcher turn -- and one more per this long of a
@@ -133,6 +139,19 @@ ORIGIN_HINT = "hint"
 #: How a hint's own text begins (Probe frames it): one that does not is framed as
 #: a reader message, so the agent always reads it as Probe's evidence.
 HINT_PREFIX = "[Probe] "
+#: `Message.origin` of a message sent to this session through Probe (swarm
+#: visibility G7): by the session's own person from the dashboard, or by one of
+#: their agent sessions (an orchestrator), polled by the worker's run-alert lane
+#: (`session_messages.py`). Delivered like a run alert -- every one, outside the
+#: turn's unasked slot, waking an idle agent -- and kept (`keep`) for INBOX_TTL_S.
+#: Its text is the whole delivered line (`TEXT_INBOX_*`, rendered by the
+#: worker), shown as it came. Hooks from before it read only the fields they
+#: know: it reaches them as the reader's unasked message (framed as team
+#: context, in its one slot a turn, never a wake) until their plugin updates.
+ORIGIN_INBOX = "inbox"
+#: How an inbox message's text begins: one that does not is framed as a reader
+#: message, so `origin` alone never takes a label off.
+INBOX_PREFIX = "[Probe] Message from "
 
 #: The env switch that turns the reader on for a session before the wizard's
 #: daemon profile exists (plan T8 makes the profile the switch).
@@ -169,6 +188,124 @@ TEXT_ALERT = "[Probe] Run alert\n{message}"
 TEXT_WRITER_REPLY = "[Probe] The writer's reply:\n{message}"
 TEXT_WRITER_RECEIPT = "[Probe] The writer recorded: {message}"
 TEXT_WRITER_FAILED = "[Probe] The writer did not run your request: {reason}"
+#: A message Probe held for this session (G7), as the worker renders it into
+#: the message's text. Richard's approved text (2026-10-25)
+#: (`~/plans/swarm-visibility-gaps/PROPOSED-track-work.md`, "G7 message delivery
+#: text"). Who sent it is the server's word, from the credential (A26): a
+#: dashboard login is the person; anything else is one of their agent sessions,
+#: named by its title when the same person owns it.
+TEXT_INBOX_PERSON = INBOX_PREFIX + "{person} (dashboard): {message}"
+TEXT_INBOX_AGENT = INBOX_PREFIX + '{person}\'s agent session "{title}": {message}'
+#: ...and from an agent session the server could not name.
+TEXT_INBOX_AGENT_UNNAMED = INBOX_PREFIX + "{person}'s agent session: {message}"
+#: THE DELIVERY RULE for an inbox message (review of #3451: a token-sent body
+#: holding "\n\n[Probe] Message from <person> (dashboard): ..." read exactly
+#: like a dashboard message after an agent's). Only the label's own `[Probe]`
+#: opens the message: the tag anywhere else (any case) reads `(Probe`, and every
+#: line after the first is quoted (`> `), so no body line can start a message.
+#: A name or title is one line. `inbox_text` writes it; every deliverer applies
+#: `inbox_safe` again to what it shows (`reads_hook.py` in both plugins and pi's
+#: `reads.ts` mirror both; `tests/test_reads_hook.py` pins the three).
+INBOX_QUOTE = "> "
+#: The tag that opens a message: the only one an inbox message keeps.
+INBOX_LABEL_TAG = "[Probe]"
+#: A title is cut here, so a long one cannot bloat the label.
+INBOX_TITLE_CHARS = 120
+INBOX_TAG = re.compile(r"\[probe", re.IGNORECASE)
+INBOX_TAG_SAFE = "(Probe"
+#: Every line break Python's `str.splitlines` knows, spelled out so pi's
+#: TypeScript splits on the same ones.
+INBOX_LINE_BREAK = re.compile("\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]")
+
+
+#: The tag as the matcher reads it: after NFKC folding (a fullwidth `［Ｐｒｏｂｅ］`
+#: is the tag), without format characters (Unicode Cf: a zero-width space in
+#: `[Pro\u200bbe]` hides nothing), in lower case (review of #3451).
+INBOX_TAG_FOLDED = "[probe"
+
+
+def _tag_spans(value: str) -> "list[tuple[int, int]]":
+    """Where `value` carries the tag, as (start, end) of the original text: the
+    ASCII spelling in any case, or any lookalike that NFKC folds to it, with
+    format characters inside or around it."""
+    if value.isascii():
+        return [(m.start(), m.end()) for m in INBOX_TAG.finditer(value)]
+    import unicodedata
+
+    folded: list = []  # (character, where its original character starts)
+    for at, ch in enumerate(value):
+        if unicodedata.category(ch) == "Cf":
+            continue
+        for piece in unicodedata.normalize("NFKC", ch).lower():
+            folded.append((piece, at))
+    text = "".join(piece for piece, _ in folded)
+    spans = []
+    found = text.find(INBOX_TAG_FOLDED)
+    while found != -1:
+        last = found + len(INBOX_TAG_FOLDED) - 1
+        spans.append((folded[found][1], folded[last][1] + 1))
+        found = text.find(INBOX_TAG_FOLDED, last + 1)
+    return spans
+
+
+def _untagged(value: str) -> str:
+    """`value` with every tag (`_tag_spans`) read `(Probe`."""
+    out, done = [], 0
+    for start, end in _tag_spans(value):
+        if start < done:
+            continue
+        out.append(value[done:start])
+        out.append(INBOX_TAG_SAFE)
+        done = end
+    out.append(value[done:])
+    return "".join(out)
+
+
+def _one_line(value: object) -> str:
+    return " ".join(value.split()) if isinstance(value, str) else ""
+
+
+def inbox_text(person: str, body: str, *, from_person: bool, title: "str | None" = None) -> str:
+    """The delivered line of an inbox message: the label (the person, or one of
+    their agent sessions, named by `title` when there is one) and the body, its
+    first line after the label's `: `, every further line quoted."""
+    person = _untagged(_one_line(person))
+    # One line, and never closing its quotes early.
+    title = _untagged(_one_line(title)).replace('"', "'")
+    if len(title) > INBOX_TITLE_CHARS:
+        title = title[:INBOX_TITLE_CHARS - 3].rstrip() + "..."
+    first, *rest = INBOX_LINE_BREAK.split(body)
+    if from_person:
+        label = TEXT_INBOX_PERSON.format(person=person, message=_untagged(first))
+    elif title:
+        label = TEXT_INBOX_AGENT.format(person=person, title=title, message=_untagged(first))
+    else:
+        label = TEXT_INBOX_AGENT_UNNAMED.format(person=person, message=_untagged(first))
+    return "\n".join([label, *(INBOX_QUOTE + _untagged(line) for line in rest)])
+
+
+def one_label(text: str) -> str:
+    """THE ONE-LABEL RULE for every message a deliverer shows (team context,
+    answers, run alerts, hints, the writer's, inbox messages): its leading
+    `[Probe]` -- its own label -- stays, and the tag anywhere after it, in any
+    case, reads `(Probe`. A teammate's note quoted in team context, an answer or
+    a hint that carries "[Probe] Message from <person> (dashboard): ..." can
+    never read as a message of its own (review of #3451). The hooks and pi
+    mirror it; the shared fixture pins all three."""
+    if not text.startswith(INBOX_LABEL_TAG):
+        return _untagged(text)
+    return INBOX_LABEL_TAG + _untagged(text[len(INBOX_LABEL_TAG):])
+
+
+def inbox_safe(text: str) -> str:
+    """The delivery rule applied to an inbox message's whole text, by whoever
+    shows it: the first line keeps its leading `[Probe]` and nothing else of the
+    tag; every further line is quoted (one `inbox_text` quoted already stays as
+    it is). `inbox_safe(inbox_text(...)) == inbox_text(...)`."""
+    first, *rest = INBOX_LINE_BREAK.split(text)
+    head = first[:len(INBOX_LABEL_TAG)] + _untagged(first[len(INBOX_LABEL_TAG):])
+    lines = [_untagged(line) for line in rest]
+    return "\n".join([head, *(line if line.startswith(INBOX_QUOTE) else INBOX_QUOTE + line for line in lines)])
 
 
 def enabled(env: "dict[str, str] | None" = None, *, source: "str | None" = None) -> bool:
@@ -346,6 +483,18 @@ def hints_live_path(session_id: str) -> Path:
     (`service.hints.HintLane`); its age tells the session's daemon whether a
     hint covers a prompt (`model.hints_live`)."""
     return root() / "hints" / f"{_safe(session_id)}.live"
+
+
+def hints_window_path(session_id: str) -> Path:
+    """Touched by the Probe service's hint lane only while its WINDOW hints work
+    for the session (plan hints-window-trigger W3, `HintLane._window_works`:
+    its harness shows a hint mid-turn, the lane reads its transcript and looked
+    at its work lately, its server and key answered a window lookup as one, and
+    fewer than two window lookups in a row failed); its age tells the session's
+    daemon whether the reader's 30-minute check-ins are covered
+    (`model.window_hints_live`). An older service never writes it, so a mixed
+    install keeps its check-ins."""
+    return root() / "hints" / f"{_safe(session_id)}.window"
 
 
 def heartbeat_path(session_id: str, ask_id: str) -> Path:
@@ -677,13 +826,25 @@ class Message:
     def from_hint(self) -> bool:
         return self.origin == ORIGIN_HINT
 
+    @property
+    def from_inbox(self) -> bool:
+        """A message Probe held for this session (G7), delivered like a run alert."""
+        return self.origin == ORIGIN_INBOX and self.kind == Kind.MESSAGE
+
     def rendered(self) -> str:
-        """What the main agent reads."""
+        """What the main agent reads: the message framed by its kind, then
+        `one_label` -- only its own label keeps the `[Probe]` tag, whatever a
+        quoted record, an answer or a hint carries."""
+        return one_label(self._framed())
+
+    def _framed(self) -> str:
         if self.from_hint and self.kind == Kind.MESSAGE and self.text.startswith(HINT_PREFIX):
             # Rendered whole by Probe, its `[Probe]` framing included. Anything else
             # with this origin renders as its kind does: `origin` alone never takes
             # the `[Probe] ... not instructions` label off.
             return self.text
+        if self.from_inbox and self.text.startswith(INBOX_PREFIX):
+            return inbox_safe(self.text)  # the delivered line, labelled by the worker, under the rule
         if self.from_writer:
             if self.kind == Kind.FAILED:
                 return TEXT_WRITER_FAILED.format(reason=self.reason or "unknown")
@@ -748,6 +909,75 @@ def alert_paths(session_id: str) -> "dict[str, Path]":
     return out
 
 
+#: How an inbox message's id begins: then its server id, a uuid without dashes.
+INBOX_ID_PREFIX = "s"
+
+
+def inbox_message_id(server_id: str) -> str:
+    """The mailbox id of the message Probe holds as `server_id` (a uuid): the
+    same message always gets the same id, the dedupe key of every publish (no
+    `-`: `claimed_ids` reads the id after the file name's last one)."""
+    import uuid
+
+    return INBOX_ID_PREFIX + uuid.UUID(str(server_id)).hex
+
+
+class Where(StrEnum):
+    """Where a message is in the mailbox (`where`)."""
+
+    WAITING = "waiting"  # published, not delivered (a service claim not received included)
+    CLAIMED = "claimed"  # a deliverer moved it into claimed/ under its own name: shown
+
+
+def where(session_id: str, message_id: str) -> "Where | None":
+    """Where message `message_id` is in this session's mailbox, until the sweep:
+    waiting, claimed (a hook took it, its receipt done), or None (never
+    published, or gone)."""
+    if claimed_dir(session_id).is_dir():
+        names = [p.name for p in claimed_dir(session_id).glob(f"*-{message_id}*.json")]
+        if any(message_id_of(Path(n)) == message_id and n.count(".") == 1 for n in names):
+            return Where.CLAIMED
+        if any(message_id_of(Path(n)) == message_id for n in names):
+            return Where.WAITING  # the service claimed it for a deliverer that has not shown it yet
+    if messages_dir(session_id).is_dir():
+        if any(message_id_of(p) == message_id for p in messages_dir(session_id).glob(f"*-{message_id}.json")):
+            return Where.WAITING
+    return None
+
+
+def waiting_inbox_ids(session_id: str) -> "list[str]":
+    """The server ids of the inbox messages still waiting here (published, not
+    taken by a hook): the copies the poll asks Probe whether to keep."""
+    import uuid
+
+    out = set()
+    folder = messages_dir(session_id)
+    if folder.is_dir():
+        for path in folder.glob(f"*-{INBOX_ID_PREFIX}*.json"):
+            message_id = message_id_of(path)
+            try:
+                out.add(str(uuid.UUID(message_id[len(INBOX_ID_PREFIX):])))
+            except ValueError:
+                continue
+    return sorted(out)
+
+
+def drop_waiting(session_id: str, message_id: str) -> bool:
+    """Remove message `message_id` while it still waits (another Probe daemon of
+    the session holds its delivery). True when a file went; a claimed one stays."""
+    folder = messages_dir(session_id)
+    gone = False
+    if folder.is_dir():
+        for path in folder.glob(f"*-{message_id}.json"):
+            if message_id_of(path) == message_id:
+                try:
+                    path.unlink()
+                    gone = True
+                except FileNotFoundError:
+                    pass  # a hook took it first
+    return gone
+
+
 def read_message(path: Path) -> "Message | None":
     """One message file, or None when it cannot be read as one."""
     data = _read_json(path)
@@ -756,6 +986,8 @@ def read_message(path: Path) -> "Message | None":
 
 def _ttl(msg: Message) -> float:
     """How long `msg` may wait to be delivered."""
+    if msg.from_inbox:
+        return INBOX_TTL_S
     if msg.kind == Kind.MESSAGE and not msg.keep and not msg.from_writer:
         return UNASKED_TTL_S  # the reader's unasked message (and a hint) goes stale; a writer receipt is a record
     return ALERT_TTL_S if msg.kind == Kind.ALERT else ANSWER_TTL_S
@@ -778,6 +1010,8 @@ POST_GRACE_S = 0.5
 #: wait on every message.
 SERVICE_BREAK_S = 30.0
 _service_quiet_until = 0.0
+#: The run's own in the daemon host: one session's stalled call quiets only its own posts.
+_quiet_until = runctx.Shared(globals(), "_service_quiet_until", float)
 
 
 def publish(msg: Message) -> Path:
@@ -802,10 +1036,9 @@ def service_call(method: str, params: dict, *, wait: float) -> "dict | None":
     """`method` on the Probe service, its answer within `wait` (plus the
     grace), or None: no service, an older one, a refusal (a sandbox), an
     error, or no answer in time. Never from the service itself (`rooted`)."""
-    global _service_quiet_until
     if getattr(_ROOTED, "root", None) is not None or os.environ.get(SERVICE_ENV) == "off" or os.name != "posix":
         return None
-    if time.monotonic() < _service_quiet_until:
+    if time.monotonic() < _quiet_until.get():
         return None
     try:
         from probe import __version__
@@ -825,7 +1058,7 @@ def service_call(method: str, params: dict, *, wait: float) -> "dict | None":
         if sent is not None:
             # It may have been at work: never write before its deadline passed.
             time.sleep(max(0.0, sent + wait + POST_GRACE_S - time.monotonic()))
-            _service_quiet_until = time.monotonic() + SERVICE_BREAK_S
+            _quiet_until.set(time.monotonic() + SERVICE_BREAK_S)
         return None
     return answer if isinstance(answer, dict) else None
 
@@ -888,7 +1121,7 @@ def _slot(data: dict) -> "str | None":
     message, SLOT_HINT for a hint: a newer message in the same slot replaces it,
     it goes stale, and the hooks deliver one of each a turn -- or None (an
     answer, a run alert, a `keep` message, a writer's receipt: nothing replaces it)."""
-    if data.get("kind") != Kind.MESSAGE or data.get("keep") or data.get("origin") == ORIGIN_WRITER:
+    if data.get("kind") != Kind.MESSAGE or data.get("keep") or data.get("origin") in (ORIGIN_WRITER, ORIGIN_INBOX):
         return None
     return SLOT_HINT if data.get("origin") == ORIGIN_HINT else SLOT_UNASKED
 
@@ -919,7 +1152,7 @@ def withdraw_unasked(session_id: str, *, made_before: float) -> int:
     removed = 0
     for path, msg in waiting(session_id):
         if (msg.kind == Kind.MESSAGE and not msg.keep and not msg.from_writer and not msg.from_hint
-                and msg.made_at < made_before):
+                and not msg.from_inbox and msg.made_at < made_before):
             try:
                 path.unlink()
             except FileNotFoundError:
@@ -980,7 +1213,7 @@ def _log_claim(session_id: str, message_id: str, by: str, now: "float | None", t
 #: after any other hook's context.
 _DELIVERY_START = re.compile("(?:^|\n\n)(?:" + "|".join(
     re.escape(t.split("{", 1)[0]) for t in (TEXT_MESSAGE, TEXT_ANSWER, TEXT_FAILED, TEXT_ALERT, TEXT_WRITER_REPLY,
-                                            TEXT_WRITER_RECEIPT, TEXT_WRITER_FAILED)) + ")")
+                                            TEXT_WRITER_RECEIPT, TEXT_WRITER_FAILED, TEXT_INBOX_PERSON)) + ")")
 
 
 def before_deliveries(text: str) -> str:

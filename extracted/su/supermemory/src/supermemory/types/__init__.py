@@ -61,9 +61,11 @@ if typing.TYPE_CHECKING:
     from .document_input import DocumentInput
     from .document_list_item import DocumentListItem
     from .document_list_item_system import DocumentListItemSystem
+    from .document_list_item_system_dreaming_status import DocumentListItemSystemDreamingStatus
     from .document_ref import DocumentRef
     from .document_ref_status import DocumentRefStatus
     from .document_system import DocumentSystem
+    from .document_system_dreaming_status import DocumentSystemDreamingStatus
     from .document_system_status import DocumentSystemStatus
     from .dreaming_mode import DreamingMode
     from .error_response import ErrorResponse
@@ -201,9 +203,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DocumentInput": ".document_input",
     "DocumentListItem": ".document_list_item",
     "DocumentListItemSystem": ".document_list_item_system",
+    "DocumentListItemSystemDreamingStatus": ".document_list_item_system_dreaming_status",
     "DocumentRef": ".document_ref",
     "DocumentRefStatus": ".document_ref_status",
     "DocumentSystem": ".document_system",
+    "DocumentSystemDreamingStatus": ".document_system_dreaming_status",
     "DocumentSystemStatus": ".document_system_status",
     "DreamingMode": ".dreaming_mode",
     "ErrorResponse": ".error_response",
@@ -367,9 +371,11 @@ __all__ = [
     "DocumentInput",
     "DocumentListItem",
     "DocumentListItemSystem",
+    "DocumentListItemSystemDreamingStatus",
     "DocumentRef",
     "DocumentRefStatus",
     "DocumentSystem",
+    "DocumentSystemDreamingStatus",
     "DocumentSystemStatus",
     "DreamingMode",
     "ErrorResponse",

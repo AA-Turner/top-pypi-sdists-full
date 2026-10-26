@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smg-grpc-proto
-Version: 0.4.27
+Version: 0.4.28
 Summary: SMG gRPC proto definitions for vLLM, TRT-LLM, MLX, TokenSpeed, and SGLang
 Author-email: Chang Su <mckvtl@gmail.com>, Simo Lin <linsimo.mark@gmail.com>, Keyang Ru <rukeyang@gmail.com>
 License-Expression: Apache-2.0
@@ -16,7 +16,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: grpcio>=1.81.1
-Requires-Dist: protobuf>=5.26.0
+Requires-Dist: protobuf>=6.33.5
 Dynamic: license-file
 
 # smg-grpc-proto
@@ -38,7 +38,8 @@ This package provides pre-compiled Python gRPC stubs for:
 pip install smg-grpc-proto
 ```
 
-Requires `grpcio>=1.81.1` and `protobuf>=5.26.0`.
+Requires `grpcio>=1.81.1` and `protobuf>=6.33.5`: the versions the generated modules were
+built with (an older protobuf runtime refuses to import them).
 
 ## Usage
 

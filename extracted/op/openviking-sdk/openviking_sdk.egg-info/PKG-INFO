@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking-sdk
-Version: 0.1.16
+Version: 0.1.17
 Summary: Lightweight Python HTTP SDK for OpenViking
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
@@ -346,7 +346,9 @@ If you connect with a root key, the SDK also exposes admin APIs such as:
 - `admin_create_account`
 - `admin_register_user`
 - `admin_list_accounts`
+- `admin_get_account`
 - `admin_list_users`
+- `admin_get_user`
 - `admin_regenerate_key`
 - `admin_delete_account`
 

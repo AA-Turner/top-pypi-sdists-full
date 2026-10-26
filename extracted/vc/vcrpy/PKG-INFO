@@ -1,9 +1,7 @@
 Metadata-Version: 2.4
 Name: vcrpy
-Version: 8.3.0
+Version: 9.2.0
 Summary: Automatically mock your HTTP interactions to simplify and speed up testing
-Home-page: https://github.com/kevin1024/vcrpy
-Author: Kevin McCarthy
 Author-email: Kevin McCarthy <me@kevinmccarthy.org>
 License: MIT
 Project-URL: Homepage, https://github.com/kevin1024/vcrpy
@@ -12,17 +10,18 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: PyYAML
@@ -37,7 +36,7 @@ Requires-Dist: httpx; extra == "tests"
 Requires-Dist: httpx-curl-cffi; extra == "tests"
 Requires-Dist: httpx2; extra == "tests"
 Requires-Dist: pycurl; platform_python_implementation != "PyPy" and extra == "tests"
-Requires-Dist: pyreqwest; python_version >= "3.11" and extra == "tests"
+Requires-Dist: pyreqwest; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-aiohttp; extra == "tests"
 Requires-Dist: pytest-asyncio; extra == "tests"

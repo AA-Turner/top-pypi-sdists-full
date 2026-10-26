@@ -7,7 +7,7 @@ Bitly's name, logos and customer-logo wall. Only where the address forwards may 
 
 from __future__ import annotations
 
-import inspect
+from matrx_utils.source_guard import stable_source
 
 from matrx_scraper.web_crawl import service
 from matrx_scraper.events import PageSummary
@@ -82,7 +82,7 @@ def test_a_forwarded_address_records_only_where_it_goes() -> None:
 
 
 def test_the_crawl_checks_the_landing_before_reading_the_page() -> None:
-    source = inspect.getsource(service)
+    source = stable_source(service)
     at_check = source.index("landed = offsite_landing(")
     at_extract = source.index("candidates = extract_homepage_candidates(")
     assert at_check < at_extract

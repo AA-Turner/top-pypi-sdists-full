@@ -700,3 +700,109 @@ git commit
                 ),
             ]
         )
+
+    def test_preserve_whitespace(self):
+        sanitizer = Sanitizer(
+            {
+                "tags": {"p", "pre", "code", "strong"},
+                "empty": set(),
+                "separate": {"p", "pre"},
+                "attributes": {},
+            }
+        )
+        self.run_tests(
+            [
+                (
+                    "<pre>git status\ngit  add\n\tgit commit\n</pre>",
+                    "<pre>git status\ngit  add\n\tgit commit\n</pre>",
+                ),
+                (
+                    "<p>a\n\n  b</p>\n\n<pre><code>if x:\n    <strong>y</strong>\n</code></pre>\n\n<p>c  d</p>",
+                    "<p>a b</p> <pre><code>if x:\n    <strong>y</strong>\n</code></pre> <p>c d</p>",
+                ),
+                (
+                    "<pre><span>a\n  b</span>\n</pre>",
+                    "<pre>a\n  b\n</pre>",
+                ),
+                ("<code>a\n  b</code>", "<code>a b</code>"),
+            ],
+            sanitizer=sanitizer,
+        )
+
+        sanitizer = Sanitizer(
+            {
+                "tags": {"code"},
+                "empty": set(),
+                "separate": set(),
+                "attributes": {},
+                "preserve_whitespace": {"code"},
+            }
+        )
+        self.run_tests(
+            [("<code>a\n  b</code>", "<code>a\n  b</code>")],
+            sanitizer=sanitizer,
+        )
+
+    def test_preserve_whitespace_disallowed_tag(self):
+        # pre isn't allowed by default, therefore whitespace is normalized
+        self.run_tests([("<pre>a\n\n  b</pre>", "a b")])
+
+    def test_embedded_hosts(self):
+        settings = {
+            "tags": {"p", "iframe"},
+            "empty": {"iframe"},
+            "separate": {"p", "iframe"},
+            "attributes": {"iframe": {"src", "width", "height"}},
+        }
+        entries = [
+            (
+                '<iframe src="https://www.youtube.com/embed/abc" width="560" onload="alert(1)"></iframe>',
+                '<iframe src="https://www.youtube.com/embed/abc" width="560"></iframe>',
+            ),
+            ('<iframe src="https://evil.example.com/"></iframe>', ""),
+            ('<iframe src="//www.youtube.com/embed/abc"></iframe>', ""),
+            ('<iframe src="javascript:alert(1)"></iframe>', ""),
+            ("<iframe></iframe>", ""),
+            ('<p>a<embed src="https://www.youtube.com/x"></p>', "<p>a</p>"),
+        ]
+        self.run_tests(
+            entries,
+            sanitizer=Sanitizer({**settings, "embedded_hosts": {"www.youtube.com"}}),
+        )
+
+        # Without embedded_hosts no iframes are allowed at all
+        self.run_tests(
+            [
+                ('<iframe src="https://www.youtube.com/embed/abc"></iframe>', ""),
+            ],
+            sanitizer=Sanitizer(settings),
+        )
+
+        # iframe has to be an allowed tag
+        self.run_tests(
+            [
+                (
+                    '<p>x<iframe src="https://www.youtube.com/embed/abc">y</iframe></p>',
+                    "<p>xy</p>",
+                ),
+            ],
+            sanitizer=Sanitizer({"embedded_hosts": {"www.youtube.com"}}),
+        )
+
+    def test_drop_disallowed_contents(self):
+        sanitizer = Sanitizer({"drop_disallowed_contents": True})
+        self.run_tests(
+            [
+                (
+                    "<p>abc <span>def <em>ghi</em> jkl</span> mno</p>",
+                    "<p>abc mno</p>",
+                ),
+                (
+                    "<p>abc <b>def</b> <i>ghi</i></p>",
+                    "<p>abc <strong>def</strong> <em>ghi</em></p>",
+                ),
+                ("<badtag>secret</badtag><p>public</p>", "<p>public</p>"),
+                ("<p>a<badtag>b<em>c</em></badtag>d</p>", "<p>ad</p>"),
+            ],
+            sanitizer=sanitizer,
+        )

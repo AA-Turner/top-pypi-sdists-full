@@ -21,6 +21,7 @@ import subprocess
 import sys
 import platform
 import numpy
+from multiprocessing.pool import ThreadPool
 
 MOD_NAMES = ["blis.cy", "blis.py"]
 
@@ -61,38 +62,49 @@ def find_in_path(name, path):
     return None
 
 
-# By subclassing build_extensions we have the actual compiler that will be used
-# which is really known only after finalize_options
-# http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
-class build_ext_options:
-    def build_options(self):
+def is_gil_enabled():
+    if sys.version_info < (3, 13):
+        return True
+    return sys._is_gil_enabled()
+
+
+class ExtensionBuilder(build_ext):
+    # By overriding build_extensions we have the actual compiler that will be used
+    # which is really known only after finalize_options
+    # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
+    def build_extensions(self):
         if hasattr(self.compiler, "initialize"):
             self.compiler.initialize()
         self.compiler.platform = sys.platform[:6]
-        print("Build options", self.compiler.platform, self.compiler.compiler_type)
-
-        self.compiler.include_dirs = [numpy.get_include()] + self.compiler.include_dirs
+        self.compiler.include_dirs.append(numpy.get_include())
 
         if self.compiler.compiler_type == "msvc":
-            include_dirs = list(self.compiler.include_dirs)
-            library_dirs = list(self.compiler.library_dirs)
+            # Replace msvc compiler with unix compiler
+            include_dirs = self.compiler.include_dirs[:]
+            library_dirs = self.compiler.library_dirs[:]
+            llvm_path = locate_windows_llvm()
+
             self.compiler = new_compiler(plat="nt", compiler="unix")
             self.compiler.platform = "nt"
             self.compiler.compiler_type = "msvc"
-            self.compiler.compiler = [locate_windows_llvm()]
-            self.compiler.compiler_so = list(self.compiler.compiler)
-            self.compiler.preprocessor = list(self.compiler.compiler)
-            self.compiler.linker = list(self.compiler.compiler) + ["-shared"]
-            self.compiler.linker_so = list(self.compiler.linker)
-            self.compiler.linker_exe = list(self.compiler.linker)
+            self.compiler.compiler = [llvm_path]
+            self.compiler.compiler_so = [llvm_path]
+            self.compiler.preprocessor = [llvm_path]
+            self.compiler.linker_so = [llvm_path, "-shared"]
+            self.compiler.linker_exe = [llvm_path, "-shared"]
             self.compiler.archiver = ["llvm-ar"]
-            self.compiler.library_dirs.extend(library_dirs)
+            self.compiler.library_dirs = library_dirs
             self.compiler.include_dirs = include_dirs
 
+            # The official Windows free threaded Python installer doesn't set
+            # Py_GIL_DISABLED because its pyconfig.h is shared with the
+            # default build, so we need to define it here
+            # (see pypa/setuptools#4662).
+            # setuptools normally implements a workaround internally, but we
+            # need to define it ourselves because we're replacing the compiler.
+            if not is_gil_enabled():
+                self.compiler.define_macro("Py_GIL_DISABLED", "1")
 
-class ExtensionBuilder(build_ext, build_ext_options):
-    def build_extensions(self):
-        build_ext_options.build_options(self)
         if sys.platform in ("msvc", "win32"):
             platform_name = "windows"
         elif sys.platform == "darwin":
@@ -122,8 +134,20 @@ class ExtensionBuilder(build_ext, build_ext_options):
                 os.path.join(INCLUDE, "%s-%s" % (platform_name, arch))
             )
             e.extra_objects = list(short_paths)
-        build_ext.build_extensions(self)
+
+        super().build_extensions()
         shutil.rmtree(short_dir)
+
+    def get_libraries(self, ext):
+        libs = super().get_libraries(ext)
+        if os.name == "nt" and not is_gil_enabled():
+            # Work around https://github.com/pypa/setuptools/issues/5126
+            # Replace cmake parameter '-lpython314'  with '-lpython314t'
+            libs = [
+                lib + "t" if lib.startswith("python") and not lib.endswith("t") else lib
+                for lib in libs
+            ]
+        return libs
 
     def get_arch_name(self, platform_name):
         # User-defined
@@ -151,6 +175,19 @@ class ExtensionBuilder(build_ext, build_ext_options):
         if machine == "aarch64":
             return "cortexa57"
         elif machine == "ppc64le":
+            # Default to power9; only fall back to generic for known older CPUs.
+            # Under QEMU emulation, /proc/cpuinfo shows the host CPU, so we
+            # correctly default to power9 rather than requiring BLIS_ARCH.
+            try:
+                with open("/proc/cpuinfo") as f:
+                    for line in f:
+                        if line.startswith("cpu"):
+                            cpu_info = line.split(":")[1].strip().upper()
+                            if "POWER8" in cpu_info or "POWER7" in cpu_info:
+                                return "generic"
+                            break
+            except (IOError, IndexError):
+                pass
             return "power9"
         elif machine != "x86_64":
             return "generic"
@@ -197,6 +234,7 @@ class ExtensionBuilder(build_ext, build_ext_options):
 
     def compile_objects(self, platform, py_arch, obj_dir):
         objects = []
+        specs = []
         platform_arch = platform + "-" + py_arch
         compiler = self.get_compiler_name()
         with open(os.path.join(BLIS_DIR, "make", "%s.jsonl" % platform_arch)) as file_:
@@ -231,7 +269,33 @@ class ExtensionBuilder(build_ext, build_ext_options):
                 # spec["flags"].append(
                 #    "-D__cpuid=__cpuid_function"
                 # )
-                objects.append(self.build_object(env=env, **spec))
+                if "-fsanitize=thread" in os.environ.get("CFLAGS", "").split():
+                    # Enable TSAN compilation flag for flame-blis modules.
+                    # Ignore other environmental CFLAGS; for everything else
+                    # use the jsonl specs instead.
+                    # Cython modules use CFLAGS directly instead.
+                    spec["flags"].append("-fsanitize=thread")
+
+                specs.append(spec)
+
+        jobs = int(os.getenv("MAX_JOBS", -1)) if self.parallel is None else self.parallel
+        if jobs == -1:
+            # By default, enable parallelism but at a safe level:
+            #   - use the number of physical cores on machines (also on machines
+            #     with hyperthreading)
+            #   - limit to a reasonably low number to avoid potential issues on large
+            #     shared/virtualized machines.
+            # `process_cpu_count` does the right thing, but is >=3.13 only. It's
+            # non-trivial to determine this value on older versions, and requiring
+            # `psutil` would be a bit much - so do a safe approximation.
+            if sys.version_info >= (3, 13):
+                jobs = os.process_cpu_count()
+            else:
+                jobs = max(min(os.cpu_count()//2, 8), 1)
+
+        pool = ThreadPool(jobs or None)
+        with pool:
+            objects = pool.map(lambda spec: self.build_object(env=env, **spec), specs)
         return objects
 
     def build_object(self, compiler, source, target, flags, macros, include, env=None):
@@ -267,24 +331,6 @@ SRC = os.path.join(PWD, "blis")
 BLIS_DIR = os.path.join(SRC, "_src")
 INCLUDE = os.path.join(PWD, "blis", "_src", "include")
 COMPILER = os.environ.get("BLIS_COMPILER", "gcc")
-BLIS_REALLY_COMPILE = os.environ.get("BLIS_REALLY_COMPILE", 0)
-
-if not BLIS_REALLY_COMPILE:
-    try:
-        import pip
-
-        version_parts = pip.__version__.split(".")
-        major = int(version_parts[0])
-        minor = int(version_parts[1])
-        if major < 19 or (major == 19 and minor < 3):
-            print(
-                "WARNING: pip versions <19.3 (currently installed: "
-                + pip.__version__
-                + ") are unable to detect binary wheel compatibility for blis. To avoid a source install with a very long compilation time, please upgrade pip with `pip install --upgrade pip`.\n\nIf you know what you're doing and you really want to compile blis from source, please set the environment variable BLIS_REALLY_COMPILE=1."
-            )
-            sys.exit(1)
-    except Exception:
-        pass
 
 if len(sys.argv) > 1 and sys.argv[1] == "clean":
     clean(PWD)
@@ -302,12 +348,11 @@ with chdir(root):
 
 setup(
     setup_requires=[
-        "cython>=3.0,<4.0",
+        "cython>=3.1,<4.0",
         "numpy>=2.0.0,<3.0.0",
     ],
     install_requires=[
-        "numpy>=1.15.0,<3.0.0; python_version < '3.9'",
-        "numpy>=1.19.0,<3.0.0; python_version >= '3.9'",
+        "numpy>=1.21.2,<3.0.0",
     ],
     ext_modules=cythonize(
         [
@@ -324,11 +369,11 @@ setup(
         ],
         language_level=3,
     ),
-    python_requires=">=3.9,<3.15",
+    python_requires=">=3.10,<3.16",
     cmdclass={"build_ext": ExtensionBuilder},
     package_data={"": ["*.json", "*.jsonl", "*.pyx", "*.pxd"]},
     name="blis",
-    packages=["blis", "blis.tests"],
+    packages=["blis"],
     author=about["__author__"],
     author_email=about["__email__"],
     version=about["__version__"],
@@ -345,11 +390,14 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
+        "Operating System :: Microsoft :: Windows",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
+        "Programming Language :: Python :: Free Threading :: 2 - Beta",
         "Topic :: Scientific/Engineering",
     ],
 )

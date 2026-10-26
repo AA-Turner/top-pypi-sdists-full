@@ -192,19 +192,10 @@ def test_changed_approved_file_stays_in_completion_denominator(background_harnes
 def test_folder_reference_counts_only_after_its_matching_receipt(background_harness, monkeypatch):
     h, queued = background_harness
     h.run(background=True)
-    launch = backfill.launch_agent
+    # References are decided by size, by code: make every file one.
+    from probe.cli import backfill_plan
 
-    def describe_reference(folder, prompt, **kwargs):
-        result = launch(folder, prompt, **kwargs)
-        manifest = Path(next(
-            line.split("Write JSONL to:", 1)[1].strip()
-            for line in prompt.splitlines() if line.strip().startswith("Write JSONL to:")
-        ))
-        rows = [json.loads(line) for line in manifest.read_text().splitlines()]
-        manifest.write_text("".join(json.dumps({**row, "reference": True}) + "\n" for row in rows))
-        return result
-
-    monkeypatch.setattr(backfill, "launch_agent", describe_reference)
+    monkeypatch.setattr(backfill_plan, "REFERENCE_ABOVE_BYTES", 0)
     store = Store()
     events = []
 

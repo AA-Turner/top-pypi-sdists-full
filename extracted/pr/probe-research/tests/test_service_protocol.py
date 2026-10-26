@@ -149,9 +149,11 @@ def test_response_shapes(service_home):
         assert set(status) == {
             "service_version", "pid", "started_at", "state", "sessions", "app_clients", "update",
             "actions", "discovering_until", "hook_hosts", "hook_queue", "recorders", "workers", "runs",
-            "watched", "background", "imports", "statusline", "notes", "watch",
+            "watched", "background", "imports", "statusline", "notes", "watch", "daemon_host",
         }
         assert status["runs"] == [] and status["workers"] == [] and status["imports"] == []
+        # The daemon host (plan daemon-in-service): none until a session's daemon starts.
+        assert status["daemon_host"]["pid"] is None and status["daemon_host"]["runs"] == 0
         # What fails here and what was reported (crash-report plan B2): the
         # debug log and `probe doctor` read it.
         assert set(status["watch"]) == {"enabled", "last_scan", "waiting", "reports"}

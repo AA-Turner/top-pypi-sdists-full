@@ -99,6 +99,7 @@ def test_the_classifier_knows_the_same_words():
         "READ_GROUPS",
         "READ_GROUP_WRITES",
         "READ_GROUP_REMOVALS",
+        "PLUMBING_GROUP_WRITES",
     ):
         assert ts_set(COMMANDS, name) == getattr(session_marker, name), name
     assert ts_set(COMMANDS, "READ_UNLESS_FLAGS_COMMANDS") == set(session_marker.READ_UNLESS_FLAGS)

@@ -13,6 +13,7 @@ tools/ is not a package, so the module is loaded by path, as
 _differential_fixtures.py loads compare.py.
 """
 import importlib.util
+import hashlib
 import http.client
 import io
 import json
@@ -23,11 +24,14 @@ import urllib.parse
 import urllib.request
 import zipfile
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Protocol
 
 import pytest
+
+from ._differential_fixtures import own_cache, plant_corpus
 
 _PATH = Path(__file__).parents[2] / "tools" / "name_usage.py"
 
@@ -56,6 +60,40 @@ def _no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     def refuse(*args: object, **kwargs: object) -> None:
         raise _NetworkUsed("a test reached the network")
     monkeypatch.setattr(urllib.request, "urlopen", refuse)
+
+
+#: The real loader, for the tests that read a cached dictionary through
+#: main; every other test sees no dictionary, as an empty cache under
+#: --no-wikidata would, since an online main would otherwise download it.
+_LOAD_NAMDICT = tool.load_namdict
+
+
+@pytest.fixture(autouse=True)
+def _no_namdict(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tool, "load_namdict", lambda download: None)
+
+
+#: The same for the NPPES tally, which a developer's real cache may hold:
+#: a test reading it would pass or fail by what is on that machine.
+_LOAD_NPPES = tool.load_nppes
+
+
+@pytest.fixture(autouse=True)
+def _no_nppes(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(tool, "load_nppes", lambda download: None)
+
+
+#: And for the local corpora, which a developer's cache may hold too.
+_LOAD_LOCALS = tool.load_locals
+
+
+@pytest.fixture(autouse=True)
+def _no_locals(monkeypatch: pytest.MonkeyPatch,
+               tmp_path_factory: pytest.TempPathFactory) -> None:
+    # The cache too: a local corpus's word index is written there, and a
+    # test's must never land in the developer's.
+    own_cache(monkeypatch, tmp_path_factory)
+    monkeypatch.setattr(tool, "load_locals", lambda: [])
 
 
 def test_the_network_guard_bites() -> None:
@@ -207,9 +245,9 @@ def test_render_shows_no_answer_and_unlisted_differently_from_a_count() -> None:
     ])
     rows = {cells[0]: cells[1:]
             for cells in map(str.split, text.splitlines()[2:]) if cells}
-    assert rows["census"] == ["-", "<100"]
-    assert rows["ssa"] == ["-", "-"]
-    assert rows["wikidata"] == ["0+", "12+"]
+    assert rows["census"] == ["-", "<100", "-"]
+    assert rows["ssa"] == ["-", "-", "-"]
+    assert rows["wikidata"] == ["0+", "12+", "-"]
 
 
 def test_spellings_cover_lower_and_capitalized_forms_once() -> None:
@@ -285,7 +323,8 @@ def test_main_reports_json_offline_without_downloading(
     assert status == 0
     assert list(report) == ["O'Brien", "关"]
     assert [u["source"] for u in report["关"]] == [
-        "US Census 2010 surnames", "US SSA given names 1880-"]
+        "US Census 2010 surnames", "US SSA given names 1880-",
+        tool.NAMDICT_SOURCE, tool.NPPES_SOURCE]
     assert report["O'Brien"][0]["family"] == 118557
     assert report["关"][0]["family"] is None  # null, not 0
     assert "SSA given names not downloaded" in err
@@ -322,7 +361,7 @@ def test_main_reports_a_bad_ssa_zip_without_losing_the_other_sources(
         zf.writestr("AK.TXT", "AK,F,1910,Mary,14\n")
     assert tool.main(["--no-wikidata", "--json", "shehu"]) == 2
     out, err = capsys.readouterr()
-    census, ssa = json.loads(out)["shehu"]
+    census, ssa, *_ = json.loads(out)["shehu"]
     assert census["family"] == 561
     assert (ssa["status"], ssa["given"]) == ("failed", None)
     assert "not downloaded" not in err  # the file exists; it is just wrong
@@ -669,11 +708,19 @@ def test_main_skips_the_index_for_a_latin_word(
     assert sources[-1] == "Wikidata people"
 
 
+@pytest.mark.parametrize("local", ["none", "not fetched", "fetched"])
 def test_main_adds_the_ends_with_row_for_a_cjk_word(
         monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
-        capsys: pytest.CaptureFixture[str]) -> None:
+        capsys: pytest.CaptureFixture[str], local: str) -> None:
+    # With a local corpus listed, fetched or not: the local rows' loop
+    # once shadowed main's CJK index, so the row read None or a WordIndex.
     monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
     monkeypatch.setattr(tool, "load_census", lambda download: None)
+    corpus = _local("Ann Lee, MD")
+    locals_ = {"none": [],
+               "not fetched": [("ctgov-officials", None, "")],
+               "fetched": [("ctgov-officials", corpus, "")]}
+    monkeypatch.setattr(tool, "load_locals", lambda: locals_[local])
     monkeypatch.setattr(tool, "load_index", lambda download, refresh=False:
                         _index(("Q1", "family", "向殿")))
     _stub_sparql(monkeypatch, [[], [], [{"role": "family", "n": "1"}], []])
@@ -1154,3 +1201,1095 @@ def test_main_reports_a_refresh_that_failed_for_a_latin_word(
     _stub_sparql(monkeypatch, [[], []])
     assert tool.main(["--refresh-index", "knight"]) == 2
     assert "CJK name index: OSError: down" in capsys.readouterr().err
+
+
+# -- nam_dict given names ----------------------------------------------------
+#
+# A dictionary built here in the file's own layout: the 55-country legend,
+# each label above a line holding only a bar in its column, then
+# fixed-width lines. The real file is GFDL and is never in the tree.
+
+_COUNTRIES = ([f"Country {i}" for i in range(52)]
+              + ["Korea", "Vietnam", "other countries"])
+
+
+def _legend_lines(columns: list[int]) -> list[str]:
+    lines = []
+    for country, column in zip(_COUNTRIES, columns):
+        lines.append(f"#{country:>{column}} $")
+        lines.append("#" + " " * (column - 1) + "|" + " " * (86 - column - 1) + "$")
+    return lines
+
+
+def _line(code: str, name: str, bands: dict[str, str], flag: str = " ") -> str:
+    digits = "".join(bands.get(c, " ") for c in _COUNTRIES)
+    return f"{code:<2} {name:<26}{flag}{digits} $"
+
+
+def _namdict_text(*lines: str, columns: list[int] | None = None) -> str:
+    header = ["# nam_dict.txt", "#"] + _legend_lines(
+        columns or list(range(30, 85))) + ["#"]
+    return "\r\n".join(header + list(lines)) + "\r\n"
+
+
+_DICT = _namdict_text(
+    _line("?", "In", {"Korea": "A"}),
+    _line("M", "Dean", {"Country 0": "5", "Country 2": "5"}),
+    _line("?", "Dean", {"Country 2": "6", "Country 30": "1"}),
+    # Joined, De+An spells Dean too; its lower Country 2 band comes after
+    # Dean's 6, so a last-wins merge would show.
+    _line("?", "De+An", {"Country 2": "2", "Country 50": "2"}),
+    _line("?", "Jun+Wei", {"Country 50": "3"}),
+    _line("M", "İlker", {"Country 47": "5"}),
+    _line("F", "Işıl", {"Country 47": "6"}),
+    _line("M", "Isa", {"Country 46": "4"}),
+    _line("M", "İsa", {"Country 47": "7"}),
+    _line("M", "Kasim", {"Country 46": "3"}),
+    _line("M", "Kasım", {"Country 47": "5"}),
+    # Tied bands, the later line naming the earlier legend country.
+    _line("M", "Ali", {"Country 5": "3"}),
+    _line("?", "Ali", {"Country 1": "3"}),
+    # An expanded-umlaut copy: skipped, so its band never shows.
+    _line("F", "Käte", {"Country 11": "4"}, flag="-"),
+    _line("F", "Käte", {"Country 11": "D"}, flag="+"),
+    _line("=", "Al Albert", {"Country 0": "1"}),
+)
+
+
+_DICT_SHA256 = hashlib.sha256(_DICT.encode()).hexdigest()
+
+
+def test_read_namdict_reads_the_countries_from_the_legend() -> None:
+    table = tool.read_namdict(_DICT)
+    assert table.countries == _COUNTRIES
+    assert table.names["in"] == [("In", {"Korea": 10})]
+
+
+def test_read_namdict_keeps_every_listing_line_of_a_name() -> None:
+    table = tool.read_namdict(_DICT)
+    assert table.names["dean"] == [
+        ("Dean", {"Country 0": 5, "Country 2": 5}),
+        ("Dean", {"Country 2": 6, "Country 30": 1}),
+        ("De+An", {"Country 2": 2, "Country 50": 2}),
+    ]
+
+
+def test_read_namdict_skips_the_expanded_umlaut_copies() -> None:
+    assert tool.read_namdict(_DICT).names["käte"] == [("Käte", {"Country 11": 4})]
+
+
+def test_read_namdict_reads_equivalences_as_short_forms_not_names() -> None:
+    table = tool.read_namdict(_DICT)
+    assert "al" not in table.names and "al albert" not in table.names
+    assert table.short_for["al"] == ["Albert"]
+
+
+@pytest.mark.parametrize(("name", "forms"), [
+    ("Dean", ["Dean"]),
+    ("Jun+Wei", ["Jun-Wei", "Jun Wei", "Junwei"]),
+    ("Maria+da+Glória", [
+        "Maria-da-Glória", "Maria-da Glória", "Maria-daglória",
+        "Maria da-Glória", "Maria da Glória", "Maria daglória",
+        "Mariada-Glória", "Mariada Glória", "Mariadaglória"]),
+])
+def test_expand_plus_reads_a_plus_as_hyphen_space_or_nothing(
+        name: str, forms: list[str]) -> None:
+    assert tool.expand_plus(name) == forms
+
+
+def test_read_namdict_files_every_expansion_of_a_plus_name() -> None:
+    table = tool.read_namdict(_DICT)
+    # The listed spelling too, so a name copied from the file finds itself.
+    for form in ("jun+wei", "jun-wei", "jun wei", "junwei"):
+        assert table.names[form] == [("Jun+Wei", {"Country 50": 3})]
+
+
+@pytest.mark.parametrize("columns", [
+    list(range(31, 86)),           # shifted a column
+    list(range(30, 84)) + [86],    # a gap before the last country
+])
+def test_read_namdict_refuses_a_legend_it_was_not_written_for(
+        columns: list[int]) -> None:
+    with pytest.raises(ValueError, match="legend marks columns"):
+        tool.read_namdict(_namdict_text(_line("?", "In", {}), columns=columns))
+
+
+@pytest.mark.parametrize("line", [
+    "?  In A",                                          # short
+    " " + _line("?", "In", {"Korea": "A"})[:-3] + " $",  # shifted, same length
+    _line("?", "In", {"Korea": "A"})[:28] + "x" + _line("?", "In", {})[29:],
+    _line("?", "In", {"Korea": "A"})[:-2] + "  ",        # no " $" end
+])
+def test_read_namdict_refuses_a_line_that_is_not_fixed_width(line: str) -> None:
+    # A shifted line keeps its length: read as written, In's Korea band
+    # would land under Vietnam, filed under " in".
+    with pytest.raises(ValueError, match="line .* is not fixed-width"):
+        tool.read_namdict(_namdict_text(line))
+
+
+@pytest.mark.parametrize("pair", ["Al", "Al Albert Bert"])
+def test_read_namdict_names_the_line_of_a_malformed_equivalence(pair: str) -> None:
+    with pytest.raises(ValueError, match=r"line \d+ is not '=  short long'"):
+        tool.read_namdict(_namdict_text(_line("=", pair, {})))
+
+
+def test_namdict_usage_reports_bands_highest_first_never_as_a_count() -> None:
+    usage = tool.namdict_usage("Dean", tool.read_namdict(_DICT), top=5)
+    assert usage.given is None and usage.lower_bound
+    # Peak per country across the M and ? lines, then legend order.
+    assert usage.given_bands == [("Country 2", 6), ("Country 0", 5),
+                                 ("Country 50", 2), ("Country 30", 1)]
+    assert "banded in 4 countries" in usage.note
+    assert "listed as Dean, De+An" in usage.note
+
+
+def test_namdict_usage_breaks_a_tie_in_legend_order() -> None:
+    usage = tool.namdict_usage("Ali", tool.read_namdict(_DICT), top=5)
+    assert usage.given_bands == [("Country 1", 3), ("Country 5", 3)]
+
+
+@pytest.mark.parametrize(("word", "bands"), [
+    # casefold() turns İ into i + U+0307, so a plain fold missed every
+    # name listed only under İ (24 in the real file, measured 2026-10-19).
+    ("Ilker", [("Country 47", 5)]),
+    ("ilker", [("Country 47", 5)]),
+    ("ILKER", [("Country 47", 5)]),
+    ("İlker", [("Country 47", 5)]),   # as listed: the plain fold had it
+    # Turkish lowers I to dotless ı, so a Turkish speaker's lowercase and
+    # capitals of Işıl miss under the default fold, which lowers I to i.
+    ("ışıl", [("Country 47", 6)]),
+    ("IŞIL", [("Country 47", 6)]),
+    ("Işıl", [("Country 47", 6)]),    # as listed: the plain fold had it
+    ("işıl", [("Country 47", 6)]),    # the default fold of Işıl: had it too
+    # Isa and İsa are one name with two capitals, so both answer both.
+    ("Isa", [("Country 47", 7), ("Country 46", 4)]),
+    ("İsa", [("Country 47", 7), ("Country 46", 4)]),
+    # ...but dotless ı is a letter, not a case: Kasim is not Kasım,
+    # though KASIM, written in capitals, may be either.
+    ("Kasim", [("Country 46", 3)]),
+    ("Kasım", [("Country 47", 5)]),
+    ("KASIM", [("Country 47", 5), ("Country 46", 3)]),
+])
+def test_namdict_usage_matches_turkish_capitals_in_both_folds(
+        word: str, bands: list[tuple[str, int]]) -> None:
+    usage = tool.namdict_usage(word, tool.read_namdict(_DICT), top=5)
+    assert usage.given_bands == bands
+
+
+@pytest.mark.parametrize("word", ["Isil", "isil", "ISIL", "Işil"])
+def test_namdict_usage_does_not_fold_a_dotless_i_into_a_dotted_one(
+        word: str) -> None:
+    # The Turkish fold must not turn ı into i: Işıl is not Isil, as Käte
+    # is not Kaete.
+    usage = tool.namdict_usage(word, tool.read_namdict(_DICT), top=5)
+    assert usage.given_bands == []
+
+
+def test_namdict_usage_matches_ignoring_case_and_reads_a_plus_name() -> None:
+    table = tool.read_namdict(_DICT)
+    assert tool.namdict_usage("IN", table, top=5).given_bands == [("Korea", 10)]
+    for word in ("Jun Wei", "Jun+Wei"):
+        usage = tool.namdict_usage(word, table, top=5)
+        assert usage.given_bands == [("Country 50", 3)]
+        assert "listed as Jun+Wei" in usage.note
+
+
+def test_namdict_usage_shows_the_top_countries_and_says_so() -> None:
+    usage = tool.namdict_usage("Dean", tool.read_namdict(_DICT), top=1)
+    assert usage.given_bands == [("Country 2", 6)]
+    assert "banded in 4 countries, the top 1 shown" in usage.note
+
+
+def test_namdict_usage_reports_a_missing_name_as_no_answer() -> None:
+    # The dictionary is a selection (Shehu has no entry): a miss must not
+    # read as a zero anywhere, in the row or in the JSON.
+    usage = tool.namdict_usage("Shehu", tool.read_namdict(_DICT), top=5)
+    assert (usage.status, usage.given, usage.given_bands) == ("ok", None, [])
+    assert "proves nothing" in usage.note
+    assert tool.render("Shehu", [usage]).splitlines()[2].split()[-3:] == ["-", "-", "-"]
+
+
+def test_namdict_usage_names_a_short_form() -> None:
+    usage = tool.namdict_usage("Al", tool.read_namdict(_DICT), top=5)
+    assert usage.given is None
+    assert "short form of Albert" in usage.note
+
+
+def test_namdict_usage_calls_a_non_latin_word_unrepresentable() -> None:
+    table = tool.read_namdict(_DICT)
+    for word in ("关", "Иван"):
+        usage = tool.namdict_usage(word, table, top=5)
+        assert (usage.status, usage.given) == ("unrepresentable", None)
+
+
+def test_namdict_usage_reports_a_missing_download_without_an_answer() -> None:
+    usage = tool.namdict_usage("Dean", None, top=5)
+    assert (usage.status, usage.given) == ("not downloaded", None)
+
+
+def test_render_shows_the_peak_band_and_the_bands_by_country() -> None:
+    usage = tool.namdict_usage("Dean", tool.read_namdict(_DICT), top=5)
+    text = tool.render("Dean", [usage])
+    assert text.splitlines()[2].split()[-4:] == ["band", "6", "-", "-"]
+    assert ("given band by country: Country 2 6, Country 0 5, Country 50 2, "
+            "Country 30 1") in text
+
+
+def test_render_writes_a_band_in_hex_as_the_note_does() -> None:
+    usage = tool.namdict_usage("In", tool.read_namdict(_DICT), top=5)
+    text = tool.render("In", [usage])
+    assert text.splitlines()[2].split()[-4:] == ["band", "A", "-", "-"]
+    assert "given band by country: Korea A" in text
+
+
+def _sdist(member_text: bytes, member: str = tool.NAMDICT_MEMBER) -> bytes:
+    import tarfile
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tf:
+        for name, data in ((member, member_text),
+                           ("gender-guesser-0.4.0/setup.py", b"print('no')")):
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+def _serve(monkeypatch: pytest.MonkeyPatch, data: bytes,
+           url: str | None = None) -> None:
+    def answer(request: urllib.request.Request, timeout: float) -> io.BytesIO:
+        assert request.full_url == (url or tool.NAMDICT_URL)
+        return io.BytesIO(data)
+    monkeypatch.setattr(urllib.request, "urlopen", answer)
+
+
+def test_load_namdict_caches_only_the_dictionary_from_a_pinned_sdist(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    sdist = _sdist(_DICT.encode())
+    monkeypatch.setattr(tool, "NAMDICT_SHA256", hashlib.sha256(sdist).hexdigest())
+    monkeypatch.setattr(tool, "NAMDICT_FILE_SHA256", _DICT_SHA256)
+    _serve(monkeypatch, sdist)
+    table = _LOAD_NAMDICT(download=True)
+    assert table is not None and table.names["in"] == [("In", {"Korea": 10})]
+    assert sorted(p.name for p in tmp_path.iterdir()) == [tool.NAMDICT_FILE]
+
+
+def test_load_namdict_refuses_an_sdist_that_is_not_the_pinned_one(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    _serve(monkeypatch, _sdist(_DICT.encode()))
+    with pytest.raises(ValueError, match="not the pinned"):
+        _LOAD_NAMDICT(download=True)
+    assert list(tmp_path.iterdir()) == []  # nothing cached
+
+
+def test_load_namdict_does_not_download_when_told_not_to(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    assert _LOAD_NAMDICT(download=False) is None
+
+
+def test_main_reads_a_cached_dictionary_offline(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_namdict", _LOAD_NAMDICT)
+    monkeypatch.setattr(tool, "NAMDICT_FILE_SHA256", _DICT_SHA256)
+    (tmp_path / tool.NAMDICT_FILE).write_text(_DICT, encoding="utf-8")
+    assert tool.main(["--no-wikidata", "--json", "In", "Shehu"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["In"][2]["given_bands"] == [["Korea", 10]]
+    assert report["Shehu"][2]["given"] is None  # null, not 0
+
+
+def test_main_exits_2_on_an_unusable_cached_dictionary(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_namdict", _LOAD_NAMDICT)
+    (tmp_path / tool.NAMDICT_FILE).write_text("<html>error</html>")
+    assert tool.main(["--no-wikidata", "--json", "In"]) == 2
+    row = json.loads(capsys.readouterr().out)["In"][2]
+    assert (row["status"], row["given"]) == ("failed", None)
+    assert "delete it and run again" in row["note"]
+
+
+
+@pytest.mark.parametrize(("sdist", "why"), [
+    (lambda: _sdist(_DICT.encode(), member="elsewhere/nam_dict.txt"), "not found"),
+    (lambda: b"not a gzip at all", ""),
+    (lambda: _sdist(_DICT.encode())[:200], ""),  # truncated
+])
+def test_load_namdict_reports_an_archive_the_pin_does_not_describe(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        sdist: Callable[[], bytes], why: str) -> None:
+    # A hash bumped without the member path, or an archive of another
+    # layout: tarfile raises KeyError, ReadError or EOFError, none of them
+    # an OSError, which escaped _attempt and took every source down.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    data = sdist()
+    monkeypatch.setattr(tool, "NAMDICT_SHA256", hashlib.sha256(data).hexdigest())
+    _serve(monkeypatch, data)
+    with pytest.raises(ValueError, match=f"cannot read .*{why}"):
+        _LOAD_NAMDICT(download=True)
+    assert list(tmp_path.iterdir()) == []
+
+
+def _legend_only() -> str:
+    return _DICT.split("\r\n?  In")[0] + "\r\n"
+
+
+@pytest.mark.parametrize("cut", [
+    _legend_only,                                 # every name gone
+    lambda: _DICT[:_DICT.rindex("\r\n", 0, -2) + 2],  # the last line gone
+    lambda: _DICT[:-20],                          # cut inside a line
+])
+def test_load_namdict_refuses_a_cache_file_cut_short(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        cut: Callable[[], str]) -> None:
+    # Cut at a line boundary, the file still parses, and every name it
+    # lost would read "not listed" -- the SSA zip's false zero again. A
+    # floor on the names read refused the first and not the second.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "NAMDICT_FILE_SHA256", _DICT_SHA256)
+    (tmp_path / tool.NAMDICT_FILE).write_bytes(cut().encode())
+    with pytest.raises(ValueError, match="unusable"):
+        _LOAD_NAMDICT(download=False)
+
+
+def test_load_namdict_accepts_the_pinned_file(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "NAMDICT_FILE_SHA256", _DICT_SHA256)
+    (tmp_path / tool.NAMDICT_FILE).write_bytes(_DICT.encode())
+    table = _LOAD_NAMDICT(download=False)
+    assert table is not None and table.lookup("In") == [("In", {"Korea": 10})]
+
+
+def test_load_namdict_does_not_cache_a_member_the_pin_does_not_describe(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    # The sdist matches its pin but the member does not match its own:
+    # caching it would leave a file every later load refuses.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    sdist = _sdist(_DICT.encode())
+    monkeypatch.setattr(tool, "NAMDICT_SHA256", hashlib.sha256(sdist).hexdigest())
+    _serve(monkeypatch, sdist)
+    with pytest.raises(ValueError, match="not the pinned"):
+        _LOAD_NAMDICT(download=True)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_main_does_not_download_the_dictionary_under_no_wikidata(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # With the flag ignored, the download would reach the network guard,
+    # whose AssertionError _attempt does not catch.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_namdict", _LOAD_NAMDICT)
+    assert tool.main(["--no-wikidata", "--json", "In"]) == 0
+    row = json.loads(capsys.readouterr().out)["In"][2]
+    assert (row["status"], row["given"]) == ("not downloaded", None)
+
+
+def test_main_downloads_the_dictionary_when_online(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_namdict", _LOAD_NAMDICT)
+    monkeypatch.setattr(tool, "load_census", lambda download: None)
+    monkeypatch.setattr(tool, "NAMDICT_FILE_SHA256", _DICT_SHA256)
+    sdist = _sdist(_DICT.encode())
+    monkeypatch.setattr(tool, "NAMDICT_SHA256", hashlib.sha256(sdist).hexdigest())
+    _serve(monkeypatch, sdist)
+    _stub_sparql(monkeypatch, [[], []])
+    assert tool.main(["--json", "In"]) == 0
+    row = json.loads(capsys.readouterr().out)["In"][2]
+    assert row["given_bands"] == [["Korea", 10]]
+
+
+def test_main_refuses_fewer_than_one_country(
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # --countries 0 emptied the band list, and a listed name's given cell
+    # then showed the "-" of a name that is not listed.
+    with pytest.raises(SystemExit):
+        tool.main(["--countries", "0", "In"])
+    assert "must be 1 or more" in capsys.readouterr().err
+
+
+# -- NPPES credentials ------------------------------------------------------
+
+def _providers(*fields: str, organizations: int = 0) -> list[dict[str, str]]:
+    rows = [{"entity": "Individual", "pcredential": f} for f in fields]
+    return rows + [{"entity": "Organization", "pcredential": "MD"}] * organizations
+
+
+def test_tally_counts_a_provider_once_per_credential_and_keeps_spellings() -> None:
+    tally = tool.tally_credentials(iter(_providers("MD, M.D.", "M.D", "")))
+    assert (tally.people, tally.credentialed) == (3, 2)
+    providers, spellings = tally.tokens["MD"]
+    assert providers == 2
+    assert dict(spellings) == {"MD": 1, "M.D.": 1, "M.D": 1}
+
+
+def test_tally_reads_only_individual_providers() -> None:
+    tally = tool.tally_credentials(iter(_providers("RN", organizations=3)))
+    assert tally.people == 1 and tally.tokens["RN"][0] == 1
+    assert "MD" not in tally.tokens
+
+
+def test_tally_joins_one_credential_written_in_pieces() -> None:
+    # PHARMD alone far outnumbers its rarest piece, so the pieces are
+    # one credential; split, 'PHARM D' scored a D the field never meant.
+    fields = ["PHARMD"] * 100 + ["PHARM"] * 3 + ["PHARM D"]
+    tally = tool.tally_credentials(iter(_providers(*fields)))
+    assert tally.tokens["PHARMD"][0] == 101
+    assert ("PHARM D", 1) in tally.tokens["PHARMD"][1]
+    assert "D" not in tally.tokens and tally.tokens["PHARM"][0] == 3
+
+
+def test_tally_joins_pieces_onto_a_hyphenated_or_slashed_spelling() -> None:
+    fields = ["PA-C"] * 100 + ["OTR/L"] * 100 + ["PA"] * 60 + [
+        "PA C", "OTR L"]
+    tally = tool.tally_credentials(iter(_providers(*fields)))
+    assert tally.tokens["PA-C"][0] == 101 and tally.tokens["OTR/L"][0] == 101
+    assert tally.tokens["PA"][0] == 60
+
+
+def test_tally_splits_credentials_written_side_by_side() -> None:
+    # Each piece is written alone more often than the two joined.
+    fields = ["MD"] * 100 + ["PHD"] * 80 + ["MD/PHD"] * 5 + [
+        "MD PHD"]
+    tally = tool.tally_credentials(iter(_providers(*fields)))
+    assert (tally.tokens["MD"][0], tally.tokens["PHD"][0]) == (101, 81)
+    assert tally.tokens["MD/PHD"][0] == 5
+
+
+def test_tally_keeps_a_job_title_whole() -> None:
+    # PRACTITIONER is rarely written alone (19 times on the real file);
+    # splitting the title would have counted NURSE for each of the 5,803
+    # providers who write NURSE PRACTITIONER.
+    fields = ["NURSE"] * 60 + ["NURSE PRACTITIONER"] * 2
+    tally = tool.tally_credentials(iter(_providers(*fields)))
+    assert tally.tokens["NURSE PRACTITIONER"][0] == 2
+    assert tally.tokens["NURSE"][0] == 60
+    assert "PRACTITIONER" not in tally.tokens
+
+
+def test_tally_splits_after_a_join_inside_one_segment() -> None:
+    fields = (["MS"] * 100 + ["CCC-SLP"] * 100 + ["CCC"] * 2
+              + ["SLP"] * 60 + ["MS CCC SLP"])
+    tally = tool.tally_credentials(iter(_providers(*fields)))
+    assert tally.tokens["MS"][0] == 101 and tally.tokens["CCC-SLP"][0] == 101
+
+
+def test_tally_drops_a_piece_that_is_only_periods() -> None:
+    fields = ["MD"] * 100 + ["M"] * 2 + ["D"] * 2 + ["M . D."]
+    tally = tool.tally_credentials(iter(_providers(*fields)))
+    assert tally.tokens["MD"][0] == 101
+
+
+class _Tally(Protocol):
+    # tools/ is loaded by path, so mypy cannot see CredentialTally itself.
+    people: int
+    credentialed: int
+    tokens: dict[str, tuple[int, list[tuple[str, int]]]]
+    joined: dict[str, str]
+
+
+def _tally(joined: dict[str, str] | None = None, /, **tokens: int) -> _Tally:
+    """A tally of these provider counts. Unless `joined` is given, each
+    unspaced key's letters are filed under the commonest key holding them,
+    as tally_credentials files them when providers and whole segments
+    agree."""
+    credentialed = sum(tokens.values()) or 1
+    if joined is None:
+        joined = {}
+        for k, _ in sorted(tokens.items(), key=lambda kn: -kn[1]):
+            if " " not in k:
+                joined.setdefault(tool._squash(k), k)
+    return tool.CredentialTally(
+        people=max(1000, credentialed), credentialed=credentialed,
+        tokens={k: (n, [(k, n)]) for k, n in tokens.items()}, joined=joined)
+
+
+@pytest.mark.parametrize("word", ["m.d.", "MD", "Md", "M. D."])
+def test_credential_usage_matches_as_the_parser_matches_an_acronym(word: str) -> None:
+    usage = tool.credential_usage(word, _tally(MD=40, RN=60))
+    assert (usage.status, usage.credential) == ("ok", 40)
+
+
+def test_credential_usage_finds_a_credential_the_tally_joined() -> None:
+    usage = tool.credential_usage("Ph. D.", _tally(PHD=7))
+    assert usage.credential == 7 and "looked up as PHD" in usage.note
+
+
+def test_credential_usage_files_a_spaced_word_as_the_tally_filed_it() -> None:
+    # The tally files 'PA C' under the commonest key sharing its letters;
+    # the lookup first squashed it to PAC and read 5,910 where the
+    # credential's providers number 122,676 (review of the first version).
+    tally = _tally(**{"PA-C": 120, "PAC": 6})
+    usage = tool.credential_usage("PA C", tally)
+    assert usage.credential == 120 and "looked up as PA-C" in usage.note
+
+
+def test_credential_usage_reads_the_tallys_choice_not_the_provider_order() -> None:
+    # The lookup used to re-derive the choice by provider count, and
+    # _resolve made it by whole segments: CPRI's one provider writes it
+    # twice, so _resolve filed 'CPR I' under CPRI while the lookup, by
+    # providers then by key, found CPR-I (measured 2026-10-21).
+    tally = _tally({"CPRI": "CPRI"}, **{"CPR-I": 1, "CPRI": 1})
+    usage = tool.credential_usage("CPR I", tally)
+    assert "looked up as CPRI" in usage.note
+    assert "also written CPR-I 1" in usage.note
+
+
+def test_credential_usage_names_the_other_spellings_of_its_letters() -> None:
+    tally = _tally(**{"PA-C": 120, "PAC": 6})
+    assert "also written PA-C 120" in tool.credential_usage("PAC", tally).note
+    missing = tool.credential_usage("OTR-L", _tally(**{"OTR/L": 60}))
+    assert missing.credential == 0 and "also written OTR/L 60" in missing.note
+
+
+def test_credential_usage_takes_a_spaced_key_the_tally_holds_whole() -> None:
+    tally = _tally(**{"NURSE PRACTITIONER": 9, "NURSEPRACTITIONER": 40})
+    usage = tool.credential_usage("Nurse Practitioner", tally)
+    assert usage.credential == 9
+    assert "also written NURSEPRACTITIONER 40" in usage.note
+
+
+def test_credential_usage_gives_a_word_without_letters_no_siblings() -> None:
+    usage = tool.credential_usage("- -", _tally(**{"-": 5, "MD": 1}))
+    assert usage.credential == 0 and "also written" not in usage.note
+
+
+def test_credential_usage_reports_a_missing_word_as_zero_with_the_scope() -> None:
+    # The field is a census, so 0 is an answer -- but for US healthcare
+    # alone, which the note must carry wherever the zero goes.
+    usage = tool.credential_usage("CPA", _tally(MD=1))
+    assert (usage.status, usage.credential) == ("ok", 0)
+    assert "US healthcare only" in usage.note
+
+
+def test_credential_usage_reports_a_missing_download_without_a_count() -> None:
+    usage = tool.credential_usage("MD", None)
+    assert (usage.status, usage.credential) == ("not downloaded", None)
+    assert "--fetch-nppes" in usage.note
+
+
+def test_render_shows_the_credential_column() -> None:
+    text = tool.render("MA", [tool.credential_usage("MA", _tally(MA=1234))])
+    assert text.splitlines()[1].split()[-1] == "credential"
+    assert text.splitlines()[2].split()[-3:] == ["-", "-", "1,234"]
+
+
+def test_share_never_prints_a_zero_for_a_credential_someone_writes() -> None:
+    assert tool._share(5 / 4_824_544) == "<0.01%"
+    assert tool._share(0.0234) == "2.34%"
+
+
+def _nppes_zip(*fields: str, header: str = "npi,entity,pcredential",
+               text: str | None = None, member: str | None = None) -> bytes:
+    """A zip of individual providers with these credential fields, or of
+    `text` as written, under `member` (the pinned member by default)."""
+    if text is None:
+        lines = [header] + [f'{i},Individual,"{f}"' for i, f in enumerate(fields)]
+        text = "\n".join(lines) + "\n"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(member or tool.NPPES_MEMBER, text)
+    return buffer.getvalue()
+
+
+def _pin_nppes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+               data: bytes, cached: bool = False) -> None:
+    """Point the cache at tmp_path and the pin at `data`, and with `cached`
+    put `data` there as the downloaded zip."""
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "NPPES_SHA256", hashlib.sha256(data).hexdigest())
+    if cached:
+        (tmp_path / tool.NPPES_FILE).write_bytes(data)
+
+
+def test_load_nppes_downloads_the_pinned_zip_and_caches_its_tally(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    data = _nppes_zip("MD", "RN, MD")
+    _pin_nppes(monkeypatch, tmp_path, data)
+    _serve(monkeypatch, data, tool.NPPES_URL)
+    tally = _LOAD_NPPES(download=True)
+    assert tally is not None and tally.tokens["MD"][0] == 2
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        tool.NPPES_TALLY, tool.NPPES_FILE]
+    # The second load reads the tally and never opens the zip.
+    (tmp_path / tool.NPPES_FILE).unlink()
+    again = _LOAD_NPPES(download=False)
+    assert again is not None and again.tokens == tally.tokens
+    assert again.joined == tally.joined and again.joined
+
+
+def test_load_nppes_refuses_a_zip_that_is_not_the_pinned_one(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    _serve(monkeypatch, _nppes_zip("MD"), tool.NPPES_URL)
+    with pytest.raises(ValueError, match="not the pinned"):
+        _LOAD_NPPES(download=True)
+    assert list(tmp_path.iterdir()) == []  # nothing cached, no .part left
+
+
+def test_load_nppes_refuses_a_pinned_zip_without_the_member(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    data = _nppes_zip(text="entity,pcredential\n", member="elsewhere.csv")
+    _pin_nppes(monkeypatch, tmp_path, data)
+    _serve(monkeypatch, data, tool.NPPES_URL)
+    with pytest.raises(ValueError, match="cannot read"):
+        _LOAD_NPPES(download=True)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_load_nppes_does_not_download_when_told_not_to(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    assert _LOAD_NPPES(download=False) is None
+
+
+def test_load_nppes_refuses_a_cached_zip_that_does_not_match_its_pin(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    # A whole, readable zip of another month (or one missing rows) opens
+    # and tallies without complaint; only the hash says it is not the
+    # file the counts claim to be. A truncated zip did not test this --
+    # it fails to open whether the pin is checked or not.
+    _pin_nppes(monkeypatch, tmp_path, _nppes_zip("MD", "RN"))
+    (tmp_path / tool.NPPES_FILE).write_bytes(_nppes_zip("MD"))
+    with pytest.raises(ValueError, match="not the pinned.*--fetch-nppes"):
+        _LOAD_NPPES(download=False)
+    assert not (tmp_path / tool.NPPES_TALLY).exists()
+
+
+def test_load_nppes_names_a_member_without_the_credential_column(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    data = _nppes_zip("MD", header="npi,entity,credential")
+    _pin_nppes(monkeypatch, tmp_path, data, cached=True)
+    with pytest.raises(ValueError, match="pcredential"):
+        _LOAD_NPPES(download=False)
+
+
+@pytest.mark.parametrize("stale", [
+    {"version": 0}, {"source_sha256": "0" * 64},
+    {"rules": {"min_alone": 1, "spellings": tool.NPPES_SPELLINGS}}])
+def test_load_nppes_rebuilds_a_tally_from_another_version_or_zip(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        stale: dict[str, object]) -> None:
+    data = _nppes_zip("MD", "MD")
+    _pin_nppes(monkeypatch, tmp_path, data, cached=True)
+    old = tool._tally_json(_tally(RN=9)) | stale
+    (tmp_path / tool.NPPES_TALLY).write_text(json.dumps(old))
+    tally = _LOAD_NPPES(download=False)
+    assert tally is not None and dict(
+        (k, n) for k, (n, _) in tally.tokens.items()) == {"MD": 2}
+
+
+def test_load_nppes_rebuilds_a_tally_written_before_the_rules_were_recorded(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    data = _nppes_zip("MD")
+    _pin_nppes(monkeypatch, tmp_path, data, cached=True)
+    old = tool._tally_json(_tally(RN=9))
+    del old["rules"]
+    (tmp_path / tool.NPPES_TALLY).write_text(json.dumps(old))
+    tally = _LOAD_NPPES(download=False)
+    assert tally is not None and "RN" not in tally.tokens
+
+
+def test_load_nppes_leaves_a_stale_tally_unread_when_nothing_can_rebuild_it(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    old = tool._tally_json(_tally(RN=9)) | {"version": 0}
+    (tmp_path / tool.NPPES_TALLY).write_text(json.dumps(old))
+    assert _LOAD_NPPES(download=False) is None
+
+
+@pytest.mark.parametrize("cut", [
+    lambda text: text[:len(text) // 2],              # cut mid-file
+    lambda text: text.replace('"tokens": {', '"tokens": {}, "x": {', 1),
+    lambda text: "[]",
+])
+def test_load_nppes_refuses_a_tally_that_is_not_whole(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        cut: Callable[[str], str]) -> None:
+    # A tally missing tokens would read every credential it lost as 0,
+    # which this source reports as a real zero.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    text = json.dumps(tool._tally_json(_tally(MD=3, RN=4)))
+    (tmp_path / tool.NPPES_TALLY).write_text(cut(text))
+    with pytest.raises(ValueError, match="unusable.*re-tally"):
+        _LOAD_NPPES(download=False)
+
+
+def _cache_tally(monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+                 tally: _Tally) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_nppes", _LOAD_NPPES)
+    (tmp_path / tool.NPPES_TALLY).write_text(json.dumps(tool._tally_json(tally)))
+
+
+def test_main_reports_a_cached_tally_offline(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    _cache_tally(monkeypatch, tmp_path, _tally(MA=12, DO=30))
+    assert tool.main(["--no-wikidata", "--json", "ma", "CPA"]) == 0
+    report = json.loads(capsys.readouterr().out)
+    assert [r["credential"] for r in report["ma"]] == [None, None, None, 12]
+    assert report["CPA"][3]["credential"] == 0
+
+
+def test_main_does_not_download_nppes_unless_asked(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # Online and uncached: without --fetch-nppes the 673 MB download
+    # must not start (the network guard would raise if it did).
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_nppes", _LOAD_NPPES)
+    monkeypatch.setattr(tool, "load_census", lambda download: None)
+    _stub_sparql(monkeypatch, [[], []])
+    assert tool.main(["--json", "MD"]) == 0
+    row = json.loads(capsys.readouterr().out)["MD"][3]
+    assert (row["status"], row["credential"]) == ("not downloaded", None)
+
+
+def test_main_fetches_nppes_when_asked(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    data = _nppes_zip("MD", "MD, RN")
+    _pin_nppes(monkeypatch, tmp_path, data)
+    monkeypatch.setattr(tool, "load_nppes", _LOAD_NPPES)
+    monkeypatch.setattr(tool, "load_census", lambda download: None)
+    _serve(monkeypatch, data, tool.NPPES_URL)
+    monkeypatch.setattr(tool, "wikidata_usage",
+                        lambda word, top: tool.Usage("Wikidata people"))
+    assert tool.main(["--fetch-nppes", "--json", "MD"]) == 0
+    assert json.loads(capsys.readouterr().out)["MD"][3]["credential"] == 2
+
+
+def test_main_exits_2_on_an_unusable_tally_without_losing_the_other_sources(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_nppes", _LOAD_NPPES)
+    with zipfile.ZipFile(tmp_path / tool.CENSUS_FILE, "w") as zf:
+        zf.writestr(tool.CENSUS_MEMBER, _CENSUS)
+    (tmp_path / tool.NPPES_TALLY).write_text("{")
+    assert tool.main(["--no-wikidata", "--json", "shehu"]) == 2
+    census, _, _, nppes = json.loads(capsys.readouterr().out)["shehu"]
+    assert census["family"] == 561
+    assert (nppes["status"], nppes["credential"]) == ("failed", None)
+
+
+def test_main_rank_lists_credentials_with_vocabulary_and_readings(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    _cache_tally(monkeypatch, tmp_path, _tally(RA=50, **{"QRS-C": 40}, ESQ=3))
+    assert tool.main(["--no-wikidata", "--json", "--rank", "5"]) == 0
+    rows = {r["credential"]: r for r in json.loads(capsys.readouterr().out)["rows"]}
+    assert [r["rank"] for r in rows.values()] == [1, 2, 3]
+    assert rows["RA"]["vocabulary"] == "acronym, title"
+    assert (rows["RA"]["after_comma"], rows["RA"]["bare"]) == ("suffix", "suffix")
+    assert rows["QRS-C"]["vocabulary"] == "-"
+    assert (rows["QRS-C"]["after_comma"], rows["QRS-C"]["bare"]) == ("given", "family")
+    assert rows["ESQ"]["vocabulary"] == "suffix word"
+    assert rows["RA"]["census"] == "not downloaded"
+
+
+def test_main_rank_unlisted_keeps_each_credentials_overall_rank(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    _cache_tally(monkeypatch, tmp_path, _tally(MD=50, **{"QRS-C": 40}, MA=30))
+    assert tool.main(["--no-wikidata", "--json", "--rank", "5", "--unlisted"]) == 0
+    rows = json.loads(capsys.readouterr().out)["rows"]
+    assert [(r["credential"], r["rank"]) for r in rows] == [("QRS-C", 2)]
+
+
+def test_main_rank_exits_2_without_a_tally(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    monkeypatch.setattr(tool, "load_nppes", _LOAD_NPPES)
+    assert tool.main(["--no-wikidata", "--rank", "5"]) == 2
+    assert "not cached" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(("argv", "message"), [
+    ([], "give words"),
+    (["--rank", "5", "MD"], "takes no words"),
+    (["--unlisted", "MD"], "goes with --rank"),
+    (["--rank", "0"], "must be 1 or more"),
+])
+def test_main_refuses_a_rank_request_it_cannot_answer(
+        argv: list[str], message: str,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        tool.main(argv)
+    assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(("key", "expected"), [
+    ("MA", "ambiguous acronym"),
+    ("DO", "ambiguous acronym, particle"),
+    ("ESQ", "suffix word"),
+    ("JR", "suffix word"),
+    ("PHD", "acronym"),
+    ("QRS-C", "-"),
+])
+def test_vocabulary_reads_the_suffix_kind_as_the_parser_does(
+        key: str, expected: str) -> None:
+    assert tool._vocabulary(key) == expected
+
+
+@pytest.mark.parametrize(("word", "found"), [
+    ("Psicóloga", "PSICOLOGA"),   # the file has no accents at all
+    ("Médico", "MEDICO"),
+    ("Ørn", "ORN"),               # a letter NFKD leaves whole, transliterated
+])
+def test_credential_usage_folds_an_accented_word_as_the_file_spells_it(
+        word: str, found: str) -> None:
+    # Unfolded, the accented key could never match and read a false 0.
+    usage = tool.credential_usage(word, _tally(**{found: 16}))
+    assert (usage.status, usage.credential) == ("ok", 16)
+    assert f"looked up as {found}" in usage.note
+
+
+def test_credential_usage_reads_any_dash_as_a_hyphen() -> None:
+    # The file writes only the ASCII hyphen; PA–C (an en dash) read 0
+    # beside PA-C's 122,676 after the first accent fold.
+    for dash in ("\u2013", "\u2010", "\u2014"):
+        usage = tool.credential_usage(f"PA{dash}C", _tally(**{"PA-C": 120}))
+        assert (usage.status, usage.credential) == ("ok", 120), dash
+
+
+@pytest.mark.parametrize("word", ["博士", "врач", "M.D.\u2019", "", "  ", "\u0301",
+                                  ".", ". ."])
+def test_credential_usage_calls_a_non_latin_word_unrepresentable(word: str) -> None:
+    # The file spells every credential in ASCII: no answer, never a zero.
+    usage = tool.credential_usage(word, _tally(MD=1))
+    assert (usage.status, usage.credential) == ("unrepresentable", None)
+    assert tool.render(word, [usage]).splitlines()[2].split()[-1] == "-"
+
+
+def test_load_nppes_refuses_a_source_with_no_individual_provider(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    # An empty tally answers 0 for every word. Cached, it read "no
+    # provider writes MD" with exit 0 for one run, and was refused only by
+    # the next one's load.
+    data = _nppes_zip(text="npi,entity,pcredential\n1,1,MD\n"
+                           "2,Organization,MD\n")
+    _pin_nppes(monkeypatch, tmp_path, data, cached=True)
+    with pytest.raises(ValueError, match="no individual provider"):
+        _LOAD_NPPES(download=False)
+    assert not (tmp_path / tool.NPPES_TALLY).exists()
+
+
+# A row replacing the tokens replaces `joined` with them: left naming a
+# dropped token, it is refused by the joined check too, so with its own
+# value check deleted it still passes (mechanisms.md#SHADOWED-NEGATIVE-ROWS).
+@pytest.mark.parametrize("change", [
+    {"credentialed": 0},              # a share divided by zero
+    {"credentialed": 2000},           # more than the people read
+    {"tokens": {"MD": [0, [["MD", 1]]]}, "joined": {"MD": "MD"}},
+    {"tokens": {"MD": [5000, [["MD", 1]]]}, "joined": {"MD": "MD"}},
+    {"tokens": {"MD": [5, []]}, "joined": {"MD": "MD"}},  # --rank printed spellings[0]
+    {"tokens": {"MD": [5, [["MD", 0]]]}, "joined": {"MD": "MD"}},
+    {"joined": {"PAC": "PA-C"}},      # names no token
+    {"joined": {"RN": "MD"}},         # names a token of other letters
+    {"joined": None},                 # a version-2 tally without the map
+])
+def test_load_nppes_refuses_a_tally_whose_values_cannot_be(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        change: dict[str, object]) -> None:
+    # Each parsed as a tally and crashed the run later, outside _attempt,
+    # taking every other source's answer down with it.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    data = tool._tally_json(_tally(MD=3, RN=4)) | change
+    (tmp_path / tool.NPPES_TALLY).write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="unusable.*re-tally"):
+        _LOAD_NPPES(download=False)
+
+
+def test_main_rank_downloads_nppes_when_online(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    data = _nppes_zip("MD", "MD, RN")
+    _pin_nppes(monkeypatch, tmp_path, data)
+    monkeypatch.setattr(tool, "load_nppes", _LOAD_NPPES)
+    monkeypatch.setattr(tool, "load_census", lambda download: None)
+    _serve(monkeypatch, data, tool.NPPES_URL)
+    assert tool.main(["--json", "--rank", "5"]) == 0
+    rows = json.loads(capsys.readouterr().out)["rows"]
+    assert [(r["credential"], r["providers"]) for r in rows] == [
+        ("MD", 2), ("RN", 1)]
+
+
+def test_main_rank_cuts_the_list_at_n(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    _cache_tally(monkeypatch, tmp_path, _tally(MD=50, RN=40, DO=30))
+    assert tool.main(["--no-wikidata", "--json", "--rank", "1"]) == 0
+    rows = json.loads(capsys.readouterr().out)["rows"]
+    assert [r["credential"] for r in rows] == ["MD"]
+
+
+def test_main_rank_reports_a_failed_name_source_and_exits_2(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # The column must say failed, not the "not downloaded" a missing file
+    # gets, and the run must not exit 0.
+    _cache_tally(monkeypatch, tmp_path, _tally(MD=50))
+    (tmp_path / tool.CENSUS_FILE).write_text("<html>error page</html>")
+    assert tool.main(["--no-wikidata", "--json", "--rank", "3"]) == 2
+    out, err = capsys.readouterr()
+    assert json.loads(out)["rows"][0]["census"] == "failed"
+    assert "US Census 2010 surnames:" in err and "delete it" in err
+
+
+def test_main_rank_prints_a_table(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # Every other rank test reads --json, so a bad format spec in the
+    # table would have crashed the default output unseen.
+    _cache_tally(monkeypatch, tmp_path, _tally(MD=5000, **{"QRS-C": 40}))
+    assert tool.main(["--no-wikidata", "--rank", "2"]) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0].startswith("5,040 of 5,040 individual providers")
+    assert lines[1].split()[:3] == ["rank", "credential", "providers"]
+    assert lines[3].split()[:4] == ["2", "QRS-C", "40", "0.79%"]
+    assert lines[3].split()[4:7] == ["-", "given", "family"]
+
+
+def test_lands_says_split_when_no_field_holds_the_whole_credential() -> None:
+    assert tool._lands("John Smith, PA C", "PA C") == "split"
+    assert tool._lands("John Smith, MD", "MD") == "suffix"
+
+
+def test_credential_usage_falls_back_to_a_sibling_for_letters_only_phrases_hold() -> None:
+    # The tally stores a choice only for letters some UNSPACED key holds.
+    # A job title spaced unlike every recorded spelling has none, and the
+    # first version of the stored choice read 0 for it, beside the
+    # sibling's 5,054 -- where the lookup before it had found the sibling.
+    usage = tool.credential_usage("Registered / Nurse",
+                                  _tally(**{"REGISTERED NURSE": 50, "MD": 5}))
+    assert usage.credential == 50
+    assert "looked up as REGISTERED NURSE" in usage.note
+    assert "also written" not in usage.note  # found, not also another
+
+
+# -- local corpora ---------------------------------------------------------------
+
+_CREDIT = "ClinicalTrials.gov (NLM) study officials, data as of 2026-10-21"
+
+
+def _local(*names: str) -> object:
+    return tool._local_corpora().Local(
+        "ctgov-officials", {"data_date": "2026-10-21"}, [{"name": n} for n in names])
+
+
+def test_a_local_corpus_not_fetched_names_the_fetch(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    # One row per source, every one not fetched naming its own fetch.
+    loaded = _LOAD_LOCALS()
+    assert loaded == [(source, None, "")
+                      for source in sorted(tool._local_corpora().SOURCES)]
+    assert {"ctgov-officials", "fec-individuals"} <= {s for s, _, _ in loaded}
+    for source, corpus, _ in loaded:
+        row = tool.local_usage("MD", source, corpus)
+        assert row.status == "not downloaded"
+        assert f"local_corpora.py fetch {source}" in row.note
+
+
+def test_a_local_corpus_row_counts_officials_and_the_comma_side() -> None:
+    corpus = _local("Ann Lee, M.D.", "MD Bo Wu", "Cy Doe, MD, PhD", "Di Fox, MD/PhD",
+                    "Ed Ng, md; MD")
+    row = tool.local_usage("m.d", "ctgov-officials", corpus)
+    assert row.status == "ok"
+    # The credit and date lead, as ClinicalTrials.gov's terms ask; the
+    # spellings count records, so none exceeds the officials writing it.
+    assert row.note == (f"{_CREDIT}; 5 of 5 officials write it, 4 after a comma; "
+                        "written MD 4, M.D. 1, md 1")
+    assert tool.local_usage("PhD", "ctgov-officials", corpus).note.startswith(
+        f"{_CREDIT}; 2 of 5 officials write it, 2 after a comma")
+    missing = tool.local_usage("FNP-C", "ctgov-officials", corpus)
+    assert missing.note == f"{_CREDIT}; 0 of 5 officials write it, 0 after a comma"
+    assert tool.local_usage("..", "ctgov-officials", corpus).status == "unrepresentable"
+
+
+@pytest.mark.parametrize("word", ["Ph. D.", "Ph D", "ph d,"])
+def test_a_spaced_word_is_looked_up_as_its_words_in_a_row(word: str) -> None:
+    # As one key it could match no word of the index, so it read zero.
+    corpus = _local("Ann Lee, Ph. D.", "Bo Wu, Ph D", "Cy Doe, PhD")
+    row = tool.local_usage(word, "ctgov-officials", corpus)
+    assert row.note == (f"{_CREDIT}; 2 of 3 officials write it, 2 after a comma; "
+                        "as one word 'phd' 1")
+
+
+def test_a_local_corpus_row_appears_in_the_report(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(tool, "load_locals", lambda: [
+        ("ctgov-officials", _local("Ann Lee, MD"), "")])
+    assert tool.main(["--no-wikidata", "MD"]) == 0
+    out = capsys.readouterr().out
+    assert "ctgov-officials (local corpus)" in out
+    assert "1 of 1 officials write it, 1 after a comma" in out
+
+
+def test_a_local_corpus_that_fails_to_load_fails_the_run(
+        monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setattr(tool, "load_locals", lambda: [
+        ("ctgov-officials", None, "ValueError: does not match the sha256")])
+    assert tool.main(["--no-wikidata", "MD"]) == 2
+    assert "failed; ValueError: does not match the sha256" in capsys.readouterr().out
+
+
+def test_a_bug_in_a_lookup_is_raised_not_reported_as_a_failed_row(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*args: object) -> None:
+        raise ValueError("a bug, not a damaged corpus")
+    monkeypatch.setattr(tool._local_corpora(), "lookup", broken)
+    with pytest.raises(ValueError, match="a bug"):
+        tool.local_rows("MD", [("ctgov-officials", _local("Ann Lee, MD"), "")])
+
+
+def test_records_damaged_after_the_index_was_cached_fail_their_own_row(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    # A cached index answers load_locals without the records; a spaced
+    # word then reads them first in the lookup, outside its guard.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    module = tool._local_corpora()
+    plant_corpus(monkeypatch, module, "ctgov-officials", [{"name": "Ann Lee, Ph. D."}],
+                 "2026-10-21", "officials")
+    _LOAD_LOCALS()  # builds and caches the index
+    locals_ = [row for row in _LOAD_LOCALS() if row[0] == "ctgov-officials"]
+    (tmp_path / "local" / "ctgov-officials" / "raw.jsonl").write_text("")
+    [row] = tool.local_rows("Ph. D.", locals_)
+    assert row.status == "failed" and "does not match the sha256" in row.note
+
+
+@pytest.mark.parametrize("damage", ["meta key", "record shape"])
+def test_a_damaged_local_corpus_fails_its_row_not_the_run(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        capsys: pytest.CaptureFixture[str], damage: str) -> None:
+    # The real loader over a real cache: a meta.json missing a key raised
+    # KeyError, which _attempt does not catch, and took every row down.
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    module = tool._local_corpora()
+    plant_corpus(monkeypatch, module, "ctgov-officials", [{"name": "Ann Lee, MD"}],
+                 "2026-10-21", "officials")
+    folder = tmp_path / "local" / "ctgov-officials"
+    meta = json.loads((folder / "meta.json").read_text())
+    if damage == "meta key":
+        del meta["sha256"]
+    else:
+        raw = b'{"nom": "Ann Lee, MD"}\n'
+        (folder / "raw.jsonl").write_bytes(raw)
+        meta["sha256"] = hashlib.sha256(raw).hexdigest()
+    (folder / "meta.json").write_text(json.dumps(meta))
+    monkeypatch.setattr(tool, "load_locals", _LOAD_LOCALS)
+    assert tool.main(["--no-wikidata", "MD"]) == 2
+    out = capsys.readouterr().out
+    assert "ctgov-officials (local corpus)" in out and "failed; CorpusDamaged" in out
+    assert "US Census 2010 surnames" in out

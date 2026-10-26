@@ -18,6 +18,10 @@ def exists(path: str) -> bool:
     return os.path.isfile(path)
 
 
+def read_with_normalization(path: str) -> bytes:
+    return pathlib.Path(path).read_bytes().replace(b"\r\n", b"\n")
+
+
 class ReporterNotWorkingException(Exception):
     def __init__(self, reporter: Reporter):
         super().__init__(f"Reporter {reporter} failed to work!")
@@ -31,11 +35,9 @@ class FileComparator(Comparator):
         if filecmp.cmp(approved_path, received_path, shallow=False):
             return True
         try:
-            approved_raw = pathlib.Path(approved_path).read_text()
-            approved_text = approved_raw.replace("\r\n", "\n")
-            received_raw = pathlib.Path(received_path).read_text()
-            received_text = received_raw.replace("\r\n", "\n")
-            return approved_text == received_text
+            return read_with_normalization(approved_path) == read_with_normalization(
+                received_path
+            )
         except BaseException:
             return False
 

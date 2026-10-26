@@ -10,6 +10,7 @@ import sys
 import tempfile
 import select
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -65,6 +66,11 @@ def interrupted_hook_prompt_text(hook_name: str) -> str:
 STDOUT_POLL_INTERVAL = 0.05
 # Upper bound for polling a hook that has gone quiet; see _stream_output.
 STDOUT_IDLE_POLL_INTERVAL = 0.5
+# Local process logs and RSS guards must not queue behind archive filesystem
+# work: enough blocked rclone index appends can occupy every default worker,
+# hiding completed hook output and delaying memory enforcement. Share one
+# control worker per process, rather than creating threads for every hook.
+_PROCESS_CONTROL_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="abx-process-control")
 SHELL_SIGNAL_STDERR_RE = re.compile(r"(?:Terminated|Killed):\s*(\d+)")
 POLITE_CLEANUP_SIGNAL_EXIT_CODES = {
     -signal.SIGINT,
@@ -106,6 +112,43 @@ class _OutputStreamState:
     stdout_lines: list[str] = field(default_factory=list)
     pending_line: str = ""
     stop_requested: asyncio.Event = field(default_factory=asyncio.Event)
+    memory_error: str = ""
+
+
+def _enforce_memory_limit(event: ProcessStartedEvent, limit: int) -> str:
+    """Best-effort bound for an owned hook tree, not an OS allocation limit."""
+    if not event.pid or event.subprocess.returncode is not None:
+        return ""
+    # The live subprocess handle and start-time PID file establish ownership.
+    # Its argv legitimately changes while abxpkg execs the hook interpreter.
+    if not validate_pid_file(event.pid_file, []):
+        return ""
+    try:
+        process = psutil.Process(event.pid)
+        children = process.children(recursive=True)
+        used = process.memory_info().rss
+        for child in children:
+            try:
+                used += child.memory_info().rss
+            except psutil.Error:
+                continue
+        if used <= limit:
+            return ""
+        # Recheck identity after enumeration. Kill the owned group immediately;
+        # the normal 15-second browser flush grace cannot contain memory growth.
+        if event.subprocess.returncode is not None or not process.is_running() or not validate_pid_file(event.pid_file, []):
+            return ""
+        _send_signal(event.pid, signal.SIGKILL)
+        # Some tools start their own session. psutil's retained child identities
+        # prevent PID reuse from redirecting these kills to unrelated processes.
+        for child in reversed(children):
+            try:
+                child.kill()
+            except psutil.Error:
+                continue
+        return f"Hook memory limit exceeded: {event.hook_name} used {used} RSS bytes (limit {limit})"
+    except (psutil.Error, OSError):
+        return ""
 
 
 def _open_process_spawn_files(
@@ -244,6 +287,39 @@ class ProcessService(BaseService):
             for result in results:
                 if isinstance(result, BaseException):
                     raise result
+
+    async def stop(self) -> None:
+        """Stop owned hooks and finish their facts before the host destroys the bus."""
+
+        # Cancelling an outer event waiter does not await its shielded process
+        # owner. Keep the bus alive until those owners have delivered completion;
+        # an idle timeout followed by destroy loses real exit facts. The existing
+        # takeover event also releases paused schedulers without sealing a crawl.
+        # Capture before control delivery: callbacks discard finished owners,
+        # including failed ones whose errors the host must still receive.
+        owners = set(self._active_process_event_tasks.values())
+        background = set(self._background_completion_tasks)
+        abort = self.bus.emit(CrawlAbortEvent(user_initiated=False))
+        results: list[object] = []
+        try:
+            await abort.now()
+        except Exception as error:
+            results.append(error)
+        owners.update(self._active_process_event_tasks.values())
+        results.extend(await asyncio.gather(*owners, return_exceptions=True))
+        background.update(self._background_completion_tasks)
+        # Even a foreground consumer failure must not skip recorder shutdown.
+        # Retain the background tasks here because their callbacks remove them
+        # from the service once finished, including when a consumer failed.
+        results.extend(await asyncio.gather(self.stop_background_hooks(), *background, return_exceptions=True))
+        errors = [result.error for result in abort.event_results.values() if result.error is not None]
+        errors.extend(result for result in results if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError))
+        if errors:
+            error = errors[0]
+            for other in errors[1:]:
+                if other is not error:
+                    error.add_note(f"Process shutdown also failed: {other}")
+            raise error
 
     async def stop_background_hooks(self) -> None:
         """Stop remaining owned background hooks and record their completions."""
@@ -848,6 +924,8 @@ class ProcessService(BaseService):
                 return stdout, stderr
 
             stdout, stderr = await asyncio.to_thread(read_completed_output)
+            if stdout_state.memory_error:
+                stderr += "\n" + stdout_state.memory_error + "\n"
 
             files_after = await asyncio.to_thread(lambda: set(plugin_output_dir.rglob("*")))
             new_files = await asyncio.to_thread(
@@ -920,6 +998,9 @@ class ProcessService(BaseService):
             def record_completion() -> None:
                 write_jsonl(index_path, proc, also_print=self.emit_jsonl)
                 pid_file.unlink(missing_ok=True)
+                if stdout_state.memory_error:
+                    with stderr_file.open("a") as log:
+                        log.write("\n" + stdout_state.memory_error + "\n")
                 if keep_logs:
                     _preserve_process_logs(plugin_output_dir, stdout_file, stderr_file)
                 else:
@@ -1157,8 +1238,18 @@ class ProcessService(BaseService):
         completion from inherited descriptors.
         """
         poll_interval = STDOUT_POLL_INTERVAL
+        memory_limit = int(event.env.get(f"{event.plugin_name.upper()}_MEMORY_LIMIT", event.env.get("MEMORY_LIMIT", "0")))
+        next_memory_check = 0.0
         try:
             while not state.stop_requested.is_set():
+                if memory_limit > 0 and not state.memory_error and time.monotonic() >= next_memory_check:
+                    state.memory_error = await asyncio.get_running_loop().run_in_executor(
+                        _PROCESS_CONTROL_EXECUTOR,
+                        _enforce_memory_limit,
+                        event,
+                        memory_limit,
+                    )
+                    next_memory_check = time.monotonic() + 1.0
                 read_stdout = await self._emit_new_output_lines(
                     event=event,
                     proc=proc,
@@ -1207,7 +1298,7 @@ class ProcessService(BaseService):
         # Each stream has one retained reader; read() already advances it,
         # including after EOF when the child appends more data. Re-seeking on
         # every poll adds remote I/O without changing the read position.
-        read_task = asyncio.create_task(asyncio.to_thread(stdout_reader.read))
+        read_task = asyncio.get_running_loop().run_in_executor(_PROCESS_CONTROL_EXECUTOR, stdout_reader.read)
         cancellation = None
         while not read_task.done():
             try:

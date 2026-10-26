@@ -12,7 +12,7 @@ class BatchAddItemResultParams(typing_extensions.TypedDict):
 
     status: BatchAddItemResultStatus
     """
-    The document's processing state, as for a single add; error when this item failed
+    The document's processing state after this request, or error when this item failed
     """
 
     error: typing_extensions.NotRequired[str]

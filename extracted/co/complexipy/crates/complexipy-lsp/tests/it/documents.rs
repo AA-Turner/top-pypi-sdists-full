@@ -16,7 +16,7 @@ fn keeps_text_and_version() {
     documents.change(&target, "second".to_string(), 2);
 
     let document = documents.get(&target).unwrap();
-    assert_eq!(document.text, "second");
+    assert_eq!(&*document.text, "second");
     assert_eq!(document.version, 2);
 }
 
@@ -135,6 +135,29 @@ fn strips_query_and_fragment() {
 #[test]
 fn rejects_non_file_schemes() {
     assert!(uri_to_path(&uri("https://example.com/a.py")).is_none());
+}
+
+#[test]
+fn a_localhost_authority_names_the_local_machine() {
+    assert_eq!(
+        uri_to_path(&uri("file://localhost/tmp/a.py")).as_deref(),
+        Some("/tmp/a.py")
+    );
+    assert_eq!(
+        uri_to_path(&uri("file://LOCALHOST/tmp/a.py")).as_deref(),
+        Some("/tmp/a.py")
+    );
+}
+
+#[test]
+fn a_remote_authority_names_a_share() {
+    let path = uri_to_path(&uri("file://server/share/a.py"));
+
+    if cfg!(windows) {
+        assert_eq!(path.as_deref(), Some("//server/share/a.py"));
+    } else {
+        assert_eq!(path, None);
+    }
 }
 
 #[test]

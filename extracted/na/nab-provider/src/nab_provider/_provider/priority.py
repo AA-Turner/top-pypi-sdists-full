@@ -9,11 +9,17 @@ Retained fatal override conflicts get tier -1.
 
 from __future__ import annotations
 
+__lazy_modules__ = (
+    "nab_provider._vendor.packaging.ranges",
+    "nab_provider.errors",
+)
+
 from typing import TYPE_CHECKING
 
 from nab_provider._vendor.packaging.ranges import VersionRange
 
 from ..errors import OverrideConflictError
+from ..priority import CULPRIT_DEMOTE_THRESHOLD, compute_tier
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -24,43 +30,11 @@ if TYPE_CHECKING:
     from ..provider import Provider
 
 
-CONFLICT_THRESHOLD = 5
-
-# Demotion requires a runaway gap to the second-highest culprit, so
-# co-dominant culprits keep standard ordering.
-CULPRIT_DEMOTE_THRESHOLD = 5
-
-# Lower number = higher priority.
 TIER_FATAL = -1
-TIER_AFFECTED = 0
-TIER_NORMAL = 1
-TIER_CULPRIT = 2
 
 # Matching count used while a listing is in flight, so not-yet-fetched
 # packages sort behind ready ones.
 _NO_LISTING_PRIOR = 1000
-
-
-def compute_tier(
-    normalized: str,
-    affected_count: int,
-    culprit_count: int,
-    culprit_counts: Mapping[str, int] | None,
-    *,
-    force_backtracked: bool = False,
-) -> int:
-    """Decide the priority tier from conflict and culprit counts.
-
-    ``force_backtracked`` short-circuits the gap rule: the look-ahead
-    abort is a precise enough culprit signal on its own.
-    """
-    if affected_count >= CONFLICT_THRESHOLD:
-        return TIER_AFFECTED
-    if force_backtracked:
-        return TIER_CULPRIT
-    if is_dominant_culprit(normalized, culprit_count, culprit_counts):
-        return TIER_CULPRIT
-    return TIER_NORMAL
 
 
 def compute_matching(
@@ -114,19 +88,7 @@ def compute_matching(
         assert isinstance(version_range, VersionRange)
         versions = provider.versions_cache[normalized]
 
-        # Walked one entry per version rather than per record: a version's
-        # records are in the range together or not at all, so each visited
-        # version adds its record count and the walk is as long as the
-        # listing's version list, not its file list.
-        #
-        # prereleases=True counts every in-bounds version; the default policy
-        # would buffer in-bounds pre-releases out of the count.
-        distinct = provider.versions_only(normalized, versions)
-        record_counts = provider.version_record_counts[normalized]
-        matching = sum(
-            record_counts[version]
-            for version in version_range.filter(distinct, prereleases=True)
-        )
+        matching = provider.count_matching_records(normalized, version_range, versions)
     elif has_local_source:
         matching = 1
     else:
@@ -139,26 +101,6 @@ def compute_matching(
         provider.matching_cache[normalized] = per_pkg
     per_pkg[version_range] = matching
     return matching
-
-
-def is_dominant_culprit(
-    package: str,
-    package_count: int,
-    culprit_counts: Mapping[str, int] | None,
-) -> bool:
-    """Return True when ``package`` is the runaway top culprit.
-
-    Demote only when the gap to the next culprit is >= CULPRIT_DEMOTE_THRESHOLD;
-    co-dominant culprits stay within ~1 of each other so the standard ordering
-    wins.
-    """
-    if culprit_counts is None or package_count < CULPRIT_DEMOTE_THRESHOLD:
-        return False
-    second_highest = max(
-        (count for other, count in culprit_counts.items() if other != package),
-        default=0,
-    )
-    return package_count - second_highest >= CULPRIT_DEMOTE_THRESHOLD
 
 
 def prioritize(

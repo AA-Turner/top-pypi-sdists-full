@@ -968,6 +968,80 @@ def test_text_that_names_the_mailbox_is_not_a_call(places, command):
     assert _guard_says(command, places["project"], places["home"]) is None
 
 
+#: The agent's shell registering or ending a session itself (#3360): the forged
+#: `session.end` / `session.register` that let it switch off the service's
+#: daemon-session check, in the client's own subcommands and the call shapes.
+SESSION_CALLS = [
+    ("python -I -m probe.service.client end --session-id 0b6f2c1e-5a8d --generation 1761300000000", "session.end"),
+    ("python3 -m probe.service.client register --session-id s --harness claude_code --mode inline --generation 9",
+     "session.register"),
+    ("python -m tap service end --session-id s --generation 5", "session.end"),
+    ("PYTHONPATH=~/.claude/plugins/cache/p/probe-research-tap/0.10.19 python3 -m tap service register "
+     "--session-id s --harness claude_code --mode inline --generation 2", "session.register"),
+    ("python -m tap.service.client end --session-id s --generation 5", "session.end"),
+    ("uv run python -m probe.service.client end --session-id s --generation 5", "session.end"),
+    ("bash -c 'python -I -m probe.service.client end --session-id s --generation 1'", "session.end"),
+    ("python -I -m probe.service.client call session.end '{\"sid\": \"s\", \"generation\": 1}'", "session.end"),
+    ("python3 -c 'from probe.service import client; client.call(\"session.register\", {})'", "session.register"),
+    ("printf '{\"method\":\"session.end\",\"params\":{}}\\n' | nc -U ~/.probe/service.sock", "session.end"),
+    ("python3 - <<'EOF'\nfrom probe.service import client\nclient.call(\"session.end\", {\"sid\": s})\nEOF",
+     "session.end"),
+]
+
+
+@pytest.mark.parametrize("profile", ["agent", "daemon"])
+@pytest.mark.parametrize(("command", "method"), SESSION_CALLS)
+def test_the_agents_own_session_calls_are_refused(places, command, method, profile):
+    from probe.sdk import session_marker
+
+    said = _guard_says(command, places["project"], places["home"], profile=profile)
+    assert said == session_marker.DENY_REASON_SESSION_CALL.format(matched=method)
+
+
+#: Text that names them, the client's other subcommands, and a researcher's own
+#: sessions (`session.end()` on their objects, `--session` flags) are not a call.
+SESSION_READS = [
+    "rg -n 'session.end' agent/src/probe/service",
+    "git log --oneline --grep session.register",
+    "grep -n '\"session.end\"' agent/plugins/probe-research-tap/tap/service_link.py",
+    "python -I -m probe.service.client status",
+    "python -I -m probe.service.client ensure --wait 3",
+    "python -m tap service socket",
+    "python -m probe.service.client call session.list '{}'",
+    "python train.py --session-end 100 --register-hooks",
+    "python -c \"import wandb; run = wandb.init(); run.finish(); session.end()\"",
+    "python -c \"from mylab import session; session.end(); session.register('x')\"",
+    "python - <<'EOF'\nimport requests\ns = requests.Session()\ns.close()  # not session.end\nEOF",
+    "gh pr create --title t --body 'The service refuses session.end from another process'",
+    "git commit -m 'bind session.register and session.end to their registrant'",
+    "python -m pytest tests/test_service_caller_binding.py -k session.end",
+    "kubectl -n research logs deploy/api | grep session.register",
+    "python -m tap status --session-id s",
+    "echo end register | python -m probe.service.client status",
+]
+
+
+@pytest.mark.parametrize("command", SESSION_READS)
+def test_text_that_names_the_session_calls_is_not_a_call(places, command):
+    assert _guard_says(command, places["project"], places["home"]) is None
+
+
+#: The same method names in someone else's protocol (WebDriver BiDi has a
+#: `session.end`): code that names no part of Probe's service is not a call.
+OTHER_SESSION_PROTOCOLS = [
+    "python3 -c \"import json; ws.send(json.dumps({'id': 1, 'method': 'session.end', 'params': {}}))\"",
+    "python3 - <<'EOF'\nimport json\nfrom selenium.webdriver.common.bidi import session\n"
+    "await conn.call({\"method\": \"session.end\", \"params\": {}})\nEOF",
+    "python -c \"from browser import bidi; bidi.call('session.end', {})\"",
+    "printf '{\"id\":1,\"method\":\"session.end\",\"params\":{}}' | socat - UNIX-CONNECT:/tmp/geckodriver.sock",
+]
+
+
+@pytest.mark.parametrize("command", OTHER_SESSION_PROTOCOLS)
+def test_another_protocols_session_end_is_not_a_call(places, command):
+    assert _guard_says(command, places["project"], places["home"]) is None
+
+
 def test_the_key_folder_is_named_in_the_approvals_tripwire():
     from probe.sdk import session_marker
 

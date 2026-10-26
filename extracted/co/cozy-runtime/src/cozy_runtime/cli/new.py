@@ -61,12 +61,6 @@ warn_unreachable = true
 """
 
 
-def _package_toml(pkg: str) -> str:
-    return f"""[application]
-object = "{pkg}:app"
-"""
-
-
 _MODULE = '''"""__PKG__ — a cozy-runtime package.
 
 The SIGNATURE is the contract:
@@ -129,13 +123,15 @@ from __PKG__ import app
 def main() -> None:
     for surface in describe(app):
         caps = ", ".join(sorted(surface.capabilities)) or "(none)"
-        print(f"registered: {surface.name}  gpu={surface.gpu}  capabilities: {caps}")
-    envelope = invoke_with_fakes(
+        print(f"registered: {surface.name}  gpu={surface.accelerator}  capabilities: {caps}")
+    envelope, outcome, _ = invoke_with_fakes(
         app.get("generate"), {"prompt": "a cozy cabin in the woods", "seed": 7}
     )
-    print("result:  ", envelope.result)
-    print("outputs: ", envelope.outputs)
-    print("features:", envelope.features.values)
+    print("outcome: ", outcome.terminal, outcome.message)
+    if envelope is not None:
+        print("result:  ", envelope.result)
+        print("outputs: ", envelope.outputs)
+        print("features:", envelope.features.values)
 
 
 if __name__ == "__main__":
@@ -180,7 +176,6 @@ def run(name: str, target_dir: str) -> Result:
 
     files = {
         "pyproject.toml": _pyproject(name, pkg),
-        "package.toml": _package_toml(pkg),
         "README.md": _readme(name, pkg),
         ".gitignore": ".venv/\n__pycache__/\ndist/\n",
         f"src/{pkg}/__init__.py": _module(pkg),

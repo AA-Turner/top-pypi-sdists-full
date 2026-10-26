@@ -2,6 +2,8 @@ import json
 import os
 import platform
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from functools import lru_cache
 from urllib.error import URLError
 from urllib.parse import quote, urlsplit, urlunsplit
@@ -20,6 +22,33 @@ from sorl.thumbnail.helpers import ThumbnailError, deserialize, get_module_class
 from sorl.thumbnail.parsers import parse_geometry
 
 url_pat = re.compile(r'^(https?|ftp):\/\/')
+
+# The last source read, as bytes, kept for the rest of the request or source_cache() block
+sources = ContextVar('sorl.thumbnail.sources', default=None)
+
+
+@contextmanager
+def source_cache():
+    """Keep the last source read until the block ends, so each image is read once."""
+    token = sources.set({})
+    try:
+        yield
+    finally:
+        sources.reset(token)
+
+
+def open_source_cache(**kwargs):
+    """request_started: a request is a source_cache() block."""
+    sources.set({})
+
+
+def close_source_cache(**kwargs):
+    """request_finished"""
+    cache = sources.get()
+    if cache is not None:
+        # Threads the request ran through sync_to_async share this dict
+        cache.clear()
+    sources.set(None)
 
 
 @lru_cache
@@ -111,7 +140,7 @@ class ImageFile(BaseImageFile):
         elif hasattr(file_, 'storage'):
             self.storage = file_.storage
         elif url_pat.match(self.name):
-            self.storage = UrlStorage()
+            self.storage = url_storage
         else:
             self.storage = default_storage
 
@@ -165,22 +194,39 @@ class ImageFile(BaseImageFile):
         return self.storage.url(self.name)
 
     def read(self):
-        f = self.storage.open(self.name)
-        try:
-            return f.read()
-        finally:
-            f.close()
+        cache = sources.get()
+        key = (self.storage, self.name)
+        data = cache.get(key) if cache is not None else None
+        if data is None:
+            f = self.storage.open(self.name)
+            try:
+                data = f.read()
+            finally:
+                f.close()
+            if cache is not None:
+                # One entry: a filter, the tag and every size of one image share it
+                cache.clear()
+                cache[key] = data
+        return data
+
+    def forget(self):
+        """Drop the kept read of this file, so the next read goes to the storage."""
+        cache = sources.get()
+        if cache:
+            cache.pop((self.storage, self.name), None)
 
     def write(self, content):
         if not isinstance(content, File):
             content = ContentFile(content)
 
         self._size = None
+        self.forget()
         self.name = self.storage.save(self.name, content)
 
         return self.name
 
     def delete(self):
+        self.forget()
         return self.storage.delete(self.name)
 
     def serialize_storage(self, use_backend_name=False):
@@ -196,9 +242,10 @@ class ImageFile(BaseImageFile):
         if use_backend_name:
             return backend
         # Resolve the alias by instance, not by class: several aliases may share
-        # a backend class and differ only in OPTIONS (#806).
+        # a backend class and differ only in OPTIONS (#806). BACKEND is imported,
+        # not compared as text, as it may name a re-export of the class (#834).
         for alias, params in storages.backends.items():
-            if params.get("BACKEND") == backend and storages[alias] is storage:
+            if get_module_class(params["BACKEND"]) is cls and storages[alias] is storage:
                 return alias
         return backend
 
@@ -265,6 +312,9 @@ class UrlStorage(Storage):
 
     def delete(self, name):
         pass
+
+
+url_storage = UrlStorage()
 
 
 def delete_all_thumbnails():

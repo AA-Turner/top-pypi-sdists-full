@@ -37,6 +37,7 @@ from skylos.constants import (
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.languages.cpp import CPP_HEADER_EXTS, CPP_SOURCE_EXTS
+from skylos.visitors.languages.php import PHP_SOURCE_EXTS
 from skylos.visitors.languages.shell import SHELL_SOURCE_EXTS
 from skylos.visitors.languages.typescript.analysis import (
     build_ts_import_graph,
@@ -60,6 +61,7 @@ from skylos.analysis.ast_cache import (
     releases_python_ast_cache,
 )
 from skylos.visitors.languages.go import clear_go_cache
+from skylos.visitors.languages.php.drupal import clear_drupal_cache
 
 from skylos.rules.secrets import (
     SECRET_CONFIG_SUFFIXES as _SECRET_CONFIG_SUFFIXES,
@@ -86,6 +88,7 @@ from skylos.core.safe_cache_io import read_project_text_no_symlink
 from skylos.core.linter import LinterVisitor
 from skylos.core.review_context import build_analysis_review_context
 from skylos.deadcode.signature_contracts import mark_signature_contract_parameters
+from skylos.deadcode.django_converter_liveness import find_django_converter_classes
 
 from skylos.rules.quality.policy import analyze_repo_policy
 from skylos.rules.vibe_dictionary import build_vibe_dictionary
@@ -138,6 +141,7 @@ _OPTIONAL_RUN_STATE_ATTRIBUTES = (
     "_global_protocol_implementers",
     "_global_protocol_method_names",
     "_global_django_path_converter_classes",
+    "_django_hook_proof",
     "_abstract_override_indexes",
     "_duck_typed_implementers",
     "_dotted_variable_simple_name_counts",
@@ -608,7 +612,7 @@ _TS_JS_SOURCE_EXTS = (
     ".mjs",
     ".cjs",
 )
-_PHP_SOURCE_EXTS = (".php",)
+_PHP_SOURCE_EXTS = PHP_SOURCE_EXTS
 _RUST_SOURCE_EXTS = (".rs",)
 _CPP_SOURCE_EXTS = CPP_SOURCE_EXTS + CPP_HEADER_EXTS
 _DART_SOURCE_EXTS = (".dart",)
@@ -1609,6 +1613,11 @@ def _index_grep_verify_candidates(entries: dict) -> dict:
     return indexed
 
 
+def _is_function_local_definition(defn, definitions: dict) -> bool:
+    owner = definitions.get(defn.name.rsplit(".", 1)[0])
+    return owner is not None and owner.type in ("function", "method")
+
+
 def _apply_grep_verify_verdicts(candidate_defs: dict, verdicts: dict) -> int:
     rescued = 0
     for full_name, verdict in verdicts.items():
@@ -1723,7 +1732,9 @@ def _is_loaded_root(defn) -> bool:
 
 
 # Penalty codes for methods kept because their base class dispatches to them.
-_DISPATCHED_OVERRIDE_CODES = frozenset({"parent_override", "protocol_override"})
+_DISPATCHED_OVERRIDE_CODES = frozenset(
+    {"parent_override", "protocol_override", "drf_hook"}
+)
 
 
 def _is_dispatched_override(defn) -> bool:
@@ -1731,11 +1742,12 @@ def _is_dispatched_override(defn) -> bool:
 
     The penalty pass already keeps it out of the report; treating it as dead
     here would report the methods only it calls (``self.helper`` callbacks).
+    Reporting confidence alone is not dispatch evidence: ordinary dunders and
+    ignored methods may also have confidence zero without ever being called.
     """
-    return (
-        getattr(defn, "type", None) == "method"
-        and getattr(defn, "suppression_code", None) in _DISPATCHED_OVERRIDE_CODES
-    )
+    if getattr(defn, "type", None) != "method":
+        return False
+    return getattr(defn, "suppression_code", None) in _DISPATCHED_OVERRIDE_CODES
 
 
 def _annotate_dead_code_evidence_sources(defs, test_flags, framework_flags) -> None:
@@ -1744,7 +1756,12 @@ def _annotate_dead_code_evidence_sources(defs, test_flags, framework_flags) -> N
     is_test_file = bool(getattr(test_flags, "is_test_file", False))
 
     for defn in defs:
-        if getattr(defn, "line", None) in framework_lines:
+        is_fastapi_parameter = (
+            getattr(defn, "type", None) == "parameter"
+            and getattr(defn, "line", None)
+            in getattr(framework_flags, "fastapi_candidate_lines", ())
+        )
+        if getattr(defn, "line", None) in framework_lines and not is_fastapi_parameter:
             _mark_evidence_ref(defn, "framework_root")
             signals = getattr(defn, "framework_signals", None)
             if isinstance(signals, list) and "framework_decorator" not in signals:
@@ -1892,7 +1909,7 @@ class Skylos:
         ".mjs": "JavaScript",
         ".cjs": "JavaScript",
         ".java": "Java",
-        ".php": "PHP",
+        **dict.fromkeys(PHP_SOURCE_EXTS, "PHP"),
         ".rs": "Rust",
         ".cpp": "C++",
         ".cc": "C++",
@@ -2321,6 +2338,12 @@ class Skylos:
 
         def is_dead_caller(caller: str, callee_defn) -> bool:
             caller_key = key_for_caller(caller, callee_defn)
+            if caller_key is not None:
+                caller_defn = self.defs.get(caller_key)
+                # Framework-suppressed hooks stay live for their callees even
+                # when the owning class has no static references.
+                if caller_defn is not None and _is_dispatched_override(caller_defn):
+                    return False
             if caller_key in dead_set:
                 return True
             if "." not in caller:
@@ -2739,6 +2762,9 @@ class Skylos:
                     "excluded_folders"
                 ),
                 module_names=getattr(self, "_module_names_by_file", None),
+                django_converter_classes=getattr(
+                    self, "_global_django_path_converter_classes", None
+                ),
             )
             self._dead_code_liveness_report = report
             if report.rescued:
@@ -3221,7 +3247,11 @@ class Skylos:
                     continue
                 if defn.type == "function":
                     pass
-                elif defn.type == "variable" and "." in defn.name:
+                elif (
+                    defn.type == "variable"
+                    and "." in defn.name
+                    and not _is_function_local_definition(defn, self.defs)
+                ):
                     pass
                 else:
                     continue
@@ -3917,6 +3947,7 @@ class Skylos:
             self._reset_run_state()
         self._has_analyzed = True
         clear_go_cache()
+        clear_drupal_cache()
         self._sca_coverage = None
 
         raw_first = Path(
@@ -5064,8 +5095,16 @@ class Skylos:
         self._global_abc_implementers = {}
         self._global_protocol_implementers = {}
         self._global_protocol_method_names = {}
-        self._global_django_path_converter_classes = set()
+        self._global_django_path_converter_classes = find_django_converter_classes(
+            self.defs, files, root
+        )
         self._global_dependency_alias_names = set()
+
+        from skylos.deadcode.fastapi_evidence import reconcile_fastapi_evidence
+
+        self._fastapi_liveness_report = reconcile_fastapi_evidence(
+            self.defs, file_contexts, self.refs, files, root
+        )
 
         for defs, test_flags, framework_flags, file, mod, cfg in file_contexts:
             self._global_dependency_alias_names.update(
@@ -5105,10 +5144,6 @@ class Skylos:
                 if cls not in self._global_protocol_method_names:
                     self._global_protocol_method_names[cls] = set()
                 self._global_protocol_method_names[cls].update(methods)
-
-            self._global_django_path_converter_classes.update(
-                getattr(framework_flags, "django_path_converter_classes", set())
-            )
 
         self._duck_typed_implementers = set()
 
@@ -6090,6 +6125,15 @@ class Skylos:
         for top_level_ref in all_top_level_refs:
             defn = self.defs.get(top_level_ref)
             if defn is not None:
+                if self._fastapi_liveness_report is not None:
+                    from skylos.deadcode.fastapi_evidence import (
+                        suppress_synthetic_fastapi_execution,
+                    )
+
+                    if suppress_synthetic_fastapi_execution(
+                        defn, self._fastapi_liveness_report
+                    ):
+                        continue
                 _mark_evidence_ref(defn, "top_level_execution")
 
         if progress_callback:

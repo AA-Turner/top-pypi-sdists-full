@@ -742,7 +742,9 @@ class DeviantartAvatarExtractor(DeviantartExtractor):
             if fmt:
                 fmt = "-" + fmt
             url = (f"https://a.deviantart.net/avatars{fmt}"
-                   f"/{name[0]}/{name[1]}/{name}.{ext}?{index}")
+                   f"/{name[0].replace('-', '_')}"
+                   f"/{name[1].replace('-', '_')}"
+                   f"/{name}.{ext}?{index}")
             results.append(self._make_deviation(url, user, index, fmt))
         return results
 

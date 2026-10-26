@@ -21,6 +21,7 @@ from pathlib import Path
 
 import pytest
 
+from probe._shared import pins
 from probe.service import client, paths, recorders
 from probe.service.protocol import Method
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
@@ -825,13 +826,13 @@ def test_a_tap_is_copied_once_per_version_and_files(tmp_path, monkeypatch):
     store = _pin_dir(monkeypatch, tmp_path)
     root = _late_tap(tmp_path / "cache" / "0.10.18", "0.10.18")
     first = recorders._pin(str(root), "0.10.18")
-    assert first.parent == store and (first / "tap" / "late.json").is_file() and (first / recorders.PIN_DONE).is_file()
+    assert first.parent == store and (first / "tap" / "late.json").is_file() and (first / pins.PIN_DONE).is_file()
     assert recorders._pin(str(root), "0.10.18") == first, "the same files: the same copy"
     (root / "tap" / "late.py").write_text('WORD = "edited-"\n')  # a checkout edited in place
     second = recorders._pin(str(root), "0.10.18")
     assert second != first and (second / "tap" / "late.py").read_text() == 'WORD = "edited-"\n'
     # A copy cut short (no PIN_DONE) is made again, never used.
-    (second / recorders.PIN_DONE).unlink()
+    (second / pins.PIN_DONE).unlink()
     (second / "tap" / "late.py").unlink()
     assert recorders._pin(str(root), "0.10.18") == second and (second / "tap" / "late.py").is_file()
 
@@ -839,19 +840,19 @@ def test_a_tap_is_copied_once_per_version_and_files(tmp_path, monkeypatch):
 def test_old_copies_go_but_never_the_one_loading(tmp_path, monkeypatch):
     store = _pin_dir(monkeypatch, tmp_path)
     made, now = [], time.time()
-    for n in range(recorders.PIN_KEEP + 2):
+    for n in range(pins.PIN_KEEP + 2):
         made.append(recorders._pin(str(_late_tap(tmp_path / "cache" / f"0.10.{n}", f"0.10.{n}")), f"0.10.{n}"))
         os.utime(made[-1], (now - 100 + n, now - 100 + n))
     week_old = recorders._pin(str(_late_tap(tmp_path / "cache" / "0.9.0", "0.9.0")), "0.9.0")
-    os.utime(week_old, (now - recorders.PIN_KEEP_S - 60,) * 2)
+    os.utime(week_old, (now - pins.PIN_KEEP_S - 60,) * 2)
     stale = store / ".0.10.9-x.123.456"
     stale.mkdir()
     os.utime(stale, (1, 1))
     loading = recorders._pin(str(tmp_path / "cache" / "0.10.0"), "0.10.0")  # the oldest, loaded again
     assert loading == made[0]
-    left = sorted(p.name for p in store.iterdir())
+    left = sorted(p.name for p in store.iterdir() if p.is_dir())  # the store also holds its lock file
     # The one loading, and the newest-used PIN_KEEP others; never a leftover.
-    assert left == sorted(p.name for p in [made[0], *made[-recorders.PIN_KEEP:]])
+    assert left == sorted(p.name for p in [made[0], *made[-pins.PIN_KEEP:]])
 
 
 def test_a_tap_that_cannot_be_copied_loads_in_place(tmp_path, monkeypatch):
@@ -895,8 +896,8 @@ def test_a_tap_written_while_it_is_copied_is_never_used(tmp_path, monkeypatch, c
     monkeypatch.setattr(shutil, "copytree", copy_then_write)
     with pytest.raises(OSError, match="changed while it was copied"):
         recorders._pin(str(root), "0.10.18")
-    assert not [p for p in store.iterdir() if (p / recorders.PIN_DONE).exists()], "no copy marked done"
-    assert not list(store.iterdir()), "its part copy is gone too"
+    assert not [p for p in store.iterdir() if (p / pins.PIN_DONE).exists()], "no copy marked done"
+    assert not [p for p in store.iterdir() if p.is_dir()], "its part copy is gone too"
     lines = []
     host = recorders.RecorderHost(log=lines.append, loop_getter=lambda: None)
     try:
@@ -909,5 +910,5 @@ def test_a_tap_written_while_it_is_copied_is_never_used(tmp_path, monkeypatch, c
     assert any("changed while it was copied" in line for line in lines)
     monkeypatch.setattr(shutil, "copytree", real)
     whole = recorders._pin(str(root), "0.10.18")  # once it holds still: copied
-    assert (whole / recorders.PIN_DONE).is_file() and (whole / "tap" / "late.py").read_text().endswith(
+    assert (whole / pins.PIN_DONE).is_file() and (whole / "tap" / "late.py").read_text().endswith(
         "MORE = 2\n" if change == "a-module-grows" else 'WORD = "late-"\n')

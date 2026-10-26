@@ -212,7 +212,7 @@ class AssetsClient:
             Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
 
         html_content : typing.Optional[str]
-            user_interface only. HTML used as the interface's initial index.html; styles.css and script.js start empty.
+            user_interface only. HTML used as the interface's initial index.html; without it the interface starts from Athena's starter page.
 
         memory : typing.Optional[int]
             Computer only. Memory in GiB. Defaults to the template's default. Same policy and admin rules as cpu.
@@ -1235,7 +1235,7 @@ class AsyncAssetsClient:
             Computer only. Environment variables to set on the computer. Must include every key the template or environment requires. Also accepted as 'envVars'.
 
         html_content : typing.Optional[str]
-            user_interface only. HTML used as the interface's initial index.html; styles.css and script.js start empty.
+            user_interface only. HTML used as the interface's initial index.html; without it the interface starts from Athena's starter page.
 
         memory : typing.Optional[int]
             Computer only. Memory in GiB. Defaults to the template's default. Same policy and admin rules as cpu.

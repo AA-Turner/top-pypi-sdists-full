@@ -1,0 +1,20 @@
+include("/usr/local/share/cmake-4.4/Modules/GoogleTestAddTests.cmake")
+gtest_discover_tests_impl(
+  TEST_TARGET [==[tvm_ffi_tests]==]
+  TEST_EXECUTABLE [==[/home/runner/work/tvm-ffi/tvm-ffi/build_test/lib/tvm_ffi_tests]==]
+  TEST_EXECUTOR [==[]==]
+  TEST_WORKING_DIR [==[/home/runner/work/tvm-ffi/tvm-ffi]==]
+  TEST_EXTRA_ARGS [==[]==]
+  TEST_PROPERTIES [==[VS_DEBUGGER_WORKING_DIRECTORY]==] [==[/home/runner/work/tvm-ffi/tvm-ffi]==]
+  TEST_PREFIX [==[]==]
+  TEST_SUFFIX [==[]==]
+  TEST_FILTER [==[]==]
+  NO_PRETTY_TYPES [==[FALSE]==]
+  NO_PRETTY_VALUES [==[FALSE]==]
+  TEST_LIST [==[tvm_ffi_tests_TESTS]==]
+  CTEST_FILE [==[/home/runner/work/tvm-ffi/tvm-ffi/build_test/tests/cpp/tvm_ffi_tests_fa0a74a5_tests.cmake]==]
+  TEST_DISCOVERY_TIMEOUT [==[600]==]
+  TEST_DISCOVERY_EXTRA_ARGS [==[]==]
+  TEST_XML_OUTPUT_DIR [==[]==]
+  TEST_JSON_OUTPUT_DIR [==[/home/runner/work/tvm-ffi/tvm-ffi/build_test/tests/cpp]==]
+)

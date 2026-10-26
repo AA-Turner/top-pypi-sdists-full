@@ -359,6 +359,7 @@ def test_an_outage_keeps_every_line_and_sends_it_once_the_server_is_back(host):
     _exactly_once(host)
 
 
+@pytest.mark.heavy
 def test_a_folder_switched_off_mid_session_ships_nothing_more(host):
     host.write(2)
     host.start()
@@ -489,6 +490,7 @@ def test_a_recorder_its_sessions_tap_watch_outran_says_it_records_nothing(servic
 # -- a session `tap watch` took at its start is handed to the service ---------------------------------
 
 
+@pytest.mark.heavy
 def test_a_session_tap_watch_took_at_its_start_is_handed_to_the_service(service_home, stub, agent, monkeypatch):
     """Live run 39933153434: sessions started at the instant an update landed
     got `tap watch` (the service could not be reached), and kept it for their

@@ -4,7 +4,9 @@ import asyncio
 import dataclasses
 import inspect
 from collections.abc import Callable
-from typing import Any
+from contextvars import Context
+from functools import wraps
+from typing import Any, ParamSpec, TypeVar
 
 import pyarrow as pa
 import pyarrow.ipc as ipc
@@ -12,6 +14,18 @@ import pyarrow.ipc as ipc
 from chalk_remote_call.arrow_utils import decode_ipc_stream, encode_record_batch
 from chalk_remote_call.input_transform import resolve_column_names, transform
 from chalk_remote_call.tracing import remote_function_invocation_span
+
+_Params = ParamSpec("_Params")
+_Result = TypeVar("_Result")
+
+
+def _isolated_context(function: Callable[_Params, _Result]) -> Callable[_Params, _Result]:
+    @wraps(function)
+    def invoke(*args: _Params.args, **kwargs: _Params.kwargs) -> _Result:
+        # Keep native thread state reusable while request ContextVars start empty.
+        return Context().run(function, *args, **kwargs)
+
+    return invoke
 
 
 def _is_structured(obj: Any) -> bool:
@@ -124,27 +138,19 @@ def _coerce_to_record_batch(result: Any) -> pa.RecordBatch:
         raise TypeError(f"Cannot convert handler result of type {type(result).__name__} to RecordBatch: {e}") from e
 
 
-def _get_or_create_event_loop() -> asyncio.AbstractEventLoop:
-    """Get the running event loop or create a new one."""
-    try:
-        return asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        return loop
-
-
 def _run_async(coro):
-    """Run a coroutine synchronously."""
-    loop = _get_or_create_event_loop()
-    if loop.is_running():
-        # Already inside an async context — can't use run_until_complete.
-        # Create a new loop in a thread.
+    """Run a coroutine synchronously and close its owned event loop."""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        # A caller's running loop stays on its own thread and remains open.
         import concurrent.futures
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             return pool.submit(asyncio.run, coro).result()
-    return loop.run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def _drain_async_gen(agen, emit: Callable[[bytes], None]) -> None:
@@ -157,6 +163,7 @@ def _drain_async_gen(agen, emit: Callable[[bytes], None]) -> None:
     _run_async(_drain())
 
 
+@_isolated_context
 def process_batches(
     ipc_bytes: bytes,
     handler: Callable[..., Any],
@@ -210,6 +217,7 @@ def _concat_batches(batches: list[pa.RecordBatch]) -> pa.RecordBatch:
     return pa.Table.from_batches(batches).combine_chunks().to_batches()[0]
 
 
+@_isolated_context
 def process_batches_coalesced(
     items_ipc_bytes: list[bytes],
     handler: Callable[..., Any],
@@ -292,6 +300,7 @@ def process_batches_coalesced(
     return output
 
 
+@_isolated_context
 def process_batches_coalesced_combined(
     items_ipc_bytes: list[bytes],
     handler: Callable[..., Any],

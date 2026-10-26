@@ -1,0 +1,147 @@
+schema = 1
+
+[[word]]
+text = "dhr"
+salutation = { gender = "m", expands = "de heer, Mr.", after_given = true }
+
+[[word]]
+text = "heren"
+salutation = { gender = "m", expands = "the plural of heer, 'de heren'", after_given = true }
+family = { us_census_2010 = 123, wikidata = 1, as_of = 2026-10-24, note = "kept for after_given (decisions/H8)" }
+
+[[word]]
+text = "juffrouw"
+salutation = { issue = 606, gender = "f", after_given = true }
+
+[[word]]
+text = "meneer"
+salutation = { issue = 606, gender = "m", after_given = true }
+
+[[word]]
+text = "mevrouw"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "mevr"
+salutation = { gender = "f", same_as = "mevrouw", after_given = true }
+
+[[word]]
+text = "mevrouwe"
+salutation = { gender = "f", same_as = "mevrouw", expands = "the archaic spelling of mevrouw", after_given = true }
+
+[[word]]
+text = "baron"
+nobility = { gender = "m" }
+
+[[word]]
+text = "graaf"
+nobility = { gender = "m", expands = "count", issue = 606, note = "borne; one of the three words #606 proposed the graf class for" }
+
+[[word]]
+text = "vrouwe"
+nobility = { gender = "f", expands = "lady, the style of a noblewoman" }
+
+[[word]]
+text = "historicus"
+occupation = {}
+
+[[word]]
+text = "aan"
+preposition = { may_be_given = true, issue = 18, expands = "on, at: \"aan den Toorn\"" }
+
+[[word]]
+text = "aen"
+[word.preposition]
+may_be_given = true
+issue = 18
+expands = "aan, archaic spelling: \"aen de Landerwer\""
+
+[[word]]
+text = "op"
+preposition = { may_be_given = false, issue = 18, expands = "at, on: \"op den Berg\"" }
+
+[[word]]
+text = "te"
+[word.preposition]
+may_be_given = true
+issue = 18
+expands = "at: \"te Riele\""
+note = "Te Awanui-a-Rangi: a Māori given-name element, and in the corpus. Looks like the Dutch preposition 'te', which is why attestation rather than etymology decides"
+
+[[word]]
+text = "ter"
+preposition = { may_be_given = false, expands = "at the, te der contracted: \"ter Horst\"" }
+
+[[word]]
+text = "tho"
+[word.preposition]
+may_be_given = true
+issue = 18
+expands = "to, Low German zu: \"tho Wopenreijss\""
+
+[[word]]
+text = "thoe"
+preposition = { may_be_given = true, issue = 18, expands = "to, archaic: \"thoe Holthues\"" }
+
+[[word]]
+text = "van"
+[word.preposition]
+may_be_given = true
+expands = "of, from"
+note = "Vietnamese Văn, and Van Johnson -- the canonical particle-or-given ambiguity this whole flag exists for"
+
+[[word]]
+text = "vande"
+preposition = { may_be_given = true, issue = 18, expands = "van de contracted: \"Vande Casteele\"" }
+
+[[word]]
+text = "vander"
+preposition = { may_be_given = true, expands = "van der contracted" }
+
+[[word]]
+text = "vd"
+[word.preposition]
+may_be_given = false
+issue = 18
+expands = "van der, abbreviated"
+note = "Also the British Volunteer Decoration, a suffix acronym: two non-name readings, so C-ii decides it on frequency and the Dutch one wins (decisions/vocabulary-collisions)."
+
+[[word]]
+text = "'t"
+article = { may_be_given = false, expands = "het, the: \"'t Hooft\"" }
+
+[[word]]
+text = "’t"
+[word.article]
+may_be_given = false
+issue = 700
+expands = "the same, typographic apostrophe"
+same_as = "'t"
+
+[[word]]
+text = "de"
+article = { may_be_given = false, expands = "the: \"de Vries\"" }
+
+[[word]]
+text = "den"
+article = { may_be_given = true, expands = "the: \"van den Berg\"" }
+
+[[word]]
+text = "der"
+article = { may_be_given = false, expands = "the: \"van der Berg\"" }
+
+[[word]]
+text = "het"
+article = { may_be_given = false, issue = 18, expands = "the" }
+
+[[word]]
+text = "heer"
+[word.rank]
+may_be_given = true
+issue = 18
+expands = "lord, the nobiliary 'heer van'"
+note = "added from #18's test \"Johan de heer Van Kampen\" (family 'de heer Van Kampen'), which appears to be two real names run together (Johannes de Heer, a Dutch Protestant figure, and the surname Van Kampen): the string occurs elsewhere only in another name parser's test data (hex.pm full_name_splitter 1.0.3). No real name supports the rank reading, and its may_be_given = true is the unexamined default: nobody has checked Heer as a given name. Removing it moves PARTICLES, so it is left to #766"
+
+[[word]]
+text = "geboren"
+birth_marker = { issue = 274 }

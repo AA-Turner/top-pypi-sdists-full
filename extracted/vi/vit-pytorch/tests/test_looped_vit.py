@@ -253,6 +253,127 @@ def test_adaptive_exit_targets():
     assert targets.shape == (3, 3)
     assert torch.allclose(targets, stack(expected))
 
+def test_loopcd_zero_strength_matches_unguided():
+    v = make_vit().eval()
+    img = torch.randn(2, 3, 32, 32)
+
+    with torch.no_grad():
+        unguided = v(img)
+
+        assert torch.allclose(v(img, guidance = 'logits', guidance_strength = 0.), unguided, atol = 1e-5)
+        assert torch.allclose(v(img, guidance = 'hidden', guidance_strength = 0.), unguided, atol = 1e-5)
+
+def test_loopcd_logits_matches_manual_formula():
+    v = make_vit().eval()
+    img = torch.randn(4, 3, 32, 32)
+
+    with torch.no_grad():
+        all_logits = v(img, return_all_logits = True)
+        reference, final = all_logits[0], all_logits[-1]
+
+        # z' = z_R + w (z_R - z_1)
+
+        for strength in (0.25, 0.5, 1.):
+            expected = final + strength * (final - reference)
+            guided = v(img, guidance = 'logits', guidance_strength = strength)
+            assert torch.allclose(guided, expected, atol = 1e-5)
+
+def test_loopcd_hidden_matches_manual_formula():
+    v = make_vit().eval()
+    img = torch.randn(4, 3, 32, 32)
+
+    states = []
+    hook = v.looped.register_forward_hook(lambda _, __, out: states.append(out))
+
+    with torch.no_grad():
+        v(img)
+        final, reference = states[-1], states[0]
+
+        # h' = h_R + w (h_R - h_1)
+
+        for strength in (0.25, 0.5, 1.):
+            expected = v.logits_from_hidden(final + strength * (final - reference))
+            guided = v(img, guidance = 'hidden', guidance_strength = strength)
+            assert torch.allclose(guided, expected, atol = 1e-5)
+
+    hook.remove()
+
+def test_loopcd_reference_loop_is_selectable():
+    v = make_vit().eval()
+    img = torch.randn(2, 3, 32, 32)
+
+    with torch.no_grad():
+        all_logits = v(img, loop_depth = 4, return_all_logits = True)
+        final = all_logits[-1]
+
+        for reference_loop in (1, 2, 3):
+            reference = all_logits[reference_loop - 1]
+            expected = final + 0.5 * (final - reference)
+
+            guided = v(img, loop_depth = 4, guidance = 'logits', guidance_strength = 0.5,
+                       guidance_reference_loop = reference_loop)
+            assert torch.allclose(guided, expected, atol = 1e-5)
+
+def test_loopcd_adaptive_strength_uses_top_two_probability_margin():
+    v = make_vit().eval()
+    img = torch.randn(8, 3, 32, 32)
+
+    with torch.no_grad():
+        all_logits = v(img, return_all_logits = True)
+        reference, final = all_logits[0], all_logits[-1]
+
+        margin = final.softmax(dim = -1).topk(2, dim = -1).values
+        strength = 1. * (1. - (margin[:, 0] - margin[:, 1]))
+
+        expected = final + rearrange(strength, 'b -> b 1') * (final - reference)
+        guided = v(img, guidance = 'logits', guidance_strength = 1., guidance_adaptive = True)
+
+        assert torch.allclose(guided, expected, atol = 1e-5)
+        assert (strength >= 0.).all() and (strength <= 1.).all()
+
+def test_loopcd_hidden_guidance_keeps_a_single_output_pass():
+    v = make_vit().eval()
+    img = torch.randn(2, 3, 32, 32)
+
+    calls = []
+    hook = v.post_loop.register_forward_hook(lambda *_: calls.append(1))
+
+    v(img, loop_depth = 4)
+    assert len(calls) == 1
+
+    v(img, loop_depth = 4, guidance = 'hidden', guidance_strength = 0.5)
+    assert len(calls) == 2, 'hidden guidance combines the states before a single output pass'
+
+    v(img, loop_depth = 4, guidance = 'logits', guidance_strength = 0.5)
+    assert len(calls) == 4, 'logit guidance decodes the reference state too'
+
+    hook.remove()
+
+def test_loopcd_guided_prediction_takes_the_place_of_the_final_loop():
+    v = make_vit().eval()
+    img = torch.randn(2, 3, 32, 32)
+
+    with torch.no_grad():
+        unguided = v(img, return_all_logits = True)
+        guided = v(img, return_all_logits = True, guidance = 'logits', guidance_strength = 0.5)
+
+        assert guided.shape == (4, 2, 10)
+        assert torch.allclose(guided[:-1], unguided[:-1])
+        assert torch.allclose(guided[-1], v(img, guidance = 'logits', guidance_strength = 0.5))
+
+def test_loopcd_asserts():
+    v = make_vit()
+    img = torch.randn(2, 3, 32, 32)
+
+    with pytest.raises(AssertionError):
+        v(img, guidance = 'both')
+
+    with pytest.raises(AssertionError):
+        v(img, guidance = 'logits', guidance_reference_loop = 4)
+
+    with pytest.raises(AssertionError):
+        v(img, guidance = 'hidden', guidance_adaptive = True)
+
 def test_adaptive_looping():
     v = make_vit(adaptive_loop = True)
     img = torch.randn(2, 3, 32, 32)

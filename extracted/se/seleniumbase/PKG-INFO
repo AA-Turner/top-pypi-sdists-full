@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.56.3
+Version: 4.56.4
 Summary: SeleniumBase is a framework for web crawling, scraping, and testing. Supports pytest. CDP Mode adds stealth. Includes many tools.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -63,7 +63,7 @@ Requires-Dist: packaging>=26.3
 Requires-Dist: setuptools>=84.2.1
 Requires-Dist: wheel>=0.48.0
 Requires-Dist: attrs>=26.1.0
-Requires-Dist: certifi>=2026.10.19
+Requires-Dist: certifi>=2026.10.23
 Requires-Dist: exceptiongroup>=1.3.1
 Requires-Dist: websockets~=16.1.1; python_version == "3.10"
 Requires-Dist: websockets>=17.3; python_version >= "3.11"
@@ -116,7 +116,7 @@ Requires-Dist: pytest-xdist==3.8.0
 Requires-Dist: parameterized==0.9.0
 Requires-Dist: behave==1.2.6
 Requires-Dist: soupsieve~=2.10.0; python_version < "3.11.5"
-Requires-Dist: soupsieve~=3.0.3; python_version >= "3.11.5"
+Requires-Dist: soupsieve~=3.0.4; python_version >= "3.11.5"
 Requires-Dist: beautifulsoup4~=4.15.0
 Requires-Dist: pyotp~=2.10.0
 Requires-Dist: python-xlib==0.33; platform_system == "Linux"
@@ -129,7 +129,8 @@ Requires-Dist: allure-pytest>=2.16.0; extra == "allure"
 Requires-Dist: allure-python-commons>=2.16.0; extra == "allure"
 Requires-Dist: allure-behave>=2.16.0; extra == "allure"
 Provides-Extra: coverage
-Requires-Dist: coverage>=7.16.2; extra == "coverage"
+Requires-Dist: coverage>=7.16.2; python_version == "3.10" and extra == "coverage"
+Requires-Dist: coverage>=7.17.0; python_version >= "3.11" and extra == "coverage"
 Requires-Dist: pytest-cov>=7.1.0; extra == "coverage"
 Provides-Extra: flake8
 Requires-Dist: flake8==7.4.1; extra == "flake8"
@@ -142,9 +143,10 @@ Provides-Extra: mss
 Requires-Dist: mss==10.2.0; extra == "mss"
 Provides-Extra: pdfminer
 Requires-Dist: pdfminer.six==20260107; extra == "pdfminer"
-Requires-Dist: cryptography==50.0.2; extra == "pdfminer"
-Requires-Dist: cffi==2.1.1; extra == "pdfminer"
-Requires-Dist: pycparser==3.11; extra == "pdfminer"
+Requires-Dist: cryptography~=50.0.2; extra == "pdfminer"
+Requires-Dist: cffi~=2.1.1; extra == "pdfminer"
+Requires-Dist: pycparser==3.11; python_version == "3.10" and extra == "pdfminer"
+Requires-Dist: pycparser~=3.12; python_version >= "3.11" and extra == "pdfminer"
 Provides-Extra: pillow
 Requires-Dist: Pillow>=12.3.0; python_version == "3.10" and extra == "pillow"
 Requires-Dist: Pillow>=13.0.0; python_version >= "3.11" and extra == "pillow"
@@ -153,14 +155,14 @@ Requires-Dist: pip-system-certs>=4.0; platform_system == "Windows" and extra == 
 Provides-Extra: proxy
 Requires-Dist: proxy.py==2.4.3; extra == "proxy"
 Provides-Extra: playwright
-Requires-Dist: playwright>=1.64.0; extra == "playwright"
+Requires-Dist: playwright>=1.64.1; extra == "playwright"
 Requires-Dist: greenlet>=3.5.6; extra == "playwright"
 Requires-Dist: pyee>=13.0.1; python_version < "3.12" and extra == "playwright"
 Requires-Dist: pyee>=14.0.0; python_version >= "3.12" and extra == "playwright"
 Provides-Extra: pyautogui
 Requires-Dist: PyAutoGUI>=0.9.54; platform_system != "Linux" and extra == "pyautogui"
 Provides-Extra: uv
-Requires-Dist: uv>=0.13.4; extra == "uv"
+Requires-Dist: uv>=0.13.5; extra == "uv"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

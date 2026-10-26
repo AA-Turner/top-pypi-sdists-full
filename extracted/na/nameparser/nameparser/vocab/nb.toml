@@ -1,0 +1,45 @@
+schema = 1
+
+[[word]]
+text = "familie"
+salutation = { issue = 606, expands = "the family addressed, 'Familie Hansen'", after_given = true }
+
+[[word]]
+text = "fru"
+salutation = { gender = "f" }
+
+[[word]]
+text = "frøken"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "frk"
+salutation = { gender = "f", same_as = "frøken", after_given = true }
+
+[[word]]
+text = "herr"
+salutation = { gender = "m" }
+
+[[word]]
+text = "hr"
+salutation = { gender = "m", same_as = "herr" }
+
+[[word]]
+text = "greve"
+nobility = { gender = "m", expands = "count", issue = 606 }
+
+[[word]]
+text = "sysselmann"
+office = { expands = "the governor of Svalbard" }
+
+[[word]]
+text = "af"
+preposition = { may_be_given = false, expands = "of, nobiliary" }
+
+[[word]]
+text = "av"
+preposition = { may_be_given = false, expands = "of" }
+
+[[word]]
+text = "født"
+birth_marker = {}

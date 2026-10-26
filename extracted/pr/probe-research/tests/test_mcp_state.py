@@ -202,7 +202,7 @@ def refused(isolate, monkeypatch):
 
     cli_main = importlib.import_module("probe.cli.main")
 
-    monkeypatch.setattr(cli_main, "_verify", lambda token, base_url: ("rejected", None))
+    monkeypatch.setattr(cli_main, "_verify_read", lambda token, base_url: ("rejected", None))
     assert caps_mod.refresh_mcp_token_verdict() == "rejected"
     return None
 
@@ -241,7 +241,7 @@ def test_no_token_asks_nothing(isolate, monkeypatch):
 
     cli_main = importlib.import_module("probe.cli.main")
 
-    monkeypatch.setattr(cli_main, "_verify", lambda *a: pytest.fail("asked the API with no token"))
+    monkeypatch.setattr(cli_main, "_verify_read", lambda *a: pytest.fail("asked the API with no token"))
     assert caps_mod.refresh_mcp_token_verdict() is None
 
 
@@ -324,7 +324,7 @@ def test_only_a_refusal_re_authorizes(isolate, monkeypatch, verdict):
 
     _config_token(isolate, "tok")
     cli_main = importlib.import_module("probe.cli.main")
-    monkeypatch.setattr(cli_main, "_verify", lambda token, base_url: (verdict, None))
+    monkeypatch.setattr(cli_main, "_verify_read", lambda token, base_url: (verdict, None))
     assert caps_mod.refresh_mcp_token_verdict() == verdict
     selection = wizard.Selection(tracking=True, capture=False, auto_update=False, agent_rules=False)
     assert "mcp" not in wizard.needs_authorization(_caps(mcp_token_held=True), selection)

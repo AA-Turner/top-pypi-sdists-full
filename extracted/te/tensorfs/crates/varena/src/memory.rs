@@ -35,6 +35,8 @@ use crate::decide::{self, Victim};
 use crate::table::{Class, Fill, Key, Level, Page, Plan, Req, Set, SetSpec, Table};
 use crate::{Error, Exhausted, GpuId, Result};
 
+#[cfg(unix)]
+mod derived;
 mod stream;
 mod torch;
 pub use torch::{Allocating, PoolId, TorchStats};
@@ -124,7 +126,7 @@ impl Retained {
                 self.inner.make_room(missing, &keep, "prepare", req, false)?;
             }
             let claims: Vec<u64> = preparing.pins.iter().map(|(id, _)| *id).collect();
-            let pins = self.blocks.iter().map(|b| self.inner.bind_for(self.set, *b, stream, req, &claims, false)).collect::<Result<Vec<_>>>()?;
+            let pins = self.blocks.iter().map(|b| self.inner.bind_for(self.set, *b, stream, req, None, &claims, false)).collect::<Result<Vec<_>>>()?;
             let st = self.inner.lock();
             if retained_identity(self.set, st.mech(self.set)?, &self.blocks) != self.identity {
                 return Err(Error::StaleBinding("retained range identity changed during preparation".into()));
@@ -147,18 +149,38 @@ impl Drop for Retained {
 }
 
 /// Where a bound block's bytes came from.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.varena", frozen, eq, eq_int, skip_from_py_object))]
 pub enum Origin {
     /// Already mapped and filled.
+    #[default]
     Hit,
     /// Adopted from the lease manager's retention: no copy.
     Kept,
     /// The store, through the page cache.
     Store,
+    /// This page's derived entry on disk (§6), through the page cache: no transform.
+    Derived,
+}
+
+#[cfg(feature = "python")]
+#[pyo3::pymethods]
+impl Origin {
+    fn __str__(&self) -> &'static str {
+        match self {
+            Origin::Hit => "hit",
+            Origin::Kept => "kept",
+            Origin::Store => "store",
+            Origin::Derived => "derived",
+        }
+    }
 }
 
 /// One bind: the page-reference trace the gate computes Belady MIN from.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.varena", frozen, get_all, skip_from_py_object))]
 pub struct Ref {
     pub step: u32,
     pub set: String,
@@ -170,26 +192,34 @@ pub struct Ref {
 }
 
 /// Bytes filled from one source and the time the fills took, summed.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.varena", frozen, get_all, skip_from_py_object))]
 pub struct Fills {
     pub bytes: u64,
     pub ns: u64,
 }
 
 /// Bytes moved, by source: fill time over bytes against the measured ceiling gives the %.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.varena", frozen, get_all, skip_from_py_object))]
 pub struct Moved {
     /// Leased pages adopted from the manager's retention (no copy; `ns` is the ask, import and map).
     pub kept: Fills,
     /// Pages leased from the manager and filled here (`ns`: the ask, import and map).
     pub leased: Fills,
     pub store: Fills,
+    /// Pages refilled from their derived entry on disk, no transform run (§6).
+    pub derived: Fills,
     /// Of the above, bytes filled speculatively.
     pub speculative: u64,
 }
 
 /// One step of a request.
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.varena", frozen, get_all, skip_from_py_object))]
 pub struct StepStats {
     /// The free bytes at its start: the manager's figure, or the standalone budget's.
     pub capacity: u64,
@@ -197,8 +227,11 @@ pub struct StepStats {
     pub evicted: [u64; 7],
 }
 
-/// One request's record (the design's §5 bar).
-#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize)]
+/// One request's record (the design's §5 bar): what the Runtime relays and `cozy run show` reads,
+/// tolerantly (a member another release lacks takes its default).
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.varena", frozen, get_all, skip_from_py_object))]
 pub struct Stats {
     pub request: String,
     /// Every fill since the previous request ended (loads included) and during this one.
@@ -227,12 +260,14 @@ pub struct Stats {
 }
 
 /// One `make_room` that had to take bytes: what asked, how many bytes, what it took.
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.varena", frozen, get_all, skip_from_py_object))]
 pub struct MakeRoom {
     /// The request's plan step then.
     pub step: u32,
     /// A bind or a range's preparation.
-    pub trigger: &'static str,
+    pub trigger: std::borrow::Cow<'static, str>,
     /// The free bytes asked for.
     pub need: u64,
     /// The bytes its rounds took (pages unmapped).
@@ -417,6 +452,8 @@ pub struct Pin {
     /// Fresh bytes of a set with a transform: refilled on release unless [`Pin::filled`].
     transform: bool,
     transformed: AtomicBool,
+    /// Its transform's start on the bind stream, measured for the derived cache (else DONE).
+    started: Event,
 }
 
 /// A pass of a set: the plan's cursor moves to it. Dropping it without [`Pass::end`] records
@@ -792,6 +829,10 @@ struct Inner {
     /// Asked back while in use: pinned in the table until idle, then given.
     #[cfg(unix)]
     declined: Mutex<HashSet<crate::lease::Ticket>>,
+    /// Leased pages a step holds (pinned here), pinned in the table too: the manager never asks
+    /// for one in use.
+    #[cfg(unix)]
+    stepped: Mutex<HashSet<crate::lease::Ticket>>,
     /// Leased pages filled whose bytes the manager has not heard landed yet: acked once their
     /// ready event completes (only landed bytes are retained).
     #[cfg(unix)]
@@ -817,6 +858,8 @@ struct Inner {
     #[cfg(unix)]
     tally: tensorfs::io::source::IoTally,
     torch: std::sync::OnceLock<Arc<crate::arena::Torch>>,
+    #[cfg(unix)]
+    derived: derived::Cache,
     _device: Device,
 }
 
@@ -901,6 +944,8 @@ impl Memory {
                 #[cfg(unix)]
                 declined: Mutex::default(),
                 #[cfg(unix)]
+                stepped: Mutex::default(),
+                #[cfg(unix)]
                 to_land: Mutex::default(),
                 _device: device,
                 state: Mutex::default(),
@@ -917,6 +962,8 @@ impl Memory {
                 #[cfg(unix)]
                 tally: Default::default(),
                 torch: Default::default(),
+                #[cfg(unix)]
+                derived: Default::default(),
             });
             let (weak, queue) = (Arc::downgrade(&inner), inner.mech.clone());
             std::thread::Builder::new().name("varena-mechanism".into()).spawn(move || mech_loop(&queue, &weak)).map_err(|e| Error::io("spawn mechanism", e))?;
@@ -967,6 +1014,7 @@ impl Memory {
                 }
                 // torch's blocks come from leased chunks too: the agent is its only allocator.
                 self.serve_leased_torch()?;
+                self.start_derived()?;
                 Ok(None)
             }
             crate::lease::Attach::Refused { code, why } => Ok(Some((code, why))),
@@ -1026,15 +1074,26 @@ impl Memory {
     }
 
     /// Maps and fills block `block` of `set`; `stream` (a `CUstream`, 0 the default) waits on
-    /// the fill in-stream, and the release is ordered after its work.
-    pub fn bind(&self, set: SetId, block: u32, stream: usize) -> Result<Pin> {
-        self.inner.guard(|| self.inner.bind_for(set.0, block, stream, None, &[], false))
+    /// the fill in-stream, and the release is ordered after its work. Its pin is the request's
+    /// whose pass on this thread runs `set`, else no request's (a hold's outlives requests); its
+    /// fill and trace go to that request, else to `request` (a hold taken before its pass opens).
+    pub fn bind(&self, set: SetId, block: u32, stream: usize, request: Option<&Request>) -> Result<Pin> {
+        let account = self.request_id(request)?;
+        self.inner.guard(|| self.inner.bind_for(set.0, block, stream, None, account, &[], false))
     }
 
     /// [`Memory::bind`] into free bytes only: `Exhausted` at once when they lack the block's,
     /// nothing taken.
-    pub fn bind_free(&self, set: SetId, block: u32, stream: usize) -> Result<Pin> {
-        self.inner.guard(|| self.inner.bind_for(set.0, block, stream, None, &[], true))
+    pub fn bind_free(&self, set: SetId, block: u32, stream: usize, request: Option<&Request>) -> Result<Pin> {
+        let account = self.request_id(request)?;
+        self.inner.guard(|| self.inner.bind_for(set.0, block, stream, None, account, &[], true))
+    }
+
+    fn request_id(&self, request: Option<&Request>) -> Result<Option<u64>> {
+        match request {
+            Some(r) if !Arc::ptr_eq(&self.inner, &r.inner) => Err(Error::Invalid("bind and request use different devices".into())),
+            r => Ok(r.map(|r| r.id)),
+        }
     }
 
     /// Retains stable virtual addresses for exactly these blocks, without making them resident.
@@ -1246,8 +1305,10 @@ impl Inner {
             }
             // Events still pending: its GPU work is running, never a stall.
             agent.busy(st.events.values().any(|q| !q.is_empty()));
+            agent.running(st.table.requests.iter().any(|r| !r.idle));
             self.redecline(st);
             self.land(st, agent);
+            self.offer_derived(st, agent);
             self.advise(st, agent);
         }
         self.drop_stale(st);
@@ -1417,10 +1478,24 @@ impl Inner {
         // An event per page, after every copy so far.
         let landed: Vec<Result<(Origin, Event)>> = copied.into_iter().map(|c| c.and_then(|origin| Ok((origin, self.backend.fence()?)))).collect();
         let (ns, bytes) = (start.elapsed().as_nanos() as u64, pages.iter().map(|(_, (.., span))| span).sum::<u64>().max(1));
+        #[cfg(unix)]
+        self.read_measured(bytes, ns);
         // After a copy error the engine's copies may still run: a failed page is unmapped only
         // once the copy stream is proven drained.
         let ownership_lost = landed.iter().any(|out| matches!(out, Err(Error::Ownership(_))));
         let drained = !ownership_lost && (landed.iter().all(Result::is_ok) || self.backend.drain().is_ok());
+        // A fill that landed is this process's progress: a loading executor is never judged
+        // stalled by the manager's stall look.
+        #[cfg(unix)]
+        if let Some(agent) = self.lease.get().filter(|_| landed.iter().any(Result::is_ok)) {
+            agent.progressed();
+        }
+        // A spilling host device starts their writeback (no lock held: it may wait on I/O).
+        for ((_, (va, off, span)), landed) in pages.iter().zip(&landed) {
+            if landed.is_ok() {
+                self.backend.landed(va.base + off, *span);
+            }
+        }
         let mut sticky = false;
         let mut st = self.state.lock();
         if !drained {
@@ -1451,8 +1526,9 @@ impl Inner {
             };
             match landed {
                 Ok((origin, ready)) => {
-                    // Stored bytes are the weights; a declared set's are once transformed.
-                    let filled = sets.get(&job.key.0).is_some_and(|spec| matches!(spec.fingerprint.fill, Fill::Stored));
+                    // Stored bytes are the weights; a declared set's are once transformed, or
+                    // refilled from their derived entry.
+                    let filled = origin == Origin::Derived || sets.get(&job.key.0).is_some_and(|spec| matches!(spec.fingerprint.fill, Fill::Stored));
                     let speculative = st.homes.get(&job.key).is_some_and(|h| h.speculative);
                     // A page read ready at issue is its binders' since: a transform may have
                     // filled it already, so only its accounting is left.
@@ -1465,7 +1541,7 @@ impl Inner {
                         self.to_land.lock().push(job.key);
                     }
                     let s = st.fills(job.req, job.key, span, origin);
-                    let f = &mut s.moved.store;
+                    let f = if origin == Origin::Derived { &mut s.moved.derived } else { &mut s.moved.store };
                     f.bytes += span;
                     // The batch's time, shared by its bytes.
                     f.ns += (u128::from(ns) * u128::from(span) / u128::from(bytes)) as u64;
@@ -1509,7 +1585,15 @@ impl Inner {
                     Dst::Device { stream, .. } => stream,
                     Dst::Host { .. } => 0,
                 };
-                let out = job.after.iter().try_for_each(|e| self.backend.wait(*e, stream)).err().map(Err);
+                let mut out = job.after.iter().try_for_each(|e| self.backend.wait(*e, stream)).err().map(Err);
+                // A grant that brought its derived entry: read it, not the store (§6).
+                #[cfg(unix)]
+                if out.is_none() {
+                    if let Some(refill) = self.derived_refill(job.key, job.gen) {
+                        // SAFETY: a mapped page only this fill writes, as long as the entry.
+                        out = Some(unsafe { refill.read(dst, &self.tally) }.map(|()| Origin::Derived));
+                    }
+                }
                 Copying { key: job.key, gen: job.gen, dst, out }
             })
             .collect();
@@ -1705,7 +1789,7 @@ impl Inner {
     /// have, else only when a round takes nothing and nothing of its own is about to come back
     /// (a fill: waited for). `why` and `req` name it in the request's record.
     fn make_room(&self, bytes: u64, keep: &[Key], why: &'static str, req: Option<u64>, free_only: bool) -> Result<u64> {
-        let mut record = MakeRoom { step: 0, trigger: why, need: bytes, freed: 0, waited: 0 };
+        let mut record = MakeRoom { step: 0, trigger: why.into(), need: bytes, freed: 0, waited: 0 };
         let out = loop {
             let mut st = self.lock();
             // A refused create, or a manager's refusal, says there is less than the figures: the
@@ -1961,12 +2045,16 @@ impl Inner {
     }
 
     /// Binds `block` of `set` for `stream`; `claims` are the caller's own preparation pins,
-    /// which hold the page for this bind and never against it.
-    fn bind_for(self: &Arc<Self>, set: u32, block: u32, stream: usize, request: Option<u64>, claims: &[u64], free_only: bool) -> Result<Pin> {
+    /// which hold the page for this bind and never against it. The pin is `request`'s, else the
+    /// request whose pass on this thread runs `set`; its fill and trace go to that request, else
+    /// to `account`.
+    #[allow(clippy::too_many_arguments)]
+    fn bind_for(self: &Arc<Self>, set: u32, block: u32, stream: usize, request: Option<u64>, account: Option<u64>, claims: &[u64], free_only: bool) -> Result<Pin> {
         let key = (set, block);
         let start = Instant::now();
         let mut st = self.lock();
         let req = request.or_else(|| st.binding(set));
+        let acct = req.or(account);
         if st.table.page(key).is_none() {
             return Err(Error::Invalid(format!("no block {block} in set {set}")));
         }
@@ -1985,7 +2073,7 @@ impl Inner {
             let me = std::thread::current().id();
             let mine = pinned && st.pins.iter().filter(|(id, (k, ..))| *k == key && !claims.contains(id)).all(|(_, (.., t))| *t == me);
             // A streamed set's upper block takes a slot rather than a new page (step 2's watermark).
-            match self.stream_in(&mut st, key, req)? {
+            match self.stream_in(&mut st, key, acct)? {
                 StreamIn::Moved => {
                     hit = false;
                     continue;
@@ -2001,7 +2089,7 @@ impl Inner {
                 // Not the set's weights now, and unpinned: filled again in place.
                 Some(h) if h.identity != identity && !h.filling && !pinned => {
                     hit = false;
-                    self.refill_in_place(&mut st, key, req)?;
+                    self.refill_in_place(&mut st, key, acct)?;
                 }
                 Some(h) if (h.identity != identity || h.transforming) && !h.filling && mine => {
                     return Err(Error::Held(format!("block {block} of set {set} is pinned by this thread alone")));
@@ -2033,7 +2121,7 @@ impl Inner {
                     st = self.lock();
                     if let Some(e) = refused {
                         // A streamed set with only its slots left: one of them moves to the block (the floor: one block).
-                        match self.stream_in(&mut st, key, req)? {
+                        match self.stream_in(&mut st, key, acct)? {
                             StreamIn::Moved => continue,
                             StreamIn::Wait => {
                                 waited = true;
@@ -2044,7 +2132,7 @@ impl Inner {
                         }
                     }
                     if !st.homes.contains_key(&key) {
-                        self.map(&mut st, key, req, false)?;
+                        self.map(&mut st, key, acct, false)?;
                     }
                 }
             }
@@ -2070,8 +2158,8 @@ impl Inner {
             r.cursor.next.insert(set, block + 1);
         }
         let name = st.mech(set)?.spec.name.clone();
-        let step = req.and_then(|r| st.table.request(r)).map_or(0, |r| r.cursor.step);
-        if let Some(s) = st.stats(req) {
+        let step = acct.and_then(|r| st.table.request(r)).map_or(0, |r| r.cursor.step);
+        if let Some(s) = st.stats(acct) {
             s.trace.push(Ref { step, set: name, block, bytes: span, origin, speculative });
             if waited || !hit {
                 s.stall_ns += start.elapsed().as_nanos() as u64;
@@ -2081,9 +2169,13 @@ impl Inner {
         if let Some(r) = req {
             self.prefetch(r);
         }
-        let pin = Pin { ptr: va.base + off, len: span, ready, fresh, inner: self.clone().into(), key, id, stream, transform, transformed: AtomicBool::new(false) };
         self.backend.wait(ready, stream)?;
-        Ok(pin)
+        // The transform runs next on this stream: its start, for the derived cache's M4.
+        #[cfg(unix)]
+        let started = if transform && self.measures() { self.backend.record(stream).unwrap_or(Event::DONE) } else { Event::DONE };
+        #[cfg(not(unix))]
+        let started = Event::DONE;
+        Ok(Pin { ptr: va.base + off, len: span, ready, fresh, inner: self.clone().into(), key, id, stream, transform, transformed: AtomicBool::new(false), started })
     }
     /// Moves the request's cursor to the pass of `set`; true when a step began. A pass the plan
     /// does not declare takes one synthetic step at the end, reused by the next such pass.
@@ -2169,6 +2261,8 @@ impl Inner {
         let host = st.window.as_mut().and_then(HostWindow::look);
         if st.table.requests.is_empty() {
             st.window = None;
+            #[cfg(unix)]
+            self.derived_idle();
         }
         let stats = Stats { outlived, leftover, host, ..st.stats.remove(&req).unwrap_or_default() };
         st.last = Some(stats.clone());
@@ -2487,6 +2581,12 @@ impl Pin {
         self.transformed.store(true, Ordering::Release);
         let _ = self.inner.guard(|| {
             let event = self.inner.backend.record(self.stream)?;
+            self.inner.backend.landed(self.ptr, self.len);
+            // A transform that ran is progress too.
+            #[cfg(unix)]
+            if let Some(agent) = self.inner.lease.get() {
+                agent.progressed();
+            }
             let mut st = self.inner.lock();
             if let Some(h) = st.homes.get_mut(&self.key) {
                 let old = std::mem::replace(&mut h.ready, event);
@@ -2495,6 +2595,11 @@ impl Pin {
                 h.transforming = false;
                 if old != event {
                     self.inner.backend.retire(old);
+                }
+                // Measured once both events complete; the cache retires the start.
+                #[cfg(unix)]
+                if self.started != Event::DONE {
+                    self.inner.transformed(self.key, self.started, event);
                 }
             }
             st.sync(self.key);
@@ -2522,6 +2627,9 @@ impl Drop for Pin {
             }
         };
         let untransformed = self.transform && !self.transformed.load(Ordering::Acquire);
+        if untransformed {
+            self.inner.backend.retire(self.started);
+        }
         let _ = self.inner.release_tx.send(Release { key: self.key, pin: self.id, event, stream: self.stream, untransformed });
         self.inner.landed.notify_all();
     }
@@ -2625,6 +2733,7 @@ impl Inner {
                 span,
                 crate::lease::Kind::Weights,
                 region,
+                self.fill_key(key),
                 Box::new(move |got| {
                     if let Some(inner) = me.upgrade() {
                         inner.leased_page(key, gen, va, off, span, job, decided, got, start, region.is_some());
@@ -2813,10 +2922,13 @@ impl Inner {
             let (Some(lease), None) = (leases.next(), leases.next()) else {
                 return Err(Error::Invalid(format!("a page of {span} bytes leased as other than one chunk")));
             };
-            let crate::lease::Lease { ticket, phys, adopted } = lease;
+            let crate::lease::Lease { ticket, phys, adopted, entry } = lease;
             self.leased.lock().insert(phys.id, (ticket, key, retainable));
             let p = self.map_rw(va, off, phys)?;
             agent.mapped(&[ticket])?;
+            if !adopted {
+                self.granted(key, gen, span, entry);
+            }
             Ok((p, adopted, Some(start.elapsed().as_nanos() as u64)))
         });
         self.placed(key, gen, va, off, span, job, decided, made);
@@ -2859,7 +2971,23 @@ impl Inner {
     #[cfg(unix)]
     fn advise(&self, st: &State, agent: &crate::lease::Agent) {
         use crate::lease::Advice;
-        for (ticket, key, _) in self.leased.lock().values() {
+        let leased = self.leased.lock();
+        // Step-held pages are pinned in the table while their pins here last (a pin on change
+        // only): the policy sees them in use and never asks for one to be declined.
+        let mut stepped = self.stepped.lock();
+        stepped.retain(|t| leased.values().any(|(x, ..)| x == t));
+        for (ticket, key, _) in leased.values() {
+            let held = st.table.page(*key).is_some_and(|p| !p.pins.is_empty());
+            if held && !stepped.contains(ticket) {
+                if agent.pin(*ticket).unwrap_or(false) {
+                    stepped.insert(*ticket);
+                }
+            } else if !held && stepped.remove(ticket) {
+                let _ = agent.unpin(*ticket);
+            }
+        }
+        drop(stepped);
+        for (ticket, key, _) in leased.values() {
             let at = st.table.distance(*key).map(|(step, pass, block)| u64::from(step) << 40 | u64::from(pass) << 20 | u64::from(block));
             let advice = match (st.table.class(*key), at) {
                 (Some(Class::P), _) => Advice::Step { at: 0 },

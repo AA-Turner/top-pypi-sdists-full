@@ -31,8 +31,8 @@ void SvStruct::toCpp(HppFile& hppFile, const std::string_view _namespace, const 
     auto cppTypeStr = structSize > 64 ? fmt::format(fmt::runtime(toString(cppType)), structSize)
                                       : toString(cppType);
 
-    for (const auto& member : type.getCanonicalType().as<slang::ast::Scope>().members()) {
-        const auto& variable = member.as<slang::ast::VariableSymbol>();
+    for (const auto& variable :
+         type.getCanonicalType().as<slang::ast::Scope>().membersOfType<slang::ast::FieldSymbol>()) {
 
         auto variableName = isCppReserved(variable.name) ? fmt::format("_{}", variable.name)
                                                          : std::string(variable.name);
@@ -45,13 +45,15 @@ void SvStruct::toCpp(HppFile& hppFile, const std::string_view _namespace, const 
 
     //** MEMBERS DECLARATION **//
     for (const auto& [name, type] : members) {
+        // Non-scalar members are initialized by their own constructors
+        const auto init = type.isScalar() ? " {}" : "";
         if (type.isStructEnumOrUnion() && _namespace != type._namespace) {
             hppFile.addWithIndent(
-                fmt::format("{}::{} {};\n", type._namespace, type.toString(), name));
+                fmt::format("{}::{} {}{};\n", type._namespace, type.toString(), name, init));
             hppFile.addIncludeHeader(type._namespace);
         }
         else {
-            hppFile.addWithIndent(fmt::format("{} {};\n", type.toString(), name));
+            hppFile.addWithIndent(fmt::format("{} {}{};\n", type.toString(), name, init));
         }
     }
     hppFile.add("\n");

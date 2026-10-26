@@ -14,10 +14,12 @@ import json
 import logging
 import os
 import platform
+import re
 import runpy
 import stat
 import subprocess
 import sys
+import sysconfig
 import tarfile
 import zipfile
 from collections.abc import Callable, Iterator
@@ -60,10 +62,10 @@ from nab_index.client import AsyncSimpleClient
 from nab_index.httpx2_async_transport import Httpx2AsyncTransport
 from nab_index.httpx_async_transport import HttpxAsyncTransport
 from nab_index.local_index import LocalIndexClient, UnreadableLocalIndexError
-from nab_index.transport import HttpError
+from nab_index.transport import HttpError, IdleClosableTransport
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
 from nab_markersets._compat import get_int_max_str_digits
-from nab_project._testing.coordinator_fake import make_coordinator
+from nab_project._testing.coordinator_fake import FakeFetchPort, make_coordinator
 from nab_project.download import DownloadError, DownloadResult
 from nab_project.fetch import DEFAULT_MAX_CONCURRENCY, FetchCoordinator
 from nab_project.lockfile import (
@@ -80,7 +82,12 @@ from nab_project.lockfile import (
     TargetLock,
     WheelArtifact,
 )
-from nab_project.resolve import ResolveResult, TargetResult, env_signature
+from nab_project.resolve import (
+    ResolveResult,
+    TargetResult,
+    env_signature,
+    resolve_for_targets,
+)
 from nab_provider._vendor.packaging import markers as packaging_markers
 from nab_provider._vendor.packaging.pylock import Pylock
 from nab_provider._vendor.packaging.requirements import Requirement
@@ -97,6 +104,7 @@ from nab_provider.records import WheelFile
 from nab_provider.requirements_file import InvalidProjectRequirementError
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import IntractableMarkerError, ResolveTarget, host_environment
+from nab_provider.testing import make_metadata, make_wheel
 from nab_resolver.errors import ResolutionError
 
 requires_int_limit = pytest.mark.skipif(
@@ -1178,6 +1186,59 @@ class TestLockCommandSpecific:
         assert "foo==1.0" in out
         assert "--hash=sha256:" in out
 
+    @pytest.mark.parametrize(
+        "output_path", ["-", "./-", "././-", "absolute", "sub/../-"]
+    )
+    @pytest.mark.parametrize("existing", [False, True])
+    def test_cli_dash_output_destination(
+        self,
+        hermetic_roots: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        output_path: str,
+        existing: bool,
+    ) -> None:
+        monkeypatch.chdir(hermetic_roots)
+        dependency = hermetic_roots / "dep"
+        dependency.mkdir()
+        _make_pyproject(dependency, '[project]\nname="dep"\nversion="1.0"\n')
+        _make_pyproject(
+            hermetic_roots,
+            '[project]\nname="app"\nversion="1.0"\ndependencies=["dep"]\n'
+            '[[tool.nab.local-sources]]\nname="dep"\npath="dep"\n',
+        )
+        (hermetic_roots / "sub").mkdir()
+        destination = hermetic_roots / "-"
+        previous = "old-package==0.1\n"
+        if existing:
+            destination.write_text(previous)
+        argument = str(destination) if output_path == "absolute" else output_path
+
+        with patch(
+            "nab_project.resolve.FetchCoordinator",
+            return_value=contextlib.nullcontext(make_coordinator([])),
+        ):
+            _lock_cli(
+                "--offline",
+                "--no-cache",
+                "--format",
+                "requirements-without-hashes",
+                "--output",
+                argument,
+            )
+
+        expected = f"dep @ {dependency.as_uri()}\n"
+        captured = capsys.readouterr()
+        if output_path == "-":
+            assert captured.out == expected
+            if existing:
+                assert destination.read_text() == previous
+            else:
+                assert not destination.exists()
+        else:
+            assert captured.out == ""
+            assert destination.read_text() == expected
+
     def test_requirements_without_hashes_to_stdout(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
@@ -1588,12 +1649,13 @@ class TestLockCommandSpecific:
         )
 
         with (
-            patch("nab._resolve._make_transport", return_value=transport),
+            patch("nab._resolve._make_urllib3_transport", return_value=transport),
             pytest.raises(SystemExit, match="1"),
         ):
             lock(pyproject, output=tmp_path / "pylock.toml", cache=False)
 
         err = capsys.readouterr().err
+
         assert "cannot lock" in err
         assert "sha256 mismatch" in err
         assert "0" * 64 in err
@@ -1620,6 +1682,7 @@ class TestLockCommandSpecific:
         # Guards the premise: the pin has to sit outside the prefetch window.
         versions = ("1.0", "2.0", "3.0")
         pinned = versions[0]
+
         assert len(versions) > FetchCoordinator.PREFETCH_METADATA_COUNT
 
         pyproject = _make_pyproject(
@@ -1651,12 +1714,13 @@ class TestLockCommandSpecific:
         transport = _SidecarTransport(bodies)
 
         with (
-            patch("nab._resolve._make_transport", return_value=transport),
+            patch("nab._resolve._make_urllib3_transport", return_value=transport),
             pytest.raises(SystemExit, match="1"),
         ):
             lock(pyproject, output=tmp_path / "pylock.toml", cache=False)
 
         err = capsys.readouterr().err
+
         assert "cannot lock" in err
         assert "sha256 mismatch" in err
         assert "0" * 64 in err
@@ -1698,12 +1762,13 @@ class TestLockCommandSpecific:
         )
 
         with (
-            patch("nab._resolve._make_transport", return_value=transport),
+            patch("nab._resolve._make_urllib3_transport", return_value=transport),
             pytest.raises(SystemExit, match="1"),
         ):
             lock(pyproject, output=tmp_path / "pylock.toml", cache=False)
 
         err = capsys.readouterr().err
+
         assert "cannot lock" in err
         assert "wheel sha256 mismatch" in err
         assert "0" * 64 in err
@@ -1744,12 +1809,13 @@ class TestLockCommandSpecific:
         )
 
         with (
-            patch("nab._resolve._make_transport", return_value=transport),
+            patch("nab._resolve._make_urllib3_transport", return_value=transport),
             pytest.raises(SystemExit, match="1"),
         ):
             lock(pyproject, output=tmp_path / "pylock.toml", cache=False)
 
         err = capsys.readouterr().err
+
         assert "cannot lock" in err
         assert "sdist sha256 mismatch" in err
         assert "0" * 64 in err
@@ -2093,26 +2159,87 @@ class TestLockCommandSpecific:
         assert "cannot write output" in capsys.readouterr().err
         assert out.read_bytes() == committed
 
-    def test_resolution_flag_threads_to_resolver(self, tmp_path: Path) -> None:
-        """``--project-resolution lowest`` reaches resolve_for_targets as the enum."""
-        pyproject = _make_pyproject(tmp_path)
-        out = tmp_path / "pylock.toml"
-        with patch(
-            "nab._resolve.resolve_for_targets", return_value=_stub_resolve_result()
-        ) as mock_resolve:
-            lock(pyproject, output=out, project_resolution="lowest")
+    @pytest.fixture
+    def strategy_coordinator(self) -> FakeFetchPort:
+        """Offer two versions of a root and its transitive dependency."""
+        listings = {
+            name: [
+                make_wheel(version, package=name, hashes=(("sha256", "a" * 64),))
+                for version in ("2.0", "1.0")
+            ]
+            for name in ("foo", "leaf")
+        }
+        metadata = {
+            wheel.metadata_url: make_metadata(
+                name, str(wheel.version), *(["leaf>=1"] if name == "foo" else [])
+            )
+            for name, wheels in listings.items()
+            for wheel in wheels
+        }
+        return make_coordinator(listings=listings, metadata_by_url=metadata)
+
+    def test_resolution_flag_threads_to_resolver(
+        self, hermetic_roots: Path, strategy_coordinator: FakeFetchPort
+    ) -> None:
+        """Explicit lowest overrides configured highest for roots and dependencies."""
+        pyproject = _make_pyproject(
+            hermetic_roots,
+            '[project]\ndependencies = ["foo>=1"]\n'
+            '[tool.nab]\nresolution = "highest"\nbuild-policy = "never"\n',
+        )
+        out = hermetic_roots / "pylock.toml"
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=contextlib.nullcontext(strategy_coordinator),
+            ),
+            patch(
+                "nab._resolve.resolve_for_targets", wraps=resolve_for_targets
+            ) as mock_resolve,
+        ):
+            lock(
+                pyproject,
+                output=out,
+                project_resolution="lowest",
+                offline=True,
+                cache=False,
+            )
         kwargs = mock_resolve.call_args.kwargs
         assert kwargs["resolution_strategy"] is ResolutionStrategy.LOWEST
 
-    def test_resolution_flag_default_none(self, tmp_path: Path) -> None:
-        """No --project-resolution: resolve_for_targets sees ``None`` (config wins)."""
-        pyproject = _make_pyproject(tmp_path)
-        out = tmp_path / "pylock.toml"
-        with patch(
-            "nab._resolve.resolve_for_targets", return_value=_stub_resolve_result()
-        ) as mock_resolve:
-            lock(pyproject, output=out)
+        written = Pylock.from_dict(tomli.loads(out.read_text()))
+        assert {pkg.name: str(pkg.version) for pkg in written.packages} == {
+            "foo": "1.0",
+            "leaf": "1.0",
+        }
+
+    def test_resolution_flag_default_none(
+        self, hermetic_roots: Path, strategy_coordinator: FakeFetchPort
+    ) -> None:
+        """Omitting the strategy selects the highest root and dependency versions."""
+        pyproject = _make_pyproject(
+            hermetic_roots,
+            '[project]\ndependencies = ["foo>=1"]\n'
+            '[tool.nab]\nbuild-policy = "never"\n',
+        )
+        out = hermetic_roots / "pylock.toml"
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=contextlib.nullcontext(strategy_coordinator),
+            ),
+            patch(
+                "nab._resolve.resolve_for_targets", wraps=resolve_for_targets
+            ) as mock_resolve,
+        ):
+            lock(pyproject, output=out, offline=True, cache=False)
         assert mock_resolve.call_args.kwargs["resolution_strategy"] is None
+
+        written = Pylock.from_dict(tomli.loads(out.read_text()))
+        assert {pkg.name: str(pkg.version) for pkg in written.packages} == {
+            "foo": "2.0",
+            "leaf": "2.0",
+        }
 
     def test_cli_project_override_prints_notice(
         self,
@@ -2305,7 +2432,7 @@ class TestScopedDiagnosticRemedies:
         verbose: bool,
         entry: str,
     ) -> None:
-        """Widening alone leaves the file excluded; each complete remedy admits it."""
+        """A scoped exception must relax the filter to admit the refused file."""
         wheel_url = "https://files.example.com/foo-2.0-py3-none-any.whl"
         listing = {
             "meta": {"api-version": "1.2"},
@@ -2354,19 +2481,27 @@ class TestScopedDiagnosticRemedies:
             _cli(*arguments, status=1)
             refused = capsys.readouterr()
             assert diagnosis in refused.err
-            assert "widen " in refused.err
-            assert (
-                f"over this version and set {field} = {permissive} there" in refused.err
+
+            remedy = re.search(
+                r"add a package-rules entry with match = (\[.*?\]) and (.*?)(?:, or|$)",
+                refused.err,
+                re.MULTILINE,
+            )
+            assert remedy is not None, refused.err
+            exception = (
+                f"\n[[tool.nab.package-rules]]\nmatch = {remedy[1]}\n{remedy[2]}\n"
             )
 
-            widened = body.replace("foo<2", "foo<=2")
-            pyproject.write_text(widened)
+            pyproject.write_text(
+                body
+                + exception.replace(
+                    f"{field} = {permissive}", f"{field} = {restrictive}"
+                )
+            )
             _cli(*arguments, status=1)
             assert diagnosis in capsys.readouterr().err
 
-            pyproject.write_text(
-                project + entry.replace("foo<2", "foo<=2") + f"{field} = {permissive}\n"
-            )
+            pyproject.write_text(body + exception)
             _cli(*arguments)
             assert capsys.readouterr().out == "foo==2.0\n"
 
@@ -2379,29 +2514,115 @@ class TestScopedDiagnosticRemedies:
             assert capsys.readouterr().out == "foo==2.0\n"
 
 
+def _python_compatibility_coordinator() -> FakeFetchPort:
+    """Offer Python-specific releases with matching transitive dependencies."""
+    listings = {
+        "foo": [
+            make_wheel(
+                version,
+                package="foo",
+                requires_python=requires_python,
+                hashes=(("sha256", "a" * 64),),
+            )
+            for version, requires_python in (
+                ("2.0", ">=3.12"),
+                ("1.0", ">=3.10,<3.12"),
+            )
+        ],
+        "leaf": [
+            make_wheel(version, package="leaf", hashes=(("sha256", "b" * 64),))
+            for version in ("2.0", "1.0")
+        ],
+    }
+
+    metadata = {}
+    for name, wheels in listings.items():
+        for wheel in wheels:
+            dependencies = (f"leaf=={wheel.version}",) if name == "foo" else ()
+            metadata[wheel.metadata_url] = make_metadata(
+                name,
+                str(wheel.version),
+                *dependencies,
+                requires_python=wheel.requires_python,
+            )
+
+    return make_coordinator(listings=listings, metadata_by_url=metadata)
+
+
 class TestPythonFlag:
     """``--python`` retargets the resolve for one run."""
 
-    def test_threads_the_python_version_to_the_resolver(self, tmp_path: Path) -> None:
-        pyproject = _make_pyproject(tmp_path)
-        out = tmp_path / "pylock.toml"
-        with patch(
-            "nab._resolve.resolve_for_targets", return_value=_stub_resolve_result()
-        ) as mock_resolve:
-            lock(pyproject, output=out, python="3.11")
+    def test_threads_the_python_version_to_the_resolver(
+        self, hermetic_roots: Path
+    ) -> None:
+        pyproject = _make_pyproject(
+            hermetic_roots,
+            '[project]\ndependencies = ["foo"]\n[tool.nab]\nbuild-policy = "never"\n',
+        )
+        out = hermetic_roots / "pylock.toml"
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=contextlib.nullcontext(
+                    _python_compatibility_coordinator()
+                ),
+            ),
+            patch(
+                "nab._resolve.resolve_for_targets", wraps=resolve_for_targets
+            ) as mock_resolve,
+        ):
+            lock(pyproject, output=out, python="3.11", offline=True, cache=False)
 
         (target,) = mock_resolve.call_args.kwargs["targets"]
         assert target.python_version == "3.11"
 
-    def test_absent_flag_leaves_the_host_target(self, tmp_path: Path) -> None:
-        pyproject = _make_pyproject(tmp_path)
-        out = tmp_path / "pylock.toml"
-        with patch(
-            "nab._resolve.resolve_for_targets", return_value=_stub_resolve_result()
-        ) as mock_resolve:
-            lock(pyproject, output=out)
+        pylock = Pylock.from_dict(tomli.loads(out.read_text()))
+        assert {package.name: str(package.version) for package in pylock.packages} == {
+            "foo": "1.0",
+            "leaf": "1.0",
+        }
+        assert {
+            package.name: [wheel.url for wheel in package.wheels]
+            for package in pylock.packages
+        } == {
+            name: [f"https://example.com/{name}-1.0-py3-none-any.whl"]
+            for name in ("foo", "leaf")
+        }
+
+    def test_absent_flag_leaves_the_host_target(self, hermetic_roots: Path) -> None:
+        pyproject = _make_pyproject(
+            hermetic_roots,
+            '[project]\ndependencies = ["foo"]\n[tool.nab]\nbuild-policy = "never"\n',
+        )
+        out = hermetic_roots / "pylock.toml"
+        with (
+            patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=contextlib.nullcontext(
+                    _python_compatibility_coordinator()
+                ),
+            ),
+            patch(
+                "nab._resolve.resolve_for_targets", wraps=resolve_for_targets
+            ) as mock_resolve,
+        ):
+            lock(pyproject, output=out, offline=True, cache=False)
 
         assert mock_resolve.call_args.kwargs["targets"] == (ResolveTarget.for_host(),)
+
+        version = "2.0" if sys.version_info >= (3, 12) else "1.0"
+        pylock = Pylock.from_dict(tomli.loads(out.read_text()))
+        assert {package.name: str(package.version) for package in pylock.packages} == {
+            "foo": version,
+            "leaf": version,
+        }
+        assert {
+            package.name: [wheel.url for wheel in package.wheels]
+            for package in pylock.packages
+        } == {
+            name: [f"https://example.com/{name}-{version}-py3-none-any.whl"]
+            for name in ("foo", "leaf")
+        }
 
     def test_narrows_the_deprecated_marker_overlay(self, tmp_path: Path) -> None:
         """The overlay translates, and the flag moves only its python axis."""
@@ -2588,9 +2809,10 @@ class TestPythonFlag:
         assert exc.value.code == 1
         assert (
             "error: --python and --project-environment-python both set the"
-            " python axis; pass one of them." in capsys.readouterr().err
+            " python axis\n    try: pass one of them" in capsys.readouterr().err
         )
         assert not out.exists()
+
         mock_resolve.assert_not_called()
 
     def test_the_python_flag_is_recorded_and_noticed(
@@ -3172,12 +3394,17 @@ class TestLockCommandUniversal:
         assert "cannot write output" in capsys.readouterr().err
         assert out.read_bytes() == committed
 
-    def test_default_groups_from_config_not_cli_groups(self, tmp_path: Path) -> None:
+    def test_default_groups_from_config_not_cli_groups(
+        self, hermetic_roots: Path
+    ) -> None:
         """Universal pylock records ``default-groups`` from config, not ``--groups``."""
         pyproject = _make_pyproject(
-            tmp_path,
+            hermetic_roots,
             '[project]\ndependencies = ["foo"]\n'
-            "[dependency-groups]\ndev = []\ntest = []\n"
+            "[dependency-groups]\n"
+            'dev = ["devonly"]\n'
+            'test = ["testonly"]\n'
+            'unused = ["unavailable"]\n'
             "[tool.nab]\n"
             'mode = "universal"\n'
             'default-groups = ["dev"]\n'
@@ -3185,15 +3412,48 @@ class TestLockCommandUniversal:
             'python = "==3.11"\n'
             'platforms = ["linux_x86_64"]\n',
         )
-        out = tmp_path / "pylock.toml"
+        listings = {
+            name: [make_wheel("1.0", package=name, hashes=(("sha256", "a" * 64),))]
+            for name in ("foo", "devonly", "testonly", "leaf")
+        }
+        metadata = {
+            wheels[0].metadata_url: make_metadata(name, "1.0")
+            for name, wheels in listings.items()
+        }
+        metadata[listings["testonly"][0].metadata_url] = make_metadata(
+            "testonly", "1.0", "leaf==1.0"
+        )
+        coordinator = make_coordinator(listings=listings, metadata_by_url=metadata)
+        out = hermetic_roots / "pylock.toml"
         with patch(
-            "nab._resolve.resolve_for_targets",
-            return_value=_universal_result(success=True),
+            "nab_project.resolve.FetchCoordinator",
+            return_value=contextlib.nullcontext(coordinator),
         ):
-            lock(pyproject, output=out, groups=("test",))
+            lock(pyproject, output=out, groups=("test",), offline=True, cache=False)
         pylock = Pylock.from_dict(tomli.loads(out.read_text()))
         assert pylock.dependency_groups == ["test"]
         assert pylock.default_groups == ["dev"]
+
+        assert {package.name: str(package.version) for package in pylock.packages} == {
+            "foo": "1.0",
+            "devonly": "1.0",
+            "testonly": "1.0",
+            "leaf": "1.0",
+        }
+
+        for groups, expected in (
+            (None, {"foo", "devonly"}),
+            ((), {"foo"}),
+            (("test",), {"foo", "testonly", "leaf"}),
+            (("dev", "test"), {"foo", "devonly", "testonly", "leaf"}),
+        ):
+            selected = {
+                package.name
+                for package, _artifact in pylock.select(
+                    environment=dict(_target().marker_env), dependency_groups=groups
+                )
+            }
+            assert selected == expected, groups
 
     def test_offline_and_http_backend_passed_to_universal(self, tmp_path: Path) -> None:
         """--http-backend and --offline reach resolve_for_targets."""
@@ -3903,10 +4163,10 @@ class TestLockCommandUniversal:
             '    try: set packages."foo".uploaded-prior-to = false\n'
         )
 
-    def test_the_verbose_level_replaces_the_try_line_with_the_detail(
+    def test_the_verbose_level_keeps_the_action_and_adds_evidence(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """``-v`` keeps the line and prints the clauses and the note under it."""
+        """``-v`` keeps the line and prints the clauses and context under it."""
         with patch("nab.output._printer", Printer(verbosity=Verbosity.VERBOSE)):
             self._lock_against_a_refused_listing(
                 self._cutoff_refused(tmp_path, '"linux_x86_64"')
@@ -3918,9 +4178,8 @@ class TestLockCommandUniversal:
             "    the uploaded-prior-to cutoff 2026-05-01T00:00:00+00:00 excluded"
             " 1 file uploaded at 2030-01-01T00:00:00Z (1.0)\n"
             "    the files nab read hold no sdist to build from\n"
-            "    note: the project-level uploaded-prior-to set that cutoff;"
-            ' setting packages."foo".uploaded-prior-to = false lifts it for this'
-            " package\n"
+            '    try: set packages."foo".uploaded-prior-to = false\n'
+            "         The project-wide uploaded-prior-to setting rejected these files.\n"
         )
 
     def test_a_diagnostics_line_survives_the_per_tuple_block(
@@ -3952,14 +4211,14 @@ class TestLockCommandUniversal:
             )
 
         err = capsys.readouterr().err
+
         assert (
             "#       the uploaded-prior-to cutoff 2026-05-01T00:00:00+00:00"
             " excluded 1 file uploaded at 2030-01-01T00:00:00Z (1.0)"
         ) in err
+        assert ('#       try: set packages."foo".uploaded-prior-to = false') in err
         assert (
-            "#       note: the project-level uploaded-prior-to set that cutoff;"
-            ' setting packages."foo".uploaded-prior-to = false lifts it for this'
-            " package"
+            "#            The project-wide uploaded-prior-to setting rejected these files."
         ) in err
 
     def test_template_writes_one_file_per_tuple(
@@ -4261,9 +4520,10 @@ class TestLockCommandUniversal:
         ):
             lock(pyproject, format="requirements-without-hashes", output=out)
         err = capsys.readouterr().err
+
         assert "4 tuples" in err
         assert "tells them apart" in err
-        assert "Emit pylock output instead" in err
+        assert "try: emit pylock output instead" in err
         assert "{python_version}" not in err
         assert not out.exists()
 
@@ -4282,9 +4542,10 @@ class TestLockCommandUniversal:
         ):
             lock(pyproject, format="requirements-without-hashes", output=out)
         err = capsys.readouterr().err
+
         assert "both map to" in err
         assert "tells them apart" in err
-        assert "Emit pylock output instead" in err
+        assert "try: emit pylock output instead" in err
         assert "{python_version}" not in err
         assert list(tmp_path.glob("req-*.txt")) == []
 
@@ -6383,7 +6644,7 @@ class TestPaintedEagerOutput:
         _page, refusal = self._eager("lock", "--outupt", status=2)
 
         assert refusal.startswith("\033[31mnab lock:\033[0m ")
-        assert "did you mean '\033[36m--output\033[0m'?" in refusal
+        assert "try: use '\033[36m--output\033[0m'" in refusal
 
     def test_each_stream_is_asked_on_its_own(
         self, monkeypatch: pytest.MonkeyPatch
@@ -6731,14 +6992,13 @@ class TestMain:
         assert enabled_during == [False]
         assert gc.isenabled()
 
+    @pytest.mark.skipif(
+        sysconfig.get_config_var("Py_GIL_DISABLED") == 1,
+        reason="requires generational garbage collection",
+    )
     @pytest.mark.usefixtures("restored_gc_state")
     def test_resolve_promotes_what_it_allocated(self, tmp_path: Path) -> None:
-        """Objects the resolve allocated end in generation 2, not generation 0.
-
-        Reads generations directly, so it needs a build whose
-        ``gc.get_objects(generation=...)`` filters by generation; the
-        free-threaded builds return every tracked object for any of them.
-        """
+        """Objects the resolve allocated end in generation 2, not generation 0."""
         pyproject = _make_pyproject(tmp_path)
         config = read_pyproject_config(pyproject)
         allocated: list[object] = []
@@ -6769,6 +7029,7 @@ class TestMain:
         gc.disable()
 
         graph = allocated[0]
+
         assert not any(obj is graph for obj in gc.get_objects(generation=0))
         assert any(obj is graph for obj in gc.get_objects(generation=2))
 
@@ -7435,6 +7696,20 @@ class TestMakeTransport:
             asyncio.run(transport.aclose())
 
     @pytest.mark.parametrize("backend", ["httpx", "httpx2"])
+    def test_optional_backend_absent_exits_before_initialization(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        backend: str,
+    ) -> None:
+        monkeypatch.setitem(sys.modules, backend, None)
+        with pytest.raises(SystemExit) as info:
+            _make_transport(backend)
+
+        assert info.value.code == 1
+        assert f"{backend} is not installed" in capsys.readouterr().err
+
+    @pytest.mark.parametrize("backend", ["httpx", "httpx2"])
     def test_optional_backend_missing_exits_with_hint(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -7463,18 +7738,14 @@ class TestMakeTransport:
         backend: str,
     ) -> None:
         """An optional backend installed without ``h2`` exits with a hint."""
-        original_import = builtins.__import__
-
-        def fake_import(name: str, *args: object, **kwargs: object) -> object:
-            if name == "h2":
-                raise ImportError(name)
-            return original_import(name, *args, **kwargs)
-
-        monkeypatch.setattr(builtins, "__import__", fake_import)
+        monkeypatch.setitem(sys.modules, "h2", None)
         with pytest.raises(SystemExit) as info:
             _make_transport(backend)
+
         assert info.value.code == 1
+
         err = capsys.readouterr().err
+
         assert f"nab[{backend}]" in err
         assert "HTTP/2" in err
         assert f"{backend} is not installed" not in err
@@ -7499,6 +7770,7 @@ class _RecordingTransport:
 
 _OFFLINE_LOCK_PROBE = """
 import sys
+import sysconfig
 
 from nab.cli import main
 
@@ -7651,20 +7923,39 @@ class TestResolveTransportCleanup:
 class TestResolveTransport:
     """Which transport a resolve is handed, and when it is built."""
 
-    def test_online_resolve_gets_the_transport_up_front(self) -> None:
-        """A resolve that may fetch is handed the real transport."""
-        with patch("nab._resolve._make_transport") as make:
-            transport = _make_resolve_transport("urllib3", offline=False)
+    def test_default_resolve_defers_transport_creation(self) -> None:
+        with patch("nab._resolve._make_urllib3_transport") as make:
+            transport = _make_resolve_transport("urllib3")
+            asyncio.run(transport.aclose())
 
-        assert transport is make.return_value
-        make.assert_called_once_with("urllib3")
+        make.assert_not_called()
+
+    def test_unused_default_transport_closes_without_a_loop(self) -> None:
+        with patch("nab._resolve._make_urllib3_transport") as make:
+            transport = _make_resolve_transport("urllib3")
+            assert isinstance(transport, IdleClosableTransport)
+            assert transport.close_without_loop()
+        make.assert_not_called()
+
+    def test_active_default_transport_needs_async_close(self) -> None:
+        inner = _RecordingTransport()
+        with patch("nab._resolve._make_urllib3_transport", return_value=inner):
+            transport = _make_resolve_transport("urllib3")
+            assert isinstance(transport, IdleClosableTransport)
+            asyncio.run(transport.get("https://example.invalid/"))
+            assert not transport.close_without_loop()
+            assert inner.closes == 0
+            asyncio.run(transport.aclose())
+
+        assert inner.closes == 1
 
     def test_offline_httpx_resolve_gets_it_up_front_too(self) -> None:
         """Only urllib3 defers; httpx is built while the CLI can still exit."""
         with patch("nab._resolve._make_transport") as make:
-            transport = _make_resolve_transport("httpx", offline=True)
+            transport = _make_resolve_transport("httpx")
 
         assert transport is make.return_value
+
         make.assert_called_once_with("httpx")
 
     def test_offline_lock_without_httpx_exits_with_the_hint(
@@ -7711,7 +8002,7 @@ class TestResolveTransport:
         """A deferred transport builds its inner one once, on the first get."""
         inner = _RecordingTransport()
         with patch("nab._resolve._make_urllib3_transport", return_value=inner) as make:
-            transport = _make_resolve_transport("urllib3", offline=True)
+            transport = _make_resolve_transport("urllib3")
             make.assert_not_called()
 
             async def fetch_twice() -> None:
@@ -7723,6 +8014,7 @@ class TestResolveTransport:
             asyncio.run(fetch_twice())
 
         make.assert_called_once_with()
+
         assert inner.requests == [
             ("https://example.invalid/a", None),
             ("https://example.invalid/b", {"Accept": "x"}),
@@ -7732,7 +8024,7 @@ class TestResolveTransport:
         """Closing a deferred transport that fetched closes the inner one."""
         inner = _RecordingTransport()
         with patch("nab._resolve._make_urllib3_transport", return_value=inner):
-            transport = _make_resolve_transport("urllib3", offline=True)
+            transport = _make_resolve_transport("urllib3")
 
             async def fetch_then_close() -> None:
                 await transport.get("https://example.invalid/a")
@@ -7745,7 +8037,7 @@ class TestResolveTransport:
     def test_close_without_a_request_builds_nothing(self) -> None:
         """Closing a deferred transport that never fetched builds nothing."""
         with patch("nab._resolve._make_urllib3_transport") as make:
-            transport = _make_resolve_transport("urllib3", offline=True)
+            transport = _make_resolve_transport("urllib3")
             asyncio.run(transport.aclose())
 
         make.assert_not_called()
@@ -7795,6 +8087,26 @@ class TestPackageEntryStatements:
 
 class TestDownloadCommand:
     """Tests for the download subcommand."""
+
+    @pytest.mark.parametrize("output_path", ["-", "./-"])
+    def test_cli_dash_output_is_a_directory(
+        self,
+        hermetic_roots: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+        output_path: str,
+    ) -> None:
+        monkeypatch.chdir(hermetic_roots)
+        _make_pyproject(hermetic_roots, '[project]\nname="app"\nversion="1.0"\n')
+
+        with patch(
+            "nab_project.resolve.FetchCoordinator",
+            return_value=contextlib.nullcontext(make_coordinator([])),
+        ):
+            _cli("download", "--offline", "--no-cache", "--output", output_path)
+
+        assert (hermetic_roots / "-").is_dir()
+        assert capsys.readouterr().out == ""
 
     def test_invokes_download_lock(self, tmp_path: Path) -> None:
         pyproject = _make_pyproject(tmp_path)

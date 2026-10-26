@@ -506,7 +506,11 @@ def bake(
     returns a small delta to where it was, and loses most of a LoRA's effect on fp8
     (MEASURE.md, TensorD #26). `seed` names the weight's noise. A GPU bakes fused when `how`
     says its kernels serve (`serving`), unless `stats` are asked for (the eager reference
-    measures them)."""
+    measures them). A convolution's weight and factors bake as matrices, each kernel tap one
+    more input column."""
+    if down.dim() > 2:
+        stored = {role: t.view(t.shape[0], -1) if t.dim() > 2 else t for role, t in stored.items()}
+        down, up = down.flatten(1), up.flatten(1)
     device = next(iter(stored.values())).device
     if stats is None and device.type == "cuda" and how == "fused":
         fused(torch, stored, down, up, seed)
@@ -651,10 +655,11 @@ def _built(device: int, wait: bool) -> bool | None:
     if not tools.triton():
         raise RuntimeError("cc not found")
     if _BUILD is None:
-        log = tempfile.TemporaryFile()  # noqa: SIM115 - read and closed when the child ends
+        log: IO[bytes] = tempfile.TemporaryFile()  # noqa: SIM115 - closed when the child ends
         boot = json.dumps({"path": sys.path, "device": device})
         command = [sys.executable, "-I", "-c", _CHECK, boot]
         _BUILD = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=log), log
+        _say(f"building its kernels in pid {_BUILD[0].pid}; LoRAs serve per step until it ends")
     child, log = _BUILD
     if child.poll() is None and not wait:
         return None
@@ -664,10 +669,16 @@ def _built(device: int, wait: bool) -> bool | None:
     said = log.read().decode(errors="replace").strip().splitlines()
     log.close()
     _BUILD = None
+    how = (f"killed by signal {-code}" if code < 0 else f"exit {code}") if code else ""
+    _say(f"kernel build pid {child.pid} {how or 'built and checked its kernels'}")
     if code:
-        how = f"killed by signal {-code}" if code < 0 else f"exit {code}"
         raise RuntimeError(f"bake kernel build {how}" + (f": {said[-1]}" if said else "")[:300])
     return True
+
+
+def _say(line: str) -> None:
+    """The bake build's start and end in the executor's log: no request waits for it."""
+    print(f"lora bake: {line}", file=sys.stderr, flush=True)
 
 
 def recipe(fused: bool) -> str:

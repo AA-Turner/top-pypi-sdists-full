@@ -1,5 +1,6 @@
 import unittest
 import warnings
+from collections.abc import Callable
 
 from cachetools import Cache, cachedmethod, keys
 
@@ -68,6 +69,18 @@ class Cached:
     )
     def get_lock_cond_info(self, value):
         return self.__get(value)
+
+    get_aliased = cachedmethod(lambda self: self.cache)(__get)
+
+
+class CachedChild(Cached):
+    def __init__(self, cache, child_cache):
+        super().__init__(cache)
+        self.child_cache = child_cache
+
+    @cachedmethod(lambda self: self.child_cache, info=True)
+    def get_info(self, value):
+        return super().get_info(value) + 1
 
 
 class Unhashable(Cached):
@@ -421,6 +434,121 @@ class MethodDecoratorTestMixin(SimplifiedTestCaseProtocol):
         self.assertEqual(len(cache), 0)
         self.assertEqual(cached.cond.count, 4)
 
+    def test_decorator_pickle(self):
+        import pickle
+
+        cache = self.cache(3)
+        cached = Cached(cache)
+        self.assertEqual(len(cache), 0)
+
+        unpickled = pickle.loads(pickle.dumps(cached))
+        self.assertEqual(len(unpickled.get_cond.cache), 0)
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(unpickled.get_cond(0), 0)
+        self.assertEqual(len(unpickled.get_cond.cache), 1)
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(unpickled.get_cond(1), 1)
+        self.assertEqual(len(unpickled.get_cond.cache), 2)
+        self.assertEqual(len(cache), 0)
+
+        self.assertEqual(len(cache), 0)
+        self.assertEqual(cached.get_cond(0), 0)
+        self.assertEqual(len(cache), 1)
+
+        unpickled = pickle.loads(pickle.dumps(cached))
+        self.assertEqual(len(unpickled.get_cond.cache), 1)
+        self.assertEqual(len(cache), 1)
+        self.assertEqual(unpickled.get_cond(0), 0)
+        self.assertEqual(len(unpickled.get_cond.cache), 1)
+        self.assertEqual(len(cache), 1)
+        self.assertEqual(unpickled.get_cond(1), 1)
+        self.assertEqual(len(unpickled.get_cond.cache), 2)
+        self.assertEqual(len(cache), 1)
+
+    def test_decorator_pickle_info(self):
+        import pickle
+
+        cache = self.cache(3)
+        cached = Cached(cache)
+        maxsize = cache.maxsize if isinstance(cache, Cache) else None
+        self.assertEqual(len(cache), 0)
+
+        # hits and misses will be reset when unpickling - since these
+        # are primarily used for debugging/tuning, this is probably OK
+        unpickled = pickle.loads(pickle.dumps(cached))
+        self.assertEqual(unpickled.get_cond_info.cache_info(), (0, 0, maxsize, 0))
+        self.assertEqual(unpickled.get_cond_info(0), 0)
+        self.assertEqual(unpickled.get_cond_info.cache_info(), (0, 1, maxsize, 1))
+        self.assertEqual(unpickled.get_cond_info(1), 1)
+        self.assertEqual(unpickled.get_cond_info.cache_info(), (0, 2, maxsize, 2))
+        self.assertEqual(len(cache), 0)
+
+        self.assertEqual(cached.get_cond_info(0), 0)
+        self.assertEqual(len(cache), 1)
+
+        unpickled = pickle.loads(pickle.dumps(cached))
+        self.assertEqual(unpickled.get_cond_info.cache_info(), (0, 0, maxsize, 1))
+        self.assertEqual(unpickled.get_cond_info(0), 0)
+        self.assertEqual(unpickled.get_cond_info.cache_info(), (1, 0, maxsize, 1))
+        self.assertEqual(unpickled.get_cond_info(1), 1)
+        self.assertEqual(unpickled.get_cond_info.cache_info(), (1, 1, maxsize, 2))
+        self.assertEqual(unpickled.get_cond_info(0), 0)
+        self.assertEqual(unpickled.get_cond_info.cache_info(), (2, 1, maxsize, 2))
+        self.assertEqual(len(cache), 1)
+
+    def test_decorator_pickle_super(self):
+        import pickle
+
+        self._test_copy_super(lambda obj: pickle.loads(pickle.dumps(obj)))
+
+    def test_decorator_deepcopy_super(self):
+        import copy
+
+        self._test_copy_super(copy.deepcopy)
+
+    def _test_copy_super(self, copyfunc: Callable[[CachedChild], CachedChild]):
+        base_cache = self.cache(3)
+        maxsize = base_cache.maxsize if isinstance(base_cache, Cache) else None
+        cached = CachedChild(base_cache, self.cache(3))
+        self.assertEqual(cached.get_info(0), 1)
+
+        copied = copyfunc(cached)
+        child = copied.get_info
+        base = super(CachedChild, copied).get_info
+        self.assertIsNot(base, child)
+        self.assertIs(base, super(CachedChild, copied).get_info)
+        self.assertIs(child.cache, copied.child_cache)
+        self.assertIs(base.cache, copied.cache)
+        self.assertEqual(len(vars(copied)["__cachetools_cachedmethods"]), 1)
+        # hits and misses are reset
+        self.assertEqual(child.cache_info(), (0, 0, maxsize, 1))
+        self.assertEqual(base.cache_info(), (0, 0, maxsize, 1))
+
+        self.assertEqual(copied.get_info(0), 1)
+        self.assertEqual(child.cache_info(), (1, 0, maxsize, 1))
+        self.assertEqual(base.cache_info(), (0, 0, maxsize, 1))
+        self.assertEqual(copied.get_info(1), 2)
+        self.assertEqual(child.cache_info(), (1, 1, maxsize, 2))
+        self.assertEqual(base.cache_info(), (0, 1, maxsize, 2))
+        self.assertEqual(len(vars(copied)["__cachetools_cachedmethods"]), 1)
+        self.assertEqual(len(base_cache), 1)
+
+    def test_decorator_pickle_aliased(self):
+        import pickle
+
+        cache = self.cache(3)
+        cached = Cached(cache)
+        self.assertEqual(len(cache), 0)
+
+        self.assertEqual(cached.get_aliased(0), 0)
+        self.assertEqual(len(cache), 1)
+
+        unpickled = pickle.loads(pickle.dumps(cached))
+        self.assertEqual(len(unpickled.get_aliased.cache), 1)
+        self.assertEqual(unpickled.get_aliased(0), 0)
+        self.assertEqual(len(unpickled.get_aliased.cache), 1)
+        self.assertEqual(len(cache), 1)
+
     def test_decorator_slots(self):
 
         class Slots:
@@ -706,6 +834,28 @@ class CacheMethodTest(unittest.TestCase, MethodDecoratorTestMixin):
         self.assertEqual(super(GrandChild, cached).get_typed(0), 1)
         self.assertEqual(super(Child, cached).get_typed(0.0), 0)
 
+    def test_cond_pending_keyword(self):
+        # Up until cachetools v7.2.4, @cachedmethod with condition and
+        # info=False raised a TypeError when the wrapped method
+        # received a valid "pending" keyword argument.
+        for info in (False, True):
+            with self.subTest(info=info):
+
+                class Pending(Cached):
+                    @cachedmethod(
+                        lambda obj: obj.cache,
+                        condition=lambda obj: obj.cond,
+                        info=info,
+                    )
+                    def get_pending(self, pending):
+                        return self.get(pending)
+
+                cached = Pending(self.cache(2))
+                self.assertEqual(cached.get_pending(pending=0), 0)
+                self.assertEqual(cached.get_pending(pending=0), 0)
+                cached.get_pending.cache_clear()
+                self.assertEqual(cached.get_pending(pending=0), 1)
+
 
 class DictMethodTest(unittest.TestCase, MethodDecoratorTestMixin):
     def cache(self, minsize, **_kwargs):
@@ -791,6 +941,41 @@ class UnboundMethodTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             Cached.get()  # type: ignore
 
+    def test_class_call_keyword_receiver(self):
+        cached = Cached(Cache(2))
+        self.assertEqual(Cached.get(self=cached, value=1), 0)  # type: ignore
+        self.assertEqual(Cached.get(cached, value=1), 0)
+        self.assertEqual(Cached.get(self=cached, value=2), 1)  # type: ignore
+        self.assertEqual(cached.count, 2)
+        with self.assertRaises(TypeError):
+            Cached.get(value=1)
+
+        class Named:
+            def __init__(self, cache):
+                self.cache = cache
+
+            @cachedmethod(lambda this: this.cache)
+            def get(this, value):
+                return value
+
+            @cachedmethod(lambda self: self.cache)
+            def get_posonly(self, /, value):
+                return value
+
+            @cachedmethod(lambda self: self.cache)  # type: ignore
+            def get_noargs():
+                return 42
+
+        named = Named(Cache(2))
+        self.assertEqual(Named.get(this=named, value=1), 1)  # type: ignore
+        self.assertEqual(Named.get(named, value=1), 1)
+        with self.assertRaises(TypeError):
+            Named.get(self=named, value=1)  # type: ignore
+        with self.assertRaises(TypeError):
+            Named.get_posonly(self=named, value=1)  # type: ignore
+        with self.assertRaises(TypeError):
+            Named.get_noargs()
+
     def test_class_access_identity(self):
         self.assertIs(Cached.get, Cached.get)
         self.assertIs(Cached.get_info, Cached.get_info)
@@ -805,6 +990,30 @@ class UnboundMethodTest(unittest.TestCase):
         self.assertEqual(Cached.get.__wrapped__(cached, 1), 0)
         self.assertEqual(Cached.get.__wrapped__(cached, 1), 1)
         self.assertEqual(len(cached.cache), 0)
+
+    def test_class_access_pickle(self):
+        import pickle
+
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            with self.subTest(proto=proto):
+                self.assertIs(pickle.loads(pickle.dumps(Cached.get, proto)), Cached.get)
+
+    def test_class_access_copy(self):
+        import copy
+
+        self.assertIs(copy.copy(Cached.get), Cached.get)
+        self.assertIs(copy.deepcopy(Cached.get), Cached.get)
+
+    def test_class_access_alias(self):
+        class Alias(Cached):
+            alias = Cached.get
+
+        self.assertIs(Alias.alias, Cached.get)
+        cached = Alias(Cache(2))
+        self.assertEqual(cached.alias(1), 0)
+        self.assertEqual(cached.alias(1), 0)
+        self.assertIs(cached.alias, cached.get)
+        self.assertEqual(len(cached.cache), 1)
 
     def test_autospec_no_warnings(self):
         import unittest.mock

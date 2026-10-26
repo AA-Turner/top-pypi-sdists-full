@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.13.257
+Version: 1.13.267
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -162,6 +162,53 @@ Standalone `download()` attaches both `CrawlService` (plugin crawl hooks) and
 listener suites whose behavior they want and dispatch the corresponding typed
 events directly.
 
+For database-backed queues, pass an async `run_snapshots(CrawlStartEvent)`
+callback to `CrawlLifecycleService`. The callback admits and awaits snapshot
+work, draining already-admitted tasks in its `finally` block if scheduling
+fails. The service still owns setup, cleanup, and completion; embedders must
+not duplicate those phases. Omitting the callback runs the usual single
+snapshot. An explicit user abort completes after cleanup; an execution
+takeover (`CrawlAbortEvent(user_initiated=False)`) leaves completion to its new
+owner.
+
+Before destroying an embedded event bus, await `ProcessService.stop()` to stop
+its remaining hooks and deliver their process-completion facts. Keep per-snapshot
+services registered until this finishes, before calling their `close()` methods:
+their takeover and cleanup consumers are still needed during the drain. This
+uses the same takeover control path and does not complete interrupted snapshots
+or crawls. Abrupt process death can still interrupt shutdown; the next owner
+starts a fresh snapshot attempt rather than depending on this drain for recovery.
+
+`SnapshotCompletedEvent` means an attempt has settled, not that every plugin
+succeeded. Its `error` contains a handled execution or persistence failure;
+existing hook failures retain their own ArchiveResults. Completion is emitted
+only after actual hook processes stop, and never for task cancellation or
+ownership takeover. A handled snapshot failure allows independent snapshots
+to finish and produces a nonzero final crawl outcome. `SnapshotCleanupEvent.error`
+carries the owner's failure context to later final-metadata consumers before
+the terminal event is emitted. Preparation consumers run before the runtime
+owner on the serial `SnapshotEvent`; a recorded preparation exception prevents
+hooks from starting. Final-metadata consumers register after runtime cleanup
+on serial `SnapshotCleanupEvent`, and act only when `finalize_snapshot=True`.
+
+`CrawlCompletedEvent.error` likewise records a handled failure after the crawl's
+processes stop. The original exception still reaches the caller after completion
+consumers finish. This fact ends one execution; an embedder may still have queued
+snapshots to run. Cancellation, takeover, or live writers prevent completion.
+
+Interactive Ctrl+C remains a live-session control: it can interrupt a hook,
+wait for the user's choice, then retry that hook, skip it, or abort the capture.
+That in-memory prompt does not persist a paused snapshot. A dead or replaced
+owner cannot continue a half-finished snapshot; a later attempt starts fresh.
+
+Hook preparation failures (before a process starts) retain their failed result
+and allow independent hooks to finish. After cleanup and completion consumers
+finish, the crawl raises `SnapshotAttemptError` so CLI callers do not report a
+false success. Ordinary extractor exits remain per-hook outcomes.
+Failed foreground crawl-setup hooks are likewise reported after independent
+work finishes; optional setup hooks express best-effort behavior in their own
+exit status.
+
 `parse_input(source_text, catalog, output_dir)` is the framework-free import
 path for pasted text and bookmark/feed exports. It writes
 `staticfile/stdin.txt`, runs only plugins declaring
@@ -207,6 +254,7 @@ CHROME_BINARY="chromium"
 
 Common options:
 - `TIMEOUT=60` - default timeout for hooks
+- `MEMORY_LIMIT` - best-effort per-hook process-tree RSS limit in bytes, checked once per second; `0` or absent disables it. The base plugin config supplies a 2GiB default and `CHROME_MEMORY_LIMIT=0` exempts shared Chrome. `{PLUGIN}_MEMORY_LIMIT` overrides it. Exceeding the limit kills that hook tree and records a failure while preserving saved files. This is not a hard allocation limit: sudden growth between checks can still exhaust memory, and RSS counts shared pages more than once.
 - `USER_AGENT` - optional HTTP user agent override; empty uses Chrome's detected identity after browser setup. yt-dlp keeps its native identity and its own argument overrides.
 - `{PLUGIN}_BINARY` - path or name of the binary to use (e.g. `WGET_BINARY=wget` or `CHROME_BINARY=/usr/bin/chromium`)
 - `{PLUGIN}_ENABLED=True/False` - enable/disable specific plugins

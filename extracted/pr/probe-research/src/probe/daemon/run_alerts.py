@@ -39,6 +39,11 @@ and does with it exactly what it does with its own poll's answer. No fresh
 hand-off (no service, an older one, one that cannot reach Probe) and it polls
 as before. A worker whose key or endpoint comes from its environment offers
 nothing: the service would ask with another key.
+
+SESSION MESSAGES (swarm visibility G7). The same task polls the messages Probe
+holds for the session on the same tick (`session_messages.SessionMessages`,
+its own clock and its own GET, never through the service's hand-off): a failure
+of either poll never stops the other.
 """
 
 from __future__ import annotations
@@ -133,6 +138,10 @@ class RunAlertLane:
         self.offered: str | None = None
         #: `polled_at` of the last service hand-off taken.
         self.handoff_at: float | None = None
+        from probe.daemon.session_messages import SessionMessages
+
+        #: The session-message poll, on this task's tick (G7).
+        self.messages = SessionMessages(self)
 
     # -- life ----------------------------------------------------------------
     def start(self) -> None:
@@ -200,6 +209,12 @@ class RunAlertLane:
                 raise
             except Exception as exc:  # noqa: BLE001 -- the poller never ends the worker
                 log.warning("run-alert poll failed: %s: %s", type(exc).__name__, exc)
+            try:
+                await self.messages.tick()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # noqa: BLE001 -- the poller never ends the worker
+                log.warning("session-message poll failed: %s: %s", type(exc).__name__, exc)
             await self.pause()
 
     async def pause(self) -> None:

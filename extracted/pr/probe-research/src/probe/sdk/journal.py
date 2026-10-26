@@ -14,7 +14,8 @@ data and the journal may live on shared storage):
     <dir>/blobs/incoming-<op_id>         staged bytes not yet hashed (11A: big
                                          files hash in the drainer, not enqueue)
     <dir>/status.json                    single-stat summary for the banner
-    <dir>/paused                         marker: drains are suspended
+    <dir>/paused                         marker: drains are suspended until its
+                                         `until` (DEFAULT_PAUSE_HOURS)
     <dir>/.append.lock / .drain.lock     flock sidecars
     <dir>/producers/<producer>.json      per-writer accounting (parity F4):
                                          sequence high-water, delivered tally,
@@ -247,6 +248,119 @@ CREDENTIAL_NAMESPACE = "credential-v1"
 DELIVERY_SCHEMA = "probe.outbox.delivery/1"
 RECEIPT_INDEX_VERSION = 1
 RECEIPT_COMPACTION_BATCH = 256
+#: How long `probe outbox pause` holds delivery unless told otherwise. A pause
+#: used to have no end: nothing resumed it, and every write the machine made
+#: afterwards -- runs, files, metrics -- queued silently behind it (Tokenless,
+#: 2026-10-26: a pause typed right after an aborted import held its 800 writes
+#: and everything after them).
+DEFAULT_PAUSE_HOURS = 24.0
+#: The longest `probe outbox pause --hours` (a year); `--until-resume` is longer.
+MAX_PAUSE_HOURS = 24.0 * 365
+PAUSE_SCHEMA = "probe.outbox.pause/1"
+#: A marker is a few dozen bytes; no more than this is ever read of one.
+_PAUSE_MARKER_MAX = 4096
+
+
+def _parse_when(value):
+    from datetime import datetime, timezone
+
+    try:
+        when = datetime.fromisoformat(str(value or ""))
+    except ValueError:
+        return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
+
+
+def _pause_marker(directory: Path) -> dict | None:
+    """The pause marker in ``directory`` while it is in effect, else None:
+    ``{"at", "until"}`` in UTC, ``until`` None holding until `probe outbox
+    resume`.
+
+    - An older CLI's marker (a bare timestamp, from when a pause never ended,
+      or anything else that is not a JSON object) is over: an update releases
+      what it held at once (Richard, 2026-10-26), and `lift_stale_pause`
+      deletes it. A pause an older CLI still on the machine types later is
+      over too, the price of that.
+    - A JSON object holds until its `until` (None: until resume). One whose
+      `until` is missing or unreadable (a newer release's shape) holds
+      DEFAULT_PAUSE_HOURS from its `at`, else from when it was written: never
+      ended early here.
+    - One that cannot be read (permissions, I/O, a symlink, not a regular
+      file) holds, `{"at": None, "until": None}`: unknown is paused, and
+      nothing but `resume` deletes it.
+
+    Never raises: this runs on every append, and before every CLI command (one
+    open when there is none)."""
+    import stat
+    from datetime import datetime, timedelta, timezone
+
+    unreadable = {"at": None, "until": None}
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    try:
+        fd = os.open(directory / "paused", flags)
+    except (FileNotFoundError, NotADirectoryError):
+        return None
+    except OSError:
+        return unreadable
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > _PAUSE_MARKER_MAX:
+            return unreadable
+        raw = os.read(fd, _PAUSE_MARKER_MAX)
+    except OSError:
+        return unreadable
+    finally:
+        os.close(fd)
+    try:
+        record = json.loads(raw.decode("utf-8"))
+    except ValueError:  # not UTF-8, or not JSON: an older CLI's bare timestamp
+        return None
+    if not isinstance(record, dict):
+        return None
+    try:
+        at = _parse_when(record.get("at")) or datetime.fromtimestamp(info.st_mtime, timezone.utc)
+        if "until" in record and record["until"] is None:
+            until = None
+        else:
+            until = _parse_when(record.get("until")) or at + timedelta(hours=DEFAULT_PAUSE_HOURS)
+            if until <= datetime.now(timezone.utc):
+                return None
+        return {
+            "at": at.astimezone(timezone.utc).isoformat(),
+            "until": until.astimezone(timezone.utc).isoformat() if until else None,
+        }
+    except (ValueError, OverflowError):  # a date past the calendar's end
+        return unreadable
+
+
+def _unlink_pause(path: Path) -> None:
+    """Delete a pause marker. On Windows a reader's open handle blocks a
+    delete for the moment it reads: retried, as `oscompat.replace` is."""
+    give_up = time.monotonic() + 1.0
+    while True:
+        try:
+            path.unlink(missing_ok=True)
+            return
+        except PermissionError:
+            if os.name != "nt" or time.monotonic() >= give_up:
+                raise
+            time.sleep(0.01)
+
+
+def _pause_in_effect(directory: Path) -> dict | None:
+    """The pause holding ``directory``: its own, or one above it (`probe outbox
+    pause` pauses the root, and with it every namespace under it)."""
+    path = directory
+    while True:
+        marker = _pause_marker(path)
+        if marker is not None:
+            return marker
+        if path.name == DELIVERY_NAMESPACE:
+            path = path.parent
+        elif path.parent.name == CREDENTIAL_NAMESPACE:
+            path = path.parent.parent
+        else:
+            return None
 
 
 def _inline_hash_max() -> int:
@@ -501,14 +615,17 @@ def _rank_suffix() -> str | None:
     return None
 
 
-def default_root() -> Path:
+def default_root(environ=None) -> Path:
     """The machine's outbox root, without the per-rank component: every
-    process of this user queues in it or in one of its ``rank-*`` children."""
-    configured = os.environ.get("PROBE_OUTBOX_DIR")
+    process of this user queues in it or in one of its ``rank-*`` children.
+    ``environ``: another process's variables (the Probe service reads the
+    login shell's) instead of this one's."""
+    env = os.environ if environ is None else environ
+    configured = env.get("PROBE_OUTBOX_DIR")
     try:
         if configured:
             return Path(configured).expanduser()
-        base = os.environ.get("XDG_STATE_HOME")
+        base = env.get("XDG_STATE_HOME")
         root = Path(base) if base else Path.home() / ".local" / "state"
     except (RuntimeError, KeyError, OSError):
         # No HOME and no passwd entry (a container running an arbitrary uid):
@@ -3549,28 +3666,50 @@ class Journal:
     @property
     def paused(self) -> bool:
         """Paused here, or in any queue above this one (`probe outbox pause`
-        pauses the root, and with it every namespace under it)."""
-        path = self.dir
-        while True:
-            if (path / "paused").exists():
-                return True
-            if path.name == DELIVERY_NAMESPACE:
-                path = path.parent
-            elif path.parent.name == CREDENTIAL_NAMESPACE:
-                path = path.parent.parent
-            else:
-                return False
+        pauses the root, and with it every namespace under it), by a pause
+        that has not run out (`DEFAULT_PAUSE_HOURS`)."""
+        return _pause_in_effect(self.dir) is not None
 
-    def pause(self) -> None:
+    def pause(self, hours: float | None = DEFAULT_PAUSE_HOURS) -> dict:
+        """Hold delivery for ``hours``, or until `resume` when None. Returns
+        the marker. Written under the append lock, so `lift_stale_pause`
+        can never remove a pause written while it looked."""
+        from datetime import datetime, timedelta, timezone
+
         self._ensure()
-        write_text_atomic(self.paused_file, now_iso() + "\n", mode=0o600)
+        at = datetime.now(timezone.utc)
+        until = None if hours is None else (at + timedelta(hours=hours)).isoformat()
+        marker = {"schema": PAUSE_SCHEMA, "at": at.isoformat(), "until": until}
         with file_lock(self.append_lock):
+            write_text_atomic(self.paused_file, json.dumps(marker) + "\n", mode=0o600)
             self._write_status_locked()
+        return marker
+
+    def lift_stale_pause(self, *, wait: bool = True) -> bool:
+        """Delete this queue's pause marker once it no longer holds: its end has
+        passed, or it is an older CLI's endless one. An older release reads only
+        whether the marker EXISTS (an SDK pinned in a job's venv), so it stays
+        paused until the file is gone. An older CLI's `pause` writes outside the
+        append lock, so one typed in the microseconds between this check and
+        the unlink is lost. ``wait`` False: when another process holds the
+        append lock, lift nothing now (a caller that must never hang on a
+        stopped writer's lock: the Probe service). True when one was lifted."""
+        if not os.path.lexists(self.paused_file) or _pause_marker(self.dir) is not None:
+            return False
+        lock = file_lock(self.append_lock) if wait else _try_lock(self.append_lock)
+        with lock as held:
+            if held is False:
+                return False
+            if not os.path.lexists(self.paused_file) or _pause_marker(self.dir) is not None:
+                return False
+            _unlink_pause(self.paused_file)
+            self._write_status_locked()
+        return True
 
     def resume(self) -> None:
         for child in self.namespaces()[1:]:
             child.resume()
-        self.paused_file.unlink(missing_ok=True)
+        _unlink_pause(self.paused_file)
         if self.dir.exists():
             with file_lock(self.append_lock):
                 self._write_status_locked()
@@ -4155,6 +4294,7 @@ class Journal:
         include_receipts: bool = True,
         credential_queues: bool = True,
         keep_idle_refusals: bool = False,
+        _pause: bool = True,
     ) -> dict | None:
         """Banner-grade counts, including the fenced delivery namespace and
         (``credential_queues``) every credential queue under this root.
@@ -4162,7 +4302,9 @@ class Journal:
         A queue holding no writes reads with no refusal and nothing held
         (`_forget_idle_refusals`), each queue judged on its own before any
         is folded in. ``keep_idle_refusals``: the file as written, for the
-        drain, whose cooldowns count from those stamps."""
+        drain, whose cooldowns count from those stamps. ``_pause``: read the
+        pause marker (the outermost call only; the folded queues' own copy
+        is never used)."""
         root = Path(directory).expanduser() if directory else default_dir()
         path = root / "status.json"
         try:
@@ -4174,7 +4316,7 @@ class Journal:
                 _forget_idle_refusals(status, root)
             status.update(_blocked_marker(status))
         if include_receipts and root.name != DELIVERY_NAMESPACE:
-            child = Journal.read_status(root / DELIVERY_NAMESPACE, include_receipts=False)
+            child = Journal.read_status(root / DELIVERY_NAMESPACE, include_receipts=False, _pause=False)
             if child:
                 status = dict(status or {})
                 for field in ("pending", "pending_bytes", "failed", "held"):
@@ -4183,12 +4325,11 @@ class Journal:
                 status["delivery_pending"] = int(child.get("pending") or 0)
                 status["delivery_failed"] = int(child.get("failed") or 0)
                 status["delivery_pending_bytes"] = int(child.get("pending_bytes") or 0)
-                status["delivery_paused"] = bool(child.get("paused"))
+                status["delivery_paused"] = _pause and _pause_marker(root / DELIVERY_NAMESPACE) is not None
                 status["delivery_last_error"] = child.get("last_error")
                 status["auth_blocked_since"] = status.get("auth_blocked_since") or child.get(
                     "auth_blocked_since"
                 )
-                status["paused"] = bool(status.get("paused") or (root / "paused").exists())
         if root.name != DELIVERY_NAMESPACE:
             waiting = Journal.count_waiting(root)
             if waiting or status is not None:
@@ -4202,7 +4343,7 @@ class Journal:
         ):
             # The credential queues (#2035) count toward the root's banner.
             for path in _credential_queue_dirs(root):
-                child = Journal.read_status(path, include_receipts=True)
+                child = Journal.read_status(path, include_receipts=True, _pause=False)
                 if not child:
                     continue
                 status = dict(status or {})
@@ -4225,6 +4366,14 @@ class Journal:
                         merged[fp] = min(str(at), str(merged[fp])) if merged.get(fp) else at
                     status["refused_fingerprints"] = merged
                 status["last_error"] = status.get("last_error") or child.get("last_error")
+        if status is not None and _pause:
+            # From the marker, never status.json: a pause that ran out is over,
+            # whatever the last status write saw.
+            pause = _pause_in_effect(root)
+            status["paused"] = pause is not None
+            status["paused_until"] = pause["until"] if pause else None
+            if "delivery_paused" in status:
+                status["delivery_paused"] = bool(status["delivery_paused"] or pause)
         return status
 
     # -- blob store ---------------------------------------------------------

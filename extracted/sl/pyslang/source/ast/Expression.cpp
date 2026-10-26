@@ -113,7 +113,8 @@ struct Expression::HierarchicalVisitor {
     void visit(const T& expr) {
         if constexpr (std::is_base_of_v<Expression, T>) {
             if (expr.kind == ExpressionKind::HierarchicalValue) {
-                any = true;
+                if (!expr.template as<HierarchicalValueExpression>().ref.isViaIfacePort())
+                    any = true;
             }
             else if constexpr (HasVisitExprs<T, HierarchicalVisitor>) {
                 expr.visitExprs(*this);
@@ -1151,6 +1152,21 @@ Expression& Expression::bindLookupResult(Compilation& comp, LookupResult& result
         }
     }
 
+    // An upward name can resolve to a different symbol in each instance, so the
+    // containing instance can't share a cached body. Value expressions note this
+    // themselves; a subroutine can also be found upward by its simple name.
+    auto noteIfUpward = [&](const Expression& target) {
+        if (result.upwardCount == 0)
+            return;
+
+        auto ref = comp.emplace<HierarchicalReference>(
+            HierarchicalReference::fromLookup(comp, result));
+        ref->target = symbol;
+        ref->upwardCount = result.upwardCount;
+        ref->expr = &target;
+        comp.noteUpwardReference(*context.scope, *ref);
+    };
+
     Expression* expr;
     switch (symbol->kind) {
         case SymbolKind::Subroutine: {
@@ -1170,6 +1186,7 @@ Expression& Expression::bindLookupResult(Compilation& comp, LookupResult& result
                 comp.noteHierarchicalAssignment(*ref);
             }
 
+            noteIfUpward(*expr);
             break;
         }
         case SymbolKind::Sequence:
@@ -1188,6 +1205,8 @@ Expression& Expression::bindLookupResult(Compilation& comp, LookupResult& result
                 SourceRange callRange = localInvoke ? localInvoke->sourceRange() : result.nameRange;
                 context.addDiag(diag::LetHierarchical, callRange);
             }
+
+            noteIfUpward(*expr);
             break;
         }
         case SymbolKind::AssertionPort:

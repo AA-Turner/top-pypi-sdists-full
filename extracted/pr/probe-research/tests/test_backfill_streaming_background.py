@@ -181,13 +181,16 @@ def test_offline_delivery_finishes_inflight_reads_before_retrying_saved_uploads(
                       if fields.get("waiting_for_connection"))
     assert all(fields.get("waiting_for_connection") for fields in observations[offline_at:])
     pending = h.client._delivery_journal().pending()
-    assert len(pending) == 2
+    # A unit whose agent crashed uploads nothing until its retry.
+    assert len(pending) == (2 if last_unit_ok else 1)
 
     # Recovery uses saved manifests and immutable upload bodies, including the
     # second unit that finished while the connection was unavailable.
     monkeypatch.setattr(h.remote, "upload_fingerprinted", upload)
     monkeypatch.setattr(h.client, "flush", flush)
-    monkeypatch.setattr(backfill, "launch_agent", lambda *a, **k: pytest.fail("re-read a saved manifest"))
+    # A crashed unit has no manifest to recover from: its agent runs again.
+    monkeypatch.setattr(backfill, "launch_agent", launch if not last_unit_ok
+                        else lambda *a, **k: pytest.fail("re-read a saved manifest"))
     (h.folder / "unapproved.py").write_text("outside the reviewed inventory\n")
     backfill_import.run_background_job(payload, progress=lambda *a, **k: None)
     assert sorted(call[1] for call in h.remote.calls) == ["a.py", "b.py"]

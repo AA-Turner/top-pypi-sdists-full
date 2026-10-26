@@ -1,0 +1,20 @@
+schema = 1
+
+[[word]]
+text = "binibini"
+salutation = { issue = 606, gender = "f", note = "borne: ~500 surnames, in Philippine lists writing Surname, Given with a comma, forebears.io, worldwide, rounded, 2026-10-04; shipped under the graf class (decisions/salutation-titles)", after_given = true }
+
+[[word]]
+text = "ginang"
+salutation = { issue = 606, gender = "f", note = "borne: ~500 surnames, in Philippine lists writing Surname, Given with a comma, forebears.io, worldwide, rounded, 2026-10-04; shipped under the graf class (decisions/salutation-titles)", after_given = true }
+
+[[word]]
+text = "ginoo"
+salutation = { issue = 606, gender = "m", note = "borne: ~500 surnames, in Philippine lists writing Surname, Given with a comma, forebears.io, worldwide, rounded, 2026-10-04; shipped under the graf class (decisions/salutation-titles)", after_given = true }
+
+[[word]]
+text = "dela"
+[word.preposition]
+may_be_given = true
+expands = "of the, de la contracted: \"Dela Cruz\""
+note = "Dela is a short form of Adela, and an African name meaning saviour/redeemer -- so the Filipino surname particle is not the only reading"

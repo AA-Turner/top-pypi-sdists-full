@@ -15,7 +15,7 @@ import pytest
 from nameparser import Parser, parse, parser_for
 from nameparser import locales
 from nameparser._policy import Policy
-from tests.v2.design_docs import read_rules_text
+from tests.v2.design_docs import RULES_DIR, read_rules_text
 from tests.v2.rules_doc import (
     Example, Rule, parse_rules_doc, resolve_annotation)
 
@@ -55,6 +55,116 @@ def test_every_rule_points_at_code_or_at_the_work(rule: Rule) -> None:
         f"tracked: once the rule ships")
     bad = [t for t in rule.tracked if not re.fullmatch(r"#\d+", t)]
     assert not bad, f"{rule.rule_id}: tracked: wants #N issue refs, got {bad}"
+
+
+@pytest.mark.parametrize("rule", RULES, ids=lambda r: r.rule_id)
+def test_every_rule_states_its_signal(rule: Rule) -> None:
+    """What in the written name the rule reads, on its ``**Signal:**`` line
+    (docs/design/AGENTS.md, "One rule per piece of evidence"). A hub
+    also names the rules stating the signals it combines, after any
+    signal it reads itself, which
+    test_doc_citations.py::test_a_hub_names_each_rule_its_map_names
+    holds to its map."""
+    assert rule.signal is not None, (
+        f"{rule.rule_id}: add a `**Signal:** <what it reads>` line in "
+        f"the footer below `---`, directly above the pointer line -- for "
+        f"example a count, a case contrast, a shape, a neighbor, a "
+        f"position -- or `**Signal:** hub of X1, X2` (after any signal of "
+        f"its own: `**Signal:** <its own>; hub of X1, X2`) for a hub")
+
+
+#: The README's recipe for the split candidates, verbatim; in grep's
+#: basic syntax "+" is a literal plus.
+_SPLIT_GREP = r"grep -lE '^\*\*Signal:\*\*.* \+ ' docs/design/rules/*.md"
+
+
+#: _SPLIT_GREP's pattern in Python's syntax.
+_SPLIT_PATTERN = r"^\*\*Signal:\*\*.* \+ "
+
+
+def test_the_readmes_worked_example_is_the_rule_it_copies() -> None:
+    """The README shows rules/D2 whole as the skeleton format's worked
+    example (its first ````markdown block); a copy nothing holds to the
+    file drifts the first time D2 is edited."""
+    readme = (RULES_DIR / "README.md").read_text(encoding="utf-8")
+    m = re.search(r"^````markdown\n(.*?)^````$", readme, re.S | re.M)
+    assert m is not None, "rules/README.md lost its ````markdown example"
+    (d2,) = RULES_DIR.glob("D2-*.md")
+    assert m.group(1) == d2.read_text(encoding="utf-8"), (
+        "rules/README.md's worked example differs from rules/D2; "
+        "copy the file into the README again")
+
+
+def test_the_split_candidate_recipe_lists_the_two_signal_rules() -> None:
+    readme = (RULES_DIR / "README.md").read_text(encoding="utf-8")
+    assert f"`{_SPLIT_GREP}`" in readme, (
+        "rules/README.md's split-candidate grep changed; update "
+        "_SPLIT_GREP and the translation below together")
+    listed = {f.name.split("-")[0] for f in RULES_DIR.glob("*.md")
+              if re.search(_SPLIT_PATTERN,
+                           f.read_text(encoding="utf-8"), re.M)}
+    assert listed == {r.rule_id for r in RULES
+                      if r.signal and " + " in r.signal}
+    # The tree may hold a single candidate, and the comparison above
+    # would then pass for a recipe that only ever lists that one rule,
+    # so the two halves are also held to a synthetic rule of each kind.
+    for signal, candidate in (("a shape: x + a count: y", True),
+                              ("a shape: x", False)):
+        skeleton = ("# X1 — one\n\n**When:** w.\n\n**Then:** t.\n\n"
+                    "**Because:** b.\n\n---\n"
+                    f"**Signal:** {signal}\n"
+                    "**history:** decisions/P2 · **implemented:** "
+                    "nameparser/_parser.py\n")
+        (rule,) = parse_rules_doc(skeleton)
+        assert rule.signal == signal
+        assert (" + " in rule.signal) is candidate
+        assert bool(re.search(_SPLIT_PATTERN, skeleton, re.M)) is candidate
+
+
+def signal_tag_findings(readme: str,
+                        signals: list[str]) -> tuple[set[str], set[str]]:
+    """The tags the signals use that the README's list leaves out, and
+    the listed tags no signal uses. A tag is a signal's text before its
+    colon, each side of a ` + `, a hub's list left off."""
+    m = re.search(r"The tags the rules use are (?P<list>[^.]+)\. Two kinds "
+                  r"of rule carry none of them: (?P<rest>.+?)\.(?= )", readme)
+    assert m is not None, "rules/README.md lost its signal tag list"
+    listed = set(re.split(r", | and ", m.group("list")))
+    listed |= set(re.findall(r"`([^`]+)`", m.group("rest")))
+    used = set()
+    for signal in signals:
+        own = re.sub(r"(?:^|; )hub of .*$", "", signal)
+        used |= {part.split(":")[0] for part in own.split(" + ") if part}
+    return used - listed, listed - used
+
+
+def test_the_readme_lists_every_signal_tag_the_rules_use() -> None:
+    """The README's tag list against the footers, both ways (#761
+    found `character`, `separator` and `edge full stop` missing)."""
+    readme = (RULES_DIR / "README.md").read_text(encoding="utf-8")
+    signals = [r.signal for r in RULES if r.signal is not None]
+    missing, unused = signal_tag_findings(readme, signals)
+    assert missing == set(), "add these tags to rules/README.md"
+    assert unused == set(), "no rule writes these listed tags"
+
+
+_TAGS = ("The tags the rules use are shape, count and none in the name. "
+         "Two kinds of rule carry none of them: A1 writes `none of its "
+         "own`. More.")
+
+
+@pytest.mark.parametrize("signals, missing, unused", [
+    (["shape: x", "count + shape", "none in the name: y",
+      "none of its own: z", "hub of C3"], set(), set()),
+    (["shape", "count", "none in the name", "none of its own", "script: x"],
+     {"script"}, set()),
+    (["shape", "none in the name", "none of its own"], set(), {"count"}),
+    (["shape", "count", "none in the name", "position; hub of C3"],
+     {"position"}, {"none of its own"}),
+])
+def test_signal_tag_findings_run_both_ways(
+        signals: list[str], missing: set[str], unused: set[str]) -> None:
+    assert signal_tag_findings(_TAGS, signals) == (missing, unused)
 
 
 def _check_diagnostic(example: Example) -> None:

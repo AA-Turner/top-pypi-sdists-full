@@ -33,6 +33,7 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -189,20 +190,30 @@ def _ledger(scope: str) -> None:
     }}))
 
 
-@pytest.mark.parametrize("case", ["follows", "project-scope", "old-tap", "codex", "kimi", "protocol-1"])
+@pytest.mark.parametrize("case", ["follows", "project-scope", "old-tap", "codex", "kimi", "kimi-unproven", "protocol-1"])
 def test_no_restart_is_said_only_where_open_sessions_follow(hook, monkeypatch, case) -> None:
     """"Open sessions pick it up at their next prompt" is true for Claude Code
     and Codex with a user-scope install and a tap that hands its sessions to
     the Probe service (0.10.13+), every live `tap watch` one the prompt hook
     can move: anywhere else (a project's install, a tap before the hand-back,
-    Kimi Code, a session on a protocol-1 tap) the restart note stays."""
+    Kimi Code, whose answer needs the release installed first, a session on a
+    protocol-1 tap) the restart note stays."""
     manifest = _manifest(cli_recommended="0.146.0")
     manifest["tap"] = {"latest": "0.10.12" if case == "old-tap" else "0.10.16", "min": "0.1.0"}
     _ledger("project" if case == "project-scope" else "user")
     if case == "codex":
         monkeypatch.setenv("PLUGIN_ROOT", str(_HOOK.parents[1]))
-    elif case == "kimi":
+    elif case in ("kimi", "kimi-unproven"):
         monkeypatch.setenv("KIMI_PLUGIN_ROOT", str(_HOOK.parents[1]))
+        if case == "kimi-unproven":
+            # This test's own process, recorded as a Kimi process whose start was
+            # never seen (no `loaded`): it cannot be proven to follow.
+            from probe.sdk import session_marker
+
+            pid = os.getpid()
+            path = session_marker._process_record_path(pid, session_marker._proc_linux(pid)[1])
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"harness": "kimi_code", "session_id": "s"}))
     watchers = Path.home() / "watchers"
     watchers.mkdir()
     monkeypatch.setenv("PROBE_TAP_WATCHER_DIR", str(watchers))

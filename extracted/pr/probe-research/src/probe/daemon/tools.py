@@ -1003,11 +1003,11 @@ READER_READS_ONLY = "not run: the reader only reads - {why}."
 #: send`): a list, not "every read", so a read that grows an option that writes
 #: (`run reproduce --export`) never reaches it unreviewed. Each prints only.
 READER_PROBE_READS = frozenset({
-    "project get", "project list", "project lineage",
-    "experiment get", "experiment list", "experiment lineage", "experiment edges",
+    "project get", "project list", "project lineage", "project branches",
+    "experiment get", "experiment list", "experiment lineage", "experiment edges", "experiment branch",
     "run get", "run list", "run metrics", "run series", "run inputs", "run upstream",
     "group get", "group list",
-    "notes show", "notes list", "notes team",
+    "notes show", "notes find", "notes list", "notes team",
     "paper list", "paper find", "paper citations", "paper edges", "paper graph",
     "dataset list", "dataset show", "checkpoint list", "source list", "source show", "provenance",
     "artifact list", "artifact tree", "artifact versions",

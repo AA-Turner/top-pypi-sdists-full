@@ -28,6 +28,7 @@ from __future__ import unicode_literals
 
 import functools
 import itertools
+import math
 import re
 from collections import deque
 from typing import Optional, Callable, Union
@@ -62,6 +63,7 @@ _dft_windows = {
     "ichimoku": (9, 26, 52),
     "inertia": (20, 14),
     "ftr": 9,
+    "hma": 16,
     "kama": (10, 5, 34),  # window, fast, slow
     "kdjd": 9,
     "kdjj": 9,
@@ -80,6 +82,9 @@ _dft_windows = {
     "rsv": 9,
     "rvgi": 14,
     "stochrsi": 14,
+    "ssl": 10,
+    "ssl_down": 10,
+    "ssl_up": 10,
     "supertrend": 14,
     "tema": 5,
     "trix": 12,
@@ -87,6 +92,7 @@ _dft_windows = {
     "wt": (10, 21),
     "vr": 26,
     "vwma": 14,
+    "wma": 10,
     "num": 0,
 }
 
@@ -101,11 +107,13 @@ _dft_column = {
     # sort alphabetically
     "cti": "close",
     "dma": "close",
+    "hma": "close",
     "kama": "close",
     "ker": "close",
     "psl": "close",
     "tema": "close",
     "trix": "close",
+    "wma": "close",
 }
 
 
@@ -734,6 +742,30 @@ class StockDataFrame(pd.DataFrame):
         self[f"{meta.name}_ub"] = final_ub
         self[f"{meta.name}_lb"] = final_lb
 
+    def _get_ssl(self, meta: _Meta):
+        """SSL Channel (Securement Stop Loss Channel)
+
+        https://www.tradingview.com/script/xzIoaIJC-SSL-channel/
+        Created by Erwin Beckers.
+
+        Calculates dynamic support and resistance bands based on the
+        SMA of High and Low prices and the close price relative position.
+        """
+        window = meta.as_int
+        ssl_up, ssl_down = self.ssl_channel(
+            self.high, self.low, self.close, window)
+
+        suffix = f"_{meta.windows}" if meta._windows is not None else ""
+        self[f"ssl{suffix}"] = ssl_up
+        self[f"ssl_up{suffix}"] = ssl_up
+        self[f"ssl_down{suffix}"] = ssl_down
+
+    def _get_ssl_up(self, meta: _Meta):
+        self._get_ssl(meta)
+
+    def _get_ssl_down(self, meta: _Meta):
+        self._get_ssl(meta)
+
     @staticmethod
     def _rolling_arg_index(arr, window, mode="max"):
         n = len(arr)
@@ -1100,6 +1132,16 @@ class StockDataFrame(pd.DataFrame):
         window = meta.as_int
         self[meta.name] = self.linear_reg(self[meta.column], window)
 
+    def _get_wma(self, meta: _Meta):
+        """get Weighted Moving Average"""
+        window = meta.as_int
+        self[meta.name] = self.wma(self[meta.column], window)
+
+    def _get_hma(self, meta: _Meta):
+        """get Hull Moving Average"""
+        window = meta.as_int
+        self[meta.name] = self.hma(self[meta.column], window)
+
     def _get_roc(self, meta: _Meta):
         """get Rate of Change (ROC) of a column
 
@@ -1156,6 +1198,135 @@ class StockDataFrame(pd.DataFrame):
         out[window - 1:] = wma_vals
 
         return pd.Series(out, index=series.index, name=series.name)
+
+    @classmethod
+    def wma(cls, series, window):
+        """Weighted Moving Average (WMA)"""
+        return cls.linear_wma(series, window)
+
+    @classmethod
+    def hma(cls, series: pd.Series, window: int) -> pd.Series:
+        """Hull Moving Average (HMA) using vectorized NumPy.
+
+        HMA reduces lag while improving smoothing.
+        Formula:
+            w_half = int(window / 2)
+            w_sqrt = int(sqrt(window))
+            diff = 2 * WMA(series, w_half) - WMA(series, window)
+            hma = WMA(diff, w_sqrt)
+
+        Returns 0 for the initial invalid warmup positions.
+        """
+        window = cls.get_int_positive(window)
+        n = len(series)
+        if window > n:
+            return pd.Series(np.zeros(n), index=series.index,
+                             name=series.name)
+        if window == 1:
+            return series.copy()
+
+        w_half = max(1, int(window / 2))
+        w_sqrt = max(1, int(math.sqrt(window)))
+
+        half_wma = cls.linear_wma(series, w_half)
+        full_wma = cls.linear_wma(series, window)
+
+        diff = 2.0 * half_wma - full_wma
+        diff_arr = diff.values.copy()
+        diff_arr[:window - 1] = 0.0
+
+        hma = cls.linear_wma(
+            pd.Series(diff_arr, index=series.index), w_sqrt)
+        valid_start = (window - 1) + (w_sqrt - 1)
+        if valid_start < n:
+            hma_arr = hma.values.copy()
+            hma_arr[:valid_start] = 0.0
+            return pd.Series(hma_arr, index=series.index,
+                             name=series.name)
+        return pd.Series(np.zeros(n), index=series.index,
+                         name=series.name)
+
+    @classmethod
+    def ssl_channel(cls, high: pd.Series, low: pd.Series, close: pd.Series,
+                    window: int = 10) -> tuple[pd.Series, pd.Series]:
+        """SSL Channel (Securement Stop Loss Channel)
+
+        Created by Erwin Beckers. Uses SMA of High and Low prices to track
+        trend direction and dynamic support/resistance channel bands.
+
+        Formula:
+            sma_high = SMA(high, window)
+            sma_low = SMA(low, window)
+            hlv[i] = 1 if close[i] > sma_high[i] else (
+                -1 if close[i] < sma_low[i] else hlv[i-1])
+            ssl_down = sma_high if hlv < 0 else sma_low
+            ssl_up = sma_low if hlv < 0 else sma_high
+
+        :param high: series of high prices
+        :param low: series of low prices
+        :param close: series of close prices
+        :param window: lookback period (default 10)
+        :return: (ssl_up, ssl_down) tuple of Series
+        """
+        window = cls.get_int_positive(window)
+        n = len(close)
+        if n == 0:
+            empty = pd.Series(dtype=float, index=close.index)
+            return empty.copy(), empty.copy()
+
+        sma_high = cls.sma(high, window).values
+        sma_low = cls.sma(low, window).values
+        close_arr = close.values
+
+        hlv = np.zeros(n, dtype=int)
+        hlv[0] = 1 if close_arr[0] >= sma_high[0] else (
+            -1 if close_arr[0] < sma_low[0] else 1)
+
+        for i in range(1, n):
+            if close_arr[i] > sma_high[i]:
+                hlv[i] = 1
+            elif close_arr[i] < sma_low[i]:
+                hlv[i] = -1
+            else:
+                hlv[i] = hlv[i - 1]
+
+        ssl_up = np.where(hlv < 0, sma_low, sma_high)
+        ssl_down = np.where(hlv < 0, sma_high, sma_low)
+
+        return (pd.Series(ssl_up, index=close.index, name="ssl_up"),
+                pd.Series(ssl_down, index=close.index, name="ssl_down"))
+
+    @classmethod
+    def obv(cls, close: pd.Series, volume: pd.Series) -> pd.Series:
+        """On-Balance Volume (OBV) using vectorized NumPy.
+
+        OBV is a momentum indicator that uses volume flow to predict
+        changes in stock price.
+
+        Formula:
+            OBV[0] = 0.0
+            OBV[t] = OBV[t-1] + sign(close[t] - close[t-1]) * volume[t]
+
+        :param close: series of close prices
+        :param volume: series of trading volume
+        :return: On-Balance Volume series
+        """
+        n = len(close)
+        if n == 0:
+            return pd.Series(dtype=float, index=close.index, name="obv")
+        if n == 1:
+            return pd.Series([0.0], index=close.index, name="obv")
+
+        close_arr = close.values
+        vol_arr = volume.values
+
+        diff = np.diff(close_arr)
+        direction = np.sign(diff)
+        steps = np.zeros(n, dtype=float)
+        steps[1:] = direction * vol_arr[1:]
+        out = np.cumsum(steps)
+
+        return pd.Series(out, index=close.index, name="obv")
 
     @classmethod
     def linear_reg(cls, series, window, correlation=False):
@@ -1480,6 +1651,10 @@ class StockDataFrame(pd.DataFrame):
         mfi[:window] = 0.5
 
         self[meta.name] = self.to_series(mfi)
+
+    def _get_obv(self, meta: _Meta):
+        """get On-Balance Volume (OBV)"""
+        self[meta.name] = self.obv(self.close, self.volume)
 
     def _get_ao(self, meta: _Meta):
         """get awesome oscillator
@@ -2081,7 +2256,9 @@ class StockDataFrame(pd.DataFrame):
             ("wt1", "wt2"): self._get_wt,
             ("supertrend", "supertrend_lb",
              "supertrend_ub"): self._get_supertrend,
+            ("ssl", "ssl_up", "ssl_down"): self._get_ssl,
             ("bop",): self._get_bop,
+            ("obv",): self._get_obv,
             ("cti",): self._get_cti,
             ("eribull", "eribear"): self._get_eri,
             ("rvgi", "rvgis"): self._get_rvgi,
@@ -2089,8 +2266,8 @@ class StockDataFrame(pd.DataFrame):
             ("num",): self._get_num,
         }
         for k in _dft_windows.keys():
-            if k not in ret:
-                ret[k] = self._get_handler(k)
+            if not any(k in names for names in ret):
+                ret[(k,)] = self._get_handler(k)
         return ret
 
     def __init_not_exist_column(self, key):

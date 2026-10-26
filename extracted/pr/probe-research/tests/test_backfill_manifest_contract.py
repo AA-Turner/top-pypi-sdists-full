@@ -13,17 +13,25 @@ import re
 from probe.cli import backfill_prompts as bp
 
 
-def _row_keys_the_prompt_asks_for() -> set[str]:
-    """The JSON keys `import_unit` instructs an agent to emit."""
-    text = bp.import_unit(root="/drive", project="p", paths=["a.py"], manifest_path="/tmp/m.jsonl")
-    # The row template is the first indented JSON object after the write
-    # instruction. Anchored on the manifest path so a reworded preamble does not
-    # silently make this test read nothing and pass.
-    after = text.split("Write JSONL to:", 1)[1]
-    start = after.index('{"path"')
-    block = after[start : after.index("}", start) + 1]
-    assert '"path"' in block, "the row template moved; this test is reading nothing"
-    return set(re.findall(r'"(\w+)":', block))
+def _row_keys_the_import_writes(tmp_path=None) -> set[str]:
+    """The JSON keys an agent unit's manifest carries. Code writes the rows now
+    (the model only adds notes), so the producer is `_write_unit_manifest`."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    from probe.cli import backfill_ledger, backfill_run
+
+    root = Path(tempfile.mkdtemp())
+    (root / "a.py").write_text("x = 1\n")
+    unit = backfill_ledger.Unit("u", "p", ("a.py",))
+    manifest = root / "work" / "u.jsonl"
+    backfill_run._write_unit_manifest(root, unit, manifest, {}, {"a.py": "the entry point"})
+    keys: set[str] = set()
+    for line in manifest.read_text().splitlines():
+        keys |= set(json.loads(line))
+    assert "path" in keys and "notes" in keys, "the writer moved; this test is reading nothing"
+    return keys
 
 
 def test_the_prompt_only_asks_for_keys_the_reader_accepts():
@@ -31,7 +39,7 @@ def test_the_prompt_only_asks_for_keys_the_reader_accepts():
     make every unit enqueue nothing while reporting success."""
     from probe.cli.main import _MANIFEST_KEYS  # noqa: PLC0415
 
-    assert _row_keys_the_prompt_asks_for() <= set(_MANIFEST_KEYS)
+    assert _row_keys_the_import_writes() <= set(_MANIFEST_KEYS)
 
 
 def test_an_artifact_name_defaults_to_the_relative_path_not_the_basename(tmp_path, monkeypatch):
@@ -61,17 +69,19 @@ def test_an_artifact_name_defaults_to_the_relative_path_not_the_basename(tmp_pat
     )
 
 
-def test_the_prompt_does_not_ask_the_agent_for_a_name():
+def test_the_import_does_not_set_a_name():
     """If it ever starts to, the default above stops being load-bearing and this
     test should be revisited rather than silently kept green."""
-    assert "name" not in _row_keys_the_prompt_asks_for()
+    assert "name" not in _row_keys_the_import_writes()
 
 
-def test_the_prompt_emits_parseable_jsonl_shape():
-    text = bp.import_unit(root="/drive", project="p", paths=["a.py"], manifest_path="/tmp/m.jsonl")
-    assert "JSONL" in text
-    for key in ("path", "notes", "reference"):
-        assert f'"{key}"' in text
+def test_the_prompt_asks_for_notes_only_never_rows():
+    """The upload list is code's: the model cannot drop a file by copying its
+    path wrong, because it never writes one."""
+    text = bp.import_unit(root="/drive", project="p", paths=["a.py"], work_dir="/tmp")
+    assert "THEY ARE ALREADY ON THE UPLOAD LIST" in text
+    assert "probe-backfill-plan note" in text
+    assert "Write JSONL to" not in text and "exactly as listed" not in text
 
 
 def test_an_absolute_path_still_falls_back_to_the_basename(tmp_path, monkeypatch):

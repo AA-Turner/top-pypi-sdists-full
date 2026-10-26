@@ -690,10 +690,13 @@ class Policy:
     #: marker (#329).
     maiden_delimiters: frozenset[tuple[str, str]] = frozenset()
     #: Additional separators that split suffix groups (e.g. " - " for
-    #: "Jane Smith, RN - CRNA"). Additive only: the comma always
-    #: splits suffix groups and cannot be replaced -- comma handling
-    #: is structural (the same comma reading that parses
-    #: "Family, Given" input), not a configurable delimiter.
+    #: "Jane Smith, RN - CRNA"). Additive only: the comma and the
+    #: semicolon always split suffix groups and cannot be replaced --
+    #: comma handling is structural (the same comma reading that parses
+    #: "Family, Given" input), not a configurable delimiter, and the
+    #: semicolon is built in since 2.6 (rules/C10). A separator glued
+    #: to a suffix word after the first comma counts too: "John Smith,
+    #: MD; PhD" reads suffix "MD; PhD", the word keeping its separator.
     extra_suffix_delimiters: frozenset[str] = frozenset()
     #: Governs "Family, Suffix"-shaped input where the suffix word is
     #: also initial-shaped (a single letter, bare or period-written --
@@ -732,7 +735,11 @@ class Policy:
     #: "john smith x.y.z." reads as the mixed-case spelling does.
     #: Whole-token vocabulary still wins ("M.A.", "Ph.D.", "A.B.C."),
     #: and a single trailing period is not this shape ("John Smith
-    #: Xyz." keeps family ``Xyz.``). ``False`` reads such a token as
+    #: Xyz." keeps family ``Xyz.``), and nor are paired initials, two
+    #: single letters each followed by a period in a script with
+    #: capitals ("Ram Bahadur B.K." keeps family ``B.K.``) except
+    #: right after a comma, where they are the given name unless
+    #: something in the part speaks for them. ``False`` reads such a token as
     #: name material everywhere, as 2.3 did for a token no chunk
     #: claimed; the roman-chunk retirement (rules/S3) is not
     #: behind this switch, and still reports the fork.
@@ -771,6 +778,34 @@ class Policy:
     #: ``isupper()`` is script-agnostic, so the same holds in any script
     #: with a case contrast ("Иван ИВАНОВ", "Jean ÉCOLE").
     unlisted_caps_suffixes: CapsSuffixes = CapsSuffixes.AFTER_COMMA
+    #: Reads the last two name words of a name as the family, for data
+    #: where a person carries two family names and writes both
+    #: (rules/O6): "Gabriel García Márquez" gives given ``Gabriel``,
+    #: family ``García Márquez``, and "Ana María García López" gives
+    #: middle ``María``, family ``García López``. A particle counts with
+    #: the word it attaches to ("Juan Pérez de la Vega" gives family
+    #: ``Pérez de la Vega``), a family already holding two words keeps
+    #: what it has ("José María Ortega y Gasset", "Ana María
+    #: García-López", "Ana María de la Vega Rodríguez"), titles and
+    #: suffixes count as no name word, and a name of two name words is
+    #: unchanged. The word taken must be one name word a family name
+    #: could be, so an initial written alone ("Ana M. García"), a
+    #: hyphenated given name ("Ana María-José López") and a bound
+    #: given-name pair stay where they are. Under a family-first
+    #: name_order the FIRST two name words are the family; a name its
+    #: script reads in an order other than name_order (a spaced Han or
+    #: Hangul name under the default) is left alone, though under a
+    #: declared FAMILY_FIRST, which the script agrees with, it moves. A
+    #: family comma decides by itself, so "García López, Ana" is
+    #: unaffected. A name with one family name behind two given names
+    #: loses one to the family ("Juan Carlos Pérez" gives family
+    #: ``Carlos Pérez``), which is most English and Argentine names of
+    #: three words or more and many Portuguese and Brazilian ones as
+    #: filed: switched on for a mixed population it costs more names
+    #: than it mends, so it is off by default and reports nothing. Runs
+    #: before middle_as_family, which then folds whatever middles are
+    #: left.
+    two_family_names: bool = False
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -981,6 +1016,7 @@ class PolicyPatch:
     # inserted on the other and both would re-bind together.
     unlisted_dotted_suffixes: bool | _Unset = UNSET
     unlisted_caps_suffixes: CapsSuffixes | _Unset = UNSET
+    two_family_names: bool | _Unset = UNSET
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -1032,15 +1068,14 @@ class PolicyPatch:
             object.__setattr__(self, f.name, frozenset(value))
         # middle_as_family, lenient_comma_suffixes,
         # unlisted_dotted_suffixes, unlisted_caps_suffixes, strip_emoji,
-        # and strip_bidi are scalar (compose="override") fields and
-        # DELIBERATELY get no
-        # type check here, unlike name_order and
-        # the union fields above: a PolicyPatch(strip_emoji="off") is
-        # constructible, and only raises once apply_patch runs
-        # Policy.__post_init__'s bool check. This is the one place the
-        # module's eager-validation ethos doesn't apply -- see the
-        # class docstring ("Values are validated when the patch is
-        # applied... not at patch construction").
+        # strip_bidi and two_family_names are scalar (compose="override")
+        # fields and DELIBERATELY get no type check here, unlike
+        # name_order and the union fields above: a
+        # PolicyPatch(strip_emoji="off") is constructible, and only raises
+        # once apply_patch runs Policy.__post_init__'s bool check. This is
+        # the one place the module's eager-validation ethos doesn't apply
+        # -- see the class docstring ("Values are validated when the patch
+        # is applied... not at patch construction").
 
     def __repr__(self) -> str:
         # Bounded: only fields the patch actually sets are shown; UNSET

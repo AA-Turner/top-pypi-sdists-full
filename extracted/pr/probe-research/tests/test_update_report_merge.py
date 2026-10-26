@@ -71,8 +71,8 @@ KIMI_NOTHING = updater.PluginResult(
 
 def _stub_updater(monkeypatch, by_agent: dict[str, updater.PluginResult]):
     """The CLI is already current; each agent's plugin step answers from
-    `by_agent`, keyed on the agent the pass runs for (PROBE_AGENT)."""
-    import os
+    `by_agent`, keyed on the agent the step is for: each `update_*` is one
+    agent's, and several agents' passes run at once (`perform_updates`)."""
 
     monkeypatch.setattr(upgrading.updater, "fetch_latest", lambda base: MANIFEST)
     monkeypatch.setattr(
@@ -85,10 +85,9 @@ def _stub_updater(monkeypatch, by_agent: dict[str, updater.PluginResult]):
             True, True, False, current, "0.224.1", "CLI already at the latest (0.224.1)"
         ),
     )
-    step = lambda *args: by_agent[os.environ["PROBE_AGENT"]]  # noqa: E731
-    monkeypatch.setattr(upgrading.updater, "update_plugin", step)
-    monkeypatch.setattr(upgrading.updater, "update_codex_plugins", step)
-    monkeypatch.setattr(upgrading.updater, "update_kimi_plugins", step)
+    monkeypatch.setattr(upgrading.updater, "update_plugin", lambda *args: by_agent["claude_code"])
+    monkeypatch.setattr(upgrading.updater, "update_codex_plugins", lambda *args: by_agent["codex"])
+    monkeypatch.setattr(upgrading.updater, "update_kimi_plugins", lambda *args: by_agent["kimi_code"])
 
 
 def _pass(monkeypatch, agent: str):

@@ -12,11 +12,13 @@ platforms = [
   { platform = "win-64", cuda = "12.9" },
 ]
 preview = ["pixi-build"]
-requires-pixi = ">=0.73.0"  # for TOML 1.1 support
+requires-pixi = ">=0.82.1"  # security update
 exclude-newer = "7d"
 
 [exclude-newer]
-mparray = "5d"
+certifi = "0d"
+ca-certificates = "0d"
+brotli-python = "2d"
 
 ### array-api-extra package definition ###
 
@@ -98,26 +100,26 @@ array-api-extra.path = "."
 
 [feature.lint.dependencies]
 typing-extensions = ">=4.16.0"
-pylint = ">=4.0.7"
-mypy = ">=2.3.1"
-basedpyright = ">=1.39.10"
-numpydoc = ">=1.10.0"
+pylint = ">=4.1.2"
+mypy = ">=2.4.0"
+basedpyright = ">=1.40.2"
+numpydoc = ">=1.11.0"
 # import dependencies for mypy:
 array-api-strict = ">=2.6.1"
 numpy = ">=2.1.3"
-hypothesis = ">=6.165.10"
-dask-core = ">=2026.7.1"  # No distributed, tornado, etc.
+hypothesis = ">=6.168.1"
+dask-core = ">=2026.8.0"  # No distributed, tornado, etc.
 dprint = ">=0.50.0"
-lefthook = ">=2.1.11"
-ruff = ">=0.16.3"
-typos = ">=1.49.0"
+lefthook = ">=2.2.1"
+ruff = ">=0.17.0"
+typos = ">=1.51.1"
 actionlint-with-all = ">=1.7.12"
 blacken-docs = ">=1.20.0"
 pytest = ">=9.1.1"
 validate-pyproject = ">=0.25"
-pyrefly = ">=1.2.0"
-zizmor = ">=1.29.0"
-tombi = ">=1.4.1"
+pyrefly = ">=1.3.2"
+zizmor = ">=1.30.1"
+tombi = ">=1.8.0"
 # NOTE: don't add cupy, jax, pytorch, or sparse here,
 # as they slow down mypy and are not portable across target OSs
 
@@ -219,7 +221,7 @@ lint = {
 [feature.tests.dependencies]
 pytest = ">=9.1.1"
 pytest-cov = ">=7.1.0"
-hypothesis = ">=6.165.10"
+hypothesis = ">=6.168.1"
 array-api-strict = ">=2.6.1"
 numpy = ">=1.22.0"
 scipy = ">=1.15.2"
@@ -233,7 +235,7 @@ tests = {
 }
 doctests = {
   description = "Run public API doctests",
-  cmd = "pytest -c ../pyproject.toml --pyargs array_api_extra --doctest-modules --doctest-collect=api --doctest-only-doctests=true",
+  cmd = "pytest -c ../pyproject.toml --pyargs array_api_extra --doctest-modules --doctest-collect=api",
   cwd = "docs",  # to use `docs/conftest.py`
   default-environment = "tests",
 }
@@ -314,7 +316,7 @@ myst-parser = ">=5.1.0"
 sphinx-copybutton = ">=0.5.2"
 sphinx-autodoc-typehints = ">=3.11.1"
 # Needed to import parsed modules with autodoc
-dask-core = ">=2026.7.1"  # No distributed, tornado, etc.
+dask-core = ">=2026.8.0"  # No distributed, tornado, etc.
 pytest = ">=9.1.1"
 typing-extensions = ">=4.16.0"
 numpy = ">=2.1.3"
@@ -344,7 +346,7 @@ open-docs = {
 }
 
 [feature.dev.dependencies]
-ipython = ">=9.16.1"
+ipython = ">=9.17.1"
 
 [feature.dev.tasks]
 ipython = {
@@ -371,7 +373,7 @@ numpy = "=1.24.1"
 # Note: JAX and PyTorch will install CPU variants.
 [feature.backends.dependencies]
 pytorch = ">=2.12.0"
-dask-core = ">=2026.7.1"  # No distributed, tornado, etc.
+dask-core = ">=2026.8.0"  # No distributed, tornado, etc.
 sparse = ">=0.19.2"
 mparray = ">=0.2.2"
 
@@ -393,7 +395,11 @@ jaxlib = ">=0.10.2"
 [feature.nogil.dependencies]
 pytest-run-parallel = ">=0.10.0"
 numpy = ">=2.3.5"
-dask-core = ">=2026.7.1"  # No distributed, tornado, etc.
+dask-core = ">=2026.8.0"  # No distributed, tornado, etc.
 # sparse = ">=0.19.1"  # flaky, see data-apis/array-api-extra#900
 # pytorch = "*"  # Not available on Python 3.14t yet
 # jax = "*"  # waiting for conda-forge/jaxlib-feedstock#351
+
+[tool.pixi-audit]
+# TODO: remove these ignores — they were added to let admit autofixes
+ignore = [{ package = "python" }, { package = "pytorch" }]

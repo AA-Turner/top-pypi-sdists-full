@@ -34,6 +34,7 @@ class ConnectorSetup_OnedriveParams(typing_extensions.TypedDict):
     document_limit: typing_extensions.NotRequired[
         typing_extensions.Annotated[int, FieldMetadata(alias="documentLimit")]
     ]
+    config: typing_extensions.NotRequired[GoogleDriveConfigParams]
 
 
 class ConnectorSetup_GithubParams(typing_extensions.TypedDict):

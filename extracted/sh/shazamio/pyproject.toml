@@ -1,44 +1,126 @@
-[tool.poetry]
+[project]
 name = "shazamio"
-version = "0.8.1"
-description = "Is a asynchronous framework from reverse engineered Shazam API written in Python 3.8+ with asyncio and aiohttp."
-authors = ["dotX12"]
-license = "MIT License"
-keywords = ["python", "shazam", "music", "recognize", "api", "async", "asyncio", "aiohttp", "identification"]
+version = "0.9.0"
+description = "An asynchronous framework for the reverse engineered Shazam API, written in Python with asyncio and aiohttp."
+license = "MIT"
+license-files = ["LICENSE.txt"]
+keywords = [
+    "python",
+    "shazam",
+    "music",
+    "recognize",
+    "api",
+    "async",
+    "asyncio",
+    "aiohttp",
+    "identification",
+]
 readme = "README.md"
-homepage = "https://github.com/dotX12/ShazamIO"
-repository = "https://github.com/dotX12/ShazamIO"
-include = [
-    "README.md",
-    "LICENSE.txt"
+requires-python = ">=3.10,<4.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+dependencies = [
+    "aiohttp>=3.8.0",
+    "aiohttp-retry>=2.3",
+    "pydantic>=2.2.0",
+    "shazamio-core==2.0.0",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-numpy = "^2.2.2"
-aiohttp = "^3.8.3"
-pydub = "^0.25.1"
-dataclass-factory = "^2.16"
-aiofiles = "^23.2.1"
-anyio = "^4.3.0"
-aiohttp-retry = "^2.8.3"
-pydantic = "^2.9.2"
-shazamio-core = "1.1.2"
+[[project.authors]]
+name = "dotX12"
 
-[tool.poetry.group.dev.dependencies]
-black = {version = "^24.2.0", allow-prereleases = true}
-pytest = "8.1.2"
-pytest-asyncio = "^0.23.6"
+[project.urls]
+Homepage = "https://github.com/shazamio/ShazamIO"
+Repository = "https://github.com/shazamio/ShazamIO"
+Issues = "https://github.com/shazamio/ShazamIO/issues"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+hooks = ["pre-commit>=3.2.0"]
+tests = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.3",
+    "pytest-recording>=0.14.0",
+    "vcrpy>=8.3.0",
+]
+lint = ["ruff>=0.16.10"]
+
+[[dependency-groups.dev]]
+include-group = "tests"
+
+[[dependency-groups.dev]]
+include-group = "lint"
+
+[[dependency-groups.dev]]
+include-group = "hooks"
+
+[tool.uv]
+exclude-newer = "7 days"
+
+[tool.uv.exclude-newer-package]
+shazamio-core = false
+
+[tool.uv.build-backend]
+module-root = ""
 
 [tool.pytest.ini_options]
-addopts = "-scoped"
+addopts = [
+    "-ra",
+    "--block-network",
+    "--allowed-hosts=127.0.0.1",
+]
+testpaths = ["tests"]
 asyncio_mode = "auto"
 filterwarnings = ["ignore::DeprecationWarning"]
 
-
-[tool.black]
+[tool.ruff]
+target-version = "py310"
 line-length = 100
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",
+    "ISC001",
+    "D203",
+    "D213",
+    "CPY001",
+    "D1",
+    "D205",
+    "D401",
+    "ANN401",
+    "N818",
+    "TRY003",
+]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "shazamio.schemas.base.BaseHrefNext",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"examples/*" = [
+    "T20",
+    "INP001",
+    "E501",
+]
+"scripts/*" = [
+    "T20",
+    "INP001",
+]
+"tests/*" = [
+    "S101",
+    "PLR2004",
+    "S311",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13"]
+build-backend = "uv_build"

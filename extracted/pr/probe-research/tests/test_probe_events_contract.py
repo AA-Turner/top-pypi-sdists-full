@@ -16,8 +16,9 @@ Where each raw.jsonl comes from (no real customer or machine content):
                nesting checked against real transcripts, every word invented),
                with markers planted wherever file content or tool output sits
   codex        tests/fixtures/rollout-sample.jsonl of the tap plugin (a real
-               "say hello" session), then a synthetic continuation covering
-               the tool, image, compaction and dropped variants
+               "say hello" session) with one `token_usage_record` in the
+               shape Codex 0.160-0.164 writes, then a synthetic continuation
+               covering the tool, image, compaction and dropped variants
   pi           a real pi session from the tap plugin's fixtures/pi/, then a
                synthetic tail: both bashExecution shapes, compaction, branch
                summary, label, custom entries and a fork's unknown entry type
@@ -38,6 +39,7 @@ import pytest
 from jsonschema import Draft202012Validator
 
 from probe.tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
+from probe.tap_core.sanitize import CallModels, call_models
 from tests.test_capture_privacy import _HARNESS_FIXTURES
 
 _AGENT = Path(__file__).resolve().parent.parent
@@ -60,6 +62,13 @@ def _events(output: Any) -> list[Any]:
     return output if isinstance(output, list) else [] if output is None else [output]
 
 
+def _read_file(module: Any, lines: list[Any]) -> list[Any]:
+    """Each line's output, read in order as one file (the journal's
+    `call_models` memory, which a usage line's model comes from)."""
+    with call_models(CallModels()):
+        return [module.sanitize_event(line) for line in lines]
+
+
 def _assert_valid(event: Any, where: str) -> None:
     errors = sorted(VALIDATOR.iter_errors(event), key=lambda e: list(e.absolute_path))
     assert not errors, f"{where}: " + "; ".join(
@@ -80,7 +89,7 @@ def test_the_schema_is_a_valid_draft_2020_12_schema() -> None:
 def test_golden_raw_sanitizes_to_exactly_the_expected_events(harness: str) -> None:
     raw = _lines(GOLDENS / harness / "raw.jsonl")
     assert 0 < len(raw) <= 60, "a golden stays small enough to review line by line"
-    actual = [SANITIZERS[harness].sanitize_event(line) for line in raw]
+    actual = _read_file(SANITIZERS[harness], raw)
     expected_path = GOLDENS / harness / "expected.jsonl"
     if os.environ.get("PROBE_EVENTS_REGEN") == "1":
         expected_path.write_text("".join(json.dumps(a, ensure_ascii=False) + "\n" for a in actual))
@@ -110,8 +119,8 @@ def _all_fixture_paths() -> list[pytest.param]:
 
 @pytest.mark.parametrize("module,path", _all_fixture_paths())
 def test_every_sanitized_event_validates_against_the_schema(module: Any, path: Path) -> None:
-    for i, raw in enumerate(_lines(path)):
-        for event in _events(module.sanitize_event(raw)):
+    for i, output in enumerate(_read_file(module, _lines(path))):
+        for event in _events(output):
             _assert_valid(event, f"{path.name} line {i + 1}")
 
 
@@ -205,6 +214,25 @@ _ROWS = [
      _kimi_user({"kind": "plugin_command", "pluginId": "p", "commandName": "c"}, "BODY"), {}, {"origin"}),
     ("kimi user prompt", kimi_sanitize,
      _kimi_user({"kind": "user"}, "hi"), {}, {"inference_id", "usage", "origin"}),
+    ("kimi step.end: the step's usage, under its turn:step", kimi_sanitize,
+     _kimi_loop({"type": "step.end", "turnId": "4", "step": 2, "finishReason": "end_turn",
+                 "usage": {"inputOther": 1200, "output": 90, "inputCacheRead": 4000, "inputCacheCreation": 300},
+                 "llmFirstTokenLatencyMs": 19, "messageId": "chatcmpl-6"}),
+     {"inference_id": "4:2", "usage": {"input_tokens": 1200, "output_tokens": 90,
+                                       "cache_read_input_tokens": 4000, "cache_creation_input_tokens": 300}},
+     {"origin"}),
+    ("codex token_usage_record: the turn's running total, cache taken out of input", codex_sanitize,
+     {"type": "token_usage_record", "timestamp": "t",
+      "payload": {"thread_id": "s", "turn_id": "turn-row", "response_id": "resp_1",
+                  "usage": {"input_tokens": 34682, "cached_input_tokens": 32640, "output_tokens": 83},
+                  "turn_token_usage": {"input_tokens": 67267, "cached_input_tokens": 32640,
+                                       "cache_write_input_tokens": 0, "output_tokens": 302,
+                                       "reasoning_output_tokens": 0, "total_tokens": 67569},
+                  "thread_token_usage": {"input_tokens": 99999}}},
+     {"inference_id": "turn:turn-row", "usage": {"input_tokens": 34627, "output_tokens": 302,
+                                                 "cache_read_input_tokens": 32640,
+                                                 "cache_creation_input_tokens": 0}},
+     {"origin"}),
     ("codex assistant: none of the three", codex_sanitize,
      {"type": "response_item", "timestamp": "t",
       "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "hi"}]}},
@@ -215,6 +243,59 @@ _ROWS = [
                   "action": {"type": "exec", "command": ["ls"]}}},
      {}, {"inference_id", "usage", "origin"}),
 ]
+
+
+def test_a_usage_event_names_the_model_its_turn_or_step_ran_on() -> None:
+    """Codex's usage record and Kimi's step.end do not name the model; the
+    turn's `turn_context` / the step's `llm.request` earlier in the same file
+    does. Outside a file's memory (`call_models`) the event names none."""
+    codex_usage = {"type": "token_usage_record", "timestamp": "t",
+                   "payload": {"turn_id": "turn-model", "turn_token_usage": {"output_tokens": 1}}}
+    codex_context = {"type": "turn_context", "payload": {"turn_id": "turn-model", "model": "gpt-6.1"}}
+    kimi_request = {"type": "llm.request", "agentId": "main", "model": "kimi-k3", "modelAlias": "k",
+                    "turnStep": "7.3"}
+    kimi_end = _kimi_loop({"type": "step.end", "turnId": "7", "step": 3, "usage": {"output": 1}})
+    codex_sanitize.sanitize_event(codex_context)
+    kimi_sanitize.sanitize_event(kimi_request)
+    assert "model" not in codex_sanitize.sanitize_event(codex_usage)["message"], "no file: no memory"
+    assert "model" not in kimi_sanitize.sanitize_event(kimi_end)["message"]
+    codex_out, kimi_out = _read_file(codex_sanitize, [codex_context, codex_usage]), _read_file(
+        kimi_sanitize, [kimi_request, kimi_end])
+    assert codex_out[1]["message"]["model"] == "gpt-6.1"
+    assert kimi_out[0] is None, "the request itself still ships nothing"
+    assert kimi_out[1]["message"]["model"] == "kimi-k3"
+    _assert_valid(kimi_out[1], "kimi usage with its model")
+
+
+def test_a_compaction_ships_its_usage_and_a_turns_records_do_not_count_twice() -> None:
+    """Kimi writes a `usage.record` per call; a turn's calls also end in a
+    step.end (counted there), a compaction's in nothing else."""
+    request = {"type": "llm.request", "agentId": "main", "kind": "compaction", "model": "kimi-k3",
+               "modelAlias": "k", "time": 1791169948083}
+    record = {"type": "usage.record", "agentId": "main", "model": "k", "usageScope": "session",
+              "usage": {"inputOther": 100, "output": 10, "inputCacheRead": 5, "inputCacheCreation": 0},
+              "time": 1791169948091}
+    turn_record = {**record, "usageScope": "turn", "time": 1791169948095}
+    out = _read_file(kimi_sanitize, [request, record, turn_record])
+    assert out[0] is None and out[2] is None
+    assert out[1]["inference_id"] == "session:1791169948091"
+    assert out[1]["usage"] == {"input_tokens": 100, "output_tokens": 10, "cache_read_input_tokens": 5,
+                               "cache_creation_input_tokens": 0}
+    assert out[1]["message"]["model"] == "kimi-k3"
+    _assert_valid(out[1], "kimi compaction usage")
+
+
+def test_a_usage_record_with_no_turn_or_no_count_ships_nothing() -> None:
+    assert codex_sanitize.sanitize_event(
+        {"type": "token_usage_record", "payload": {"turn_token_usage": {"output_tokens": 1}}}) is None
+    assert codex_sanitize.sanitize_event(
+        {"type": "token_usage_record", "payload": {"turn_id": "t", "turn_token_usage": {"total_tokens": 9}}}) is None
+    assert codex_sanitize.sanitize_event(
+        {"type": "event_msg", "payload": {"type": "token_count", "info": {"total_token_usage": {"input_tokens": 1}}}}
+    ) is None, "token_count stays dropped: token_usage_record carries the same counts with the turn"
+    assert kimi_sanitize.sanitize_event(_kimi_loop({"type": "step.end", "turnId": "0", "step": 1})) is None
+    assert kimi_sanitize.sanitize_event(
+        _kimi_loop({"type": "step.end", "turnId": "0", "usage": {"output": 1}})) is None, "no step: no call to name"
 
 
 @pytest.mark.parametrize("module,raw,present,absent", [r[1:] for r in _ROWS], ids=[r[0] for r in _ROWS])

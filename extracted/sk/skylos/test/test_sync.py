@@ -229,7 +229,7 @@ def test_api_get_401_raises(monkeypatch):
     monkeypatch.setattr(syncmod.requests, "get", fake_get)
     with pytest.raises(syncmod.AuthError) as e:
         syncmod.api_get("/api/sync/whoami", "BADTOKEN")
-    assert "Invalid API token" in str(e.value)
+    assert "Invalid Skylos token" in str(e.value)
 
 
 def test_api_get_shows_cloud_reason_for_refused_request(monkeypatch):
@@ -283,7 +283,10 @@ def test_api_get_401_names_a_rejected_ci_identity(monkeypatch):
     monkeypatch.setattr(syncmod.requests, "get", fake_get)
     with pytest.raises(syncmod.AuthError) as e:
         syncmod.api_get("/api/sync/whoami", "oidc:JWT")
-    assert str(e.value) == "Skylos Cloud rejected this CI identity token"
+    assert (
+        str(e.value)
+        == "Skylos Cloud rejected this GitHub Actions or GitLab CI identity"
+    )
 
 
 def test_api_get_connection_error(monkeypatch):
@@ -1249,3 +1252,11 @@ def test_cli_source_never_names_a_pro_plan_or_the_missing_pricing_page():
         if banned.search(line)
     ]
     assert hits == []
+
+
+def test_pull_prints_paths_relative_to_the_current_folder(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    inside = tmp_path / ".skylos" / "config.yaml"
+    outside = tmp_path.parent / "elsewhere" / "config.yaml"
+    assert syncmod._display_path(inside) == str(Path(".skylos") / "config.yaml")
+    assert syncmod._display_path(outside) == str(outside)

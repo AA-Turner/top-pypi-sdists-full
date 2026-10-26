@@ -26,4 +26,4 @@ def test_holder_text_evaluates_sections() -> None:
 
 def test_holder_text_escape_runs_with_no_values() -> None:
     assert _held("keep {{!word}}").authored_text("nudge", word="") == "keep {{word}}"
-    assert _held("keep {{!word}}").authored_text("nudge") == "keep {{!word}}"
+    assert _held("keep {{!word}}").authored_text("nudge") == "keep {{word}}"

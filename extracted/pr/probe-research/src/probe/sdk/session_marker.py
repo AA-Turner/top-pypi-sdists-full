@@ -1244,6 +1244,9 @@ READ_VERBS = frozenset(
         "lineage",
         # `experiment inherited`: what a fork reads live from its source.
         "inherited",
+        # `project branches`, `experiment branch`: the lines of work.
+        "branches",
+        "branch",
         # `paper citations|graph`: the citation links the server read from
         # bibliographies (citation graph, Track C).
         "citations",
@@ -1298,6 +1301,10 @@ READ_GROUP_WRITES = frozenset({"metrics backfill", "shared add", "shared share",
 #: ...and the ones that remove: cleanup, never refused, as `REMOVAL_VERBS` is in
 #: a write group. Read as reads, `off` refused them.
 READ_GROUP_REMOVALS = frozenset({"metrics delete", "shared delete"})
+
+#: Commands of a plumbing group (not in WRITE_GROUPS) that record research
+#: content: `workspace set` picks the workspace's best experiment.
+PLUMBING_GROUP_WRITES = frozenset({"workspace set"})
 
 #: WHAT THE AGENT STILL WRITES IN THE `daemon` STATE, without `--directed`: the
 #: launch of a run and the run's own data -- the `instrument-code` surface the
@@ -1411,7 +1418,7 @@ def classify_probe_args(args: "list[str]") -> "tuple[str | None, str]":
         return (None, "probe " + command)
     if head in TOP_LEVEL_WRITES:
         return ("write", "probe " + head)
-    if command in READ_GROUP_WRITES:
+    if command in READ_GROUP_WRITES or command in PLUMBING_GROUP_WRITES:
         return ("write", "probe " + command)
     if command in READ_GROUP_REMOVALS:
         return (None, "probe " + head)
@@ -1483,8 +1490,11 @@ def daemon_allows_agent(matched: str) -> bool:
 #: discard|pause|resume`), the team's permissions and workspaces, printed
 #: secrets (`mcp headers|env`, `token create`), the researcher's agent settings
 #: (`statusline install|uninstall`), and the daemon's own ledger and install.
+#: `session send` messages one of the researcher's own sessions (an orchestrator
+#: steering its workers, G7): the server takes it only for a session of the same
+#: person and labels it as from an agent session, never as the researcher.
 DAEMON_PROFILE_ALLOWED = frozenset(
-    {"ask", "session status", "session parent", "ignore check", "run expect", "doctor", "paper find",
+    {"ask", "session status", "session parent", "session send", "ignore check", "run expect", "doctor", "paper find",
      "feedback send", "approvals", "outbox status", "run check", "sync", "artifact download",
      "daemon status", "whoami", "context list", "wandb discover", "wandb key status",
      "update", "status", "flush", "service status", "service start", "service stop", "service check-now",
@@ -1846,6 +1856,15 @@ DENY_REASON_MAILBOX = (
     "delivered, and only Probe's own hooks and daemon call it. Only the researcher answers the daemon's "
     "questions: through your question tool, word for word, or `probe approvals` in their own terminal. Do not "
     "call it, and do not route around this."
+)
+
+#: The guard hook's refusal of a coding-agent shell command that registers or
+#: ends a session with the Probe service itself (#3360;
+#: `tracking_guard.calls_mailbox`). Placeholder: `{matched}`, the method.
+DENY_REASON_SESSION_CALL = (
+    "`Bash` would call the Probe service's `{matched}` itself, so it was refused before it ran. The service's "
+    "session registry is how Probe knows which conversations its daemon records, and only Probe's own recorder "
+    "registers or ends a session. Do not call it, and do not route around this."
 )
 
 #: The guard hook's refusal of a coding-agent shell command that runs one of
@@ -4006,7 +4025,8 @@ def _process_record_path(pid: int, start: str) -> Path:
 
 
 def record_harness_process(
-    harness: str, session_id: str, process_title: "str | tuple[str, ...] | list[str]"
+    harness: str, session_id: str, process_title: "str | tuple[str, ...] | list[str]",
+    loaded: "dict | None" = None,
 ) -> "Path | None":
     """From a hook: note that the nearest ancestor titled `process_title` (or any
     of several titles) runs `session_id` (replacing what it ran before: a TUI's
@@ -4015,7 +4035,22 @@ def record_harness_process(
 
     Several titles because one harness process reads differently by platform:
     a harness that retitles itself shows the new title in Linux's /proc, while
-    macOS's `ps` keeps the name it was started as (the registry's `binary`)."""
+    macOS's `ps` keeps the name it was started as (the registry's `binary`).
+
+    `loaded`: what the process loaded (Kimi's plugin folders and manifests,
+    `probe._shared.kimi_live.loaded_info`). Kimi reads its plugins once, at its
+    start, and again only on `/reload`, which reopens the SAME session
+    (SessionStart, source `resume`) from the folder it now loads: only that
+    (the same session resumed from ANOTHER plugin folder while the one it ran
+    from is still there), or a process's first record, writes it. A `/new`
+    (source `startup`), a resume of another session, the same session closed
+    and reopened (an editor's or server's `kimi acp`/`server`/`web`: no
+    reload, the same folder) or any later event keeps it, and so does another
+    folder whose old one is gone (the hook entry falls back to the newest one
+    then). A first record proves nothing (`late`) when it comes
+    LOADED_FIRST_SEEN_S or more after its process started (a `/new` in a
+    process older than these hooks), or when anything Kimi read at its start
+    (`loaded["read_at_start"]`: its plugin list and folders) changed after it."""
     titles = (process_title,) if isinstance(process_title, str) else tuple(t for t in process_title if t)
     if not (valid_session_id(session_id) and harness and titles):
         return None
@@ -4032,12 +4067,66 @@ def record_harness_process(
             return None
         path = _process_record_path(*target)
         path.parent.mkdir(parents=True, exist_ok=True)
-        body = json.dumps({"harness": harness, "session_id": session_id, "updated_at": time.time()})
+        record = {"harness": harness, "session_id": session_id, "updated_at": time.time()}
+        if loaded is not None:
+            try:
+                previous = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                previous = None
+            previous = previous if isinstance(previous, dict) else {}
+            before = previous.get("loaded")
+            if isinstance(before, dict):
+                old_root = before.get("plugin_root")
+                reloaded = (loaded.get("source") == "resume" and not loaded.get("late")
+                            and previous.get("session_id") == session_id
+                            and isinstance(old_root, str) and old_root != loaded.get("plugin_root")
+                            and os.path.isdir(old_root))
+                if not reloaded:
+                    loaded = before
+            else:
+                age = _process_age(target[1])
+                if age is None or age >= LOADED_FIRST_SEEN_S or _changed_since(loaded, time.time() - age):
+                    loaded = {**loaded, "late": True}
+            record["loaded"] = loaded
+        body = json.dumps(record)
         if not _publish_atomically(path, body):
             return None
         _sweep_process_records(keep=path)
         return path
     except Exception:  # noqa: BLE001 -- fail-soft: a hook must never break
+        return None
+
+
+#: A process's first `loaded` record proves what it loaded only this soon after
+#: its start (Kimi runs SessionStart within seconds of starting).
+LOADED_FIRST_SEEN_S = 120
+
+
+def _changed_since(loaded: dict, started: float) -> bool:
+    """Did anything the process read at its start (`read_at_start`) change
+    after `started` (epoch seconds)? A path that cannot be read counts."""
+    paths = loaded.get("read_at_start") or []
+    for path in paths if isinstance(paths, list) else [paths]:
+        try:
+            if not isinstance(path, str) or os.stat(path).st_mtime >= started - 1:
+                return True
+        except OSError:
+            return True
+    return False
+
+
+def _process_age(start: str) -> "float | None":
+    """Seconds since a process started, from its `_ancestors` start time (Linux:
+    clock ticks after boot; else `ps`'s UTC `lstart`), or None."""
+    try:
+        if start.isdigit():
+            with open("/proc/uptime", encoding="ascii") as fh:
+                uptime = float(fh.read().split()[0])
+            return uptime - int(start) / os.sysconf("SC_CLK_TCK")
+        import calendar  # noqa: PLC0415
+
+        return time.time() - calendar.timegm(time.strptime(start, "%a-%b-%d-%H:%M:%S-%Y"))
+    except (OSError, ValueError, IndexError, OverflowError):
         return None
 
 

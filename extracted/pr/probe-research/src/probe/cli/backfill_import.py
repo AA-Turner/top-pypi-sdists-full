@@ -167,9 +167,9 @@ def _verify_auto_folder(payload):
     return folder
 
 
-def _run_auto_import(payload, *, progress):
+def _run_auto_import(payload, *, progress, meter=None):
     """Prepare once, durably pin the resulting approval, then deliver in this job."""
-    from . import backfill as bf, import_jobs, telemetry
+    from . import backfill as bf, import_agent_settings, import_jobs, telemetry
 
     if payload.get("auto_approve") is not True:
         raise CoverageError("This folder job has no explicit automatic approval.")
@@ -191,6 +191,8 @@ def _run_auto_import(payload, *, progress):
                 if (approval["project_id"] != scope.project_id
                         or approval["workspace_id"] != scope.workspace_id):
                     raise CoverageError("The automatic folder and W&B destinations do not match.")
+            agents = import_agent_settings.resolve(client, bf.Agent(payload["agent"]), meter=meter)
+            meter = agents.meter
             store = Coverage(Path(payload["directory"]), scope, payload["source_id"])
             with store.writer() as coverage:
                 coverage.validate_destinations(client)
@@ -208,7 +210,7 @@ def _run_auto_import(payload, *, progress):
                         retry_dead=bool(payload.get("retry_dead")),
                         review_excluded=bool(payload.get("review_excluded")),
                         tel=telemetry.null_context(), stats=stats, background=True,
-                        progress=progress, auto_approve=True,
+                        progress=progress, auto_approve=True, agents=agents,
                     )
                     prepared = stats.get("_background_payload")
                     if prepared is None:
@@ -240,8 +242,10 @@ def _run_auto_import(payload, *, progress):
         # The approval is durable before ANY file delivery starts. Replays use
         # only this snapshot, so later/new bytes need another import decision.
         _verify_auto_folder(payload)
-        return [*history_lines, *run_background_job(prepared, progress=progress)]
+        return [*history_lines, *run_background_job(prepared, progress=progress, meter=meter)]
     except Exception as exc:
+        if isinstance(exc, import_jobs.UnitRetryJobError):
+            raise
         if not stats.get("failed_units") and import_jobs.is_retryable_error(exc):
             raise import_jobs.RetryableJobError(
                 "The folder connection is unavailable. Completed reads and uploads are saved."
@@ -319,14 +323,19 @@ def _background_client(payload):
     )
 
 
-def run_background_job(payload, *, progress):
-    """Resume only the reviewed file versions captured by a queued folder job."""
+def run_background_job(payload, *, progress, meter=None):
+    """Resume only the reviewed file versions captured by a queued folder job.
+
+    `meter` is the worker attempt's (`import_jobs.run_worker`), so its
+    `import_job.finished` carries what this job's agents cost and under which
+    settings, read here once per attempt (`import_agent_settings.resolve`)."""
     from . import backfill as bf
     from . import backfill_run as runner
-    from .import_jobs import RetryableJobError, is_retryable_error
+    from . import import_agent_settings
+    from .import_jobs import RetryableJobError, UnitRetryJobError, is_retryable_error
 
     if payload.get("schema") == AUTO_BACKGROUND_SCHEMA:
-        return _run_auto_import(payload, progress=progress)
+        return _run_auto_import(payload, progress=progress, meter=meter)
     if payload.get("schema") != BACKGROUND_SCHEMA:
         raise CoverageError("This folder job has an unsupported saved format.")
     folder = Path(payload["folder"])
@@ -346,6 +355,7 @@ def run_background_job(payload, *, progress):
             )
             if actual != scope or client.me().get("user_id") != payload["user_id"]:
                 raise CoverageError("The current account or destination differs from this approved job.")
+            agents = import_agent_settings.resolve(client, bf.Agent(payload["agent"]), meter=meter)
             store = Coverage(directory, scope, payload["source_id"])
             with store.writer() as coverage:
                 ledger = Ledger(directory / "units.jsonl")
@@ -391,6 +401,7 @@ def run_background_job(payload, *, progress):
                     progress=progress,
                     retry_network=True,
                     completion_targets=targets,
+                    agents=agents,
                 )
                 delivered = _completed_paths(coverage)
                 remaining = targets - delivered
@@ -415,13 +426,25 @@ def run_background_job(payload, *, progress):
                             "In this import's account and workspace, review a new plan with: "
                             f"`{shlex.join(retry)}`. Per-file report: {coverage.write_report()}"
                         )
+                    # Only batches that ran THIS pass and failed with tries left:
+                    # a failed batch whose files changed since approval is not
+                    # run again, so it would never reach its attempt limit.
+                    retry = stats.get("_retry_units") or []
+                    if retry:
+                        # An agent that stopped mid-batch is retried by the job
+                        # itself, up to the batch's attempt limit, instead of
+                        # leaving the import for someone to resume by hand.
+                        raise UnitRetryJobError(
+                            f"{len(retry)} import batch(es) stopped before finishing; "
+                            "retrying them with their saved progress."
+                        )
                     raise CoverageError(
                         f"{len(remaining)} approved file(s) remain unfinished. "
                         "Saved progress is retained; resume from Existing imports. "
                         "Changed files require another review."
                     )
                 return lines
-    except CoverageError:
+    except (CoverageError, UnitRetryJobError):
         raise
     except Exception as exc:
         if not stats.get("failed_units") and is_retryable_error(exc):
@@ -624,6 +647,7 @@ def execute(
     offer_wandb=True,
 ):
     from . import backfill_run as runner
+    from . import import_agent_settings
     from . import telemetry as tm
 
     tel = telemetry or tm.null_context()
@@ -633,10 +657,14 @@ def execute(
     outcome = tm.BackfillOutcome.CREDENTIALS_FAILED
     started = False
     registered_job = None
+    agents = None
     try:
         with client_factory() as client:
             scope = Scope.resolve(client, project)
             outcome = tm.BackfillOutcome.PARTIAL
+            # Once, before any agent: what this import's lanes run at, and the
+            # meter `backfill.summary` reports them from.
+            agents = import_agent_settings.resolve(client, agent)
             if not source_id:
                 source_id, recovery_lines = _choose_source(
                     Coverage.recovery_candidates(folder, scope), interactive=interactive, yes=yes
@@ -667,10 +695,20 @@ def execute(
                     background=background,
                     back_to_selection=back_to_selection,
                     wandb_source=wandb_source, offer_wandb=offer_wandb,
+                    agents=agents,
                 )
                 outcome = stats.pop("_outcome", None) or (
                     tm.BackfillOutcome.SUCCESS if complete else tm.BackfillOutcome.PARTIAL
                 )
+                if outcome in (tm.BackfillOutcome.SUCCESS, tm.BackfillOutcome.PARTIAL) and stats.get(
+                    "unclassified_files"
+                ):
+                    # A failed classifier session left files for the next run,
+                    # which by itself keeps coverage short of complete. Said
+                    # apart from PARTIAL so analytics can tell a slice the model
+                    # could not file from an upload that failed; units_failed
+                    # still carries the second.
+                    outcome = tm.BackfillOutcome.PARTIAL_CLASSIFICATION
                 deferred = stats.pop("_background_payload", None)
                 if deferred is None:
                     return [*recovery_lines, *lines]
@@ -734,7 +772,12 @@ def execute(
             tm.EVENT_BACKFILL_SUMMARY,
             outcome=outcome,
             duration_seconds=int(time.monotonic() - start),
-            **{key: value for key, value in stats.items() if not key.startswith("_")},
+            # One dict, so a stats key the meter also names can never become a
+            # duplicate-keyword TypeError out of this `finally`.
+            **{
+                **{key: value for key, value in stats.items() if not key.startswith("_")},
+                **(agents.meter.properties() if agents is not None else {}),
+            },
         )
 
 
@@ -797,6 +840,7 @@ def _existing(client, workspace_id):
 def _review(
     folder, records, *, agent, work_dir, existing, fixed_project, census, interactive, yes, git,
     tel, stats, classification_identity=None, background=False, progress=None, auto_approve=False,
+    agents=None,
 ):
     """The existing classification conversation, limited to the selected delta."""
     from . import backfill_run as runner
@@ -819,7 +863,7 @@ def _review(
     with (runner.classification_context(classification_identity, **context_options)
           if classification_identity else nullcontext()):
         plan, detail, session = runner.classify(
-            folder, ev, agent=agent, existing=existing, work_dir=work_dir
+            folder, ev, agent=agent, existing=existing, work_dir=work_dir, agents=agents,
         )
     if plan is None:
         raise _Stopped(
@@ -837,17 +881,18 @@ def _review(
         if fixed_project:
             assigned = dict.fromkeys(assigned, fixed_project)
         if initial:
+            # The plan is built from validated selections, so `trustworthy` is
+            # an invariant on OUR code; a false one is reported here and the
+            # plan goes on with `resolve`'s map, never refused whole (a 52-minute
+            # classification was thrown away over two typos on 2026-10-25).
+            stats.update(plan.stats)
+            stats["unclassified_files"] = len(plan.excluded)
             tel.emit(
                 tm.EVENT_BACKFILL_PLAN_READY,
                 projects_count=len(set(assigned.values())), trustworthy=discrepancy.trustworthy,
-                left_out_files=len(left_out),
+                left_out_files=len(left_out), **plan.stats,
             )
             initial = False
-        if not discrepancy.trustworthy:
-            raise _Stopped(
-                tm.BackfillOutcome.UNTRUSTED_CLASSIFICATION,
-                "Classification cannot be trusted: " + "; ".join(discrepancy.describe())
-            )
         body = runner.describe_plan(
             ev, plan, assigned, discrepancy, left_out=left_out
         )
@@ -895,23 +940,12 @@ def _review(
         ).encode()).hexdigest() if classification_identity else None
         with (runner.classification_context(revision_identity, background=background)
               if revision_identity else nullcontext()):
-            if evidence.needs_chunking(ev):
-                revised, detail = runner.classify_chunked(
-                    folder, ev, agent=agent, existing=existing, work_dir=work_dir, feedback=feedback
-                )
-            else:
-                revised, detail, session = runner.revise(
-                    folder, ev, feedback, agent=agent, session_id=session, work_dir=work_dir
-                )
+            revised, detail, session = runner.revise(
+                folder, ev, feedback, agent=agent, session_id=session, work_dir=work_dir,
+                plan=plan, existing=existing, agents=agents,
+            )
         if revised is None:
             note = f"Could not revise: {detail[-512:] or 'the agent failed'}. The plan is unchanged."
-            continue
-        _, revised_disc = plans.resolve(ev, revised)
-        if not revised_disc.trustworthy:
-            note = (
-                "The revised plan was discarded: " + "; ".join(revised_disc.describe())
-                + ". The plan is unchanged."
-            )
             continue
         plan, note = revised, ""
         revisions += 1
@@ -1087,6 +1121,7 @@ def _run(
     back_to_selection=False,
     wandb_source=None,
     offer_wandb=True,
+    agents=None,
 ):
     from . import backfill_run as runner
     from . import telemetry as tm
@@ -1096,9 +1131,11 @@ def _run(
         raise CoverageError("Selected W&B history needs foreground review before file import.")
     report = runner.Report()
     stats["_report"] = report.lines
-    degraded = runner.bf.degraded_note(agent)
+    degraded = runner.bf.degraded_note(agent, agents.flags() if agents is not None else ())
     if degraded:
         report.add(degraded)
+    if agents is not None:
+        report.add(*agents.notes)
     # This marker only categorizes telemetry AFTER the fresh census and
     # receipt join succeed; it never authorizes a no-op or avoids rehashing.
     previously_complete = coverage.meta("last_verified_complete", False)
@@ -1241,6 +1278,7 @@ def _run(
             background=background,
             progress=progress,
             auto_approve=auto_approve,
+            agents=agents,
         )
         # The review includes Code sources before attachment occurs.
         report.add(*body)
@@ -1362,7 +1400,7 @@ def _run(
         concurrency=concurrency, records=records, paths=paths, census=census,
         ledger=ledger, work_dir=work_dir, git=git, report=report, stats=stats,
         selected=selected, previously_complete=previously_complete,
-        background=background,
+        background=background, agents=agents,
     )
 
 
@@ -1401,6 +1439,7 @@ def _deliver_approved(
     background=False,
     retry_network=False,
     completion_targets=None,
+    agents=None,
 ):
     """Execute saved file assignments; this half contains no plan or source picker."""
     from threading import Lock
@@ -1628,11 +1667,18 @@ def _deliver_approved(
             sizes={path: row["size"] for path, row in current.items()},
             progress=report_progress if progress else None,
             on_complete=deliver_finished_unit,
+            agents=agents,
         )
     stats.update(
         units_total=len(jobs), units_done=sum(outcome.ok for outcome in outcomes),
         failed_units=sum(not outcome.ok for outcome in outcomes),
     )
+    after = ledger.read().units
+    stats["_retry_units"] = [
+        outcome.unit.unit_id for outcome in outcomes
+        if not outcome.ok and (record := after.get(outcome.unit.unit_id)) is not None
+        and record.state is UnitState.FAILED and not record.exhausted
+    ]
     if stats["failed_units"]:
         report.add(f"{stats['failed_units']} unit(s) did not finish. Re-running resumes saved work.")
 
@@ -1737,7 +1783,8 @@ def _deliver_approved(
 
         report.add(
             *complete_reconstruction(
-                client, folder, coverage, git, agent=agent, interactive=interactive, yes=yes
+                client, folder, coverage, git, agent=agent, interactive=interactive, yes=yes,
+                agents=agents,
             )
         )
     final_count = len(final_records)

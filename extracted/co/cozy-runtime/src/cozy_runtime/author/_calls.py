@@ -9,11 +9,12 @@ import logging
 import math
 import re
 import socket
+import threading
 import time
 from collections.abc import Awaitable, Callable, Generator, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Concatenate, ParamSpec, TypeVar, cast, overload
+from typing import Any, Concatenate, ParamSpec, Protocol, TypeVar, cast, overload
 
 import msgspec
 
@@ -21,9 +22,9 @@ from cozy_runtime import _application_json as application_json
 from cozy_runtime import canonical_json
 from cozy_runtime.author._artifacts import ModelArtifact
 from cozy_runtime.author._assets import Asset, Assets, Tree, asset_dec_hook
-from cozy_runtime.author._capture import ActivationCapture, ExecutionObservation
 from cozy_runtime.author._context import Context
 from cozy_runtime.author._decode import MediaReads
+from cozy_runtime.author._defaults import undeclared
 from cozy_runtime.author._errors import CapabilityError, ConformanceError
 from cozy_runtime.author._executor_requests import (
     MAX_CALL_INDEX,
@@ -39,8 +40,9 @@ from cozy_runtime.author._executor_requests import (
 )
 from cozy_runtime.author._memo import MemoDependency, Memoize, memo_policy
 from cozy_runtime.author._memo import declare as declare_memo
-from cozy_runtime.author._model import Model
+from cozy_runtime.author._model import WARNINGS, Model
 from cozy_runtime.author._model_defaults import model_components, model_defaults
+from cozy_runtime.author._observations import Scalar
 from cozy_runtime.author._services import Telemetry, _progress_scope, _ProgressScope
 from cozy_runtime.author._weights import Weights
 
@@ -50,8 +52,15 @@ P = ParamSpec("P")
 R = TypeVar("R")
 MAX_ACTIVE_CALLS = 32
 MAX_CALL_BYTES = 48 * 1024
-#: Only a worker that cannot nudge its parent (Runtime before child_events) is polled.
-_UNNOTIFIED_POLL_SECONDS = 0.05
+
+
+class Nudges(Protocol):
+    """The worker's nudges to an attempt: a byte each time one of its calls may have moved,
+    b"" once the worker let go of its calls (a socket; a pipe on Windows)."""
+
+    def recv(self, size: int, /) -> bytes: ...
+
+    def close(self) -> None: ...
 
 
 class ChildCallError(CapabilityError):
@@ -169,13 +178,7 @@ def invocable[**P, R](
             raise CapabilityError(
                 "package call has no admitted attempt", code="child_broker_absent"
             )
-        arguments = dict(kwargs)
-        capture = arguments.pop("capture", None)
-        if capture is not None and not isinstance(capture, ActivationCapture):
-            raise ConformanceError("capture needs ActivationCapture", code="capture_option")
-        call = broker.reserve(export.module, export.name, arguments)
-        call.capture = capture
-        return cast(PendingCall[R], call)
+        return cast(PendingCall[R], broker.reserve(export.module, export.name, dict(kwargs)))
 
     proxy.__name__ = fn.__name__
     proxy.__qualname__ = fn.__qualname__
@@ -254,7 +257,7 @@ class _CallType:
 
 
 class PendingCall[R](Awaitable[R]):
-    """Awaiting returns R unchanged; observation is available after the call settles."""
+    """Awaiting returns R unchanged."""
 
     def __init__(
         self, broker: _Broker, index: int, binding: _CallType, payload: bytes, ctx: Context
@@ -263,15 +266,10 @@ class PendingCall[R](Awaitable[R]):
         self.ctx = ctx
         self.request_id = ""
         self.task: asyncio.Task[R] | None = None
-        self.capture: ActivationCapture | None = None
-        self.observation: ExecutionObservation | None = None
         self.progress_scope = _progress_scope.get()
         self.progress_sequence = 0
 
     def __await__(self) -> Generator[Any, None, R]:
-        from cozy_runtime.author._activity import observe_await
-
-        observe_await()
         if self.task is None:
             self.task = asyncio.create_task(self.broker.run(self))
         return self.task.__await__()
@@ -302,16 +300,15 @@ class _Broker:
         request_id: str,
         bindings: Mapping[tuple[str, str], _CallType],
         exchange: Exchange,
-        watch: Callable[[], int | None] | None = None,
+        watch: Callable[[], Nudges],
         yielding: Callable[[], contextlib.AbstractContextManager[None]] | None = None,
     ) -> None:
         self.request_id, self.bindings, self.exchange = request_id, dict(bindings), exchange
-        #: Opens the worker's nudge socket once; None when no peer can nudge.
-        self.watch = watch
+        #: Opens the worker's nudges, at the first wait on a call; None once opened.
+        self.watch: Callable[[], Nudges] | None = watch
         #: Around each wait on a child: the attempt's memory yields its step to the child's.
         self.yielding = yielding
-        self.nudges: socket.socket | None = None
-        self.loop: asyncio.AbstractEventLoop | None = None
+        self.nudges: Nudges | None = None
         self.nudged = 0
         self.nudge = asyncio.Event()
         self.calls: dict[int, PendingCall[Any]] = {}
@@ -321,7 +318,7 @@ class _Broker:
         self.context: Context | None = None
         self.grant_token = object()
         self.telemetry: Telemetry | None = None
-        #: The attempt's media reader: received media and Tree members read through it.
+        #: The attempt's media reader: received media read through it.
         self.media: MediaReads | None = None
 
     def bind(
@@ -384,7 +381,18 @@ class _Broker:
                     ]
                 return _input_ref(value, ctx.request_id)
 
-            plain = msgspec.to_builtins(dict(arguments), enc_hook=asset_value)
+            plain, ignored = undeclared(
+                binding.request, msgspec.to_builtins(dict(arguments), enc_hook=asset_value)
+            )
+            if ignored:
+                # A field the installed callee does not declare is a warning, never a refusal.
+                row: tuple[str, dict[str, Scalar]] = (
+                    "a package call named fields its callee does not declare; they were dropped",
+                    {"callee": f"{module}:{export}", "fields": ", ".join(ignored)},
+                )
+                if row not in WARNINGS:
+                    WARNINGS.append(row)
+                _LOG.warning("%s:%s does not declare %s; dropped", module, export, ignored)
             request = msgspec.convert(
                 plain, type=binding.request, dec_hook=asset_dec_hook, strict=True
             )
@@ -442,13 +450,12 @@ class _Broker:
                                 )
                             call.ctx.raise_if_cancelled()
 
-                        result, call.observation = decode(
+                        result = decode(
                             value,
                             call.binding.result,
                             list(answer.byte_grants),
                             request_id=self.request_id,
                             guard=guard,
-                            observation=call.observation,
                             grant_token=self.grant_token,
                             python_type=call.binding.python_result,
                             media=self.media,
@@ -461,7 +468,7 @@ class _Broker:
                             call.index,
                         ) from exc
                 with self.yielding() if self.yielding is not None else contextlib.nullcontext():
-                    await self._changed(seen, call.ctx.deadline)
+                    await self._changed(seen, call.ctx.deadline, call.index)
         except asyncio.CancelledError:
             if call.index in self.activated and not self.closed:
                 self.exchange(ChildCancel(call_index=call.index), CallState)
@@ -474,47 +481,50 @@ class _Broker:
                 self.activated.discard(call.index)
                 self.calls.pop(call.index, None)
 
-    async def _changed(self, seen: int, deadline: float) -> None:
-        """Until the worker nudges this attempt after `seen`: a call moved or it was cancelled."""
+    async def _changed(self, seen: int, deadline: float, index: int) -> None:
+        """Until the worker nudges this attempt after `seen`: a call moved or it was cancelled.
+        Its nudges are read on a thread of their own, from the first wait on."""
         if self.watch is not None:
             watch, self.watch = self.watch, None
-            descriptor = watch()
-            if descriptor is not None:
-                self.nudges = socket.socket(fileno=descriptor)
-                self.nudges.setblocking(False)
-                self.loop = asyncio.get_running_loop()
-                self.loop.add_reader(self.nudges.fileno(), self._drain)
-                return  # a change before the socket existed nudged no one: poll once more
-        if self.nudges is None:
-            await asyncio.sleep(_UNNOTIFIED_POLL_SECONDS)
+            self.nudges = watch()
+            loop = asyncio.get_running_loop()
+            threading.Thread(
+                target=self._read, args=(self.nudges, loop), name="call-nudges", daemon=True
+            ).start()
+            return  # a change before they were opened nudged no one: look once more
+        if self.nudged != seen:
             return
-        if self.nudged == seen:
-            remaining = deadline - time.monotonic()
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(
-                    self.nudge.wait(), None if math.isinf(remaining) else max(remaining, 0)
-                )
+        if self.nudges is None:
+            raise ChildCallError(
+                "child_events_closed", "the machine let go of this attempt's calls", index
+            )
+        remaining = deadline - time.monotonic()
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(
+                self.nudge.wait(), None if math.isinf(remaining) else max(remaining, 0)
+            )
 
-    def _drain(self) -> None:
-        assert self.nudges is not None
-        try:
-            while self.nudges.recv(4096):
-                pass
-            self._unwatch()  # the worker closed the attempt's socket: poll from now on
-        except BlockingIOError:
-            pass
-        except OSError:
+    def _read(self, nudges: Nudges, loop: asyncio.AbstractEventLoop) -> None:
+        with contextlib.suppress(RuntimeError):  # the attempt's loop closed first
+            with contextlib.suppress(OSError):
+                while nudges.recv(4096):
+                    loop.call_soon_threadsafe(self._nudged, False)
+            loop.call_soon_threadsafe(self._nudged, True)
+
+    def _nudged(self, closed: bool) -> None:
+        if closed:
             self._unwatch()
         self.nudged += 1
         nudge, self.nudge = self.nudge, asyncio.Event()
         nudge.set()
 
     def _unwatch(self) -> None:
-        if self.nudges is not None:
-            if self.loop is not None and not self.loop.is_closed():
-                self.loop.remove_reader(self.nudges.fileno())
-            self.nudges.close()
-            self.nudges = None
+        nudges, self.nudges = self.nudges, None
+        if nudges is not None:
+            if isinstance(nudges, socket.socket):
+                with contextlib.suppress(OSError):
+                    nudges.shutdown(socket.SHUT_RDWR)  # its reader's recv returns
+            nudges.close()
 
     @staticmethod
     def _observe(call: PendingCall[Any], answer: CallState) -> None:
@@ -533,18 +543,6 @@ class _Broker:
                 scope = _ProgressScope(call.broker.telemetry, call.binding.export, None)
             if scope is not None:
                 scope.telemetry._child_progress(progress.payload, scope)
-        if answer.observation is None:
-            return
-        try:
-            call.observation = msgspec.convert(
-                answer.observation,
-                type=ExecutionObservation,
-                dec_hook=asset_dec_hook,
-                strict=True,
-            )
-        except (ValueError, TypeError, msgspec.ValidationError) as exc:
-            # An observation is evidence about the child, never its result.
-            _LOG.warning("child call %d: unreadable execution observation: %s", call.index, exc)
 
     @staticmethod
     def _intent(call: PendingCall[Any]) -> ChildCall:
@@ -554,7 +552,6 @@ class _Broker:
             export=call.binding.export,
             payload=call.payload.decode(),
             progress_label=call.progress_scope.name if call.progress_scope else "",
-            capture=call.capture,
         )
 
     @staticmethod
@@ -589,14 +586,8 @@ def _invoke_proxy(
     module: str,
     export: str,
     arguments: Mapping[str, object],
-    *,
-    capture: ActivationCapture | None = None,
 ) -> PendingCall[Any]:
     broker = _current.get()
     if broker is None:
         raise CapabilityError("package call has no admitted attempt", code="child_broker_absent")
-    if capture is not None and not isinstance(capture, ActivationCapture):
-        raise ConformanceError("capture needs ActivationCapture", code="capture_option")
-    call = broker.reserve(module, export, arguments)
-    call.capture = capture
-    return call
+    return broker.reserve(module, export, arguments)

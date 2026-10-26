@@ -1,10 +1,8 @@
 Metadata-Version: 2.4
 Name: pytrilogy
-Version: 0.3.409
+Version: 0.3.410
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -14,8 +12,10 @@ Requires-Dist: altair ; extra == 'analysis'
 Requires-Dist: pandas ; extra == 'analysis'
 Requires-Dist: vl-convert-python ; extra == 'analysis'
 Requires-Dist: sqlalchemy-bigquery ; extra == 'bigquery'
+Requires-Dist: chdb ; extra == 'chdb'
 Requires-Dist: rich ; extra == 'cli'
 Requires-Dist: plotext<6 ; extra == 'cli'
+Requires-Dist: clickhouse-sqlalchemy ; extra == 'clickhouse'
 Requires-Dist: fastapi ; extra == 'mcp'
 Requires-Dist: uvicorn ; extra == 'mcp'
 Requires-Dist: mcp>=2,<3 ; extra == 'mcp'
@@ -30,12 +30,14 @@ Requires-Dist: playwright ; extra == 'report'
 Requires-Dist: fastapi ; extra == 'serve'
 Requires-Dist: uvicorn ; extra == 'serve'
 Requires-Dist: snowflake-sqlalchemy ; extra == 'snowflake'
-Requires-Dist: haybarn>=1.5.6rc1 ; extra == 'vgi'
-Requires-Dist: vgi-python>=0.46 ; python_full_version >= '3.13' and extra == 'vgi'
+Requires-Dist: haybarn>=1.5.6rc1,<1.5.7 ; extra == 'vgi'
+Requires-Dist: vgi-python>=0.47,<0.48 ; python_full_version >= '3.13' and extra == 'vgi'
 Provides-Extra: ai
 Provides-Extra: analysis
 Provides-Extra: bigquery
+Provides-Extra: chdb
 Provides-Extra: cli
+Provides-Extra: clickhouse
 Provides-Extra: mcp
 Provides-Extra: mysql
 Provides-Extra: odbc
@@ -46,6 +48,7 @@ Provides-Extra: snowflake
 Provides-Extra: vgi
 License-File: LICENSE.md
 Summary: Declarative, typed query language that compiles to SQL.
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 <div align="center">

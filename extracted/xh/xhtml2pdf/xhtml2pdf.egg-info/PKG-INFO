@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xhtml2pdf
-Version: 0.2.27
+Version: 0.2.28
 Summary: PDF generator using HTML and CSS
 Author-email: Dirk Holtwick <dirk.holtwick@gmail.com>
 Maintainer-email: Luis Zarate <luisza14@gmail.com>, Timo Brembeck <opensource@timo.brembeck.email>
@@ -48,14 +48,19 @@ Requires-Dist: svglib>=1.2.1
 Provides-Extra: signing
 Requires-Dist: pyHanko>=0.37.0; extra == "signing"
 Requires-Dist: pyhanko-certvalidator>=0.32.1; extra == "signing"
+Provides-Extra: fonts
+Requires-Dist: fonttools>=4.40; extra == "fonts"
+Requires-Dist: brotli>=1.0.9; extra == "fonts"
 Provides-Extra: all
 Requires-Dist: xhtml2pdf[signing]; extra == "all"
+Requires-Dist: xhtml2pdf[fonts]; extra == "all"
 Provides-Extra: pycairo
 Requires-Dist: reportlab[pycairo]<6,>=4.4.9; extra == "pycairo"
 Provides-Extra: renderpm
 Requires-Dist: xhtml2pdf[pycairo]; extra == "renderpm"
 Provides-Extra: test
 Requires-Dist: xhtml2pdf[signing]; extra == "test"
+Requires-Dist: xhtml2pdf[fonts]; extra == "test"
 Requires-Dist: tomli>=2.0.1; python_version < "3.11" and extra == "test"
 Requires-Dist: tox; extra == "test"
 Requires-Dist: coverage>=5.3; extra == "test"

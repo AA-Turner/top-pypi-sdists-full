@@ -7,10 +7,11 @@ import torch
 from torch import nn
 from torch.distributed import ReduceOp, all_reduce
 
+from pytorch_optimizer.base.compatibility import is_deepspeed_zero3_enabled
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import Defaults, ParamGroup
 from pytorch_optimizer.optimizer.fp16 import DynamicLossScaler
-from pytorch_optimizer.optimizer.utils import has_overflow, is_deepspeed_zero3_enabled
+from pytorch_optimizer.optimizer.utils.precision import has_overflow
 
 
 class LOMO(BaseOptimizer):
@@ -55,7 +56,7 @@ class LOMO(BaseOptimizer):
 
         p0: torch.Tensor = next(iter(self.model.parameters()))
 
-        self.grad_func: Callable[[Any], Any] = (
+        self.grad_func: Callable[..., Any] = (
             self.fuse_update_zero3() if hasattr(p0, 'ds_tensor') else self.fuse_update()
         )
 
@@ -66,9 +67,12 @@ class LOMO(BaseOptimizer):
 
             self.loss_scaler = DynamicLossScaler(init_scale=2 ** 16)  # fmt: skip
 
+        def update_parameter(p: torch.Tensor) -> None:
+            self.grad_func(0, [p])
+
         for _, p in self.model.named_parameters():
             if p.requires_grad:
-                p.register_hook(self.grad_func)
+                p.register_post_accumulate_grad_hook(update_parameter)
 
         defaults: Defaults = {'lr': lr}
 
@@ -83,8 +87,8 @@ class LOMO(BaseOptimizer):
 
     def fuse_update(self) -> Callable[[Any], Any]:
         @torch.no_grad()
-        def func(x: Any) -> Any:
-            for _, p in self.model.named_parameters():
+        def func(x: Any, params: list[torch.Tensor] | None = None) -> Any:
+            for p in self.model.parameters() if params is None else params:
                 if not p.requires_grad or p.grad is None:
                     continue
 
@@ -120,8 +124,8 @@ class LOMO(BaseOptimizer):
 
     def fuse_update_zero3(self) -> Callable[[Any], Any]:  # pragma: no cover
         @torch.no_grad()
-        def func(x: torch.Tensor) -> torch.Tensor:
-            for _, p in self.model.named_parameters():
+        def func(x: torch.Tensor, params: list[torch.Tensor] | None = None) -> torch.Tensor:
+            for p in self.model.parameters() if params is None else params:
                 if p.grad is None:
                     continue
 
@@ -383,7 +387,7 @@ class AdaLOMO(BaseOptimizer):
                     p_fp32 = p.to(torch.float32)
                     p_rms = torch.norm(p_fp32, 2.0) / math.sqrt(p.numel())
 
-                    lr = self.lr * max(self.eps2, p_rms)
+                    lr = p_rms.clamp_min_(self.eps2).mul_(self.lr)
 
                     self.apply_weight_decay(
                         p_fp32,
@@ -394,7 +398,7 @@ class AdaLOMO(BaseOptimizer):
                         fixed_decay=False,
                     )
 
-                    p_fp32.add_(update, alpha=-lr)
+                    p_fp32.sub_(update.mul_(lr))
                     p.copy_(p_fp32)
 
             return x

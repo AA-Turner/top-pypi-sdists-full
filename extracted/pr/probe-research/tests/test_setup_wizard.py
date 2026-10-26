@@ -5156,6 +5156,174 @@ def test_refresh_marketplace_reports_the_update_result(monkeypatch):
     assert "network unreachable" in result.detail
 
 
+def test_a_first_add_is_the_refresh(monkeypatch, tmp_path):
+    """`add` on a device without the marketplace clones it, current: the
+    `update` after it fetched the same repository again (~2 s of a first
+    install, per agent). One already on disk still updates: `add` leaves an
+    existing copy as it was."""
+    from probe.cli import claude_cli, plugin_cli
+    from probe.cli import setup as wizard
+
+    checkout = tmp_path / "marketplaces" / "research-os-agent"
+    monkeypatch.setattr(plugin_cli, "marketplace_checkout", lambda source, name: checkout)
+    calls: list[list[str]] = []
+
+    def fake_run(args, *, timeout):
+        calls.append(args[:3])
+        if "add" in args:
+            checkout.mkdir(parents=True, exist_ok=True)
+        return claude_cli.Result(ok=True)
+
+    monkeypatch.setattr(claude_cli, "run", fake_run)
+
+    assert wizard.refresh_marketplace().ok is True
+    assert calls == [["plugin", "marketplace", "add"]]
+    calls.clear()
+    assert wizard.refresh_marketplace().ok is True
+    assert calls == [["plugin", "marketplace", "add"], ["plugin", "marketplace", "update"]]
+
+
+def test_an_install_for_several_agents_refreshes_their_marketplaces_at_once(monkeypatch):
+    """One refresh per agent, all inside the first agent's refresh step (a git
+    fetch each, ~2 s): every later agent takes its answer, and a retry's
+    refresh runs again."""
+    import threading
+
+    from probe.cli import claude_cli
+    from probe.cli import setup as wizard
+
+    both_running = threading.Barrier(2, timeout=5)
+    ran: list[str] = []
+
+    def fake_refresh(source):
+        ran.append(source)
+        if len(ran) <= 2:
+            both_running.wait()  # raises BrokenBarrierError unless the two overlap
+        return claude_cli.Result(ok=True, detail=source)
+
+    monkeypatch.setattr(wizard, "_refresh_marketplace_now", fake_refresh)
+
+    with wizard.marketplace_refreshes(["claude_code", "codex"]):
+        assert wizard.refresh_marketplace(source="claude_code").detail == "claude_code"
+        assert sorted(ran) == ["claude_code", "codex"]
+        assert wizard.refresh_marketplace(source="codex").detail == "codex"
+        assert len(ran) == 2
+        wizard.refresh_marketplace(source="codex")  # the install's retry
+    assert len(ran) == 3
+
+
+def test_the_install_batches_the_agents_it_gets_a_plugin_for(monkeypatch):
+    """`_installing` names what the install refreshes together: agents with a
+    marketplace and their CLI here that lack a chosen plugin."""
+    import importlib
+    from types import SimpleNamespace
+
+    from probe.cli import plugin_cli
+
+    main = importlib.import_module("probe.cli.main")
+    monkeypatch.setattr(plugin_cli, "available", lambda source: source != "kimi_code")
+    caps = {
+        "claude_code": _caps(agent_source="claude_code", tracking_plugin_installed=False, capture_plugin_installed=True),
+        "codex": _caps(agent_source="codex", tracking_plugin_installed=True, capture_plugin_installed=True),
+        "kimi_code": _caps(agent_source="kimi_code"),  # not on this machine
+        "pi": _caps(agent_source="pi"),  # no marketplace
+    }
+    assert main._installing(caps, SimpleNamespace(tracking=True, capture=True)) == ["claude_code"]
+    assert main._installing(caps, SimpleNamespace(tracking=False, capture=True)) == []
+
+
+def test_the_install_verdict_asks_the_old_way_when_the_one_call_does_not_answer():
+    """A slow or failing `/v1/device-state` must not hide a refused capture key
+    at the install's end: an unanswered call reads as a server without it, so
+    `doctor.collect()` asks the old way."""
+    import importlib
+
+    from probe.cli import capabilities
+
+    main = importlib.import_module("probe.cli.main")
+    outcome = capabilities.DeviceStateOutcome
+    unreachable = capabilities.DeviceState(outcome.UNREACHABLE, error="slow")
+    assert main._old_way_unless_answered(lambda: unreachable)().outcome is outcome.UNSUPPORTED
+    answered = capabilities.DeviceState(outcome.UNSUPPORTED)
+    assert main._old_way_unless_answered(lambda: answered)() is answered
+
+
+def test_the_sign_in_refreshes_nothing_while_a_person_approves(monkeypatch):
+    """Nothing is written while the browser approval waits (`sdk.device`): a
+    first `add` writes the agent's own config. The batch refreshes at the
+    install's refresh step, which a refused approval skips (`_run_wizard_action`)."""
+    from probe.cli import claude_cli
+    from probe.cli import setup as wizard
+    from probe.sdk import device as device_flow
+
+    ran: list[str] = []
+    monkeypatch.setattr(
+        wizard, "_refresh_marketplace_now", lambda source: ran.append(source) or claude_cli.Result(ok=True)
+    )
+
+    def deny(base_url, **_):
+        assert ran == []
+        raise device_flow.DeviceLoginError("denied")
+
+    monkeypatch.setattr(device_flow, "device_authorize", deny)
+    with wizard.marketplace_refreshes(["claude_code", "codex"]):
+        _, lines = wizard.authorize(["api"], base_url="https://api.test")
+        assert "denied" in lines[0] and ran == []
+
+
+def test_a_refresh_whose_thread_cannot_start_runs_on_its_own(monkeypatch):
+    """A process limit refuses the thread: that agent refreshes at its own
+    step, as before the batch, and nothing waits on an answer that cannot come."""
+    import threading
+
+    from probe.cli import claude_cli
+    from probe.cli import setup as wizard
+
+    ran: list[str] = []
+    monkeypatch.setattr(
+        wizard, "_refresh_marketplace_now", lambda source: ran.append(source) or claude_cli.Result(ok=True, detail=source)
+    )
+
+    def refuse(self):
+        raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(threading.Thread, "start", refuse)
+    with wizard.marketplace_refreshes(["claude_code", "codex"]):
+        assert wizard.refresh_marketplace(source="claude_code").detail == "claude_code"
+        assert wizard.refresh_marketplace(source="codex").detail == "codex"
+    assert ran == ["claude_code", "codex"]
+
+
+def test_a_later_thread_that_cannot_start_leaves_its_agent_to_its_own_step(monkeypatch):
+    """The first agent's thread starts and the next one's is refused: the
+    first takes its batch answer, the second refreshes on its own at its own
+    step (it leaves the batch), and neither waits or fails on the other."""
+    import threading
+
+    from probe.cli import claude_cli
+    from probe.cli import setup as wizard
+
+    ran: list[tuple[str, str]] = []
+
+    def refresh(source):
+        ran.append((source, threading.current_thread().name))
+        return claude_cli.Result(ok=True, detail=source)
+
+    monkeypatch.setattr(wizard, "_refresh_marketplace_now", refresh)
+    real_start = threading.Thread.start
+
+    def start(self):
+        if self.name == "probe-marketplace-codex":
+            raise RuntimeError("can't start new thread")
+        return real_start(self)
+
+    monkeypatch.setattr(threading.Thread, "start", start)
+    with wizard.marketplace_refreshes(["claude_code", "codex"]):
+        assert wizard.refresh_marketplace(source="claude_code").detail == "claude_code"
+        assert wizard.refresh_marketplace(source="codex").detail == "codex"
+    assert ran == [("claude_code", "probe-marketplace-claude_code"), ("codex", "MainThread")]
+
+
 def test_a_first_add_that_hits_a_blocked_git_is_the_reported_cause(monkeypatch):
     """On a machine that never added the marketplace, `add` is the clone that
     hits the Mac's blocked git; `update` then fails as "not found", which says
@@ -8411,9 +8579,16 @@ def test_a_new_agent_follows_the_devices_daemon(monkeypatch, recorders, source, 
     monkeypatch.setattr(wizard, "companion_token_held", lambda: True)
     monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: "/libs")
 
-    lines = wizard.follow_machine_recorder(source, _caps(), base_url="https://api.test")
+    taken: list[int] = []
+
+    def snapshot():
+        taken.append(1)
+        return _caps()
+
+    lines = wizard.follow_machine_recorder(source, snapshot, base_url="https://api.test")
 
     assert bool(calls) is moves
+    assert len(taken) == (1 if moves else 0)  # the install's snapshot, only when it moves
     if moves:
         assert calls[0][1] == "daemon" and "moved" in lines
     else:

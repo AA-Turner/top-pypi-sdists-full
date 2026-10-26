@@ -1,9 +1,11 @@
 use crate::output::messages::{
-    diff_flags_warning, handle_snapshot_console, ignored_saved_output, ignored_summary_output,
-    removable_ignores_output, unknown_rule_warning,
+    config_gate_change_warning, diff_flags_warning, handle_snapshot_console, ignored_saved_output,
+    ignored_summary_output, removable_ignores_output, unknown_rule_warning,
+    unmatchable_exclude_warning,
 };
+use crate::types::ConfigGateChange;
 use crate::utils::snapshot::SnapshotEvaluation;
-use complexipy_core::classes::RemovableIgnore;
+use complexipy_core::classes::{IgnoredLocation, RemovableIgnore};
 
 fn evaluation(should_run: bool, messages: Vec<String>) -> SnapshotEvaluation {
     SnapshotEvaluation {
@@ -57,16 +59,21 @@ fn snapshot_messages_rendered() {
 
 #[test]
 fn ignored_summary_variants() {
+    let location = |path: &str, line: u64| IgnoredLocation {
+        path: path.to_string(),
+        line,
+        comment: "# complexipy: ignore".to_string(),
+    };
     assert_eq!(
-        ignored_summary_output(0, false),
+        ignored_summary_output(&[], false),
         "No ignore comments found."
     );
     assert_eq!(
-        ignored_summary_output(3, false),
-        "Found 3 suppressed location(s)."
+        ignored_summary_output(&[location("a.py", 3), location("b.py", 7)], false),
+        "a.py:3  # complexipy: ignore\nb.py:7  # complexipy: ignore\nFound 2 suppressed location(s)."
     );
-    let with_flag = ignored_summary_output(2, true);
-    assert!(with_flag.contains("Found 2 suppressed location(s)."));
+    let with_flag = ignored_summary_output(&[location("a.py", 3)], true);
+    assert!(with_flag.contains("Found 1 suppressed location(s)."));
     assert!(with_flag.contains("(all markers ignored due to --no-ignore)"));
 }
 
@@ -102,4 +109,29 @@ fn diff_flags_warning_text() {
         diff_flags_warning(),
         "--diff and --diff-only both set. Using --diff-only (visual only, no enforcement)."
     );
+}
+
+#[test]
+fn config_gate_change_warning_names_the_file_and_the_pin() {
+    let warning = config_gate_change_warning(
+        "/repo/complexipy.toml",
+        &ConfigGateChange::DiffRef("HEAD".to_string()),
+    );
+
+    assert!(warning.starts_with("/repo/complexipy.toml sets [diff] branch = \"HEAD\""));
+    assert!(warning.contains("--isolated"));
+    for change in [
+        ConfigGateChange::StagedDiff,
+        ConfigGateChange::SnapshotCreate,
+    ] {
+        assert!(config_gate_change_warning("cfg.toml", &change).starts_with("cfg.toml sets "));
+    }
+}
+
+#[test]
+fn unmatchable_pattern_warning_names_the_pattern_and_a_fix() {
+    let warning = unmatchable_exclude_warning("./legacy/**");
+
+    assert!(warning.contains("\"./legacy/**\""));
+    assert!(warning.contains("legacy/**`"));
 }

@@ -9,6 +9,7 @@ pytest's sense, and several modules want them by name.
 """
 import importlib.util
 import json
+import sys
 import time
 import urllib.request
 from pathlib import Path
@@ -51,11 +52,18 @@ def load_tool(stem: str) -> ModuleType:
     --doctest-modules over the corpus builders, so these are imported
     this way rather than made importable. Each main() is behind a
     __name__ guard; the one import-time effect is that a corpus builder
-    appends its own directory to sys.path to find corpus_build.py."""
+    appends its own directory to sys.path to find corpus_build.py (and
+    local_corpora.py its local_core and local_<source> modules, which it
+    imports under their bare names: a test reaches those with
+    importlib.import_module, never a second load by path)."""
     spec = importlib.util.spec_from_file_location(
         f"differential_{stem}", _TOOLS / f"{stem}.py")
     assert spec is not None and spec.loader is not None, stem
     module = importlib.util.module_from_spec(spec)
+    # Registered before it runs: @dataclass looks the module up in
+    # sys.modules to check string annotations, and fails on a module
+    # loaded by path that is not in it (local_corpora.py's dataclasses).
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     return module
 
@@ -74,6 +82,29 @@ class _Response:
 
     def read(self) -> bytes:
         return self.body
+
+
+def own_cache(monkeypatch: pytest.MonkeyPatch,
+              tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Point the tools' cache at a fresh scratch folder and return it:
+    what each local-corpus test module's autouse fixture does, so that a
+    test that forgets to set a cache, or a guard that stops keeping a
+    test's corpus out of it, writes there rather than into the
+    developer's real cache."""
+    path = tmp_path_factory.mktemp("cache")
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(path))
+    return path
+
+
+def plant_corpus(monkeypatch: pytest.MonkeyPatch, corpora: ModuleType, source: str,
+                 records: list[dict[str, str]], date: str, unit: str) -> None:
+    """`records` fetched as `source`'s local corpus into the cache, with no
+    network: through a Source carrying the real one's credit and nothing
+    else, so that none of the real source's renew or check applies."""
+    monkeypatch.setitem(corpora.SOURCES, source, corpora.Source(
+        corpora.SOURCES[source].credit, unit,
+        lambda: corpora.Fetched(list(records), date, {})))
+    corpora.fetch(source)
 
 
 def serve(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, body: bytes, *,

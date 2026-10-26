@@ -1778,3 +1778,21 @@ def test_doctor_names_who_installed_the_app_and_why_a_cycle_skipped():
         text = service_calls.app_update_text(service_calls._filled(skipped, {"sessions": []})["update"]["app"])  # noqa: SLF001
         assert f"skipped ({outcome}: the reason" in text and "next launch" in text
     assert service_calls._filled({"update": {}}, {"sessions": []})["update"]["app"] is None  # noqa: SLF001
+
+
+def test_writability_is_read_from_the_mode_never_asked_with_access(tmp_path, monkeypatch):
+    """`os.access(W_OK)` on a protected app bundle makes macOS evaluate App
+    Management (a refused approval request from a background caller); the
+    check reads owner and mode bits instead."""
+    asked = []
+    monkeypatch.setattr(appinstall.os, "access", lambda *a, **k: asked.append(a) or True)
+    mine = tmp_path / "mine"
+    mine.mkdir(mode=0o755)
+    assert appinstall._writable(mine)
+    mine.chmod(0o555)
+    try:
+        assert not appinstall._writable(mine)
+    finally:
+        mine.chmod(0o755)
+    assert not appinstall._writable(tmp_path / "missing")
+    assert asked == []

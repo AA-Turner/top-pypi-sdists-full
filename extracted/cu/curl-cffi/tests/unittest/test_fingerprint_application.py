@@ -1,3 +1,5 @@
+import pytest
+
 from curl_cffi.const import CurlOpt
 from curl_cffi.fingerprints import Fingerprint
 from curl_cffi.requests.impersonate import ExtraFingerprints
@@ -13,6 +15,23 @@ class FakeCurl:
         self.options[option] = value
 
 
+@pytest.mark.parametrize("packet_number", [None, -1, 0, 1, 2147483647])
+def test_apply_fingerprint_quic_initial_packet_number(packet_number):
+    curl = FakeCurl()
+
+    _apply_fingerprint(
+        curl,
+        Fingerprint(quic_initial_packet_number=packet_number),
+        existing_header_names=set(),
+        default_headers=False,
+    )
+
+    if packet_number is None:
+        assert CurlOpt.QUIC_INITIAL_PACKET_NUMBER not in curl.options
+    else:
+        assert curl.options[CurlOpt.QUIC_INITIAL_PACKET_NUMBER] == packet_number
+
+
 def test_apply_fingerprint_does_not_select_http_version():
     curl = FakeCurl()
     fingerprint = Fingerprint(http_version="v2")
@@ -25,6 +44,32 @@ def test_apply_fingerprint_does_not_select_http_version():
     )
 
     assert CurlOpt.HTTP_VERSION not in curl.options
+
+
+def test_apply_fingerprint_enables_alpn_by_default():
+    curl = FakeCurl()
+
+    _apply_fingerprint(
+        curl,
+        Fingerprint(),
+        existing_header_names=set(),
+        default_headers=False,
+    )
+
+    assert curl.options[CurlOpt.SSL_ENABLE_ALPN] == 1
+
+
+def test_apply_fingerprint_can_disable_alpn():
+    curl = FakeCurl()
+
+    _apply_fingerprint(
+        curl,
+        Fingerprint(tls_alpn=False),
+        existing_header_names=set(),
+        default_headers=False,
+    )
+
+    assert curl.options[CurlOpt.SSL_ENABLE_ALPN] == 0
 
 
 def test_apply_fingerprint_strips_padding_extension_from_tls_extension_order():

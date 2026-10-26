@@ -88,7 +88,7 @@ def test_restarted_bounded_pass_reaches_later_projects_and_revisits_changed_inpu
     directory = tmp_path / "coverage"
     generated = []
 
-    def generate(inputs, directory, *, agent):
+    def generate(inputs, directory, *, agent, agents=None):
         generated.append(inputs["project_id"])
         return inputs["sources"]["F001"]["text"]
 

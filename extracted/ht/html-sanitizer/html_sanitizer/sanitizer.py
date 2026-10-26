@@ -44,31 +44,6 @@ typographic_whitespace = "".join(
 )
 
 
-def normalize_overall_whitespace(
-    html, *, keep_typographic_whitespace=False, whitespace_re=None
-):
-    if keep_typographic_whitespace:
-        return html
-    whitespace = [
-        "\xa0",
-        "&nbsp;",
-        "&#160;",
-        "&#xa0;",
-        "\n",
-        "&#10;",
-        "&#xa;",
-        "\r",
-        "&#13;",
-        "&#xd;",
-    ]
-    for ch in whitespace:
-        html = html.replace(ch, " ")
-    if whitespace_re is None:
-        whitespace_re = r"\s+"
-    html = re.sub(whitespace_re, " ", html)
-    return html
-
-
 def bold_span_to_strong(element):
     if element.tag == "span" and "bold" in element.get("style", ""):
         element.tag = "strong"
@@ -120,7 +95,12 @@ def filter_control_characters(text):
 
 
 def normalize_whitespace_in_text_or_tail(
-    element, *, whitespace_re=None, keep_typographic_whitespace=False
+    element,
+    *,
+    whitespace_re=None,
+    keep_typographic_whitespace=False,
+    normalize_text=True,
+    normalize_tail=True,
 ):
     # Always filter control characters regardless of whitespace settings
     if element.text:
@@ -133,14 +113,14 @@ def normalize_whitespace_in_text_or_tail(
 
     if whitespace_re is None:
         whitespace_re = re.compile(r"\s+")
-    if element.text:
+    if element.text and normalize_text:
         while True:
             text = whitespace_re.sub(" ", element.text)
             if element.text == text:
                 break
             element.text = text
 
-    if element.tail:
+    if element.tail and normalize_tail:
         while True:
             text = whitespace_re.sub(" ", element.tail)
             if element.tail == text:
@@ -171,9 +151,12 @@ DEFAULT_SETTINGS = {
     "empty": {"hr", "a", "br"},
     "separate": {"a", "p", "li"},
     "whitespace": {"br"},
+    "preserve_whitespace": {"pre"},
     "keep_typographic_whitespace": False,
+    "drop_disallowed_contents": False,
     "add_nofollow": False,
     "autolink": False,
+    "embedded_hosts": set(),
     "sanitize_href": sanitize_href,
     "element_preprocessors": [
         # convert span elements into em/strong if a matching style rule
@@ -209,6 +192,10 @@ class Sanitizer:
         self.empty = coerce_to_set(self.empty)
         self.separate = coerce_to_set(self.separate)
         self.whitespace = coerce_to_set(self.whitespace)
+        self.embedded_hosts = coerce_to_set(self.embedded_hosts)
+        # Preserving whitespace inside tags which are removed later would
+        # leak unnormalized whitespace into the output.
+        self.preserve_whitespace = coerce_to_set(self.preserve_whitespace) & self.tags
         self.attributes = {
             tag: coerce_to_set(attributes)
             for tag, attributes in self.attributes.items()
@@ -257,6 +244,16 @@ class Sanitizer:
         """
         return True
 
+    def normalize_whitespace(self, element):
+        inside = any(e.tag in self.preserve_whitespace for e in element.iterancestors())
+        return normalize_whitespace_in_text_or_tail(
+            element,
+            whitespace_re=self.whitespace_re,
+            keep_typographic_whitespace=self.keep_typographic_whitespace,
+            normalize_text=not inside and element.tag not in self.preserve_whitespace,
+            normalize_tail=not inside,
+        )
+
     def sanitize(self, html):  # noqa: C901 -- I know.
         """
         Clean HTML code from ugly copy-pasted CSS and empty elements
@@ -272,11 +269,6 @@ class Sanitizer:
         else:
             html = unicodedata.normalize("NFKC", html)
 
-        html = normalize_overall_whitespace(
-            html,
-            keep_typographic_whitespace=self.keep_typographic_whitespace,
-            whitespace_re=self.whitespace_re,
-        )
         html = "<div>%s</div>" % html
         try:
             doc = lxml.html.fromstring(html)
@@ -296,11 +288,14 @@ class Sanitizer:
             inline_style=False,
             # Do not strip all form tags; we will filter them below
             forms=False,
+            host_whitelist=self.embedded_hosts,
         )(doc)
 
         # walk the tree recursively, because we want to be able to remove
         # previously emptied elements completely
         backlog = deque(doc.iterdescendants())
+
+        doc = self.normalize_whitespace(doc)
 
         while True:
             try:
@@ -311,11 +306,11 @@ class Sanitizer:
             for processor in self.element_preprocessors:
                 element = processor(element)
 
-            element = normalize_whitespace_in_text_or_tail(
-                element,
-                whitespace_re=self.whitespace_re,
-                keep_typographic_whitespace=self.keep_typographic_whitespace,
-            )
+            if self.drop_disallowed_contents and element.tag not in self.tags:
+                element.drop_tree()
+                continue
+
+            element = self.normalize_whitespace(element)
 
             # remove empty tags if they are not explicitly allowed
             if (
@@ -413,17 +408,15 @@ class Sanitizer:
             for key in element.keys():  # noqa: SIM118 (do not remove .keys())
                 if key not in allowed:
                     del element.attrib[key]
+                elif not self.keep_typographic_whitespace:
+                    element.set(key, self.whitespace_re.sub(" ", element.get(key)))
 
             # Clean hrefs so that they are benign
             href = element.get("href")
             if href is not None:
                 element.set("href", self.sanitize_href(href))
 
-            element = normalize_whitespace_in_text_or_tail(
-                element,
-                whitespace_re=self.whitespace_re,
-                keep_typographic_whitespace=self.keep_typographic_whitespace,
-            )
+            element = self.normalize_whitespace(element)
 
         if self.autolink is True:
             lxml.html.clean.autolink(doc)
@@ -437,6 +430,7 @@ class Sanitizer:
             safe_attrs_only=False,  # Our attributes allowlist is sufficient.
             add_nofollow=self.add_nofollow,
             forms=False,
+            host_whitelist=self.embedded_hosts,
         )(doc)
 
         html = lxml.html.tostring(doc, encoding="unicode")

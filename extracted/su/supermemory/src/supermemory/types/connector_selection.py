@@ -9,7 +9,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 class ConnectorSelection(UncheckedBaseModel):
     """
-    What to sync, as ids grouped by kind. GitHub takes repos, Gmail takes labels, Google Drive takes files and folders. Replaces the current selection.
+    What to sync, as ids grouped by kind. GitHub takes repos, Gmail takes labels, Google Drive takes files and folders, OneDrive takes folders. Replaces the current selection.
     """
 
     repos: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
@@ -29,7 +29,7 @@ class ConnectorSelection(UncheckedBaseModel):
 
     folders: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    Google Drive folder ids
+    Google Drive or OneDrive folder ids
     """
 
     if IS_PYDANTIC_V2:

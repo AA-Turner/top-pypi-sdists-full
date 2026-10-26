@@ -12,6 +12,7 @@ classifiers=[
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries",
@@ -95,7 +96,7 @@ else:
 setup(
     name="cchecksum",
     packages=find_packages(),
-    version="0.4.5",
+    version="0.4.6",
     description="An ~18x faster drop-in replacement for eth_utils.to_checksum_address. Raises the exact same Exceptions. Implemented in C.",
     long_description=long_description,
     long_description_content_type="text/markdown",

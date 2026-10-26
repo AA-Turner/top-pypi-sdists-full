@@ -68,11 +68,11 @@ from nameparser._pipeline._vocab import (
 )
 
 
-# rules/P3: "both questions this rule asks of a name — how many
-# words it has, and whether it is written in one case — are asked of
-# the name's OWN words: a maiden marker taken as one, and the words it
-# takes (M2), are not among them, and neither is a delimited clause
-# (N1, M1)" (history: decisions/P3)
+# rules/P3: "both questions asked of a name here and in P8 — how
+# many words it has, and whether it is written in one case — are
+# asked of the name's OWN words: a maiden marker taken as one, and the
+# words it takes (M2), are not among them, and neither is a delimited
+# clause (N1, M1)" (history: decisions/P3)
 def own_words(tokens: Sequence[WorkToken], comma_offsets: Sequence[int],
               markers: frozenset[str],
               marker_tags: Mapping[int, str] | None = None,
@@ -194,8 +194,8 @@ def is_prefix_piece(piece: Sequence[int], ptags: Set[str],
 # rules/P3: "a recognized connective joins its neighbors into one
 # name part, connective runs included — except a single-letter
 # connective in a three-word name, which stays a name word, and a
-# single-letter connective that reads as an initial instead, which
-# never joins" (history: decisions/P3)
+# single-letter connective that reads as an initial instead (P8),
+# which never joins" (history: decisions/P3)
 def is_conj_piece(piece: Sequence[int], ptags: Set[str],
                   tokens: Sequence[WorkToken]) -> bool:
     if "conjunction" in ptags:
@@ -418,7 +418,7 @@ def leading_titles(pieces: Sequence[Sequence[int]],
     # with no title at all.
     #
     # Two residuals. A run whose last word IS suffix vocabulary is not
-    # given back, so 'Dr King MD PhD' still reads title 'Dr King MD',
+    # given back, so 'Dr King RA PhD' still reads title 'Dr King RA',
     # family 'PhD'. And the floor asks is_suffix_piece, which vetoes a
     # bare initial-shaped numeral, so 'Dr King V' keeps the whole run
     # as the title and reads the numeral as the name -- given 'V',
@@ -576,7 +576,7 @@ def _anchors(piece: Sequence[int], tokens: Sequence[WorkToken]) -> bool:
     retired single-character vocabulary matches for the same reason.
     Not because a numeral is no credential -- a multi-letter suffix
     word ('III', 'Jr') anchors like any other suffix piece
-    (`is_single_letter_numeral`). A title/suffix DUAL ('ms', 'md',
+    (`is_single_letter_numeral`). A title/suffix DUAL ('ms', 'ra',
     'sr') does anchor, except in the given part's
     leading title run, where it stands in title position ('Smith, Ms
     Ma' is Ms. Ma Smith); that exclusion is the callers', which start
@@ -617,7 +617,7 @@ def credential_anchors(order: Sequence[int],
 
     The caller decides where the walk starts, and starts it past the
     leading title run, where a title/suffix dual reads as a title
-    ('Smith, MD MA Ma' keeps its middle name). Where `order` holds the
+    ('Smith, RA MA Ma' keeps its middle name). Where `order` holds the
     name part, its own leading position is the name the reserve keeps
     -- `rest[0]` at the no-comma peel, the given part's own first
     piece at the given-slot call sites -- so ITS writing never anchors
@@ -654,7 +654,7 @@ def given_slot_anchors(pieces: Sequence[Sequence[int]],
     rather than by position: the pass over `start` to `end`, `skip`
     spliced out, and False before `start`, from `end` on and at every
     skipped piece. `start` is where the leading title run ends, so a
-    title/suffix dual standing in it anchors nothing ('Smith, MD MA
+    title/suffix dual standing in it anchors nothing ('Smith, RA MA
     Ma'), and the piece at `start` is the given name the reserve keeps.
     The one home of that query for assign's given slot."""
     stop = len(pieces) if end is None else end
@@ -738,9 +738,9 @@ def segment_suffix_reading(pieces: Sequence[Sequence[int]],
     later credential: the dual makes the next name-position word the
     given name, and reading the part wholly as credentials would
     stack the anchor's guess on the dual's ('Smith, Ms Ma', 'Smith,
-    Ms MD Ma' and 'Smith, MD PhD Ma' keep a given name, 'Smith,
-    Prof. MD Ma' too). The walk then reads the part, and its given
-    slot's company starts past that given name ('Smith, MD PhD Jr
+    Ms RA Ma' and 'Smith, RA PhD Ma' keep a given name, 'Smith,
+    Prof. RA Ma' too). The walk then reads the part, and its given
+    slot's company starts past that given name ('Smith, RA PhD Jr
     Ma' reads suffix 'Jr Ma'). A plain title ahead of the credential
     does not stop this reading ('Smith, Dr. PhD LAc' reads title
     'Dr.', suffix 'PhD LAc').
@@ -777,7 +777,7 @@ def segment_suffix_reading(pieces: Sequence[Sequence[int]],
     that: what follows a bare title is not continuing a credential.
 
     A part OPENED by a credential is the postnominal part however it
-    goes on (#603, rules/C8): where an unambiguous suffix word that
+    goes on (#603, rules/C13): where an unambiguous suffix word that
     starts #602's run (`starts_a_credential_run`) is the first suffix
     word of the part, with only titles in front of it (a title/suffix
     dual among them ends the chance: a credential behind one opens
@@ -800,11 +800,19 @@ def segment_suffix_reading(pieces: Sequence[Sequence[int]],
     title to read by).
 
     `lenient` is Policy.lenient_comma_suffixes, and only the numeral
-    continuation consults it. C1: "while strict mode vetoes a word read
-    as an initial" -- so under strict the veto stands and the run ends
-    where it always did; the walk reads the token's `initial` tag, so a
-    one-case lowercase letter is vetoed as its capital is (rules/T4). Reading no policy here silently
-    overrode the one knob a caller sets to prevent exactly this.
+    continuation consults it. A part after the comma that is nothing
+    but suffix words, rules/C14: "stops being a credential run at such a word"
+    -- such a word being a suffix word written as an initial. Under
+    strict the numeral gets no suffix reading behind a suffix word, so
+    a part no credential opened is no run and the reading is None
+    ('Smith, RA I'); a part a credential opened (C13) still takes the
+    word in through `opened` below and hands it to `absorbed`
+    ('Smith, PSM I.'), which implements
+    rules/C14's Except bullet "A credential opening the part". The walk reads the token's `initial`
+    tag, so a one-case lowercase letter is vetoed as its capital is
+    (rules/T4). Reading no policy here silently overrode the one knob a
+    caller sets to prevent exactly this (#430). History:
+    decisions/C14 (#761), decisions/C13 (#603).
 
     The FAMILY_COMMA rule that segment 0 is the family name rests
     on the writer having said where the family name ends. A comma
@@ -834,7 +842,7 @@ def segment_suffix_reading(pieces: Sequence[Sequence[int]],
     # stood there: once one has, nothing in the part anchors. Tracked
     # here rather than read off `leading_titles`, whose period-shape
     # inference counts a suffix like 'Esq.' into the run ('Smith, Esq.
-    # MD Ma' keeps its anchored 'Ma' only by this walk's reading).
+    # RA Ma' keeps its anchored 'Ma' only by this walk's reading).
     leading = True
     dual_led = False
     # #603: the first suffix word of the leading run, which may open
@@ -943,11 +951,11 @@ class Peel(NamedTuple):
 
 
 # rules/S2: "a trailing word of the suffix vocabulary reads as a
-# suffix — generational forms and credential acronyms alike, and an
-# ambiguous acronym written with its periods, one after each letter or
-# one after each of two or more letter chunks, counts unambiguously; a
-# single trailing period is the abbreviation shape any word can wear
-# and does not" -- and: "a BARE ambiguous acronym is consumed only when
+# suffix — generational forms and credential acronyms alike" -- and
+# rules/S3: "an ambiguous acronym written with its periods, one after
+# each letter or one after each of two or more letter chunks, counts
+# unambiguously; a single trailing period is the abbreviation shape
+# any word can wear and does not" -- and rules/S4: "a BARE ambiguous acronym is consumed only when
 # the name has words to spare"
 # (v1's are_suffixes tail rule, with the roman-numeral special)
 def peel_walk(start: int, ptags: Sequence[Set[str]]) -> list[int]:
@@ -1423,17 +1431,21 @@ def credential_run(rest: Sequence[int], peel: Peel, p: int,
 def trailing_titles(rest: Sequence[int], pieces: Sequence[Sequence[int]],
                      ptags: Sequence[Set[str]],
                      tokens: Sequence[WorkToken],
-                     end: int | None = None) -> int:
+                     end: int | None = None,
+                     salutations: bool = False) -> int:
     """How many pieces of `rest` the trailing title chain LEAVES
     standing: `rest[:kept]` are the name pieces and `rest[kept:]` the
-    period-marked title words the chain took, in piece order. Counted
+    title words the chain took (period-marked, or under `salutations`
+    a bare salutation), in piece order. Counted
     the way `peel_trailing` counts, so the two answers compose without
     arithmetic at the call site. `rest` is the caller's NAME pieces:
     on the no-comma path what the S2 peel left, after a family comma
     the segment's pieces that the segment's own suffix reading does
     not claim, and in `tail_reading` the leftovers of whichever peel
     is current. `end`, where given, reads `rest[:end]` without the
-    copy, for `tail_reading`'s passes.
+    copy, for `tail_reading`'s passes. `salutations` is the given
+    part after a family comma asking, where a bare salutation the
+    vocabulary marks `after_given` chains as well (rules/H8).
     Floor: the first position of `rest` is never taken, so one name
     piece stands and a name is never all title. An empty
     `rest` returns 0, which is what leaves assign's bare-suffix
@@ -1466,9 +1478,16 @@ def trailing_titles(rest: Sequence[int], pieces: Sequence[Sequence[int]],
         # the shape is ANDed with is_title_piece, so the word is listed
         # vocabulary, and a listed CJK title wearing a stop should read
         # as a title.
-        if (len(piece) == 1
-                and _PERIOD_ABBREV.match(tokens[piece[0]].text)
-                and is_title_piece(piece, ptags[idx], tokens)):
+        if len(piece) == 1 and (
+                (_PERIOD_ABBREV.match(tokens[piece[0]].text)
+                 and is_title_piece(piece, ptags[idx], tokens))
+                # rules/H8: "the given part after it ends in a word whose
+                # title reading is a salutation" -- the salutation chains
+                # as a period-marked title does ("It reads as the
+                # period-marked spelling reads"); a tag test, so a name
+                # word pays no frame
+                or (salutations and "vocab:after-given-title"
+                    in tokens[piece[0]].tags)):
             k -= 1
             continue
         break
@@ -1567,6 +1586,7 @@ def tail_reading(rest: list[int], pieces: Sequence[Sequence[int]],
                   one_case: bool | None,
                   units: Sequence[int] | None = None,
                   count_numeral: bool = True,
+                  salutations: bool = False,
                   ) -> tuple[list[int], tuple[int, ...], Peel]:
     """The S2 peel and the H5 chain read together to a FIXED POINT:
     peel, chain, splice the chained pieces out, peel again over what
@@ -1641,7 +1661,8 @@ def tail_reading(rest: list[int], pieces: Sequence[Sequence[int]],
     spliced pieces. The fuzz that checked this against the
     re-peeling loop, the three conditions each shown load-bearing by
     a weakened copy failing it, is recorded on the PR closing #558.
-    `count_numeral` is `peel_trailing`'s, passed to every pass.
+    `count_numeral` is `peel_trailing`'s, passed to every pass, and
+    `salutations` is `trailing_titles`', passed to every chain.
     The splice itself is never materialized in between: the runs are
     collected back to front and joined once.
     """
@@ -1655,7 +1676,7 @@ def tail_reading(rest: list[int], pieces: Sequence[Sequence[int]],
                            units=units, second=second,
                            count_numeral=count_numeral)
     kept = trailing_titles(rest, pieces, ptags, tokens,
-                           end=peeled.names)
+                           end=peeled.names, salutations=salutations)
     if kept == peeled.names:
         p = run_start(rest, peeled.names, pieces, ptags, tokens, units)
         return rest, (), (peeled if p == peeled.names else credential_run(
@@ -1705,7 +1726,7 @@ def tail_reading(rest: list[int], pieces: Sequence[Sequence[int]],
             picks = list(peeled.picks)
             numeral = peeled.numeral
         kept = trailing_titles(rest, pieces, ptags, tokens,
-                               end=peeled.names)
+                               end=peeled.names, salutations=salutations)
     if behind:
         rest = rest[:hi] + [j for run in reversed(behind) for j in run]
     final = Peel(peeled.names, numeral, tuple(picks), None)
@@ -1951,7 +1972,8 @@ def trailing_run_start(start: int, pieces: Sequence[Sequence[int]],
     bound for a reading that takes the trailing titles as well as the
     suffixes, as assign's walk does in the given part after a family
     comma (#623), where `trailing_start` sees only the suffixes and
-    `trailing_start_past_titles` leaves the titles inside the bound."""
+    `trailing_start_past_titles` leaves the titles inside the bound.
+    The chain takes a bare salutation too, as that walk does (rules/H8)."""
     # rules/S4: "the given part's trailing slot after a family comma is
     # read without it (S5)" -- the numeral half of the count, which
     # assign's walk there never asks either, so the chain this bounds
@@ -1959,7 +1981,7 @@ def trailing_run_start(start: int, pieces: Sequence[Sequence[int]],
     # acronym half is still counted here, as before #718
     rest, titled, peel = tail_reading(peel_walk(start, ptags), pieces,
                                       ptags, tokens, one_case,
-                                      count_numeral=False)
+                                      count_numeral=False, salutations=True)
     first = len(pieces)
     for k in rest[peel.names:]:
         first = min(first, k)

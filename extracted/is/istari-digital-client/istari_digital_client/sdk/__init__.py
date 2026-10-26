@@ -42,6 +42,9 @@ from istari_digital_client.sdk._common.system_types import (
 # Domain types - Jobs
 from istari_digital_client.sdk._common.job_types import Job
 
+# Domain types - Credentials (Linked Accounts)
+from istari_digital_client.sdk._common.credential_types import Credential
+
 # Domain types - Workflows
 from istari_digital_client.sdk._common.workflow_types import (
     WorkflowLogEntry,
@@ -104,6 +107,8 @@ __all__ = [
     "ChangeRequest",
     # Domain types - Jobs
     "Job",
+    # Domain types - Credentials (Linked Accounts)
+    "Credential",
     # Domain types - Workflows
     "WorkflowLogEntry",
     "WorkflowOutput",

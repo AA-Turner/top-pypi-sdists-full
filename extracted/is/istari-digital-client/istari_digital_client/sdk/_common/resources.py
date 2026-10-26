@@ -425,10 +425,14 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
         want_in = direction in ("incoming", "both")
         rev_id = obj.file_revision_id
 
-        # The embedded revision already carries its owner (owning_entity_id /
-        # owning_entity_type), so resolve the resource id inline — no per-edge
-        # get_file lookup. Edges whose other end isn't resource-owned (jobs,
-        # secrets, unowned revisions) have a non-"resource" type and are dropped.
+        # The embedded revision already carries its owner id (owning_entity_id),
+        # so resolve the resource id inline — no per-edge get_file lookup. Collect
+        # every owner id; the list() call below filters by resource_id server-side,
+        # so edges owned by a non-resource (a job or secret id won't match any
+        # resource) or by nothing (owning_entity_id is None) drop out naturally.
+        # We deliberately do NOT filter on owning_entity_type: the backend emits
+        # the concrete resource subtype ("model"/"artifact"/"file"), not the literal
+        # "resource", so a type check here silently dropped models and artifacts.
         resource_ids: list[str] = []
         seen: set[str] = set()
         for edge in self.relationships.list(rev_id):
@@ -441,8 +445,6 @@ class Resources(_SupportsRead, _SupportsAccess, _SupportsControlTags, _SupportsI
             else:
                 continue
             if relationship and edge.relationship_type_name != relationship:
-                continue
-            if other.owning_entity_type != "resource":
                 continue
             rid = other.owning_entity_id
             if rid and rid not in seen:

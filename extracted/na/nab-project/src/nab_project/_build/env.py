@@ -22,6 +22,44 @@ from ``build.env.IsolatedEnv``.
 
 from __future__ import annotations
 
+__lazy_modules__ = (
+    "asyncio",
+    "concurrent.futures",
+    "email",
+    "glob",
+    "installer",
+    "installer.sources",
+    "installer.utils",
+    "json",
+    "nab_index.client",
+    "nab_index.local_index",
+    "nab_index.urllib3_async_transport",
+    "nab_project._build.errors",
+    "nab_project.download",
+    "nab_project.inputs",
+    "nab_project.lockfile",
+    "nab_provider._vendor.packaging.requirements",
+    "nab_provider._vendor.packaging.specifiers",
+    "nab_provider._vendor.packaging.utils",
+    "nab_provider._vendor.packaging.version",
+    "nab_provider.errors",
+    "nab_provider.marker_holds",
+    "nab_provider.metadata",
+    "nab_provider.pep508",
+    "nab_provider.policy",
+    "nab_provider.requirements_file",
+    "nab_provider.tags",
+    "nab_provider.target",
+    "nab_provider.vcs_admission",
+    "os",
+    "pathlib",
+    "subprocess",
+    "sys",
+    "tempfile",
+    "tomli_w",
+    "venv",
+)
+
 import asyncio
 import glob
 import json
@@ -33,7 +71,7 @@ import tempfile
 import venv
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass, field, replace
+from email import message_from_string
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -44,24 +82,32 @@ from installer.sources import WheelFile
 from installer.utils import get_launcher_kind
 
 from nab_index.client import extract_sdist_archive
+from nab_index.local_index import UnreadableLocalIndexError, read_wheel_metadata
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
+from nab_provider._vendor.packaging.ranges import VersionRange
 from nab_provider._vendor.packaging.requirements import InvalidRequirement
+from nab_provider._vendor.packaging.specifiers import SpecifierSet
 from nab_provider._vendor.packaging.utils import (
     canonicalize_name,
     parse_wheel_filename,
 )
 from nab_provider._vendor.packaging.version import Version
-from nab_provider.errors import MissingExtraError
+from nab_provider.errors import MissingExtraError, UnsupportedWheelError
 from nab_provider.marker_holds import (
     IntractableMarkerError,
     UnevaluableMarkerError,
     dependency_marker_holds,
 )
+from nab_provider.metadata import validate_specifier_versions
+from nab_provider.overrides import PackageOverride
 from nab_provider.pep508 import parse_requirement
 from nab_provider.policy import BuildPolicy, DistPolicy
 from nab_provider.requirements_file import InvalidProjectRequirementError
+from nab_provider.tags import TagSet
 from nab_provider.target import ResolveTarget, host_environment
+from nab_provider.value import Record, replace
 from nab_provider.vcs_admission import UnsupportedVcsError
+from nab_resolver.errors import ResolutionError, ResolutionTerminatedError
 
 from .._compat import override
 from ..download import DownloadError, download_lock
@@ -70,7 +116,7 @@ from ..lockfile import IndexPin, strip_userinfo
 from .errors import BuildBackendError
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Generator, Iterable, Mapping
+    from collections.abc import Callable, Collection, Generator, Iterable, Mapping
     from typing import overload
 
     from installer.records import RecordEntry
@@ -79,8 +125,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from nab_index.transport import AsyncHttpTransport, HttpResponse
-    from nab_provider.overrides import IndexOverride, PackageOverride
-    from nab_provider.tags import TagSet
+    from nab_provider.overrides import IndexOverride
 
     from ..lockfile import LockInput, PinShape, SdistArtifact, TargetLock
 
@@ -89,7 +134,6 @@ __all__ = [
 ]
 
 
-@dataclass
 class _FastSchemeDictionaryDestination(SchemeDictionaryDestination):
     """``SchemeDictionaryDestination`` that skips bytecode-compile work.
 
@@ -104,9 +148,29 @@ class _FastSchemeDictionaryDestination(SchemeDictionaryDestination):
     file the install writes, so a later install can remove them.
     """
 
-    written: list[tuple[Path, Path]] = field(
-        default_factory=list, init=False, repr=False
-    )
+    written: list[tuple[Path, Path]]
+
+    def __init__(
+        self,
+        scheme_dict: dict[str, str],
+        interpreter: str,
+        script_kind: LauncherKind,
+        hash_algorithm: str = "sha256",
+        bytecode_optimization_levels: Collection[int] = (),
+        destdir: str | None = None,
+        *,
+        overwrite_existing: bool = False,
+    ) -> None:
+        super().__init__(
+            scheme_dict,
+            interpreter,
+            script_kind,
+            hash_algorithm,
+            bytecode_optimization_levels,
+            destdir,
+            overwrite_existing,
+        )
+        self.written: list[tuple[Path, Path]] = []
 
     @override
     def _compile_bytecode(self, scheme: Scheme, record: RecordEntry) -> None:
@@ -240,18 +304,47 @@ def chain_label(name: str, version: str) -> str:
     return f"{canonicalize_name(name)} {version}"
 
 
-@dataclass(frozen=True, slots=True)
-class _PendingBuild:
+class _PendingBuild(Record):
     """A build requirement this env has to build before it can install it."""
+
+    __slots__ = __match_args__ = ("name", "version", "sdist")
 
     name: str
     version: str
     sdist: SdistArtifact
 
+    def __init__(self, *, name: str, version: str, sdist: SdistArtifact) -> None:
+        self.name = name
+        self.version = version
+        self.sdist = sdist
+
     @property
     def label(self) -> str:
         """The chain entry naming this build."""
         return chain_label(self.name, self.version)
+
+
+class _WheelRequiresPythonError(BuildEnvError):
+    """A wheel whose Python restriction excludes the host."""
+
+    def __init__(self, spec: SpecifierSet, message: str) -> None:
+        super().__init__(message)
+        self.spec = spec
+
+
+class _BuiltRequiresPythonError(_WheelRequiresPythonError):
+    """A built release whose Python restriction excludes the host."""
+
+    def __init__(
+        self, pending: _PendingBuild, spec: SpecifierSet, message: str
+    ) -> None:
+        super().__init__(spec, message)
+        self.package_override = PackageOverride(
+            requirement=parse_requirement(f"{pending.name}=={pending.version}"),
+            name=canonicalize_name(pending.name),
+            version_range=VersionRange.singleton(pending.version),
+            requires_python=str(spec),
+        )
 
 
 class NabBuildEnv:
@@ -406,23 +499,23 @@ class NabBuildEnv:
         return str(self._python_executable)
 
     def make_extra_environ(self) -> Mapping[str, str]:
-        """PATH / PYTHONPATH overrides for the build subprocess.
+        """Return environment overrides for build subprocesses.
 
-        Prepends the venv's scripts dir so build backends find their
-        installed entry points; clears ``PYTHONPATH`` so the host's
-        ``sys.path`` does not leak in (matches the convention used by
-        ``build.env.DefaultIsolatedEnv``).
+        Prepends build entry points to ``PATH`` and clears ``PYTHONPATH``.
         """
         if self._scripts_dir is None:
             msg = "NabBuildEnv used outside its context-manager scope"
             raise BuildEnvError(msg)
+
         host_path = os.environ.get("PATH")
         new_path = (
             f"{self._scripts_dir}{os.pathsep}{host_path}"
             if host_path
             else str(self._scripts_dir)
         )
-        return {"PATH": new_path, "PYTHONPATH": ""}
+
+        # Keep dependency bytecode beside sources for replacement cleanup.
+        return {"PATH": new_path, "PYTHONPATH": "", "PYTHONPYCACHEPREFIX": ""}
 
     def install(self, requirements: list[str]) -> None:
         """Install additional requirements into the live env.
@@ -458,32 +551,11 @@ class NabBuildEnv:
     ) -> list[Path]:
         """Resolve ``requires`` (+ ``extra``) and write wheels under ``wheel_dir``.
 
-        The inner resolve runs against a synthetic pyproject so it
-        can reuse :func:`nab_project.resolve.resolve_for_targets` and
-        :func:`nab_project.download.download_lock` end-to-end.  No
-        local sources and no marker overlay; build deps come from the
-        configured indexes only.
+        The synthetic project uses only configured indexes, without marker overlays.
+        Metadata stays static because building it would bypass the depth budget.
 
-        It admits wheels and sdists, like any resolve, so the version
-        it settles on is the one the requirement asked for rather than
-        the newest that happens to publish a wheel.  Whether a version
-        without an installable wheel can be used is
-        :meth:`_plan_install`'s decision, taken once the resolve has
-        named it.
-
-        It reads metadata statically: its build policy is ``never`` and
-        no inherited override may raise it.  A backend invocation to
-        learn a build requirement's dependencies would be a second
-        recursion, one the depth budget does not count.
-
-        Offline it returns no wheels rather than refusing when the
-        host's markers exclude every entry.
+        Retry with a built wheel's Python restriction when it excludes the host.
         """
-        # Late import, breaking the cycle ``resolve`` -> ``fetch`` ->
-        # ``_sources`` -> ``build_backend`` -> ``_build.runner`` -> this
-        # module: building an sdist resolves that sdist's build requirements.
-        from ..resolve import build_lock_input, resolve_for_targets
-
         requires = list(self._requires)
         if extra:
             requires.extend(extra)
@@ -504,6 +576,36 @@ class NabBuildEnv:
 
         inner_inputs = _inner_resolve_inputs(self._config)
 
+        last_rejection: _BuiltRequiresPythonError | None = None
+        while True:
+            try:
+                lock_input = self._resolve_requirements(synthetic, inner_inputs)
+            except ResolutionTerminatedError:
+                raise
+            except ResolutionError as exc:
+                if last_rejection is not None:
+                    raise last_rejection from exc
+                raise
+
+            try:
+                return self._download_build_wheels(lock_input, wheel_dir)
+            except _BuiltRequiresPythonError as exc:
+                # Accumulated restrictions prevent retrying rejected releases.
+                last_rejection = exc
+                inner_inputs = inner_inputs.replace(
+                    package_overrides=(
+                        *inner_inputs.package_overrides,
+                        exc.package_override,
+                    )
+                )
+
+    def _resolve_requirements(
+        self, synthetic: Path, inputs: ResolveInputs
+    ) -> LockInput:
+        """Resolve build requirements with the Python restrictions learned so far."""
+        # Late import: project resolution can itself open a build environment.
+        from ..resolve import build_lock_input, resolve_for_targets
+
         transport = _OwnedBuildTransport(self._transport_factory())
         try:
             with transport:
@@ -511,7 +613,7 @@ class NabBuildEnv:
                     synthetic,
                     transport,
                     targets=(ResolveTarget.for_host(),),
-                    inputs=inner_inputs,
+                    inputs=inputs,
                 )
                 result.raise_for_failure()
         except (
@@ -520,30 +622,32 @@ class NabBuildEnv:
             InvalidProjectRequirementError,
             MissingExtraError,
         ) as exc:
-            # A build requirement nab cannot resolve: a direct-URL/VCS pin, an
-            # invalid PEP 508 string, or an extra the resolved version does not
-            # declare. Wrap it so the outer resolve skips this sdist rather
-            # than aborting on the raw error.
             msg = f"build env resolve failed: {exc}"
             raise BuildEnvError(msg) from exc
 
-        lock_input, to_build = self._plan_install(
-            build_lock_input(result, inputs=inner_inputs)
-        )
+        return build_lock_input(result, inputs=inputs)
+
+    def _download_build_wheels(
+        self, lock_input: LockInput, wheel_dir: Path
+    ) -> list[Path]:
+        """Download and build one tentative solution without installing any of it."""
+        lock_input, to_build = self._plan_install(lock_input)
 
         try:
             download_result = download_lock(
                 lock_input, self._transport_factory(), wheel_dir
             )
         except DownloadError as exc:
-            # A build dependency failed its HTTP fetch or hash check. Wrap it so
-            # the outer resolve skips this sdist rather than aborting on the raw
-            # download error.
             msg = f"build env download failed: {exc}"
             raise BuildEnvError(msg) from exc
 
         all_paths = list(download_result.written) + list(download_result.skipped)
         wheels = [p for p in all_paths if p.suffix == ".whl"]
+        for wheel in wheels:
+            name, version, _build, _tags = parse_wheel_filename(wheel.name)
+            _check_wheel_requires_python(
+                name, str(version), wheel, self._config.package_overrides
+            )
         wheels.extend(
             self._build_requirement(pending, wheel_dir) for pending in to_build
         )
@@ -641,9 +745,7 @@ class NabBuildEnv:
     def _build_requirement(self, pending: _PendingBuild, wheel_dir: Path) -> Path:
         """Build the downloaded sdist of ``pending`` and return the wheel's path.
 
-        The wheel lands beside the downloaded artifacts, which live as
-        long as the env does.  A wheel naming another release is
-        refused.
+        The wheel stays beside the downloaded artifacts for the env's lifetime.
         """
         # Late import: ``runner`` imports this module at module load.
         from .runner import build_wheel_for_install
@@ -677,16 +779,13 @@ class NabBuildEnv:
                 msg = f"build requirement {label} could not be built: {exc}"
                 raise BuildEnvError(msg) from exc
 
-            _check_built_identity(pending, built)
+            _check_built_wheel(pending, built)
+            _check_built_requires_python(pending, built, self._config.package_overrides)
             return built
 
 
-def _check_built_identity(pending: _PendingBuild, wheel: Path) -> None:
-    """Raise unless ``wheel``'s filename names the release ``pending`` pinned.
-
-    A backend picks the name and version it emits, and the env's other
-    wheels were resolved for the release the pin names.
-    """
+def _check_built_wheel(pending: _PendingBuild, wheel: Path) -> None:
+    """Check the built wheel's filename against the pinned release and host tags."""
     try:
         name, version, _build, _tags = parse_wheel_filename(wheel.name)
     except ValueError as exc:
@@ -702,6 +801,69 @@ def _check_built_identity(pending: _PendingBuild, wheel: Path) -> None:
             f" names {name}=={version}, not the release the resolve pinned"
         )
         raise BuildEnvError(msg)
+
+    if not TagSet.for_host().accepts(wheel.name):
+        msg = (
+            f"build requirement {pending.label} produced {wheel.name!r},"
+            " which is not compatible with the host"
+        )
+        raise BuildEnvError(msg)
+
+
+def _check_built_requires_python(
+    pending: _PendingBuild, wheel: Path, overrides: tuple[PackageOverride, ...]
+) -> None:
+    """Turn a built wheel's Python rejection into a release restriction for retry."""
+    try:
+        _check_wheel_requires_python(pending.name, pending.version, wheel, overrides)
+    except _WheelRequiresPythonError as exc:
+        raise _BuiltRequiresPythonError(pending, exc.spec, str(exc)) from exc
+
+
+def _check_wheel_requires_python(
+    name: str, version: str, wheel: Path, overrides: tuple[PackageOverride, ...]
+) -> None:
+    """Check host Python compatibility using wheel metadata and package overrides."""
+    label = chain_label(name, version)
+    try:
+        text = read_wheel_metadata(wheel)
+    except (UnreadableLocalIndexError, UnsupportedWheelError) as exc:
+        msg = f"build requirement {label} has unreadable wheel metadata: {exc}"
+        raise BuildEnvError(msg) from exc
+    if text is None:
+        msg = f"build requirement {label} has no readable wheel METADATA"
+        raise BuildEnvError(msg)
+
+    requires_python = message_from_string(text).get("Requires-Python")
+    for package_override in overrides:
+        if (
+            package_override.name == canonicalize_name(name)
+            and Version(version) in package_override.version_range
+            and package_override.requires_python is not None
+        ):
+            requires_python = package_override.requires_python
+            break
+
+    if requires_python is None:
+        return
+
+    try:
+        spec = SpecifierSet(requires_python)
+        validate_specifier_versions(spec)
+    except ValueError as exc:
+        msg = (
+            f"build requirement {label} has invalid Requires-Python"
+            f" {requires_python!r}: {exc}"
+        )
+        raise BuildEnvError(msg) from exc
+
+    host = ResolveTarget.for_host()
+    if not host.admits_requires_python(spec):
+        msg = (
+            f"build requirement {label} requires Python {spec} but the"
+            f" host is Python {host.python_full_version}"
+        )
+        raise _WheelRequiresPythonError(spec, msg)
 
 
 def _chain_suffix(chain: BuildChain) -> str:
@@ -768,10 +930,10 @@ def _serving_index_dist_policy(
 
 
 def _no_wheel_clause(inputs: ResolveInputs, pin: IndexPin, label: str) -> str:
-    """Return the opening of a refusal: why the env has no wheel of ``label``."""
+    """Return a refusal clause for a build requirement with no admissible wheel."""
     barred_by = _wheel_barring_dist_policy(inputs, pin)
     if barred_by is None:
-        return f"{label} publishes no wheel this build host can install"
+        return f"{label} has no admissible wheel for this build host"
     return (
         f"{label} has dist-policy '{barred_by.value}',"
         " which admits no wheel into the build env"
@@ -809,6 +971,7 @@ def _inner_resolve_inputs(inputs: ResolveInputs) -> ResolveInputs:
     resolve reads, and a lock reproduces only if this search does too.
     """
     return ResolveInputs(
+        allow_zip_sdists=inputs.allow_zip_sdists,
         indexes=inputs.indexes,
         package_overrides=tuple(
             _without_build_permission(override) for override in inputs.package_overrides

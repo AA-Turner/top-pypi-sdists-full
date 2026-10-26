@@ -61,6 +61,7 @@ class ConnectorSetup_Onedrive(UncheckedBaseModel):
     document_limit: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="documentLimit"), pydantic.Field(alias="documentLimit")
     ] = None
+    config: typing.Optional[GoogleDriveConfig] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

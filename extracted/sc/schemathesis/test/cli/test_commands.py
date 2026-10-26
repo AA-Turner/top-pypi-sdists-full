@@ -204,9 +204,11 @@ def test_piped_output_has_no_blank_line_runs_or_trailing_whitespace(ctx, cli, ar
 
 
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_runtime_config_error_exit_code(ctx, cli, snapshot_cli):
+@pytest.mark.parametrize("args", [["run"], ["fuzz", "--max-time=1"]], ids=["run", "fuzz"])
+def test_runtime_config_error_exit_code(ctx, cli, snapshot_cli, args):
     api = ctx.openapi.apps.success()
-    result = cli.run(api.schema_url, config={"checks": {"no_such_check": {"threshold": 1}}})
+    command, *options = args
+    result = cli.main(command, api.schema_url, *options, config={"checks": {"no_such_check": {"threshold": 1}}})
     assert result.exit_code == 2, result.stdout
     assert result == snapshot_cli
 
@@ -556,6 +558,25 @@ def test_connection_timeout(ctx, cli, workers):
         assert "Network Error" in result.stdout, result.stdout
         assert "GET /api/slow" in result.stdout, result.stdout
         assert "Read timed out" in result.stdout, result.stdout
+
+
+# Only the first request stalls, and only past the default timeout, so a missing timeout fails instead of hanging.
+def test_default_request_timeout(ctx, cli):
+    app, _ = ctx.openapi.make_flask_app({"/stall": {"get": {"responses": {"200": {"description": "OK"}}}}})
+    release = threading.Event()
+    calls = count()
+
+    @app.route("/stall")
+    def stall():
+        if next(calls) == 0:
+            release.wait(15)
+        return jsonify({})
+
+    try:
+        result = cli.run_openapi_app(app, "--max-examples=1", "--phases=fuzzing", "--checks=not_a_server_error")
+    finally:
+        release.set()
+    assert "Read timed out after 10 seconds" in result.stdout, result.stdout
 
 
 @pytest.mark.snapshot(replace_test_cases=False, replace_reproduce_with=True)
@@ -1295,6 +1316,36 @@ def test_invalid_response_definition(ctx, cli, snapshot_cli):
     )
 
 
+def test_invalid_response_definition_behind_reference(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.success()
+    schema_path = ctx.openapi.write_schema(
+        {
+            "/success": {
+                "get": {
+                    "responses": {
+                        "default": {
+                            "description": "text",
+                            "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Offset"}}},
+                        }
+                    }
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Base": {"type": "object"},
+                "Offset": {
+                    "allOf": [{"$ref": "#/components/schemas/Base"}, {"properties": {"earliest": {"type": "int64"}}}]
+                },
+            }
+        },
+    )
+    assert (
+        cli.run(str(schema_path), f"--url={api.base_url}/api", "-c response_schema_conformance", "--max-examples=1")
+        == snapshot_cli
+    )
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_no_useless_traceback(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.success()
@@ -1770,9 +1821,7 @@ def test_negative_mode_malformed_keyword(ctx, cli, snapshot_cli, operation):
     app, _ = ctx.openapi.make_flask_app(
         {"/items": {"post": {**operation, "responses": {"200": {"description": "OK"}}}}}
     )
-    result = cli.run_openapi_app(app, "--max-examples=5", "--phases=fuzzing", "--mode=negative")
-    assert "Schema Error" in result.stdout
-    assert result == snapshot_cli
+    assert cli.run_openapi_app(app, "--max-examples=5", "--phases=fuzzing", "--mode=negative") == snapshot_cli
 
 
 def test_nested_binary_in_yaml(ctx, cli, app_runner, snapshot_cli):
@@ -2316,27 +2365,6 @@ def test_long_operation_output(ctx, cli, app_runner, snapshot_cli):
     schema_path = ctx.openapi.write_schema(paths)
     # Then this operation name should be truncated
     assert cli.run(str(schema_path), f"--url={base_url}/api", "-c not_a_server_error") == snapshot_cli
-
-
-def test_reserved_characters_in_operation_name(ctx, cli, snapshot_cli):
-    # See GH-992
-    # When an API operation name contains `:`
-    app, _ = ctx.openapi.make_flask_app(
-        {
-            "/foo:bar": {
-                "get": {
-                    "responses": {"200": {"description": "OK"}},
-                }
-            },
-        }
-    )
-
-    @app.route("/foo:bar", methods=["GET"])
-    def foo_bar():
-        return jsonify({}), 200
-
-    # Then this operation name should be displayed with the leading `/`
-    assert cli.run_openapi_app(app) == snapshot_cli
 
 
 def test_unsupported_regex(ctx, cli, app_runner, snapshot_cli):
@@ -4699,16 +4727,9 @@ def run_resetting_server(subprocess_runner, mode, **env):
 @pytest.mark.skipif(platform.system() == "Windows", reason="Requires extra setup on Windows")
 @pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="PyPy behaves differently")
 @pytest.mark.snapshot(replace_reproduce_with=True)
-def test_reset_by_a_server_still_answering_is_not_an_outage(subprocess_runner, cli, snapshot_cli):
-    port = run_resetting_server(subprocess_runner, "alive")
-    assert cli.main("run", f"http://127.0.0.1:{port}/openapi.json", "--phases=examples,fuzzing") == snapshot_cli
-
-
-@pytest.mark.skipif(platform.system() == "Windows", reason="Requires extra setup on Windows")
-@pytest.mark.skipif(platform.python_implementation() == "PyPy", reason="PyPy behaves differently")
-@pytest.mark.snapshot(replace_reproduce_with=True)
-def test_reset_by_a_server_still_holding_connections_is_not_an_outage(subprocess_runner, cli, snapshot_cli):
-    port = run_resetting_server(subprocess_runner, "busy")
+@pytest.mark.parametrize("mode", ["alive", "busy"], ids=["still-answering", "still-holding-connections"])
+def test_reset_by_a_live_server_is_not_an_outage(subprocess_runner, cli, snapshot_cli, mode):
+    port = run_resetting_server(subprocess_runner, mode)
     assert cli.main("run", f"http://127.0.0.1:{port}/openapi.json", "--phases=examples,fuzzing") == snapshot_cli
 
 

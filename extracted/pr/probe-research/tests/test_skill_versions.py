@@ -75,8 +75,38 @@ def test_the_writer_sees_its_commands_only_with_the_bash_tool_set(monkeypatch):
 
 
 def test_a_skill_without_versions_is_its_skill_file():
-    edit_notes = _ROOT / "skills" / "edit-notes"
-    assert skill_versions.render(edit_notes, skill_versions.WRITER) == (edit_notes / "SKILL.md").read_text()
+    audit = _ROOT / "skills" / "audit-team-note"
+    assert not (audit / "versions").exists()
+    assert skill_versions.render(audit, skill_versions.WRITER) == (audit / "SKILL.md").read_text()
+
+
+EDIT_NOTES = _ROOT / "skills" / "edit-notes"
+EDIT_NOTES_APPROVED = APPROVED.parent / "edit-notes"
+#: Richard's line for the daemon writer (daemon cost round 7, S2, OK'd 10-25), and
+#: the main agent's, unchanged.
+WRITER_LINE_13 = ("- Before changing one fact, find the paragraphs it touches with `probe notes find` and edit those; "
+                  "read the whole note first when you restructure it. Never write from memory or from your last push.")
+MAIN_LINE_13 = "- Read the whole note first. Never write from memory or from your last push."
+
+
+def test_edit_notes_versions_differ_only_in_how_the_writer_reads_a_note_first():
+    """Daemon cost round 7, S2: the writer finds the paragraph it changes; the
+    main agent (and the plugins' copies, its render) still reads the whole note."""
+    main = skill_versions.render(EDIT_NOTES, skill_versions.MAIN_AGENT)
+    writer = skill_versions.render(EDIT_NOTES, skill_versions.WRITER)
+    assert main == (EDIT_NOTES_APPROVED / "RENDERED.main-agent.md").read_text(encoding="utf-8")
+    assert writer == (EDIT_NOTES_APPROVED / "RENDERED.writer.md").read_text(encoding="utf-8")
+    assert MAIN_LINE_13 in main and WRITER_LINE_13 not in main
+    assert WRITER_LINE_13 in writer and MAIN_LINE_13 not in writer
+    body = main[main.index("# Notes"):]
+    assert writer == body.replace(MAIN_LINE_13, WRITER_LINE_13, 1), "nothing else differs"
+
+
+def test_the_plugins_edit_notes_is_the_main_agents_version():
+    """The plugins carry the main agent's render (`make sync-plugin-skills`), byte for byte."""
+    main = skill_versions.render(EDIT_NOTES, skill_versions.MAIN_AGENT)
+    copy = _ROOT / "plugins" / "probe-research" / "agent-skills" / "edit-notes" / "SKILL.md"
+    assert copy.read_text(encoding="utf-8") == main
 
 
 def test_an_unknown_reader_is_refused():

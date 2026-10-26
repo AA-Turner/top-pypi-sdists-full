@@ -613,6 +613,7 @@ from istari_digital_client.sdk._common.system_types import (
     Branch,
     ChangeRequest,
 )
+from istari_digital_client.sdk._common.credential_types import Credential
 from istari_digital_client.sdk._common.workflow_types import (
     WorkflowLogEntry,
     WorkflowOutput,
@@ -650,6 +651,7 @@ __all__ = [
     "ResourceRevision",
     "Branch",
     "ChangeRequest",
+    "Credential",
     "WorkflowLogEntry",
     "WorkflowOutput",
     # New error hierarchy

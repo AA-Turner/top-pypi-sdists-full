@@ -124,6 +124,7 @@ def _backends(ingress: dict) -> list[tuple[str, str, dict]]:
 
 
 @pytest.mark.parametrize("phase", PHASES)
+@pytest.mark.heavy
 def test_every_phase_renders_into_the_research_namespace(phase):
     objects = _render(phase)
     assert ("Deployment", NAME) in objects

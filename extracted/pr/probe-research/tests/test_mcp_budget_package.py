@@ -46,6 +46,7 @@ def distributions(tmp_path_factory):
 
 
 @pytest.mark.parametrize("kind", ["wheel", "sdist"])
+@pytest.mark.heavy
 def test_installed_distribution_counts_offline_without_a_source_checkout(
     distributions, tmp_path, kind
 ):

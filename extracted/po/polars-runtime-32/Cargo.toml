@@ -13,8 +13,9 @@ repository = "https://github.com/pola-rs/polars"
 [workspace.dependencies]
 aho-corasick = "1.1"
 arboard = { version = "3.4.0", default-features = false }
-argminmax = { version = "0.6.3", default-features = false, features = ["float", "half"] }
+argminmax = { version = "0.7.0", default-features = false, features = ["float", "half"] }
 async-channel = { version = "2.3.1" }
+async-ffi = { version = "0.5.1" }
 async-trait = { version = "0.1.59" }
 atoi_simd = "0.18"
 atomic-waker = "1"
@@ -83,7 +84,7 @@ serde = { version = "1.0.188", features = ["derive", "rc"] }
 serde_json = "1"
 serde_stacker = "0.1.12"
 sha2 = "0.11"
-simd-json = { version = "0.17", features = ["known-key", "128bit"] }
+simd-json = { version = "0.18", features = ["known-key", "128bit"] }
 simdutf8 = "0.1.4"
 slotmap = "1.1.1"
 sqlparser = { version = "0.62", features = ["visitor"] }
@@ -118,6 +119,7 @@ polars-error = { version = "0.55.1", path = "crates/polars-error", default-featu
 polars-expr = { version = "0.55.1", path = "crates/polars-expr", default-features = false }
 polars-ffi = { version = "0.55.1", path = "crates/polars-ffi", default-features = false }
 polars-io = { version = "0.55.1", path = "crates/polars-io", default-features = false }
+polars-io-ext-ffi = { version = "0.1.0", path = "crates/polars-io-ext-ffi" }
 polars-json = { version = "0.55.1", path = "crates/polars-json", default-features = false }
 polars-lazy = { version = "0.55.1", path = "crates/polars-lazy", default-features = false }
 polars-mem-engine = { version = "0.55.1", path = "crates/polars-mem-engine", default-features = false }

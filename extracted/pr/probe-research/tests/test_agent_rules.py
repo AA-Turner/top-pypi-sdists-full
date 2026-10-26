@@ -711,7 +711,10 @@ def test_notes_hold_only_what_helps_the_next_agent() -> None:
     said "record what it states".
     """
     tree = _AGENT_TREE / "skills"
-    notes = " ".join((tree / "edit-notes" / "SKILL.md").read_text().split())
+    from probe import skill_versions
+
+    # The text every reader gets: the main agent's render (edit-notes has versions).
+    notes = " ".join(skill_versions.render(tree / "edit-notes", skill_versions.MAIN_AGENT).split())
     assert "Write only what the next person on this work needs, not what happened" in notes
     # Richard, same day: "it should be constantly adjusting and looking at the
     # notes as a whole". Willow's daemon still stacked a section per turn
@@ -776,7 +779,9 @@ def test_pointer_body_edits_force_a_version_bump() -> None:
     # (`probe run get`, `probe metrics plot`); the daemon does all other reads and writes (10-22)
     # 48 / 6a63c4370595: both bodies' FEEDBACK sections gained `probe doctor --send`
     # (a diagnostic report to the Probe team, daemon crash logs plan B4, 10-23)
-    assert (agent_rules.POINTER_VERSION, digest) == (48, "6a63c4370595"), (
+    # 49 / da09ddfedd09: DAEMON_POINTER_BODY's DAEMON MESSAGES section gained the
+    # exception for a `[Probe] Message from <your researcher> (dashboard)` (G7, approved 10-25)
+    assert (agent_rules.POINTER_VERSION, digest) == (49, "da09ddfedd09"), (
         "POINTER_BODY or DAEMON_POINTER_BODY changed: bump POINTER_VERSION and re-pin this digest"
     )
 

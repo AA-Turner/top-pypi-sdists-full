@@ -9,6 +9,7 @@ from scramp.utils import (
     hi,
     pbkdf2_hmac_hashlib,
     pbkdf2_hmac_pure_python,
+    saslprep,
     xor,
 )
 
@@ -103,3 +104,21 @@ def test_pbkdf2_hmac_pure_python(hf, password, salt, iterations):
     hashlib_result = pbkdf2_hmac_hashlib(hf, password, salt, iterations)
     pure_result = pbkdf2_hmac_pure_python(hf, password, salt, iterations)
     assert pure_result == hashlib_result
+
+
+@pytest.mark.parametrize(
+    "source,error_msg,server_error",
+    [  # Should use unicode 3.2
+        [
+            "\U0001f130",
+            "unassigned code points forbidden: invalid-encoding",
+            ServerError.INVALID_ENCODING,
+        ],
+    ],
+)
+def test_saslprep_error(source, error_msg, server_error):
+    with pytest.raises(ScramException) as exc_info:
+        saslprep(source)
+
+    assert str(exc_info.value) == error_msg
+    assert exc_info.value.server_error == server_error

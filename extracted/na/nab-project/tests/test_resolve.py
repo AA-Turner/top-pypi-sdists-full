@@ -76,13 +76,14 @@ from nab_provider.provider import (
     UnsupportedVcsError,
     VcsConfig,
 )
-from nab_provider.records import IndexConfig
+from nab_provider.records import IndexConfig, RangeMetadataResult, RangeOutcome
 from nab_provider.requirements_file import (
     InvalidProjectRequirementError,
     expand_extra_requirements,
 )
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import Matrix, ResolveTarget
+from nab_provider.testing import make_metadata
 from nab_provider.vcs_admission import VcsPolicy
 from nab_resolver.errors import (
     ResolutionError,
@@ -192,6 +193,26 @@ def _pins(result: ResolveResult) -> dict[str, Version]:
     return result.target_results[0].pins
 
 
+def _assert_co_selected_pins(result: ResolveResult) -> None:
+    """Check both co-selected extras' resolved pins and target locks."""
+    expected_pins = {
+        (("extra", "cpu"),): {"base": V("1.0"), "torch": V("2.0+cpu")},
+        (("extra", "gpu"),): {"base": V("1.0"), "torch": V("2.0+gpu")},
+    }
+    assert len(result.target_results) == len(expected_pins)
+    assert {
+        tr.target.selection: tr.pins for tr in result.target_results
+    } == expected_pins
+
+    for tr in result.target_results:
+        lock = tr.lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            name: str(version)
+            for name, version in expected_pins[tr.target.selection].items()
+        }
+
+
 def _root_ranges(mock_resolver: MagicMock) -> dict[str, VersionRange]:
     """The root requirements the resolver was called with, folded per package."""
     folded: dict[str, VersionRange] = {}
@@ -280,10 +301,43 @@ def python_marker_fetch_port() -> FakeFetchPort:
 
 
 @pytest.fixture
+def co_selected_fetch_port() -> Iterator[FakeFetchPort]:
+    """Serve base and incompatible torch builds for co-selected extras."""
+    coordinator = make_coordinator(
+        listings={
+            "base": _index_wheels("base", "1.0"),
+            "torch": _index_wheels("torch", "2.0+cpu", "2.0+gpu"),
+        },
+        auto_metadata=True,
+    )
+    with patch(
+        "nab_project.resolve.FetchCoordinator", return_value=nullcontext(coordinator)
+    ):
+        yield coordinator
+
+
+@pytest.fixture
 def conflict_fetch_port() -> Iterator[FakeFetchPort]:
     """Serve foo 1.0 and 2.0 for conflict-selection resolves."""
     coordinator = make_coordinator(
         listings={"foo": _index_wheels("foo", "1.0", "2.0")},
+        auto_metadata=True,
+    )
+    with patch(
+        "nab_project.resolve.FetchCoordinator", return_value=nullcontext(coordinator)
+    ):
+        yield coordinator
+
+
+@pytest.fixture
+def group_conflict_fetch_port() -> Iterator[FakeFetchPort]:
+    """Serve root and group dependencies for the group-conflict checks."""
+    coordinator = make_coordinator(
+        listings={
+            "foo": _index_wheels("foo", "1.0", "2.0"),
+            "sphinx": _index_wheels("sphinx", "6.0", "7.0"),
+            "pytest": _index_wheels("pytest", "7.0", "8.0"),
+        },
         auto_metadata=True,
     )
     with patch(
@@ -1693,9 +1747,12 @@ class TestResolveUniversalPyproject:
             "py313-linux_x86_64",
         ]
 
-    @patch("nab_project.resolve.resolve_with_coordinator")
+    @pytest.mark.usefixtures("co_selected_fetch_port")
+    @patch(
+        "nab_project.resolve.resolve_with_coordinator", wraps=resolve_with_coordinator
+    )
     def test_co_selected_members_build_multiple_forks(
-        self, mock_engine: MagicMock, tmp_path: Path
+        self, engine_spy: MagicMock, tmp_path: Path
     ) -> None:
         """Two co-selected conflicting extras fork into two resolves."""
         pyproject = tmp_path / "pyproject.toml"
@@ -1711,7 +1768,7 @@ class TestResolveUniversalPyproject:
             'python = "==3.11"\n'
             'platforms = ["linux_x86_64"]\n'
         )
-        _resolved(
+        result = _resolved(
             pyproject,
             extras=["cpu", "gpu"],
             inputs=ResolveInputs(
@@ -1722,7 +1779,7 @@ class TestResolveUniversalPyproject:
                 python="==3.11", platforms=(PlatformSpec("linux_x86_64"),)
             ).expand(),
         )
-        forks = mock_engine.call_args.kwargs["forks"]
+        forks = engine_spy.call_args.kwargs["forks"]
         assert {f.selection for f in forks} == {
             (("extra", "cpu"),),
             (("extra", "gpu"),),
@@ -1736,6 +1793,8 @@ class TestResolveUniversalPyproject:
             "base",
             "torch==2.0+gpu",
         ]
+
+        _assert_co_selected_pins(result)
 
     @patch("nab_project.resolve.resolve_with_coordinator")
     def test_fork_selects_on_its_own_member_too(
@@ -1887,9 +1946,12 @@ class TestResolveUniversalPyproject:
         (fork,) = mock_engine.call_args.kwargs["forks"]
         assert fork.selection == ()
 
-    @patch("nab_project.resolve.resolve_with_coordinator")
+    @pytest.mark.usefixtures("co_selected_fetch_port")
+    @patch(
+        "nab_project.resolve.resolve_with_coordinator", wraps=resolve_with_coordinator
+    )
     def test_co_selection_does_not_raise_minimum(
-        self, mock_engine: MagicMock, tmp_path: Path
+        self, engine_spy: MagicMock, tmp_path: Path
     ) -> None:
         """Co-selecting an exactly-one set forks rather than raising."""
         pyproject = tmp_path / "pyproject.toml"
@@ -1906,7 +1968,7 @@ class TestResolveUniversalPyproject:
             'python = "==3.11"\n'
             'platforms = ["linux_x86_64"]\n'
         )
-        _resolved(
+        result = _resolved(
             pyproject,
             extras=["cpu", "gpu"],
             inputs=ResolveInputs(
@@ -1919,8 +1981,10 @@ class TestResolveUniversalPyproject:
                 python="==3.11", platforms=(PlatformSpec("linux_x86_64"),)
             ).expand(),
         )
-        forks = mock_engine.call_args.kwargs["forks"]
+        forks = engine_spy.call_args.kwargs["forks"]
         assert len(forks) == 2
+
+        _assert_co_selected_pins(result)
 
     def test_marker_gated_member_unreachable_on_a_tuple_raises(
         self, tmp_path: Path
@@ -3326,10 +3390,11 @@ class TestBuildResolverInputs:
             )
 
         (record,) = caplog.records
+
         assert record.message.startswith(
             "Root requirement 'foo<2.0; extra == \"fast\"'"
         )
-        assert "pkg[extra] (extras-of-package)" in record.message
+        assert "try: use pkg[extra] to select an extra" in record.message
 
     def test_warning_cause_holds_when_the_extra_was_selected(
         self, caplog: pytest.LogCaptureFixture
@@ -3518,7 +3583,9 @@ class TestBuildConstraints:
         message = self._drop_warning(caplog)
 
         assert "pkg[extra]" not in message
-        assert "A constraint cannot carry extras" in message
+        assert (
+            "try: drop the membership test from the marker and keep the rest" in message
+        )
 
     def test_dropped_group_constraint_warning_omits_the_extras_rule(
         self, caplog: pytest.LogCaptureFixture
@@ -3527,19 +3594,23 @@ class TestBuildConstraints:
         message = self._drop_warning(caplog, 'foo<2.0 ; "docs" in dependency_groups')
 
         assert "cannot carry extras" not in message
-        assert "Drop the membership test from the marker and keep the rest." in message
+        assert (
+            "try: drop the membership test from the marker and keep the rest" in message
+        )
 
     def test_dropped_constraint_repair_still_bounds_the_package(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         """The repair the warning asks for parses and still bounds foo."""
         message = self._drop_warning(caplog)
+
         assert message.endswith(
-            "so drop the membership test from the marker and keep the rest."
+            "try: drop the membership test from the marker and keep the rest"
         )
 
         inputs = ResolveInputs(constraints=("foo<2.0",))
         out = _build_constraints(inputs, environment={})
+
         assert V("1.0") in out["foo"]
         assert V("5.0") not in out["foo"]
 
@@ -3559,15 +3630,17 @@ class TestBuildConstraints:
         )
 
         assert message.endswith(
-            "so drop the membership test from the marker and keep the rest."
+            "try: drop the membership test from the marker and keep the rest"
         )
 
         inputs = ResolveInputs(constraints=("foo<2.0 ; python_version < '3.10'",))
         out = _build_constraints(inputs, environment=on_39)
+
         assert V("1.0") in out["foo"]
         assert V("5.0") not in out["foo"]
 
         on_311 = {"python_version": "3.11", "python_full_version": "3.11.2"}
+
         assert "foo" not in _build_constraints(inputs, environment=on_311)
 
 
@@ -3886,8 +3959,6 @@ class TestFindGroupConflictsManyGroups:
 
 
 class TestResolvePyprojectGroupConflict:
-    """End-to-end: a two-group direct conflict names the groups."""
-
     def test_conflict_message_names_groups(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
@@ -3936,28 +4007,14 @@ class TestResolvePyprojectGroupConflict:
             " sphinx>=7, sphinx<6."
         )
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
-    def test_single_group_skips_check(
-        self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """One group means no pair to check; the resolve proceeds."""
+    @pytest.mark.usefixtures("group_conflict_fetch_port")
+    def test_single_group_resolves(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\nname = "x"\ndependencies = ["foo>=1.0"]\n'
             "[dependency-groups]\n"
             'docs = ["sphinx<7"]\n'
         )
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver_cls.return_value.resolve.return_value = {"foo": V("2.0")}
 
         result = _resolved(
             pyproject,
@@ -3965,43 +4022,31 @@ class TestResolvePyprojectGroupConflict:
             python_version="3.12.0",
             groups=["docs"],
         )
-        assert "foo" in _pins(result)
+        assert _pins(result) == {"foo": V("2.0"), "sphinx": V("6.0")}
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
-    def test_no_groups_skips_check(
-        self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Zero groups means the check is a no-op and the resolve runs."""
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "foo": "2.0",
+            "sphinx": "6.0",
+        }
+
+    @pytest.mark.usefixtures("group_conflict_fetch_port")
+    def test_no_groups_resolves(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text('[project]\ndependencies = ["foo>=1.0"]\n')
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver_cls.return_value.resolve.return_value = {"foo": V("2.0")}
 
         result = _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.12.0")
-        assert "foo" in _pins(result)
+        assert _pins(result) == {"foo": V("2.0")}
 
-    @patch("nab_project._resolve.engine.build_target_lock")
-    @patch("nab_project._resolve.engine.Resolver")
-    @patch("nab_project._resolve.engine.Provider")
-    @patch("nab_project.resolve.FetchCoordinator")
-    def test_no_conflict_multi_group_resolves(
-        self,
-        mock_coord_cls: MagicMock,
-        mock_provider_cls: MagicMock,
-        mock_resolver_cls: MagicMock,
-        mock_build_lock: MagicMock,
-        tmp_path: Path,
-    ) -> None:
-        """Two compatible groups pass the check and resolve normally."""
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "foo": "2.0",
+        }
+
+    @pytest.mark.usefixtures("group_conflict_fetch_port")
+    def test_compatible_groups_resolve(self, tmp_path: Path) -> None:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\nname = "x"\ndependencies = ["foo>=1.0"]\n'
@@ -4009,9 +4054,6 @@ class TestResolvePyprojectGroupConflict:
             'docs = ["sphinx>=6"]\n'
             'test = ["pytest>=8"]\n'
         )
-        mock_coord_cls.return_value.__enter__ = lambda s: s
-        mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-        mock_resolver_cls.return_value.resolve.return_value = {"foo": V("2.0")}
 
         result = _resolved(
             pyproject,
@@ -4019,7 +4061,19 @@ class TestResolvePyprojectGroupConflict:
             python_version="3.12.0",
             groups=["docs", "test"],
         )
-        assert "foo" in _pins(result)
+        assert _pins(result) == {
+            "foo": V("2.0"),
+            "sphinx": V("7.0"),
+            "pytest": V("8.0"),
+        }
+
+        lock = result.target_results[0].lock
+        assert lock is not None
+        assert {name: pin.version for name, pin in lock.pins.items()} == {
+            "foo": "2.0",
+            "sphinx": "7.0",
+            "pytest": "8.0",
+        }
 
 
 def _diagnostics(error: ResolutionError, *, detailed: bool = True) -> str:
@@ -4246,11 +4300,11 @@ class TestAugmentResolutionError:
                 "baz": _index_wheels("baz", "5.0"),
             },
             metadata_by_version={
-                "3.0": _metadata("foo", "3.0", "bar>=2"),
-                "3.1": _metadata("foo", "3.1", "bar>=2"),
-                "1.0": _metadata("bar", "1.0"),
-                "2.0": _metadata("bar", "2.0"),
-                "5.0": _metadata("baz", "5.0", "bar==1.0"),
+                "3.0": make_metadata("foo", "3.0", "bar>=2"),
+                "3.1": make_metadata("foo", "3.1", "bar>=2"),
+                "1.0": make_metadata("bar", "1.0"),
+                "2.0": make_metadata("bar", "2.0"),
+                "5.0": make_metadata("baz", "5.0", "bar==1.0"),
             },
         )
 
@@ -4289,13 +4343,13 @@ class TestAugmentResolutionError:
                 "dep": _index_wheels("dep", "2.2", "2.1"),
             },
             metadata_by_version={
-                "1.0": _metadata("app", "1.0", "lib>=3"),
-                "1.1": _metadata("web", "1.1", "dep==2.1"),
-                "3.0": _metadata("lib", "3.0", "dep==2.2"),
-                "2.0": _metadata("lib", "2.0"),
-                "1.2": _metadata("lib", "1.2"),
-                "2.2": _metadata("dep", "2.2"),
-                "2.1": _metadata("dep", "2.1"),
+                "1.0": make_metadata("app", "1.0", "lib>=3"),
+                "1.1": make_metadata("web", "1.1", "dep==2.1"),
+                "3.0": make_metadata("lib", "3.0", "dep==2.2"),
+                "2.0": make_metadata("lib", "2.0"),
+                "1.2": make_metadata("lib", "1.2"),
+                "2.2": make_metadata("dep", "2.2"),
+                "2.1": make_metadata("dep", "2.1"),
             },
         )
 
@@ -4337,8 +4391,8 @@ class TestAugmentResolutionError:
         coordinator = make_coordinator(
             listings={"foo": [newer, *_index_wheels("foo", "1.0")]},
             metadata_by_version={
-                "2.0": _metadata("foo", "2.0"),
-                "1.0": _metadata("foo", "1.0"),
+                "2.0": make_metadata("foo", "2.0"),
+                "1.0": make_metadata("foo", "1.0"),
             },
         )
 
@@ -4378,11 +4432,11 @@ class TestAugmentResolutionError:
                 "lib": _index_wheels("lib", "5.0", "9.0"),
             },
             metadata_by_version={
-                "3.0": _metadata("foo", "3.0", "lib==5.0"),
-                "4.0": _metadata("foo", "4.0", "lib==5.0"),
-                "1.0": _metadata("app", "1.0", "lib==9.0"),
-                "5.0": _metadata("lib", "5.0"),
-                "9.0": _metadata("lib", "9.0"),
+                "3.0": make_metadata("foo", "3.0", "lib==5.0"),
+                "4.0": make_metadata("foo", "4.0", "lib==5.0"),
+                "1.0": make_metadata("app", "1.0", "lib==9.0"),
+                "5.0": make_metadata("lib", "5.0"),
+                "9.0": make_metadata("lib", "9.0"),
             },
         )
 
@@ -4431,9 +4485,9 @@ class TestAugmentResolutionError:
                 "5.0": None,
                 "4.0": None,
                 "3.0": None,
-                "2.0": _metadata("foo", "2.0", "lib==9.9"),
-                "1.0": _metadata("foo", "1.0", "lib==9.8"),
-                "6.0": _metadata("lib", "6.0"),
+                "2.0": make_metadata("foo", "2.0", "lib==9.9"),
+                "1.0": make_metadata("foo", "1.0", "lib==9.8"),
+                "6.0": make_metadata("lib", "6.0"),
             },
         )
 
@@ -4478,11 +4532,11 @@ class TestAugmentResolutionError:
                 "5.0": None,
                 "4.0": None,
                 "3.0": None,
-                "2.0": _metadata("foo", "2.0", "lib==9.9"),
-                "1.0": _metadata("foo", "1.0", "lib==9.8"),
-                "22.0": _metadata("bar", "22.0", "foo>=6.0"),
-                "21.0": _metadata("bar", "21.0"),
-                "6.0": _metadata("lib", "6.0"),
+                "2.0": make_metadata("foo", "2.0", "lib==9.9"),
+                "1.0": make_metadata("foo", "1.0", "lib==9.8"),
+                "22.0": make_metadata("bar", "22.0", "foo>=6.0"),
+                "21.0": make_metadata("bar", "21.0"),
+                "6.0": make_metadata("lib", "6.0"),
             },
         )
 
@@ -4522,10 +4576,10 @@ class TestAugmentResolutionError:
             },
             metadata_by_version={
                 "5.0": None,
-                "4.0": _metadata("foo", "4.0", "lib==9.9"),
+                "4.0": make_metadata("foo", "4.0", "lib==9.9"),
                 "3.0": None,
-                "2.0": _metadata("foo", "2.0", "lib==9.8"),
-                "6.0": _metadata("lib", "6.0"),
+                "2.0": make_metadata("foo", "2.0", "lib==9.8"),
+                "6.0": make_metadata("lib", "6.0"),
             },
         )
 
@@ -4566,11 +4620,11 @@ class TestAugmentResolutionError:
                 "other": _index_wheels("other", "6.0"),
             },
             metadata_by_version={
-                "5.0": _metadata("foo", "5.0", "lib==8.0"),
-                "4.0": _metadata("foo", "4.0", "other==7.0"),
-                "9.0": _metadata("lib", "9.0"),
-                "8.0": _metadata("lib", "8.0"),
-                "6.0": _metadata("other", "6.0"),
+                "5.0": make_metadata("foo", "5.0", "lib==8.0"),
+                "4.0": make_metadata("foo", "4.0", "other==7.0"),
+                "9.0": make_metadata("lib", "9.0"),
+                "8.0": make_metadata("lib", "8.0"),
+                "6.0": make_metadata("other", "6.0"),
             },
         )
 
@@ -4607,11 +4661,11 @@ class TestAugmentResolutionError:
                 "tool": _index_wheels("tool", "1.0"),
             },
             metadata_by_version={
-                "5.0": _metadata("app", "5.0", "lib==8.0"),
-                "4.0": _metadata("app", "4.0"),
-                "9.0": _metadata("lib", "9.0"),
-                "8.0": _metadata("lib", "8.0"),
-                "1.0": _metadata("tool", "1.0", "app>=6.0"),
+                "5.0": make_metadata("app", "5.0", "lib==8.0"),
+                "4.0": make_metadata("app", "4.0"),
+                "9.0": make_metadata("lib", "9.0"),
+                "8.0": make_metadata("lib", "8.0"),
+                "1.0": make_metadata("tool", "1.0", "app>=6.0"),
             },
         )
 
@@ -4678,13 +4732,91 @@ class TestAugmentResolutionError:
             in diagnostics
         )
 
-    def test_zip_sdist_is_not_reported_as_never_published(self, tmp_path: Path) -> None:
-        """The diagnostics name the format, rather than reporting no sdist.
+    def test_cutoff_attribution_survives_a_look_ahead_blocker(
+        self, tmp_path: Path
+    ) -> None:
+        """A filtered sdist and a dependency blocker remain distinct causes."""
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(
+            '[project]\nname = "proj"\ndependencies = ["foo", "bar==1.0"]\n',
+            encoding="utf-8",
+        )
 
-        ``foo`` 1.0 publishes a sidecar-less wheel beside a ``.zip`` sdist,
-        which the listing parse drops.  Reading the report as no sdist would
-        send the user looking for a release that has one.
-        """
+        def wheel(name: str, version: str, *, has_metadata: bool = True) -> WheelFile:
+            filename = f"{name}-{version}-py3-none-any.whl"
+            return WheelFile(
+                filename=filename,
+                url=f"https://example.com/{filename}",
+                version=version,
+                requires_python=None,
+                has_metadata=has_metadata,
+                upload_time="2026-01-01T00:00:00Z",
+            )
+
+        foo_sdist = SdistFile(
+            filename="foo-1.0.tar.gz",
+            url="https://example.com/foo-1.0.tar.gz",
+            version="1.0",
+            requires_python=None,
+            upload_time="2026-01-20T00:00:00Z",
+        )
+
+        def resolve(cutoff: datetime | None, *, readable_sdist: bool) -> ResolveResult:
+            coordinator = make_coordinator(
+                listings={
+                    "foo": [
+                        wheel("foo", "2.0"),
+                        wheel("foo", "1.0", has_metadata=False),
+                        foo_sdist,
+                    ],
+                    "bar": [wheel("bar", "1.0"), wheel("bar", "2.0")],
+                },
+                metadata_by_version={
+                    "2.0": make_metadata("foo", "2.0", "bar==2.0"),
+                    "1.0": make_metadata("bar", "1.0"),
+                },
+                sdist_pkg_info=make_metadata("foo", "1.0") if readable_sdist else None,
+                sdist_pyproject_toml=(
+                    '[project]\nname = "foo"\nversion = "1.0"\ndependencies = []\n'
+                    if readable_sdist
+                    else None
+                ),
+                range_result=RangeMetadataResult(None, RangeOutcome.UNSUPPORTED),
+            )
+            with patch(
+                "nab_project.resolve.FetchCoordinator",
+                return_value=nullcontext(coordinator),
+            ):
+                return _resolved(
+                    pyproject,
+                    _FAKE_TRANSPORT,
+                    python_version="3.12.0",
+                    inputs=ResolveInputs(uploaded_prior_to=cutoff),
+                )
+
+        with pytest.raises(ResolutionError) as info:
+            resolve(datetime(2026, 1, 10, tzinfo=timezone.utc), readable_sdist=True)
+
+        assert (
+            "foo: some versions in range are blocked by bar; uploaded-prior-to"
+            in str(info.value)
+        )
+        assert 'try: set packages."foo".uploaded-prior-to = false' in str(info.value)
+        assert info.value.verbose_message is not None
+        assert "needs bar in ==2.0" in info.value.verbose_message
+        assert "the uploaded-prior-to cutoff" in info.value.verbose_message
+
+        assert _pins(resolve(None, readable_sdist=True))["foo"] == Version("1.0")
+
+        with pytest.raises(ResolutionError) as unreadable:
+            resolve(None, readable_sdist=False)
+        assert "rejected on its metadata" in str(unreadable.value)
+        assert "uploaded-prior-to" not in str(unreadable.value)
+        assert unreadable.value.verbose_message is not None
+        assert "no readable PKG-INFO" in unreadable.value.verbose_message
+
+    def test_filtered_zip_sdist_suggests_admission(self, tmp_path: Path) -> None:
+        """A wheel without metadata can use its ZIP sibling after admission."""
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(
             '[project]\nname = "proj"\ndependencies = ["foo"]\n',
@@ -4699,8 +4831,15 @@ class TestAugmentResolutionError:
             has_metadata=False,
             upload_time=None,
         )
+        sdist = SdistFile(
+            filename="foo-1.0.zip",
+            url="https://example.com/foo-1.0.zip",
+            version="1.0",
+            requires_python=None,
+            upload_time=None,
+        )
         coordinator = make_coordinator()
-        coordinator.index.store_listing("foo", [wheel], zip_sdists=frozenset({"1.0"}))
+        coordinator.index.store_listing("foo", [wheel, sdist])
 
         with patch("nab_project.resolve.FetchCoordinator") as mock_coord_cls:
             mock_coord_cls.return_value.__enter__ = lambda _self: coordinator
@@ -4709,11 +4848,14 @@ class TestAugmentResolutionError:
                 _resolved(pyproject, _FAKE_TRANSPORT, python_version="3.12.0")
 
         diagnostics = _diagnostics(info.value)
-        assert "foo: every version in range was rejected on its metadata" in diagnostics
+
         assert (
-            "No metadata for foo==1.0: no PEP 658 metadata and the sdist is a"
-            " .zip, a format nab drops" in diagnostics
+            "foo: allow-zip-sdists excluded the sdist nab needed for metadata"
+            in diagnostics
         )
+        assert "allow-zip-sdists = false excluded foo-1.0.zip" in diagnostics
+        assert 'packages."foo".allow-zip-sdists = true' in str(info.value)
+        assert coordinator.calls_to("request_sdist") == []
 
     def test_a_resolve_that_survives_the_ladder_never_walks_the_listing(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -4759,7 +4901,7 @@ class TestAugmentResolutionError:
                     ),
                 ]
             },
-            metadata_by_version={"1.0": _metadata("foo", "1.0")},
+            metadata_by_version={"1.0": make_metadata("foo", "1.0")},
         )
 
         walks: list[str] = []
@@ -4804,10 +4946,10 @@ class TestAugmentResolutionError:
                 "c": _index_wheels("c", "5.0", "6.0"),
             },
             metadata_by_version={
-                "1.0": _metadata("b", "1.0"),
-                "2.0": _metadata("b", "2.0"),
-                "5.0": _metadata("c", "5.0", "b==1.0"),
-                "6.0": _metadata("c", "6.0", "b==1.0"),
+                "1.0": make_metadata("b", "1.0"),
+                "2.0": make_metadata("b", "2.0"),
+                "5.0": make_metadata("c", "5.0", "b==1.0"),
+                "6.0": make_metadata("c", "6.0", "b==1.0"),
             },
         )
 
@@ -4845,12 +4987,12 @@ class TestAugmentResolutionError:
                 "c": _index_wheels("c", "1.0", "2.0", "3.0"),
             },
             metadata_by_version={
-                "7.0": _metadata("a", "7.0", "c==1.0"),
-                "7.1": _metadata("a", "7.1", "c==2.0"),
-                "8.0": _metadata("b", "8.0", "c==3.0"),
-                "1.0": _metadata("c", "1.0"),
-                "2.0": _metadata("c", "2.0"),
-                "3.0": _metadata("c", "3.0"),
+                "7.0": make_metadata("a", "7.0", "c==1.0"),
+                "7.1": make_metadata("a", "7.1", "c==2.0"),
+                "8.0": make_metadata("b", "8.0", "c==3.0"),
+                "1.0": make_metadata("c", "1.0"),
+                "2.0": make_metadata("c", "2.0"),
+                "3.0": make_metadata("c", "3.0"),
             },
         )
 
@@ -4886,10 +5028,10 @@ class TestAugmentResolutionError:
                 "c": _index_wheels("c", "1.0", "2.0"),
             },
             metadata_by_version={
-                "7.0": _metadata("a", "7.0", "c==1.0"),
-                "8.0": _metadata("b", "8.0", "c==2.0"),
-                "1.0": _metadata("c", "1.0"),
-                "2.0": _metadata("c", "2.0"),
+                "7.0": make_metadata("a", "7.0", "c==1.0"),
+                "8.0": make_metadata("b", "8.0", "c==2.0"),
+                "1.0": make_metadata("c", "1.0"),
+                "2.0": make_metadata("c", "2.0"),
             },
         )
 
@@ -4923,8 +5065,8 @@ class TestConflictingRootRequirements:
         coordinator = make_coordinator(
             listings={"foo": _index_wheels("foo", "1.0", "2.0")},
             metadata_by_version={
-                "1.0": _metadata("foo", "1.0"),
-                "2.0": _metadata("foo", "2.0"),
+                "1.0": make_metadata("foo", "1.0"),
+                "2.0": make_metadata("foo", "2.0"),
             },
         )
 
@@ -4952,8 +5094,8 @@ class TestConflictingRootRequirements:
         coordinator = make_coordinator(
             listings={"foo": _index_wheels("foo", "1.0", "2.0")},
             metadata_by_version={
-                "1.0": _metadata("foo", "1.0"),
-                "2.0": _metadata("foo", "2.0"),
+                "1.0": make_metadata("foo", "1.0"),
+                "2.0": make_metadata("foo", "2.0"),
             },
         )
 
@@ -5252,12 +5394,7 @@ class TestResolveUniversalPyprojectGroupConflict:
 
 
 class TestLocalVcsRequiresPython:
-    """A local or VCS pin must satisfy the resolve's target Python.
-
-    Index candidates are filtered by Requires-Python while listing;
-    local-path and VCS sources skip that filter, so the single-env
-    resolve checks them after resolving, mirroring the universal path.
-    """
+    """A local or VCS pin must satisfy the resolve's target Python."""
 
     def _provider_with_local(
         self, tmp_path: Path, body: str, *, python_version: str = "3.10.0"
@@ -5323,7 +5460,9 @@ class TestLocalVcsRequiresPython:
         ):
             mock_coord_cls.return_value.__enter__ = lambda _self: fake
             mock_coord_cls.return_value.__exit__ = MagicMock(return_value=False)
-            with pytest.raises(ResolutionError, match="foo 1.0 requires Python"):
+            with pytest.raises(
+                ResolutionError, match="rejected on its metadata"
+            ) as info:
                 _resolved(
                     root,
                     _FAKE_TRANSPORT,
@@ -5332,6 +5471,9 @@ class TestLocalVcsRequiresPython:
                         local_sources=(LocalSource("foo", str(tmp_path / "foo")),)
                     ),
                 )
+
+        assert info.value.verbose_message is not None
+        assert "foo 1.0 requires Python" in info.value.verbose_message
 
     def test_resolve_pyproject_declared_target_satisfies_local(
         self, tmp_path: Path
@@ -5459,12 +5601,6 @@ class TestLocalVcsRequiresPython:
         assert "rejected on its metadata" in str(info.value)
         assert info.value.verbose_message is not None
         assert "requires Python" in info.value.verbose_message
-
-
-def _metadata(name: str, version: str, *requires: str) -> str:
-    """METADATA text for ``name`` ``version`` with one Requires-Dist per entry."""
-    body = "".join(f"Requires-Dist: {req}\n" for req in requires)
-    return f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n{body}\n"
 
 
 def _index_wheels(name: str, *versions: str) -> list[WheelFile]:
@@ -7828,6 +7964,8 @@ class TestFetchWidth:
                 _resolved(path, **kwargs)
             except RuntimeError:
                 pass
+
+        assert mock_coord_cls.call_args.kwargs["start_on_demand"] is True
 
         return mock_coord_cls.call_args.kwargs["max_concurrency"]
 

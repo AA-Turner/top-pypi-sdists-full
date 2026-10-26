@@ -108,6 +108,16 @@ def _watched(sh) -> int:
     return (sh.status() or {}).get("watched", 0)
 
 
+def _registered(sh, sid: str = SID, mode: str = Mode.DAEMON) -> None:
+    """Register `sid` with THIS process as its agent and its registrant: what
+    this test posts is its daemon worker's (a worker runs under its session's
+    registrant), and the hooks it runs claim from under its agent (#3361)."""
+    owner = client.owner_of(os.getpid())
+    assert owner, "cannot read this process's start time"
+    sh.call(Method.SESSION_REGISTER, {"sid": sid, "harness": "claude_code", "mode": mode, "owner": owner,
+                                      "generation": 1, "state_dir": str(_state_dir())})
+
+
 @pytest.fixture
 def home(service_home, monkeypatch):
     """The service's HOME, with the session state inside it (XDG_STATE_HOME)."""
@@ -897,6 +907,7 @@ def _run_payload(hook: Path, payload: dict, **env: str) -> subprocess.CompletedP
 
 def test_a_worker_posts_through_the_service_and_the_hook_claims_through_it(home):
     home.start()
+    _registered(home)
     ask = mailbox.write_ask(SID, "what LR did the last sweep use?")
     answer = _answer(ask)
     with home.connect() as conn:
@@ -913,6 +924,7 @@ def test_a_worker_posts_through_the_service_and_the_hook_claims_through_it(home)
 
 def test_a_post_is_the_same_file_however_it_is_written_and_never_twice(home):
     home.start()
+    _registered(home)
     alert = _alert([3])
     assert mailbox.post_via_service(alert)
     mailbox.publish_here(alert)  # a caller that fell back after all: the same file
@@ -924,6 +936,7 @@ def test_a_service_killed_between_post_and_claim_loses_nothing(home):
     import signal
 
     status = home.start()
+    _registered(home)
     alert = _alert([4])
     assert mailbox.post_via_service(alert)
     os.kill(status["pid"], signal.SIGKILL)
@@ -937,6 +950,7 @@ def test_a_service_killed_between_post_and_claim_loses_nothing(home):
 
 def test_an_older_worker_writing_beside_the_service_is_delivered_through_it(home):
     home.start()
+    _registered(home)
     alert = _alert([5])
     mailbox.publish_here(alert)  # a worker from before the service owned delivery
     assert _context(_run("UserPromptSubmit")) == alert.rendered()
@@ -949,6 +963,7 @@ def test_a_hint_and_a_reader_message_through_the_service_both_go_out_once(home):
     nor it the hint, a newer hint replaces the older, the hook hands one of each
     over in one turn, and the claim log says which was the hint."""
     home.start()
+    _registered(home)
     now = time.time()
 
     def message(text: str, made_at: float, origin: "str | None" = None) -> mailbox.Message:
@@ -1052,6 +1067,7 @@ def test_a_stalled_service_never_costs_a_claim_it_made(home):
 
 def test_a_post_past_its_deadline_writes_nothing_and_a_bad_one_is_refused(home):
     home.start()
+    _registered(home)
     alert = _alert([6])
     from dataclasses import asdict
 
@@ -1084,6 +1100,7 @@ def test_a_caller_in_a_sandbox_writes_and_claims_its_mailbox_itself(tmp_path, mo
 
 def test_a_held_question_is_posted_through_the_service_and_its_watchers_told(home):
     home.start()
+    _registered(home)
     board = appr.Board()
     with home.connect() as conn:
         assert _subscribe(conn, [SID], topics=(Topic.APPROVALS_CHANGED,)) == {}

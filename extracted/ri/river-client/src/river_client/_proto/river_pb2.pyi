@@ -405,7 +405,7 @@ class UnloadModelRequest(_message.Message):
     def __init__(self, model_id: _Optional[str] = ..., seq_id: _Optional[int] = ...) -> None: ...
 
 class ForwardBackwardInput(_message.Message):
-    __slots__ = ("data", "loss_fn", "loss_fn_config", "gradient_accumulation", "init_gradients", "compute_expert_flip_metric", "force_routing_replay")
+    __slots__ = ("data", "loss_fn", "loss_fn_config", "gradient_accumulation", "init_gradients", "compute_expert_flip_metric", "force_routing_replay", "resolved_images")
     class LossFnConfigEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -413,6 +413,13 @@ class ForwardBackwardInput(_message.Message):
         key: str
         value: float
         def __init__(self, key: _Optional[str] = ..., value: _Optional[float] = ...) -> None: ...
+    class ResolvedImagesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: bytes
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[bytes] = ...) -> None: ...
     DATA_FIELD_NUMBER: _ClassVar[int]
     LOSS_FN_FIELD_NUMBER: _ClassVar[int]
     LOSS_FN_CONFIG_FIELD_NUMBER: _ClassVar[int]
@@ -420,6 +427,7 @@ class ForwardBackwardInput(_message.Message):
     INIT_GRADIENTS_FIELD_NUMBER: _ClassVar[int]
     COMPUTE_EXPERT_FLIP_METRIC_FIELD_NUMBER: _ClassVar[int]
     FORCE_ROUTING_REPLAY_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_IMAGES_FIELD_NUMBER: _ClassVar[int]
     data: _containers.RepeatedCompositeFieldContainer[Datum]
     loss_fn: str
     loss_fn_config: _containers.ScalarMap[str, float]
@@ -427,7 +435,8 @@ class ForwardBackwardInput(_message.Message):
     init_gradients: bool
     compute_expert_flip_metric: bool
     force_routing_replay: str
-    def __init__(self, data: _Optional[_Iterable[_Union[Datum, _Mapping]]] = ..., loss_fn: _Optional[str] = ..., loss_fn_config: _Optional[_Mapping[str, float]] = ..., gradient_accumulation: bool = ..., init_gradients: bool = ..., compute_expert_flip_metric: bool = ..., force_routing_replay: _Optional[str] = ...) -> None: ...
+    resolved_images: _containers.ScalarMap[str, bytes]
+    def __init__(self, data: _Optional[_Iterable[_Union[Datum, _Mapping]]] = ..., loss_fn: _Optional[str] = ..., loss_fn_config: _Optional[_Mapping[str, float]] = ..., gradient_accumulation: bool = ..., init_gradients: bool = ..., compute_expert_flip_metric: bool = ..., force_routing_replay: _Optional[str] = ..., resolved_images: _Optional[_Mapping[str, bytes]] = ...) -> None: ...
 
 class ForwardRequest(_message.Message):
     __slots__ = ("model_id", "seq_id", "forward_input", "expected_policy_id")

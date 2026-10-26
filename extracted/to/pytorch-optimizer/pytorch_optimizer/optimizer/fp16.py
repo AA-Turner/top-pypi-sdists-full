@@ -5,7 +5,9 @@ from torch import nn
 from torch.optim import Optimizer
 
 from pytorch_optimizer.base.type import Closure, ParamsT
-from pytorch_optimizer.optimizer.utils import clip_grad_norm, has_overflow
+from pytorch_optimizer.optimizer.utils.foreach import group_tensors_by_device_and_dtype
+from pytorch_optimizer.optimizer.utils.gradient import clip_grad_norm
+from pytorch_optimizer.optimizer.utils.precision import has_overflow
 
 
 class DynamicLossScaler:
@@ -149,8 +151,7 @@ class SafeFP16Optimizer(Optimizer):  # pragma: no cover
 
         fp32_params: list[torch.Tensor] = []
         for p in parameters:
-            p32 = nn.Parameter(p.float())
-            p32.grad = torch.zeros_like(p32)
+            p32 = nn.Parameter(p.float(), requires_grad=p.requires_grad)
             fp32_params.append(p32)
 
         return fp32_params
@@ -203,15 +204,21 @@ class SafeFP16Optimizer(Optimizer):  # pragma: no cover
             if self.scaler is not None:
                 multiply_grads /= self.scaler.loss_scale
 
-            for p16, p32 in zip(self.fp16_params, self.fp32_params):
-                if not p16.requires_grad:
-                    continue
+            params, grads = [], []
 
-                if p16.grad is not None:
-                    p32.grad.copy_(p16.grad)
-                    p32.grad.mul_(multiply_grads)
+            for p16, p32 in zip(self.fp16_params, self.fp32_params):
+                if p16.requires_grad and p16.grad is not None:
+                    if p32.grad is None:
+                        p32.grad = torch.empty_like(p32)
+
+                    params.append(p32.grad)
+                    grads.append(p16.grad)
                 else:
-                    p32.grad = torch.zeros_like(p16, dtype=torch.float)
+                    p32.grad = None
+
+            for batch in group_tensors_by_device_and_dtype(params, grads):
+                torch._foreach_copy_(batch['params'], batch['grads'])
+                torch._foreach_mul_(batch['params'], multiply_grads)
 
             self.needs_sync = False
 
@@ -221,8 +228,10 @@ class SafeFP16Optimizer(Optimizer):  # pragma: no cover
             self.sync_fp16_grads_to_fp32(c)
             return
 
-        for p32 in self.fp32_params:
-            p32.grad.mul_(c)
+        grads = [p32.grad for p32 in self.fp32_params if p32.grad is not None]
+
+        for batch in group_tensors_by_device_and_dtype(grads, grads):
+            torch._foreach_mul_(batch['params'], c)
 
     def update_main_grads(self) -> None:
         self.sync_fp16_grads_to_fp32()
@@ -260,26 +269,28 @@ class SafeFP16Optimizer(Optimizer):  # pragma: no cover
         self.sync_fp16_grads_to_fp32()
         self.optimizer.step(closure)
 
-        for p16, p32 in zip(self.fp16_params, self.fp32_params):
-            if not p16.requires_grad:
-                continue
-            p16.data.copy_(p32)
+        params = [p16.data for p16 in self.fp16_params if p16.requires_grad]
+        masters = [p32 for p16, p32 in zip(self.fp16_params, self.fp32_params) if p16.requires_grad]
+
+        for batch in group_tensors_by_device_and_dtype(params, masters):
+            torch._foreach_copy_(batch['params'], batch['grads'])
 
     def zero_grad(self) -> None:
         """Clear the gradients of all optimized parameters."""
         for p16 in self.fp16_params:
             p16.grad = None
         for p32 in self.fp32_params:
-            p32.grad.zero_()
+            p32.grad = None
         self.needs_sync = False
 
     def get_lr(self) -> float:
         """Return the base optimizer learning rate."""
-        return self.optimizer.get_lr()
+        return self.optimizer.param_groups[0]['lr']
 
     def set_lr(self, lr: float):
         """Set the base optimizer learning rate."""
-        self.optimizer.set_lr(lr)
+        for group in self.optimizer.param_groups:
+            group['lr'] = lr
 
     @property
     def loss_scale(self) -> float:

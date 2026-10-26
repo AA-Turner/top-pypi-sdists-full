@@ -3,13 +3,29 @@
 import typing
 
 import pydantic
+import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
+from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class ListRequestInclude(UncheckedBaseModel):
     """
-    Optional extras, matching search's include
+    Optional extras
+    """
+
+    content: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Include the last published extracted text when listing documents only. Large documents can make the response significantly larger.
+    """
+
+    memory_count: typing_extensions.Annotated[
+        typing.Optional[bool],
+        FieldMetadata(alias="memoryCount"),
+        pydantic.Field(alias="memoryCount", description="Include live memory counts when listing documents"),
+    ] = None
+    """
+    Include live memory counts when listing documents
     """
 
     forgotten: typing.Optional[bool] = pydantic.Field(default=None)

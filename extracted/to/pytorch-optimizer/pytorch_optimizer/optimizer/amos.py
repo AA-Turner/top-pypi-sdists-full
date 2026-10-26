@@ -5,7 +5,7 @@ import torch
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import Closure, Defaults, Loss, ParamGroup, ParamsT
-from pytorch_optimizer.optimizer.foreach_utils import foreach_rsqrt_
+from pytorch_optimizer.optimizer.utils.foreach import foreach_rsqrt_, group_tensors_by_device_and_dtype
 
 
 class Amos(BaseOptimizer):
@@ -26,10 +26,12 @@ class Amos(BaseOptimizer):
 
     """
 
+    _supports_compiled_foreach = True
+
     def __init__(
         self,
         params: ParamsT,
-        lr: float = 1e-3,
+        lr: float | torch.Tensor = 1e-3,
         beta: float = 0.999,
         momentum: float = 0.0,
         extra_l2: float = 0.0,
@@ -80,8 +82,9 @@ class Amos(BaseOptimizer):
             state = self.state[p]
 
             if len(state) == 0:
-                state['exp_avg_sq'] = torch.zeros((1,), dtype=p.dtype, device=p.device)
-                state['decay'] = torch.zeros((1,), dtype=p.dtype, device=p.device)
+                state['exp_avg_sq'] = torch.zeros((), dtype=p.dtype, device=p.device)
+                state['decay'] = torch.zeros((), dtype=p.dtype, device=p.device)
+
                 if group['momentum'] > 0.0:
                     state['exp_avg'] = torch.zeros_like(p)
 
@@ -94,7 +97,7 @@ class Amos(BaseOptimizer):
     @staticmethod
     def get_scale(p: torch.Tensor) -> float:
         """Return the target weight scale from the parameter shape."""
-        if len(p.shape) == 1:
+        if len(p.shape) <= 1:
             return 0.5
         if len(p.shape) == 2:
             return math.sqrt(2 / p.size(1))
@@ -108,18 +111,18 @@ class Amos(BaseOptimizer):
         exp_avgs: list[torch.Tensor],
         exp_avg_sqs: list[torch.Tensor],
         decays: list[torch.Tensor],
+        bias_correction: float | torch.Tensor,
     ) -> None:
-        lr_sq: float = math.sqrt(group['lr'])
-        lr_p2: float = math.pow(group['lr'], 2)
+        lr_sq = group['lr'].sqrt() if isinstance(group['lr'], torch.Tensor) else math.sqrt(group['lr'])
+        lr_p2 = group['lr'] ** 2
 
         beta: float = group['beta']
-        bias_correction: float = self.debias(beta, group['step'])
 
         if self.maximize:
             torch._foreach_neg_(grads)
 
         g2 = [grad.pow(2).mean() for grad in grads]
-        init_lrs: list[float] = [group['lr'] * self.get_scale(p) for p in params]
+        init_lrs = [group['lr'] * self.get_scale(p) for p in params]
 
         torch._foreach_mul_(exp_avg_sqs, beta)
         torch._foreach_add_(exp_avg_sqs, g2, alpha=1.0 - beta)
@@ -132,7 +135,10 @@ class Amos(BaseOptimizer):
         torch._foreach_add_(df_c, 1.0)
         foreach_rsqrt_(df_c)
 
-        d_step_sizes = [self.d_coef * math.sqrt(step_size) for step_size in init_lrs]
+        d_step_sizes = [
+            self.d_coef * (step_size.sqrt() if isinstance(step_size, torch.Tensor) else math.sqrt(step_size))
+            for step_size in init_lrs
+        ]
         df_d = torch._foreach_mul(decays, d_step_sizes)
         torch._foreach_add_(df_d, 1.0)
 
@@ -149,8 +155,8 @@ class Amos(BaseOptimizer):
 
         torch._foreach_div_(updates, df_d)
 
-        torch._foreach_mul_(decays, torch._foreach_add(df_c, 1.0))
-        torch._foreach_add_(decays, df_c)
+        for decay, gamma in zip(decays, df_c):
+            decay.mul_(1.0 + gamma).add_(gamma)
 
         if group['momentum'] > 0.0:
             torch._foreach_lerp_(exp_avgs, updates, weight=1.0 - group['momentum'])
@@ -219,14 +225,15 @@ class Amos(BaseOptimizer):
                 params, grads, state_dict = self.collect_trainable_params(
                     group, self.state, state_keys=['exp_avg', 'exp_avg_sq', 'decay']
                 )
-                if params:
+                for batch in group_tensors_by_device_and_dtype(params, grads, state_dict):
                     self._step_foreach(
                         group,
-                        params,
-                        grads,
-                        state_dict['exp_avg'],
-                        state_dict['exp_avg_sq'],
-                        state_dict['decay'],
+                        batch['params'],
+                        batch['grads'],
+                        batch['exp_avg'],
+                        batch['exp_avg_sq'],
+                        batch['decay'],
+                        self.debias(group['beta'], group['step']),
                     )
             else:
                 self._step_per_param(group)

@@ -28,7 +28,10 @@ from probe.service.protocol import Method
 from tests.capture_stub import IngestStub
 from tests.service_harness import kill_agent, service_home, spawn_agent, wait_for  # noqa: F401
 
-pytestmark = pytest.mark.skipif(os.name != "posix", reason="the service records sessions on POSIX here")
+pytestmark = [
+    pytest.mark.skipif(os.name != "posix", reason="the service records sessions on POSIX here"),
+    pytest.mark.heavy,
+]
 
 TAP_ROOT = Path(__file__).resolve().parents[1] / "plugins" / "probe-research-tap"
 TAP_VERSION = next(

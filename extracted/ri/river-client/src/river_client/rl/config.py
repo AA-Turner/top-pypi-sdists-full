@@ -129,7 +129,8 @@ class Budget:
         final_answer_reserve: Tokens reserved for a final answer after tool use.
         tool_output_tokens: Per-tool-output cap before truncation.
         max_images: Optional cap on images in a trajectory.
-        max_turn_tokens: Optional cap on generated tokens in one turn.
+        max_turn_tokens: Optional cap on generated tokens in one turn. A
+            ``TurnResult`` from ``Env.on_turn`` replaces it for one turn.
     """
 
     max_turns: int = 8
@@ -164,6 +165,12 @@ class Budget:
                 "final_answer_reserve must fit inside generation and context budgets"
             )
 
+    def turn_cap(self, traj) -> int | None:
+        """Generated-token cap for the trajectory's current turn."""
+        if traj.active_turn_max_tokens is None:
+            return self.max_turn_tokens
+        return traj.active_turn_max_tokens
+
     def next_segment(self, traj) -> int:
         remaining = min(
             self.max_generated_tokens - traj.generated_tokens,
@@ -175,8 +182,9 @@ class Budget:
             and remaining > self.final_answer_reserve
         ):
             remaining -= self.final_answer_reserve
-        if self.max_turn_tokens is not None:
-            remaining = min(remaining, self.max_turn_tokens - len(traj.pending_tokens))
+        cap = self.turn_cap(traj)
+        if cap is not None:
+            remaining = min(remaining, cap - len(traj.pending_tokens))
         remaining = min(self.segment_tokens, remaining)
         # Quantize downward, never exceeding the budget. Segments that return
         # length are resumed; quantization does not shorten the trajectory.

@@ -70,6 +70,20 @@ REASONING_SHOWN_CHARS = 2_000
 HARNESS_SHOWN_CHARS = 300
 #: A file change (its first line, then the new file's start or the diff) shows this much.
 FILE_SHOWN_CHARS = 3_000
+#: The folder check's stream (`folders.py`).
+FOLDERS_STREAM = "folders"
+#: A file burst (daemon cost round 7, F3): more than `model.writer_file_burst()`
+#: folder-check "new file" events in a row -- a git checkout or worktree, an
+#: unpacked archive, a build's output -- show as one list, a line per folder,
+#: without their contents (those bodies were 89% of the text of strand-ai's large
+#: writer calls, 20-23 Oct). Each file stays one open away. Wording NEW
+#: (fixtures/daemon_prompts/bite/file-burst.PROPOSED.md; the `bash` set's in
+#: bash-markers.NEW.md).
+FILE_BURST = ("[{n:,} new files, listed without their contents: session op=open event_id=<id> shows one]",
+              "[{n:,} new files, listed without their contents: probe daemon session open <id> shows one]")
+#: About what a listed file adds to a bite's shown size (`cover`).
+FILE_LISTED_CHARS = 80
+_NEW_FILE_HEAD = re.compile(r"^new file (.+) \(([\d,]+) bytes\)")
 RECENT_WRITES = 10
 #: The stream of the daemon's own notices (`worker._notice_event`); any other
 #: META event is a line from the coding agent's harness.
@@ -225,6 +239,67 @@ def reader_shown_chars(ev: StoredEvent) -> int:
     return shown_chars(ev)
 
 
+def _new_file(ev: StoredEvent) -> bool:
+    """A folder-check "new file" event (`folders._apply`)."""
+    return (ev.kind == Kind.FILE_CHANGE and ev.stream == FOLDERS_STREAM
+            and ev.source not in (READER_SOURCE, REQUEST_SOURCE) and (ev.text or "").startswith("new file "))
+
+
+def _burst_runs(events: list[StoredEvent]) -> set[int]:
+    """The seqs of `events` inside a file burst (FILE_BURST): a run of more than
+    `model.writer_file_burst()` "new file" events in a row. None while it is 0."""
+    from probe.daemon import model as model_mod
+
+    limit = model_mod.writer_file_burst()
+    if limit <= 0:
+        return set()
+    out: set[int] = set()
+    run: list[int] = []
+    for ev in [*events, None]:
+        if ev is not None and _new_file(ev):
+            run.append(ev.seq)
+            continue
+        if len(run) > limit:
+            out.update(run)
+        run = []
+    return out
+
+
+def _burst_text(burst: list[StoredEvent]) -> str:
+    """One file burst as the writer reads it: FILE_BURST, then a line per folder
+    naming each file with its size and event id."""
+    folders: dict[str, list[str]] = {}
+    for ev in burst:
+        head = (ev.text or "").partition("\n")[0]
+        found = _NEW_FILE_HEAD.match(head)
+        path, size = (found.group(1), found.group(2)) if found else (head[len("new file "):], None)
+        folder, _, name = path.rpartition("/")
+        entry = (name or path) + (f" ({size} bytes)" if size else "") + f" {ev.event_id}"
+        folders.setdefault(folder, []).append(entry)
+    lines = [toolset.pick(*FILE_BURST).format(n=len(burst))]
+    lines += [f"{folder}/: " + " · ".join(entries) for folder, entries in folders.items()]
+    return "\n".join(lines)
+
+
+def rendered(events: list[StoredEvent]) -> list[tuple[StoredEvent, str]]:
+    """`events` as the writer reads them, each paired with its text: `render`,
+    except that each file burst (FILE_BURST) shows once, as a list, where its first
+    file was."""
+    burst = _burst_runs(events)
+    out: list[tuple[StoredEvent, str]] = []
+    run: list[StoredEvent] = []
+    for ev in [*events, None]:
+        if ev is not None and ev.seq in burst:
+            run.append(ev)
+            continue
+        if run:
+            out.append((run[0], _burst_text(run)))
+            run = []
+        if ev is not None:
+            out.append((ev, render(ev)))
+    return out
+
+
 @dataclass
 class Bite:
     first_seq: int  # the first new event covered
@@ -255,10 +330,16 @@ def cover(store: Store, shrink: tuple[int, int] | None = None) -> tuple[int, int
         budget //= 2
         max_events = max(1, min(max_events, int(shrink[1])))
     shown = 0
+    # Listed small only where they will be listed: the `index` layout sends them
+    # through the indexer instead (review 10-25).
+    from probe.daemon import model as model_mod
+
+    raw = model_mod.writer_events() == model_mod.WriterEvents.RAW
+    burst = _burst_runs(pending[:max_events]) if raw else set()
     for ev in pending[:max_events]:
         if ev.turn != first.turn and ev.stream == "main" and ev.kind == Kind.PROMPT:
             break
-        shown += shown_chars(ev)
+        shown += FILE_LISTED_CHARS if ev.seq in burst else shown_chars(ev)
         if shown > budget and ev is not first:
             break
         last = ev
@@ -303,8 +384,11 @@ def build(store: Store, *, trigger: str, context_line: str, pending_lines: list[
     # The writer never sees what arrived while the switch read `read only (daemon)`.
     # Above the divider the history a first worker left as context shows as context;
     # below it, only new events (`Store.cover_before_daemon`).
-    shown = _cap_turn([(ev, render(ev)) for ev in store.events_between(start, last_seq, recorded=True)
-                       if ev.seq < first_seq or ev.bite != BEFORE_DAEMON_BITE], first_seq, store.turn_of(last_seq))
+    kept = [ev for ev in store.events_between(start, last_seq, recorded=True)
+            if ev.seq < first_seq or ev.bite != BEFORE_DAEMON_BITE]
+    # The context and the new events apart, so a file burst never spans the divider.
+    shown = _cap_turn(rendered([ev for ev in kept if ev.seq < first_seq])
+                      + rendered([ev for ev in kept if ev.seq >= first_seq]), first_seq, store.turn_of(last_seq))
     chat: list[str] = []
     divider_done = False
     for ev, text in shown:
@@ -359,20 +443,25 @@ WRITER_COMMANDS = "commands"
 WRITER_TASK = "task"
 
 
-def writer_skill(skill_dir: Path) -> str:
-    """The writer's version of the skill in `skill_dir` as the running tool set shows it."""
+def writer_skill(skill_dir: Path, reader: str = "writer") -> str:
+    """The writer's version of the skill in `skill_dir` as the running tool set
+    shows it; `reader` "main-agent": the main agent's (the team-note audit's)."""
     from probe import skill_versions
 
+    if reader == skill_versions.MAIN_AGENT:
+        return skill_versions.render(skill_dir, skill_versions.MAIN_AGENT)
     extras: tuple[str, ...] = ()
     if toolset.bash_only():
         extras = (WRITER_COMMANDS, WRITER_TASK) if toolset.tasks() else (WRITER_COMMANDS,)
     return skill_versions.render(skill_dir, skill_versions.WRITER, extras)
 
 
-def skills_text(names: tuple[str, ...] = SHARED_SKILLS) -> str:
+def skills_text(names: tuple[str, ...] = SHARED_SKILLS, *, reader: str = "writer") -> str:
     """The researcher's skills, verbatim as the writer's version of each (front
     matter dropped; `writer_skill`): the daemon's whole judgment of what
-    and how to record -- or, for the audit, how to audit -- comes from them."""
+    and how to record -- or, for the audit, how to audit -- comes from them.
+    `reader` "main-agent": the main agent's versions (the team-note audit, which
+    reads the whole note it rewrites: daemon cost round 7, S2)."""
     root = skills_root()
     if root is None:
         # The job text says the judgment comes only from these: say so loudly.
@@ -387,7 +476,7 @@ def skills_text(names: tuple[str, ...] = SHARED_SKILLS) -> str:
             continue
         # The writer's version (track-work: its header, its commands with the
         # `bash` tool set, the base, its footer), never the main agent's.
-        text = skill_versions.split_front_matter(writer_skill(path.parent))[1]
+        text = skill_versions.split_front_matter(writer_skill(path.parent, reader))[1]
         out.append(f"# Skill: {name}\n\n{text.strip()}")
     return "\n\n".join(out)
 
@@ -423,8 +512,8 @@ def build_next(store: Store, *, trigger: str, instructions: str, shrink: tuple[i
                     window_first_turn=store.current_turn())
     first_seq, last_seq = span
     if events_text is None:
-        events_text = "\n\n".join(render(ev) for ev in store.events_between(first_seq, last_seq, recorded=True,
-                                                                                new=True))
+        events_text = "\n\n".join(text for _, text in rendered(
+            store.events_between(first_seq, last_seq, recorded=True, new=True)))
     prompt = f"{DIVIDER}\n\n{events_text}"
     return Bite(first_seq=first_seq, last_seq=last_seq, trigger=trigger, instructions=instructions, prompt=prompt,
                 window_first_turn=store.turn_of(first_seq))

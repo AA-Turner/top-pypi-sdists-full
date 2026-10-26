@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from schemathesis.core import media_types
 from schemathesis.core.file_samples import file_extension
 from schemathesis.transport.serialization import Binary
 
@@ -11,7 +10,10 @@ if TYPE_CHECKING:
 
 
 def prepare_multipart_v2(
-    operation: APIOperation, form_data: dict[str, Any], selected_content_types: dict[str, str] | None = None
+    operation: APIOperation,
+    form_data: dict[str, Any],
+    media_type: str,
+    selected_content_types: dict[str, str] | None = None,
 ) -> tuple[list[tuple[str, Any]] | None, dict[str, Any] | None]:
     files: list[tuple[str, Any]] = []
     data: dict[str, Any] = {}
@@ -20,8 +22,8 @@ def prepare_multipart_v2(
 
     known_fields: dict[str, dict[str, Any]] = {}
     for parameter in operation.body:
-        schema = parameter.definition.get("schema")
-        if isinstance(schema, dict):
+        schema = parameter.resolved_schema
+        if schema is not None:
             known_fields.update(schema.get("properties", {}))
 
     def add_part(name: str, value: Any, is_file: bool) -> None:
@@ -67,20 +69,16 @@ def _filename(name: str, value: object) -> str:
 
 
 def prepare_multipart_v3(
-    operation: APIOperation, form_data: dict[str, Any], selected_content_types: dict[str, str] | None = None
+    operation: APIOperation,
+    form_data: dict[str, Any],
+    media_type: str,
+    selected_content_types: dict[str, str] | None = None,
 ) -> tuple[list[tuple[str, Any]] | None, dict[str, Any] | None]:
     files: list[tuple[str, Any]] = []
-    schema: dict[str, Any] = {}
-    body_param = None
-    for body in operation.body:
-        if media_types.is_multipart_form_parts(media_types.parse(body.media_type)):
-            schema_node = body.definition.get("schema")
-            schema = schema_node if isinstance(schema_node, dict) else {}
-            body_param = body
-            break
-
+    body_param = operation.get_body_for_media_type(media_type)
+    properties = body_param.form_properties if body_param is not None else {}
     for name, value in form_data.items():
-        property_schema = schema.get("properties", {}).get(name)
+        property_schema = properties.get(name)
         # Use the selected content type if available, otherwise check encoding definition
         content_type = None
         if selected_content_types and name in selected_content_types:
@@ -89,9 +87,9 @@ def prepare_multipart_v3(
             content_type = next(iter(body_param.get_property_content_types(name)), None)
 
         if isinstance(property_schema, dict):
+            declared = body_param.get_property_filename(name) if body_param else None
             if isinstance(value, list):
                 if _is_file_part(property_schema.get("items")):
-                    declared = body_param.get_property_filename(name) if body_param else None
                     for item in value:
                         filename = declared or _filename(name, item)
                         if content_type:
@@ -103,7 +101,7 @@ def prepare_multipart_v3(
                 else:
                     files.extend((name, (None, item)) for item in value)
             elif _is_file_part(property_schema):
-                filename = (body_param.get_property_filename(name) if body_param else None) or _filename(name, value)
+                filename = declared or _filename(name, value)
                 if content_type:
                     files.append((name, (filename, value, content_type)))
                 else:

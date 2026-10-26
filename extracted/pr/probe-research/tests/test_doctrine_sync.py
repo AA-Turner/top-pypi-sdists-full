@@ -160,6 +160,11 @@ _FEATURE_PHRASES: dict[str, tuple[str, ...]] = {
     "description": ("description comes from its summary",),
     "question": ("--question",),
     "conclusion": ("--conclusion",),
+    # A project's headline metric and best pick (`probe project set --metric
+    # --goal / --best --reason`): the researcher names the metric and its
+    # direction, and agrees to a new pick before it is set.
+    "project headline metric": ("which way is better",),
+    "project best pick": ("only if they agree",),
     # The researcher's block is theirs by policy since 2026-09-17 (the
     # `--summary` flag still exists); the rest of the summary is the recorder's
     # (`probe summary`, the write-summary skill), and so are an experiment's
@@ -181,6 +186,9 @@ _FEATURE_PHRASES: dict[str, tuple[str, ...]] = {
     # `probe run child` opens a run nothing owns and is refused in the next
     # release; a relaunch is a child launched with `--parent`.
     "sub-runs": ("--parent RUN --relation",),
+    # Every follow-up links to what it built on, or the project's branch
+    # view has no edge to draw it from.
+    "lineage: follow-ups draw the branch": ("that draws its branch",),
     # inputs
     "snapshot": ("probe snapshot",),
     "snapshot includes": ("--include",),

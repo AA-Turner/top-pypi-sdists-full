@@ -1,15 +1,24 @@
 import math
+from collections.abc import Callable
 
 import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, ParamGroup, ParamsT
-from pytorch_optimizer.optimizer.foreach_utils import group_tensors_by_device_and_dtype
+from pytorch_optimizer.optimizer.utils.foreach import (
+    compile_foreach_step,
+    foreach_add_,
+    foreach_addcdiv_,
+    foreach_lerp_,
+    group_tensors_by_device_and_dtype,
+)
 
 
 class AdEMAMix(BaseOptimizer):
     """Adam with a mixture of fast and slow gradient momentum.
+
+    Compiled foreach updates keep float16 and bfloat16 arithmetic eager to preserve update rounding.
 
     Args:
         params: Parameters to optimize or dictionaries defining parameter groups.
@@ -26,10 +35,12 @@ class AdEMAMix(BaseOptimizer):
 
     """
 
+    _supports_compiled_foreach = True
+
     def __init__(
         self,
         params: ParamsT,
-        lr: float = 1e-3,
+        lr: float | torch.Tensor = 1e-3,
         betas: Betas = (0.9, 0.999, 0.9999),
         weight_decay: float = 0.0,
         weight_decouple: bool = False,
@@ -50,6 +61,7 @@ class AdEMAMix(BaseOptimizer):
 
         self.maximize = maximize
         self.foreach = foreach
+        self._compiled_step_foreach: Callable | None = None
 
         defaults: Defaults = {
             'lr': lr,
@@ -68,6 +80,9 @@ class AdEMAMix(BaseOptimizer):
 
     def __str__(self) -> str:
         return 'AdEMAMix'
+
+    def _compile_foreach(self, compile_kwargs: dict | None = None) -> None:
+        self._compiled_step_foreach = compile_foreach_step(self._step_foreach, compile_kwargs)
 
     def init_group(self, group: ParamGroup, **kwargs) -> None:
         if 'step' not in group:
@@ -120,7 +135,7 @@ class AdEMAMix(BaseOptimizer):
         bias_correction1: float,
         bias_correction2_sq: float,
         alpha_t: float,
-        beta3_t: float,
+        beta3_t: float | torch.Tensor,
     ) -> None:
         beta1, beta2, _ = group['betas']
 
@@ -134,8 +149,24 @@ class AdEMAMix(BaseOptimizer):
         torch._foreach_lerp_(exp_avgs, grads, weight=1.0 - beta1)
         torch._foreach_mul_(exp_avg_sqs, beta2)
         torch._foreach_addcmul_(exp_avg_sqs, grads, grads, value=1.0 - beta2)
-        torch._foreach_lerp_(exp_avg_slows, grads, weight=1.0 - beta3_t)
+        foreach_lerp_(exp_avg_slows, grads, weight=1.0 - beta3_t)
 
+        self._apply_update_foreach(
+            group, params, grads, exp_avgs, exp_avg_sqs, exp_avg_slows, bias_correction1, bias_correction2_sq, alpha_t
+        )
+
+    def _apply_update_foreach(
+        self,
+        group: ParamGroup,
+        params: list[torch.Tensor],
+        grads: list[torch.Tensor],
+        exp_avgs: list[torch.Tensor],
+        exp_avg_sqs: list[torch.Tensor],
+        exp_avg_slows: list[torch.Tensor],
+        bias_correction1: float | torch.Tensor,
+        bias_correction2_sq: float | torch.Tensor,
+        alpha_t: float | torch.Tensor,
+    ) -> None:
         de_noms = torch._foreach_sqrt(exp_avg_sqs)
         torch._foreach_div_(de_noms, bias_correction2_sq)
         torch._foreach_add_(de_noms, group['eps'])
@@ -148,14 +179,16 @@ class AdEMAMix(BaseOptimizer):
         else:
             updates = torch._foreach_div(exp_avgs, bias_correction1)
 
-        torch._foreach_add_(updates, exp_avg_slows, alpha=alpha_t)
-        torch._foreach_div_(updates, de_noms)
+        foreach_add_(updates, exp_avg_slows, alpha=alpha_t)
 
-        if group.get('stable_adamw'):
-            rms = [self.get_stable_adamw_rms(grad, exp_avg_sq) for grad, exp_avg_sq in zip(grads, exp_avg_sqs)]
-            torch._foreach_div_(updates, rms)
-
-        torch._foreach_add_(params, updates, alpha=-group['lr'])
+        if group.get('stable_adamw') or params[0].dtype in (torch.float16, torch.bfloat16):
+            torch._foreach_div_(updates, de_noms)
+            if group.get('stable_adamw'):
+                rms = [self.get_stable_adamw_rms(grad, exp_avg_sq) for grad, exp_avg_sq in zip(grads, exp_avg_sqs)]
+                torch._foreach_div_(updates, rms)
+            foreach_add_(params, updates, alpha=-group['lr'])
+        else:
+            foreach_addcdiv_(params, updates, de_noms, value=-group['lr'])
 
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
@@ -180,8 +213,16 @@ class AdEMAMix(BaseOptimizer):
                 params, grads, state_dict = self.collect_trainable_params(
                     group, self.state, state_keys=['exp_avg', 'exp_avg_sq', 'exp_avg_slow']
                 )
+
                 for batch in group_tensors_by_device_and_dtype(params, grads, state_dict):
-                    self._step_foreach(
+                    update = self._step_foreach
+                    if self._compiled_step_foreach is not None and batch['params'][0].dtype not in (
+                        torch.float16,
+                        torch.bfloat16,
+                    ):
+                        update = self._compiled_step_foreach
+
+                    update(
                         group,
                         batch['params'],
                         batch['grads'],
@@ -193,6 +234,7 @@ class AdEMAMix(BaseOptimizer):
                         alpha_t,
                         beta3_t,
                     )
+
                 continue
 
             for p in group['params']:
@@ -222,16 +264,22 @@ class AdEMAMix(BaseOptimizer):
 
                 de_nom = exp_avg_sq.sqrt().div_(bias_correction2_sq).add_(group['eps'])
 
-                update = exp_avg.clone()
                 if group.get('cautious'):
+                    update = exp_avg.clone()
                     self.apply_cautious(update, grad)
+                    update.div_(bias_correction1)
+                else:
+                    update = exp_avg.div(bias_correction1)
 
-                update.div_(bias_correction1).add_(exp_avg_slow, alpha=alpha_t).div_(de_nom)
+                update.add_(exp_avg_slow, alpha=alpha_t)
 
-                if group.get('stable_adamw'):
-                    update.div_(self.get_stable_adamw_rms(grad, exp_avg_sq))
-
-                p.add_(update, alpha=-group['lr'])
+                if group.get('stable_adamw') or p.dtype in (torch.float16, torch.bfloat16):
+                    update.div_(de_nom)
+                    if group.get('stable_adamw'):
+                        update.div_(self.get_stable_adamw_rms(grad, exp_avg_sq))
+                    p.add_(update, alpha=-group['lr'])
+                else:
+                    p.addcdiv_(update, de_nom, value=-group['lr'])
 
         return loss
 
@@ -255,10 +303,12 @@ class SimplifiedAdEMAMix(BaseOptimizer):
 
     """
 
+    _supports_compiled_foreach = True
+
     def __init__(
         self,
         params: ParamsT,
-        lr: float = 1e-4,
+        lr: float | torch.Tensor = 1e-4,
         betas: Betas = (0.99, 0.95),
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
@@ -344,7 +394,8 @@ class SimplifiedAdEMAMix(BaseOptimizer):
         grads: list[torch.Tensor],
         exp_avgs: list[torch.Tensor],
         exp_avg_sqs: list[torch.Tensor],
-        beta1: float,
+        beta1: float | torch.Tensor,
+        den_sums: torch.Tensor,
     ) -> None:
         beta2 = group['betas'][1]
 
@@ -355,26 +406,18 @@ class SimplifiedAdEMAMix(BaseOptimizer):
             params, grads, group['lr'], group['weight_decay'], group['weight_decouple'], group['fixed_decay']
         )
 
-        torch._foreach_lerp_(exp_avgs, grads, weight=1.0 - beta1)
+        foreach_lerp_(exp_avgs, grads, weight=1.0 - beta1)
         torch._foreach_mul_(exp_avg_sqs, beta2)
         torch._foreach_addcmul_(exp_avg_sqs, grads, grads, value=1.0 - beta2)
 
-        den_sums: list[float] = []
-        for p in params:
-            state = self.state[p]
-            state['num_sum'] = beta1 * state['num_sum'] + 1.0
-            state['den_sum'] = beta2 * state['den_sum'] + (1.0 - beta2)
-            den_sums.append(math.sqrt(state['den_sum']))
-
         de_noms = torch._foreach_sqrt(exp_avg_sqs)
-        torch._foreach_add_(de_noms, [den_sum * group['eps'] for den_sum in den_sums])
+        torch._foreach_add_(de_noms, (den_sums * group['eps']).unbind())
 
-        updates = torch._foreach_mul(grads, group['alpha'])
-        torch._foreach_add_(updates, exp_avgs)
+        updates = torch._foreach_add(exp_avgs, grads, alpha=group['alpha'])
         torch._foreach_div_(updates, de_noms)
-        torch._foreach_div_(updates, den_sums)
+        torch._foreach_div_(updates, den_sums.unbind())
 
-        torch._foreach_add_(params, updates, alpha=-group['lr'])
+        foreach_add_(params, updates, alpha=-group['lr'])
 
     @torch.no_grad()
     def step(self, closure: Closure = None) -> Loss:
@@ -399,8 +442,15 @@ class SimplifiedAdEMAMix(BaseOptimizer):
                     group, self.state, state_keys=['exp_avg', 'exp_avg_sq']
                 )
                 for batch in group_tensors_by_device_and_dtype(params, grads, state_dict):
+                    den_sums = []
+                    for p in batch['params']:
+                        state = self.state[p]
+                        state['num_sum'] = beta1 * state['num_sum'] + 1.0
+                        state['den_sum'] = beta2 * state['den_sum'] + (1.0 - beta2)
+                        den_sums.append(math.sqrt(state['den_sum']))
+                    den_sums = torch.tensor(den_sums, device=batch['params'][0].device, dtype=torch.float32)
                     self._step_foreach(
-                        group, batch['params'], batch['grads'], batch['exp_avg'], batch['exp_avg_sq'], beta1
+                        group, batch['params'], batch['grads'], batch['exp_avg'], batch['exp_avg_sq'], beta1, den_sums
                     )
                 continue
 
@@ -433,7 +483,7 @@ class SimplifiedAdEMAMix(BaseOptimizer):
 
                 de_nom = exp_avg_sq.sqrt().add_(math.sqrt(state['den_sum']) * group['eps'])
 
-                update = (group['alpha'] * grad + exp_avg).div_(de_nom).div_(math.sqrt(state['den_sum']))
+                update = exp_avg.add(grad, alpha=group['alpha']).div_(de_nom).div_(math.sqrt(state['den_sum']))
 
                 p.add_(update, alpha=-group['lr'])
 

@@ -73,7 +73,7 @@ module m;
     assert property (not a ##1 b);
     assert property (accept_on(b) sync_reject_on(c) sync_accept_on(d) reject_on(e) b ##1 c);
     assume property (if (b) a ##1 c else d ##1 e);
-    cover property (case (b) 1, 2, 3: 1 ##1 b; 4: a and b; default: 1 or b; endcase);
+    cover property (case (b) 1'b0: 1 ##1 b; 1'b1: a and b; default: 1 or b; endcase);
     restrict property (@(posedge b) ((b) and b) ##0 b);
 endmodule
 )");
@@ -627,6 +627,92 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
     NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Instance passed as argument to the same sequence / property is not recursive") {
+    auto tree = SyntaxTree::fromText(R"(
+module top(input logic clk, a, b, c, output logic y);
+    sequence s(x, y);
+        x ##1 y;
+    endsequence
+
+    property p1(x, property q);
+        x |=> q;
+    endproperty
+
+    property p2(x, property q);
+        x |-> q;
+    endproperty
+
+    property pq(x, property q);
+        q and nexttime pq(x, q);
+    endproperty
+
+    property pa(property q);
+        q and nexttime pb(q);
+    endproperty
+
+    property pb(property q);
+        q and nexttime pa(q);
+    endproperty
+
+    let l(x) = x + 1;
+    assign y = l(l(a));
+
+    c1: cover property (@(posedge clk) s(a, s(b, c).triggered));
+    a1: assert property (@(posedge clk) p2(a, p2(b, c)));
+    a2: assert property (@(posedge clk) not p1(a, p1(b, c)));
+    a3: assert property (@(posedge clk) pq(a, pq(b, c)));
+    a4: assert property (@(posedge clk) pa(pb(pa(c))));
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Recursive property instance passed as argument still checked") {
+    auto tree = SyntaxTree::fromText(R"(
+module top(input logic clk, a, b);
+    property prop_always(p);
+        p and (1'b1 |=> prop_always(p));
+    endproperty
+
+    property p1(x, property q);
+        x |=> q;
+    endproperty
+
+    property r(property q);
+        q;
+    endproperty
+
+    property pv(x);
+        r(x and pv(x));
+    endproperty
+
+    sequence t(y);
+        y;
+    endsequence
+
+    sequence sv(x);
+        t(sv(x));
+    endsequence
+
+    a1: assert property (@(posedge clk) not p1(a, prop_always(b)));
+    a2: assert property (@(posedge clk) pv(a));
+    c1: cover property (@(posedge clk) sv(a));
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 3);
+    CHECK(diags[0].code == diag::RecursivePropNegation);
+    CHECK(diags[1].code == diag::RecursivePropTimeAdvance);
+    CHECK(diags[2].code == diag::RecursiveSequence);
 }
 
 TEST_CASE("Event argument to sequence instance") {
@@ -1519,8 +1605,8 @@ endmodule
     test("if (1'b1) a ##1 c else d ##1 e");
     test("if (a) b intersect ##2 b", diag::SeqNoMatch);
     test("if (a) ##2 b intersect ##2 b");
-    test("case (b) 1, 2, 3: 1 ##1 b; 4: a and b; default: 1 |-> b; endcase");
-    test("case (b) 1, 2, 3: 1 ##1 b; 4: a and b; default: 1[*0] |-> b; endcase",
+    test("case (b) 1'b0: 1 ##1 b; 1'b1: a and b; default: 1 |-> b; endcase");
+    test("case (b) 1'b0: 1 ##1 b; 1'b1: a and b; default: 1[*0] |-> b; endcase",
          diag::SeqOnlyEmpty);
     test("disable iff (clk) a");
 }
@@ -1842,4 +1928,58 @@ endmodule
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::AssertionExprType);
+}
+
+TEST_CASE("Property case item type checking") {
+    auto tree = SyntaxTree::fromText(R"(
+class C; endclass
+module m(input clk, input logic [3:0] a, input real r, input string s);
+    C c;
+    event ev;
+    int arr[2];
+    assert property (@(posedge clk) case (a) 4'd1, 5'd17: 1; default: clk; endcase);
+    assert property (@(posedge clk) case (a) ev: 1; endcase);
+    assert property (@(posedge clk) case (a) arr: 1; endcase);
+    assert property (@(posedge clk) case (c) null: 1; endcase);
+    assert property (@(posedge clk) case (r) 1.5, 2: 1; endcase);
+    assert property (@(posedge clk) case (s) "hi": 1; endcase);
+    assume property (@(posedge clk) case (a dist {0:=1, 1:=2}) 1: 1; endcase);
+    assume property (@(posedge clk) case (clk) a dist {0:=1}, 1'b1: 1; endcase);
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 6);
+    CHECK(diags[0].code == diag::CaseOutsideRange);
+    CHECK(diags[1].code == diag::CaseTypeMismatch);
+    CHECK(diags[2].code == diag::NoCommonComparisonType);
+    CHECK(diags[3].code == diag::BadSetMembershipType);
+    CHECK(diags[4].code == diag::AssertionExprType);
+    CHECK(diags[5].code == diag::AssertionExprType);
+}
+
+TEST_CASE("Untyped first formal argument of assertion items") {
+    auto tree = SyntaxTree::fromText(R"(
+checker c1(untyped a);
+endchecker
+
+module m;
+    sequence s1(untyped a);
+        a;
+    endsequence
+
+    property p1(untyped a);
+        a;
+    endproperty
+
+    let l1(untyped a) = a;
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
 }

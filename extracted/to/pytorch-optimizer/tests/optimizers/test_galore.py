@@ -1,12 +1,12 @@
 import pytest
 import torch
 
-from pytorch_optimizer.optimizer.galore_utils import GaLoreProjector
+from pytorch_optimizer.optimizer.utils.galore import GaLoreProjector
+from tests.fixtures import make_parameter
+from tests.utils import build_optimizer
 
 
 class TestGaLoreProjector:
-    """Tests for GaLore projector methods."""
-
     @pytest.fixture
     def sample_tensor(self):
         return torch.tensor([[1.0, 2.0], [3.0, 4.0]], dtype=torch.float32)
@@ -37,9 +37,11 @@ class TestGaLoreProjector:
         with pytest.raises(ValueError):
             full_projector.project_back(sample_tensor)
 
-    def test_left_projection_with_random_matrix(self, sample_tensor):
-        projector = GaLoreProjector(projection_type='left', rank=1)
-        projector.get_orthogonal_matrix(sample_tensor, projection_type='left', from_random_matrix=True)
+    def test_left_projection_with_random_matrix(self, sample_tensor, monkeypatch):
+        monkeypatch.setattr(torch, 'randn', torch.ones)
+        projector = GaLoreProjector(projection_type='left', rank=2)
+        basis = projector.get_orthogonal_matrix(sample_tensor, projection_type='left', from_random_matrix=True)
+        torch.testing.assert_close(basis, torch.full_like(sample_tensor, 2.0**-0.5))
 
     def test_left_projection_without_rank(self, sample_tensor):
         projector = GaLoreProjector(projection_type='left', rank=None)
@@ -50,3 +52,44 @@ class TestGaLoreProjector:
         projector = GaLoreProjector(projection_type='std', rank=1)
         with pytest.raises(ValueError):
             projector.get_orthogonal_matrix(sample_tensor, projection_type='std')
+
+
+def test_conda_projected_second_moment():
+    parameter = make_parameter((4, 3), grad=1.0)
+    optimizer = build_optimizer('conda', [parameter], lr=0.1, betas=(0.0, 0.0), projection_type='full')
+    reference = GaLoreProjector(rank=None, projection_type='full')
+    projected = reference.project(parameter.grad.clone(), 1)
+    expected = -0.1 * reference.project_back(projected / (projected.abs() + 1e-8))
+
+    optimizer.init_group(optimizer.param_groups[0])
+    torch.testing.assert_close(optimizer.state[parameter]['exp_avg_sq'], torch.zeros_like(projected))
+
+    optimizer.step()
+
+    torch.testing.assert_close(optimizer.state[parameter]['exp_avg_sq'], projected.square())
+    torch.testing.assert_close(parameter, expected)
+
+
+def test_fira_reduced_rank_compensation():
+    parameter = make_parameter((3, 4))
+    parameter.grad = torch.arange(1.0, parameter.numel() + 1).reshape_as(parameter) / 10.0
+    projector = GaLoreProjector(rank=2, scale=1.0, projection_type='right')
+    projected = projector.project(parameter.grad, 1)
+    adaptive = projected / (projected.abs() + 1e-6)
+    scale = adaptive.norm(dim=1, keepdim=True) / (projected.norm(dim=1, keepdim=True) + 1e-8)
+    residual = parameter.grad - projector.project_back(projected)
+    expected = -0.1 * (projector.project_back(adaptive) + residual * scale)
+
+    optimizer = build_optimizer(
+        'fira',
+        [parameter],
+        lr=0.1,
+        betas=(0.0, 0.0),
+        rank=2,
+        scale=1.0,
+        update_proj_gap=2,
+        projection_type='right',
+    )
+    optimizer.step()
+
+    torch.testing.assert_close(parameter, expected)

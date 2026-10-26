@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zttp
-Version: 0.0.34
+Version: 0.0.35
 Summary: A sans-IO HTTP/1.1, HTTP/2, and HTTP/3 parser for Python with a Zig core.
 Project-URL: Homepage, https://github.com/Kludex/zttp
 Project-URL: Source, https://github.com/Kludex/zttp
@@ -16,7 +16,6 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -24,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Zig
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: typing-extensions>=4.6
 Description-Content-Type: text/markdown
 
@@ -89,7 +88,7 @@ The key features are:
 
 ## Requirements
 
-zttp needs **CPython 3.10+** and runs on **Linux**, **macOS**, and **Windows**.
+zttp needs **CPython 3.11+** and runs on **Linux**, **macOS**, and **Windows**.
 
 ## Installation
 

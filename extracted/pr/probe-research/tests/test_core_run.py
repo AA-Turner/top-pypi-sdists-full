@@ -156,8 +156,10 @@ FAKE_DEVICE = textwrap.dedent(
 
     if "noisy_update" in fakes:
         upgrading.perform_update = noisy_update
+        upgrading.perform_updates = lambda sources, **kw: {source: noisy_update(**kw) for source in sources}
     if "aborted_update" in fakes:
         upgrading.perform_update = aborted_update
+        upgrading.perform_updates = lambda sources, **kw: aborted_update(**kw)
 
     mode, args = sys.argv[1], sys.argv[2:]
     if mode == "cli":
@@ -357,6 +359,7 @@ def test_update_is_the_same_run_as_the_apps_wizard_command(tmp_path):
     _assert_same_run(*_both(tmp_path, "update", fakes=("noisy_update",)))
 
 
+@pytest.mark.heavy
 def test_uninstall_is_the_same_run_as_the_apps_wizard_command(tmp_path):
     _assert_same_run(*_both(tmp_path, "uninstall", fakes=("signed_in",)))
 

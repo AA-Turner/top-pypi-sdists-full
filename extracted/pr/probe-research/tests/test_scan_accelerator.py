@@ -117,6 +117,7 @@ _DOCUMENTS = [
 
 
 @pytest.mark.parametrize("noise", [0.0, 1.0])
+@pytest.mark.heavy
 def test_accelerated_gate_equals_the_exact_gate(noise):
     accel = _reference(noise)
     flagged = clean = encoded = 0

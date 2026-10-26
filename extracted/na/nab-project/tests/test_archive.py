@@ -16,6 +16,7 @@ import os
 import sys
 import tarfile
 import traceback
+import zipfile
 import zlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -207,6 +208,7 @@ def _warm_extracted_tree(cache: Path, digest: str) -> None:
     tree.mkdir(parents=True)
     (tree / "pyproject.toml").write_text(_PYPROJECT, encoding="utf-8")
     (target / ".nab-hashes").write_text(f"sha256={digest}", encoding="utf-8")
+    (target / ".nab-root").write_text("", encoding="ascii")
     (target / ".nab-complete").touch()
 
 
@@ -627,6 +629,46 @@ class TestArchiveMaterialize:
         assert str(versions[0][0]) == "1.0.0"
         assert sentinel.exists()
 
+    @requires_data_filter
+    def test_dynamic_backend_receives_wrapped_root_name(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pyproject = (
+            '[project]\nname = "foo"\nversion = "1.0.0"\ndynamic = ["dependencies"]\n'
+        )
+        data = _make_sdist("foo", "1.0.0", pyproject)
+        digest = hashlib.sha256(data).hexdigest()
+        source = ArchiveSource(
+            name="foo", url=f"https://ex.com/foo-1.0.0.tar.gz#sha256={digest}"
+        )
+        cache = tmp_path / "arch"
+        provider = _provider([source], cache, build_policy=BuildPolicy.BUILD_REMOTE)
+        provider.coordinator.index.store_sdist_archive("foo", digest, data)
+
+        backend_roots: list[str] = []
+
+        def capturing_backend(path: Path, **_kwargs: object) -> WheelMetadata:
+            backend_roots.append(path.name)
+            return WheelMetadata(
+                name="foo",
+                version=Version("1.0.0"),
+                requires_python=None,
+                requires_dist=[],
+                provides_extra=[],
+            )
+
+        monkeypatch.setattr(
+            "nab_project.build_backend.extract_metadata", capturing_backend
+        )
+
+        versions = provider.fetch_versions("foo")
+
+        assert str(versions[0][0]) == "1.0.0"
+        assert backend_roots == ["foo-1.0.0"]
+        assert (cache / digest / "tree" / "foo-1.0.0" / "pyproject.toml").is_file()
+
     def test_dynamic_backend_mutation_does_not_poison_cached_tree(
         self,
         tmp_path: Path,
@@ -847,9 +889,13 @@ class TestArchiveMaterialize:
         target = cache / digest
         seen_mid_extract: list[bool] = []
 
-        def watching_extract(payload: bytes, target_dir: Path) -> Path:
+        def watching_extract(
+            payload: bytes, target_dir: Path, *, allow_zip: bool
+        ) -> Path:
+            assert not allow_zip
+
             seen_mid_extract.append(target.exists())
-            return extract_sdist_archive(payload, target_dir)
+            return extract_sdist_archive(payload, target_dir, allow_zip=allow_zip)
 
         monkeypatch.setattr(sources, "extract_sdist_archive", watching_extract)
         provider = _provider([source], cache)
@@ -859,7 +905,7 @@ class TestArchiveMaterialize:
 
         assert seen_mid_extract == [False]
         assert str(versions[0][0]) == "1.0.0"
-        assert (target / "tree" / "pyproject.toml").is_file()
+        assert (target / "tree" / "foo-1.0.0" / "pyproject.toml").is_file()
         assert (target / ".nab-complete").is_file()
 
     @requires_data_filter
@@ -879,9 +925,13 @@ class TestArchiveMaterialize:
         target = cache / digest
         seen_mid_extract: list[bool] = []
 
-        def racing_extract(payload: bytes, target_dir: Path) -> Path:
+        def racing_extract(
+            payload: bytes, target_dir: Path, *, allow_zip: bool
+        ) -> Path:
+            assert not allow_zip
+
             seen_mid_extract.append(target.exists())
-            root = extract_sdist_archive(payload, target_dir)
+            root = extract_sdist_archive(payload, target_dir, allow_zip=allow_zip)
             _warm_extracted_tree(cache, digest)
             (target / "tree" / "WINNER").write_text("", encoding="utf-8")
             return root
@@ -909,8 +959,12 @@ class TestArchiveMaterialize:
         digest = hashlib.sha256(data).hexdigest()
         cache = tmp_path / "arch"
 
-        def interrupted_extract(payload: bytes, target_dir: Path) -> Path:
-            extract_sdist_archive(payload, target_dir)
+        def interrupted_extract(
+            payload: bytes, target_dir: Path, *, allow_zip: bool
+        ) -> Path:
+            assert not allow_zip
+
+            extract_sdist_archive(payload, target_dir, allow_zip=allow_zip)
             raise KeyboardInterrupt
 
         monkeypatch.setattr(sources, "extract_sdist_archive", interrupted_extract)
@@ -970,7 +1024,12 @@ class TestArchiveChosenNames:
 
     @requires_data_filter
     @pytest.mark.parametrize(
-        "marker", [sources._COMPLETE_MARKER, sources._HASHES_MARKER]
+        "marker",
+        [
+            sources._COMPLETE_MARKER,
+            sources._HASHES_MARKER,
+            sources._ROOT_MARKER,
+        ],
     )
     def test_root_named_like_a_cache_marker_resolves(
         self, marker: str, tmp_path: Path
@@ -985,6 +1044,7 @@ class TestArchiveChosenNames:
         assert sorted(entry.name for entry in target.iterdir()) == [
             ".nab-complete",
             ".nab-hashes",
+            ".nab-root",
             "tree",
         ]
 
@@ -1028,6 +1088,61 @@ class TestWarmArchiveCache:
 
         assert str(versions[0][0]) == "1.0.0"
         assert not provider.coordinator.calls_to("request_direct_archive")
+
+    @requires_data_filter
+    def test_fixed_tree_layout_is_reextracted(self, tmp_path: Path) -> None:
+        data = _make_sdist("foo", "1.0.0", _PYPROJECT)
+        digest = hashlib.sha256(data).hexdigest()
+        source = ArchiveSource(
+            name="foo", url=f"https://ex.com/foo-1.0.0.tar.gz#sha256={digest}"
+        )
+        cache = tmp_path / "arch"
+        target = cache / digest
+        old_tree = target / "tree"
+        old_tree.mkdir(parents=True)
+        (old_tree / "pyproject.toml").write_text(
+            '[project]\nname = "foo"\nversion = "99.0"\n', encoding="utf-8"
+        )
+        (target / ".nab-hashes").write_text(f"sha256={digest}", encoding="utf-8")
+        (target / ".nab-complete").touch()
+
+        provider = _provider([source], cache)
+        provider.coordinator.index.store_sdist_archive("foo", digest, data)
+
+        versions = provider.fetch_versions("foo")
+
+        assert str(versions[0][0]) == "1.0.0"
+        assert (target / ".nab-root").is_file()
+        assert (target / "tree" / "foo-1.0.0" / "pyproject.toml").is_file()
+        assert len(provider.coordinator.calls_to("request_direct_archive")) == 1
+
+    @pytest.mark.parametrize(
+        "root_record",
+        [
+            pytest.param(os.fsencode("..").hex(), id="parent"),
+            pytest.param(os.fsencode("nested/name").hex(), id="nested"),
+            pytest.param(os.fsencode("missing").hex(), id="missing"),
+            pytest.param("not-hex", id="not-hex"),
+        ],
+    )
+    def test_unusable_root_record_is_not_served(
+        self, tmp_path: Path, root_record: str
+    ) -> None:
+        digest = "b" * 64
+        source = ArchiveSource(
+            name="foo", url=f"https://ex.com/foo-1.0.0.tar.gz#sha256={digest}"
+        )
+        cache = tmp_path / "arch"
+        target = cache / digest
+        _warm_extracted_tree(cache, digest)
+        (target / ".nab-root").write_text(root_record, encoding="ascii")
+
+        provider = _provider([source], cache)
+
+        with pytest.raises(UnsupportedSdistError, match="download.*failed"):
+            provider.fetch_versions("foo")
+        with pytest.raises(UnsupportedSdistError, match="cache entry is incomplete"):
+            sources._extracted_root(target)
 
     def test_partial_tree_without_marker_is_not_served(self, tmp_path: Path) -> None:
         # Without the completion marker the tree is a crashed run's leftover,
@@ -1751,3 +1866,15 @@ class TestSourceWithoutProjectFile:
         with pytest.raises(UnsupportedSdistError) as excinfo:
             self._extract(tmp_path, kind="local", policy=BuildPolicy.NEVER)
         assert "has dynamic metadata" in str(excinfo.value)
+
+
+def test_declared_tarball_source_refuses_zip_bytes(tmp_path: Path) -> None:
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w") as archive:
+        archive.writestr("foo-1.0.0/pyproject.toml", _PYPROJECT)
+    data = output.getvalue()
+    digest = hashlib.sha256(data).hexdigest()
+    with pytest.raises(UnsupportedSdistError, match="archive could not be extracted"):
+        sources._extract_archive(
+            tmp_path / "cache", digest, data, (("sha256", digest),)
+        )

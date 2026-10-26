@@ -38,7 +38,6 @@ import importlib.util
 import io
 import json
 import math
-import re
 import struct
 import sys
 import tempfile
@@ -51,7 +50,9 @@ from typing import Any
 
 import numpy as np
 import torch
-from diffusers.loaders import single_file_utils
+from diffusers.loaders import lora_conversion_utils, single_file_utils
+from diffusers.utils import state_dict_utils
+from transformers import AutoConfig, AutoModelForImageTextToText
 
 PINS = {"diffusers": "0.40.0", "transformers": "5.16.1"}
 ROOT = Path(__file__).resolve().parents[1]
@@ -264,10 +265,11 @@ SINGLE_FILE = {
 
 
 def single_file(name: str) -> tuple[dict[str, Any], dict[str, dict[str, tuple[int, ...]]]]:
-    """The table, and each component's target shapes (for the LoRA tables)."""
+    """The table, and each component's linears and convolutions with their weight shapes (the
+    LoRA tables' targets)."""
     spec = SINGLE_FILE[name]
     prefixes = [c["prefix"] for c in spec["components"]]
-    components, shapes = [], {}
+    components, shapes, layers = [], {}, {}
     for c in spec["components"]:
         prefix = c["prefix"]
         source = header(VECTORS / c.get("header", spec.get("header")))
@@ -305,11 +307,15 @@ def single_file(name: str) -> tuple[dict[str, Any], dict[str, dict[str, tuple[in
         upstream = header(VECTORS / c["upstream"])
         assert {t: tuple(s) for t, s in shapes[c["name"]].items()} == {k: s for k, (_, s) in upstream.items()}, (
             name, c["name"], "targets are not upstream's on-disk names and shapes")
+        layers[c["name"]] = {
+            on_disk(f"{path}.weight").removesuffix(".weight"): shapes[c["name"]][on_disk(f"{path}.weight")]
+            for path, module in model.named_modules() if isinstance(module, (torch.nn.Linear, torch.nn.Conv2d))
+        }
         present = {k.removeprefix(prefix) for k in checkpoint}
         optional = sorted(c.get("optional", []))
         components.append({"name": c["name"], "prefix": prefix, "cast": spec["cast"],
                            "drop": sorted(present - used - set(optional)), "optional": optional, "rows": rows})
-    return {"name": name, "reference": spec["reference"], "components": components}, shapes
+    return {"name": name, "reference": spec["reference"], "components": components}, layers
 
 
 # ------------------------------------------------------------------ MiniMax-H3
@@ -421,33 +427,53 @@ def h3_lora(h3: Any, source: dict[str, tuple[str, tuple[int, ...]]]) -> dict[str
 
 # ------------------------------------------------------------------ SDXL LoRA
 
-SDXL_LORA = {
-    "unet": ("lora_unet_", re.compile(
-        r"(down_blocks\.[12]|mid_block|up_blocks\.[01])\.attentions\.\d+\.(proj_in|proj_out|transformer_blocks\.\d+\."
-        r"(attn[12]\.(to_q|to_k|to_v|to_out\.0)|ff\.net\.(0\.proj|2)))")),
-    "text_encoder": ("lora_te1_", re.compile(r"text_model\.encoder\.layers\.\d+\.(self_attn\.(q|k|v|out)_proj|mlp\.fc[12])")),
-    "text_encoder_2": ("lora_te2_", re.compile(r"text_model\.encoder\.layers\.\d+\.(self_attn\.(q|k|v|out)_proj|mlp\.fc[12])")),
-}
+SDXL_LORA = {"unet": "lora_unet_", "text_encoder": "lora_te1_", "text_encoder_2": "lora_te2_"}
 
 
-def sdxl_lora(table: dict[str, Any], shapes: dict[str, dict[str, tuple[int, ...]]]) -> dict[str, Any]:
-    """Kohya SDXL factors onto the single-file table's modules: UNet in its LDM or Diffusers
-    spelling, both CLIP towers in theirs, linear layers only."""
+def kohya_reading(prefix: str, stems: list[str], unet: Any) -> dict[str, str]:
+    """The module diffusers' SDXL loader adapts with each kohya `<prefix><stem>` factor pair
+    (`lora_state_dict`'s conversion, then the PEFT renames its loaders apply), by stem: each
+    stem's down factor carries its index through."""
+    state = {}
+    for i, stem in enumerate(stems):
+        state[f"{prefix}{stem}.lora_down.weight"] = torch.full((1, 1), float(i))
+        state[f"{prefix}{stem}.lora_up.weight"] = torch.zeros(1, 1)
+        state[f"{prefix}{stem}.alpha"] = torch.tensor(1.0)
+    state = lora_conversion_utils._maybe_map_sgm_blocks_to_diffusers(state, unet)
+    state, _ = lora_conversion_utils._convert_non_diffusers_lora_to_diffusers(state)
+    component = next(iter(state)).partition(".")[0]
+    local = {k.partition(".")[2]: v for k, v in state.items()}
+    if component == "unet":
+        peft = state_dict_utils.convert_unet_state_dict_to_peft(local)
+    else:
+        peft = state_dict_utils.convert_state_dict_to_peft(state_dict_utils.convert_state_dict_to_diffusers(local))
+    return {stems[int(v.item())]: k.removesuffix(".lora_A.weight") for k, v in peft.items() if k.endswith(".lora_A.weight")}
+
+
+def sdxl_lora(table: dict[str, Any], layers: dict[str, dict[str, tuple[int, ...]]], unet: Any) -> dict[str, Any]:
+    """Kohya SDXL factors onto every linear and convolution of the single-file table's UNet (its
+    LDM or Diffusers spelling) and CLIP towers. A spelling is a row where diffusers' own loader
+    reads it as that module (`kohya_reading`); one it reads as no module (a Diffusers-spelled
+    `add_embedding`) is not."""
     components = []
     for c in table["components"]:
         if c["name"] not in SDXL_LORA:
             continue
-        prefix, reviewed = SDXL_LORA[c["name"]]
+        prefix, modules = SDXL_LORA[c["name"]], layers[c["name"]]
+        sources = {r[0].removesuffix(".weight"): (r[1] if len(r) > 1 else r[0]).removesuffix(".weight") for r in c["rows"]}
+        spellings = [{m.replace(".", "_"): m for m in modules}]
+        if c["name"] == "unet":
+            spellings.append({sources[m].replace(".", "_"): m for m in modules})
+        stems: dict[str, list[str]] = {m: [] for m in modules}
+        for spelled in spellings:
+            for stem, read in kohya_reading(prefix, list(spelled), unet).items():
+                assert read == spelled[stem] or read not in modules, (prefix, stem, spelled[stem], read)
+                if read == spelled[stem] and stem not in stems[read]:
+                    stems[read].append(stem)
         rows = []
-        for r in c["rows"]:
-            target, source = r[0], r[1] if len(r) > 1 else r[0]
-            module = target.removesuffix(".weight")
-            if not target.endswith(".weight") or not reviewed.fullmatch(module):
-                continue
-            out, inp = shapes[c["name"]][target]
-            spellings = [module] + ([source.removesuffix(".weight")] if c["name"] == "unet" else [])
-            for spelling in dict.fromkeys(spellings):
-                rows.append([module, spelling.replace(".", "_"), {"io": [inp, out]}])
+        for module, shape in modules.items():
+            ops = {"io": [shape[1], shape[0]]} | ({"kernel": list(shape[2:])} if len(shape) == 4 else {})
+            rows.extend([module, stem, ops] for stem in stems[module])
         components.append({"name": c["name"], "prefix": prefix, "rows": rows})
     lora = {"a": [".lora_down.weight", ".lora_A.weight"], "b": [".lora_up.weight", ".lora_B.weight"], "alpha": [".alpha"]}
     return {"name": "sdxl.lora", "lora": lora, "components": components}
@@ -525,9 +551,116 @@ def seedvr2() -> dict[str, Any]:
     return {"name": "seedvr2", "files": {"config.json": {"architecture": "SeedVR2-7B"}}, "components": components}
 
 
+# ------------------------------------------------------------------ Ideogram 4
+
+# Diffusers #14126's `convert_ideogram4_transformer_checkpoint_to_diffusers` (`attention.o` ->
+# `to_out.0`, the fused `qkv` rows chunked into thirds), the single-file converter under review.
+IDEOGRAM_CONVERTER = (
+    "https://raw.githubusercontent.com/buffett0323/diffusers/1112a897779500cdefd36c4b5fec3bb83ac94db5/"
+    "src/diffusers/loaders/single_file_utils.py",
+    "0e334e75d6b539febc7ee8696bbf1a58434a9faf9c32cc646c303106c0cfc117",
+)
+# The transformer config of ideogram-ai/ideogram-4-fp8@ee79a72 (gated), read from an ungated copy whose
+# blob is the same (git oid da6e1e85).
+IDEOGRAM_CONFIG = (
+    "https://huggingface.co/cocktailpeanut/ideogram-4-fp8/resolve/e0a0fb243cbf458fde53e358e80e6640cc593fd0/"
+    "transformer/config.json",
+    "da6e1e852ff7973df0f36a20d20bc55b5300f69b",
+)
+
+
+def ideogram4() -> dict[str, Any]:
+    """Ideogram 4's official checkpoint: both DiTs in its original layout. Every linear's weight-only
+    fp8 carrier (`.weight` + `.weight_scale`) is folded into one fp8.rowwise tensor before a table
+    row reads it, so the scales are not rows here; `qkv`'s thirds are whole rows of it."""
+    import ast
+
+    tree = ast.parse(fetch(*IDEOGRAM_CONVERTER))
+    (node,) = [n for n in tree.body if getattr(n, "name", "") == "convert_ideogram4_transformer_checkpoint_to_diffusers"]
+    space: dict[str, Any] = {"torch": torch}
+    exec(compile(ast.Module([node], []), "single_file_utils.py", "exec"), space)
+    url, blob = IDEOGRAM_CONFIG
+    body = fetch(url)
+    assert hashlib.sha1(b"blob %d\0" % len(body) + body).hexdigest() == blob, "the config is not the official blob"
+    config = {k: v for k, v in json.loads(body).items() if not k.startswith("_")}
+    from diffusers import Ideogram4Transformer2DModel
+
+    with torch.device("meta"):
+        census = {k: tuple(v.shape) for k, v in Ideogram4Transformer2DModel(**config).state_dict().items()}
+    source = {k: s for k, (_, s) in header(VECTORS / "ideogram4-headers" / "transformer__diffusion_pytorch_model.safetensors").items()
+              if not k.endswith(".weight_scale")}
+    stand_ins = {k: h3_index(s[0]) if len(s) > 1 else torch.arange(s[0]) for k, s in source.items()}
+    origin = {id(t): k for k, t in stand_ins.items()}
+    converted = space["convert_ideogram4_transformer_checkpoint_to_diffusers"](dict(stand_ins))
+    mapped, expect = {}, {}
+    for target, tensor in converted.items():
+        key = origin.get(id(tensor)) or next(k for k, t in stand_ins.items() if tensor.untyped_storage().data_ptr()
+                                              == t.untyped_storage().data_ptr())
+        shape = source[key]
+        ops = row_ops(tensor.reshape(tensor.shape[0], -1)[:, 0].numpy(), shape)
+        if ops:
+            expect[key] = list(shape)
+        mapped[target] = row(target, key, ops)
+        got = apply(np.zeros(shape, np.int8), ops) if ops else np.zeros(shape, np.int8)
+        assert got.shape == census[target], (target, got.shape, census[target])
+    assert sorted(mapped) == sorted(census), "targets are not the transformer's census"
+    component = {"name": "transformer", "folders": {"transformer": "transformer",
+                                                    "unconditional_transformer": "unconditional_transformer"},
+                 "expect": dict(sorted(expect.items())), "rows": [mapped[k] for k in census]}
+    return {"name": "ideogram4.fp8", "components": [component]}
+
+
+#: Qwen3.5-architecture MoE checkpoints whose experts are stored fused, one table per key set.
+QWEN_MOE = {"qwen3.6-35b-a3b.experts": "Qwen/Qwen3.6-35B-A3B@995ad96eacd98c81ed38be0c5b274b04031597b0"}
+#: A fused tensor's role, and the per-expert Linear it becomes in cozy-runtime's `moe.RoutedExpert`.
+QWEN_EXPERTS = {"gate_up_proj": "gate_and_up_proj", "down_proj": "down_proj"}
+
+
+def qwen_moe(name: str, pinned: str) -> dict[str, Any]:
+    """Every key as stored, except each layer's fused experts (`experts.gate_up_proj` [E, 2I, H],
+    `experts.down_proj` [E, H, I]), which become one row per expert, `experts.{e}.gate_and_up_proj.weight`
+    and `.down_proj.weight`: the blocks cozy-runtime's `moe.split` builds, which its weight paging moves one
+    expert at a time. The source's config stays the construction config (`keep_config`). Targets are the
+    census of Transformers' model plus the multi-token-prediction layer cozy-runtime's `lm.Draft` adds
+    (`mtp.*`, one decoder layer at the first full-attention index), experts split."""
+    repo, _, commit = pinned.partition("@")
+    index = json.loads(fetch(f"{HF}/{repo}/resolve/{commit}/model.safetensors.index.json"))["weight_map"]
+    config = json.loads(fetch(f"{HF}/{repo}/resolve/{commit}/config.json"))
+    text = config["text_config"]
+    experts, inner, hidden = text["num_experts"], text["moe_intermediate_size"], text["hidden_size"]
+    fused = {"gate_up_proj": [experts, 2 * inner, hidden], "down_proj": [experts, hidden, inner]}
+    with torch.device("meta"):
+        model = AutoModelForImageTextToText.from_config(AutoConfig.for_model(**config))
+        space = sys.modules[type(model).__module__]
+        layer = space.Qwen3_5MoeDecoderLayer(model.config.text_config, text["layer_types"].index("full_attention"))
+    census = [*model.state_dict(), "mtp.fc.weight", "mtp.pre_fc_norm_embedding.weight", "mtp.pre_fc_norm_hidden.weight",
+              *(f"mtp.layers.0.{k}" for k in layer.state_dict()), "mtp.norm.weight"]
+    assert set(census) == set(index), sorted(set(census) ^ set(index))[:5]
+    rows, expect, targets = [], {}, []
+    for key in census:
+        stem, _, role = key.rpartition(".")
+        if not (stem.endswith(".experts") and role in QWEN_EXPERTS):
+            rows.append(row(key, key))
+            targets.append(key)
+            continue
+        shape = fused[role]
+        expect[key] = shape
+        ops = {"take": [0, ["{e}"]], "shape": shape[1:]}
+        rows.append([f"{stem}.{{e}}.{QWEN_EXPERTS[role]}.weight", key, ops, {"e": experts}])
+        stand_in = np.arange(math.prod(shape[:2]) * 2).reshape(shape[0], shape[1], 2)
+        for e in range(experts):
+            got = apply(stand_in, {"take": [0, [e]], "shape": [shape[1], 2]})
+            assert (got == stand_in[e]).all(), (key, e)
+            targets.append(f"{stem}.{e}.{QWEN_EXPERTS[role]}.weight")
+    assert len(targets) == len(set(targets)) == len(index) + len(expect) * (experts - 1)
+    return {"name": name, "keep_config": True,
+            "components": [{"name": "model", "expect": dict(sorted(expect.items())), "rows": rows}]}
+
+
 def generate() -> dict[str, dict[str, Any]]:
-    sdxl, shapes = single_file("sdxl.single_file")
+    sdxl, layers = single_file("sdxl.single_file")
     anima, _ = single_file("anima.single_file")
+    unet = types.SimpleNamespace(**reference_config(SINGLE_FILE["sdxl.single_file"]["reference"], "unet/config.json"))
     h3 = h3_converter()
     native, source = h3_native(h3)
     return {
@@ -535,8 +668,10 @@ def generate() -> dict[str, dict[str, Any]]:
         "anima.single_file": anima,
         "h3.native": native,
         "h3.lora": h3_lora(h3, source),
-        "sdxl.lora": sdxl_lora(sdxl, shapes),
+        "sdxl.lora": sdxl_lora(sdxl, layers, unet),
         "seedvr2": seedvr2(),
+        "ideogram4.fp8": ideogram4(),
+        **{name: qwen_moe(name, pinned) for name, pinned in QWEN_MOE.items()},
     }
 
 

@@ -19,6 +19,7 @@ from ..sdk.secret_gate import CredentialBlocked, _redact_read
 from . import backfill as bf
 from . import backfill_prompts as prompts
 from .backfill_coverage import delivers_approved_bytes
+from .import_agent_settings import AgentSettings, Lane, lane_settings
 
 CAPABILITY = "project_document_cas_v1"
 MAX_PROJECTS = 20
@@ -28,10 +29,8 @@ MAX_HASH_BYTES = 1024 * 1024
 MAX_INPUT_BYTES = 80_000
 MAX_OUTPUT_BYTES = 24_000
 TITLES = {"Purpose", "Questions", "Decisions", "Chronology", "Conflicts"}
-# Cross-document reconstruction needs more reasoning than a single-session
-# digest: the acceptance fixture exposed reversed ordering and lost qualifiers.
-# This override applies to project drafts, never to classification or units.
-MODEL = {**bf.DIGEST_MODEL, bf.Agent.CLAUDE: "sonnet"}
+# A draft's model and effort are the `draft` lane's (`import_agent_settings`):
+# Claude drafts on sonnet unless the import's settings say otherwise.
 
 
 def _json(value) -> str:
@@ -471,7 +470,7 @@ def _render(raw: str, inputs: dict) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def _generate(inputs: dict, directory: Path, *, agent) -> str:
+def _generate(inputs: dict, directory: Path, *, agent, agents: AgentSettings | None = None) -> str:
     evidence = directory / "evidence.json"
     output = directory / "response.json"
     rejected = directory / "response.rejected.json"
@@ -504,7 +503,8 @@ def _generate(inputs: dict, directory: Path, *, agent) -> str:
                 agent=agent,
                 workdir=directory,
                 tools=bf.DIGEST_TOOLS.get(agent),
-                model=MODEL.get(agent),
+                settings=lane_settings(agents, agent, Lane.DRAFT),
+                meter=agents.meter if agents is not None else None,
                 timeout=bf.DIGEST_TIMEOUT_S,
                 label=label,
                 progress=False,
@@ -831,9 +831,13 @@ def _summary(client, coverage, key: str, state: dict, *, interactive: bool, yes:
 
 
 def complete_reconstruction(
-    client, folder, coverage, git_bundle, *, agent, interactive, yes
+    client, folder, coverage, git_bundle, *, agent, interactive, yes,
+    agents: AgentSettings | None = None,
 ) -> list[str]:
-    """Draft only from readable file receipts; publication requires its own review."""
+    """Draft only from readable file receipts; publication requires its own review.
+
+    `agents` is the import's settings and meter; the drafts run in its `draft`
+    lane, or on that lane's built-in settings without it."""
     report = coverage.report()
     pending = set().union(
         *(
@@ -869,7 +873,8 @@ def complete_reconstruction(
         try:
             inputs = _inputs(client, Path(folder), coverage, selected, git_bundle, project_id)
             inputs["agent"] = getattr(agent, "value", str(agent))
-            inputs["model"] = MODEL.get(agent) or "configured_default"
+            # The model keys a draft, so a new one redrafts; an effort does not.
+            inputs["model"] = lane_settings(agents, agent, Lane.DRAFT).model or "configured_default"
             inputs["input_id"] = _hash([inputs["input_id"], inputs["agent"], inputs["model"]])
             inputs_ready = True
             state = coverage.meta(key, {})
@@ -889,7 +894,7 @@ def complete_reconstruction(
             draft_path = directory / "draft.md"
             if state.get("state") != "drafted":
                 coverage.put_meta(key, state)
-                draft = _generate(inputs, directory, agent=agent)
+                draft = _generate(inputs, directory, agent=agent, agents=agents)
                 write_text_atomic(draft_path, draft, mode=0o600)
                 state.update(state="drafted", draft_path=str(draft_path), draft_hash=_hash(draft))
                 for field in ("error", "error_code", "error_detail"):

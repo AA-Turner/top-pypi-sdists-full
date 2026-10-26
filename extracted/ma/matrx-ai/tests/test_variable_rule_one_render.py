@@ -140,10 +140,12 @@ def test_w07_an_agent_with_no_values_still_turns_the_escape_into_braces() -> Non
     assert _system_and_user(agent.config) == ("Write {{name}} and {{other}}.",) * 2
 
 
-def test_w07_an_undeclared_escape_is_left_as_written() -> None:
+def test_w07_an_undeclared_escape_becomes_its_token() -> None:
+    # Rule 6 (Arman, 2026-10-25): the escape is for names that are NOT variables, so it never depends
+    # on what is declared. The model reads `{{todo}}` — the same as an unescaped undeclared name.
     agent = Agent(config=_config("Write {{!todo}} and {{other}}."))
     agent.apply_variables()
-    assert _system_and_user(agent.config) == ("Write {{!todo}} and {{other}}.",) * 2
+    assert _system_and_user(agent.config) == ("Write {{todo}} and {{other}}.",) * 2
 
 
 def test_w13_a_spaced_token_is_not_a_declared_slot() -> None:

@@ -463,6 +463,53 @@ def test_a_fork_while_the_context_is_being_built_does_not_hang_the_child():
     assert os.waitstatus_to_exitcode(status) == 0
 
 
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="POSIX fork only")
+def test_a_fork_while_another_thread_builds_the_same_context_does_not_hang_the_child(monkeypatch):
+    """The child inherits the parent's marker for a build under way, which nobody
+    there will finish: its first client must build its own."""
+    monkeypatch.setattr(tls, "_cached", None)
+    key = tuple(os.environ.get(name) or None for name in tls._ENV_NAMES)
+    monkeypatch.setitem(tls._building, key, threading.Event())  # another thread mid-build
+    pid = os.fork()
+    if pid == 0:  # child: never return into pytest
+        try:
+            tls.ssl_context()
+            os._exit(0)
+        except BaseException:  # noqa: BLE001
+            os._exit(1)
+    deadline = time.monotonic() + 10
+    while True:
+        done, status = os.waitpid(pid, os.WNOHANG)
+        if done:
+            break
+        if time.monotonic() > deadline:
+            os.kill(pid, signal.SIGKILL)
+            os.waitpid(pid, 0)
+            pytest.fail("the forked child waited on the parent's build")
+        time.sleep(0.05)
+    assert os.waitstatus_to_exitcode(status) == 0
+
+
+def test_an_interrupted_build_leaves_nothing_marked(monkeypatch):
+    """A KeyboardInterrupt (or a harness's alarm) during the build: the next caller
+    builds it, never waits on a marker nobody will clear."""
+    monkeypatch.setattr(tls, "_cached", None)
+    real, calls = tls._build, []
+
+    def interrupted(problems):
+        calls.append(1)
+        if len(calls) == 1:
+            raise KeyboardInterrupt
+        return real(problems)
+
+    monkeypatch.setattr(tls, "_build", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        tls.ssl_context()
+    assert tls._building == {}
+    started = time.monotonic()
+    assert tls.ssl_context() is not None and time.monotonic() - started < 5
+
+
 # -- the real handshake ------------------------------------------------------------
 
 
@@ -620,3 +667,64 @@ def test_the_shared_module_is_stdlib_only():
             imported.add(node.module.split(".")[0])
     assert imported <= {"__future__", "os", "ssl", "threading", "certifi"}, imported
     assert os.path.basename(certifi.where()).endswith(".pem")
+
+
+# -- the daemon host: one process, several sessions' trust settings ----------
+
+
+def test_the_context_is_built_without_holding_the_shared_lock(monkeypatch):
+    """A certificate path on a hung mount stalls only the caller whose variables
+    name it, never every other run's next client (the daemon host)."""
+    monkeypatch.setattr(tls, "_cached", None)
+    real, held = tls._build, []
+
+    def build(problems):
+        held.append(tls._lock.locked())
+        return real(problems)
+
+    monkeypatch.setattr(tls, "_build", build)
+    tls.ssl_context()
+    assert held == [False]
+
+
+def test_callers_with_the_same_variables_build_it_once(monkeypatch):
+    import threading
+
+    monkeypatch.setattr(tls, "_cached", None)
+    real, builds, gate = tls._build, [], threading.Event()
+
+    def slow(problems):
+        builds.append(1)
+        gate.wait(5)
+        return real(problems)
+
+    monkeypatch.setattr(tls, "_build", slow)
+    got: list = []
+    threads = [threading.Thread(target=lambda: got.append(tls.ssl_context())) for _ in range(4)]
+    for t in threads:
+        t.start()
+    while not builds:
+        pass
+    gate.set()
+    for t in threads:
+        t.join(10)
+    assert len(builds) == 1 and len(got) == 4 and all(c is got[0] for c in got)
+
+
+def test_runs_with_different_trust_keep_their_own_context(monkeypatch, tmp_path):
+    """Two sessions' variables in one process (the daemon host): each set is
+    built once, not rebuilt every time the other's client is made."""
+    monkeypatch.setattr(tls, "_cached", None)
+    for name in tls._ENV_NAMES:
+        monkeypatch.delenv(name, raising=False)
+    real, builds = tls._build, []
+    monkeypatch.setattr(tls, "_build", lambda problems: builds.append(1) or real(problems))
+    bundle = tmp_path / "missing.pem"
+    first = tls.ssl_context()
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(bundle))
+    second = tls.ssl_context()
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE")
+    assert tls.ssl_context() is first
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", str(bundle))
+    assert tls.ssl_context() is second
+    assert len(builds) == 2

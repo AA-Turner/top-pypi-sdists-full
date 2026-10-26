@@ -1,6 +1,8 @@
 import base64
+import gc
 import json
 import os
+import weakref
 from importlib import import_module
 from io import BytesIO
 from typing import cast
@@ -8,7 +10,15 @@ from unittest.mock import patch
 
 import pytest
 
-from curl_cffi import Curl, CurlECode, CurlError, CurlInfo, CurlOpt, _wrapper
+from curl_cffi import (
+    Curl,
+    CurlECode,
+    CurlError,
+    CurlInfo,
+    CurlOpt,
+    CurlProxyType,
+    _wrapper,
+)
 from curl_cffi.curl import _default_cacert
 
 #######################################################################################
@@ -118,6 +128,11 @@ def test_proxy_headers(server):
     c.perform()
     headers = json.loads(buffer.getvalue().decode())
     assert "Foo" not in headers
+
+
+def test_http3_proxy_type():
+    c = Curl()
+    c.setopt(CurlOpt.PROXYTYPE, CurlProxyType.HTTPS3)
 
 
 def test_write_function_memory_leak(server):
@@ -245,6 +260,7 @@ def test_repeated_headers_after_error(server):
     # another request
     url = str(server.url.copy_with(path="/echo_headers"))
     c.setopt(CurlOpt.URL, url.encode())
+    c.setopt(CurlOpt.TIMEOUT_MS, 0)
     c.setopt(CurlOpt.HTTPHEADER, [b"Foo: bar"])
     buffer = BytesIO()
     c.setopt(CurlOpt.WRITEDATA, buffer)
@@ -499,3 +515,36 @@ def test_default_cacert_falls_back_without_env():
         result = _default_cacert()
         # Should return either the system CA or certifi
         assert os.path.exists(result)
+
+
+def test_error_falls_back_to_the_code_text_when_the_buffer_is_empty():
+    c = Curl()
+
+    error = c._get_error(CurlECode.HTTP2, "perform")
+
+    assert error.code == CurlECode.HTTP2
+    assert str(error).startswith(
+        "Failed to perform, curl: (16) Error in the HTTP2 framing layer. "
+    )
+
+
+def test_error_keeps_the_buffer_text_when_libcurl_sets_it():
+    c = Curl()
+    _wrapper.ffi.memmove(c._error_buffer, b"custom detail", 13)
+
+    error = c._get_error(CurlECode.HTTP2, "perform")
+
+    assert "curl: (16) custom detail. " in str(error)
+
+
+def test_error_is_freed_without_gc():
+    c = Curl()
+    gc.disable()
+    try:
+        try:
+            c._check_error(CurlECode.AGAIN, "WS_RECV")
+        except CurlError as e:
+            ref = weakref.ref(e)
+        assert ref() is None
+    finally:
+        gc.enable()

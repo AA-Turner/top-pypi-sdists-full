@@ -33,7 +33,7 @@ def pi_installed(monkeypatch, pi_dir):
 
 def test_the_pi_lines_say_what_moved(pi_installed):
     step = upgrading._update_pi_package()
-    assert step.lines == ["pi package:", "  updated 0.2.3 → 0.3.0 (open pi sessions pick it up when restarted)"]
+    assert step.lines == ["pi package:", "  updated 0.2.3 → 0.3.0 (run /reload in open pi sessions (or restart them) to apply)"]
     assert step.ok and pi_installed == [1]
 
 
@@ -110,7 +110,7 @@ def test_pi_update_runs_with_pi_open_and_clears_an_old_deferral(monkeypatch, pi_
 
     assert pi_installed == [1], "pi update ran"
     assert step.ok and step.code is upgrading.update_report.PiStep.UPDATED
-    assert step.lines == ["pi package:", "  updated 0.2.3 → 0.3.0 (open pi sessions pick it up when restarted)"]
+    assert step.lines == ["pi package:", "  updated 0.2.3 → 0.3.0 (run /reload in open pi sessions (or restart them) to apply)"]
     assert not autoupdate.pi_update_pending(), "nothing owed any more"
 
 
@@ -222,7 +222,7 @@ def test_the_owed_pi_step_records_what_pi_update_did(monkeypatch, pi_installed):
 
     assert recorded[-1].succeeded
     # The whole move, not only the reload hint (2026-10-15 review).
-    assert recorded[-1].plugin_detail == "pi package updated 0.2.3 → 0.3.0 (open pi sessions pick it up when restarted)"
+    assert recorded[-1].plugin_detail == "pi package updated 0.2.3 → 0.3.0 (run /reload in open pi sessions (or restart them) to apply)"
 
 
 def test_an_owed_update_that_skips_is_not_recorded(monkeypatch, pi_installed):

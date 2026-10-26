@@ -347,7 +347,7 @@ def test_an_update_open_sessions_follow_says_no_restart(monkeypatch):
         # ... while a session the service records on an older tap moves with
         # the service (it restarts onto the newest installed tap).
         ("codex", None, "0.10.16", ("0.10.13",), True, None),
-        ("kimi_code", None, "0.10.16", (), False, "0.96.1"),  # its sessions keep their copy (C3)
+        ("kimi_code", None, "0.10.16", (), True, "0.96.1"),  # no live Kimi process to prove (K4)
         ("claude_code", "project", "0.10.16", (), False, "0.96.1"),  # the hooks stay on a project's copy
         ("claude_code", "user", "0.10.12", (), False, "0.96.1"),  # a tap without the hand-back
         ("claude_code", "user", "0.10.16", ("0.10.12", "0.4.4"), False, "0.96.1"),  # protocol 1: never moved
@@ -359,6 +359,36 @@ def test_no_restart_is_said_only_where_it_is_true(source, scope, tap_after, stal
     result = updater.PluginResult(True, True, True, "0.96.0", plugin, "", tap_before="0.10.12",
                                   tap_after=tap_after, tap_running_stale=stale)
     assert updater.follows_without_restart(source, result) is follows
+
+
+def test_the_manual_update_line_never_predicts_for_kimi():
+    """Review of Kimi parity: before the release is installed by hand, Kimi's
+    proof would compare its sessions with the OLD install (they all match)."""
+    result = updater.PluginResult(True, True, True, "0.96.0", "0.96.1", "", tap_before="0.10.12",
+                                  tap_after="0.10.16", tap_running_stale=())
+    assert updater.follows_without_restart("kimi_code", result) is True
+    assert updater.follows_without_restart("kimi_code", result, predicting=True) is False
+    assert updater.follows_without_restart("codex", result, predicting=True) is True
+
+
+def test_a_kimi_process_that_cannot_be_proven_keeps_the_restart_line():
+    """Kimi parity K4: a live Kimi process whose record says nothing of what it
+    loaded (it started before Probe recorded that) may run an older manifest."""
+    import json
+    import os
+
+    from probe.sdk import session_marker
+
+    pid = os.getpid()
+    path = session_marker._process_record_path(pid, session_marker._proc_linux(pid)[1])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"harness": "kimi_code", "session_id": "s"}))
+    result = updater.PluginResult(True, True, True, "0.96.0", "0.96.1", "", tap_before="0.10.12",
+                                  tap_after="0.10.16", tap_running_stale=())
+    try:
+        assert updater.follows_without_restart("kimi_code", result) is False
+    finally:
+        path.unlink()
 
 
 def test_no_restart_is_never_said_on_windows(monkeypatch):
@@ -1033,3 +1063,186 @@ def test_with_the_tap_alone_an_old_session_still_needs_a_restart():
     assert updater.running_stale_note(result) == (
         "1 session started before the update still runs tap 0.7.1; restart it to switch to 0.7.2"
     )
+
+
+# `probe doctor` prints the last update attempt as the state of the machine NOW.
+# An update from a release before 0.304.0 always wrote "restart them to switch
+# to X" about sessions on an older tap; they move with no restart (the prompt
+# hook hands old watchers to the service, which loads the newest tap), and doctor
+# went on telling the person to restart them until the next update (release gate
+# C8, 2026-10-24: every machine updating from CLI 0.285.2-0.302.0).
+
+_OLD_UPDATER = (
+    "Claude Code: 3 sessions started before the update still run tap 0.10.17; restart them to switch to "
+    "0.10.19; Codex: 1 session started before the update still runs tap 0.10.17; restart it to switch to 0.10.19"
+)
+_ONE_PASS = "1 session started before the update still runs tap 0.10.17; restart it to switch to 0.10.19"
+
+
+def _looked(monkeypatch, rows, commands=()):
+    """The service's recorders `rows`, and a process listing that could be read
+    (it always holds this process): `commands` are the `tap watch` lines in it."""
+    _hosted(monkeypatch, rows)
+    monkeypatch.setattr(updater, "_process_commands", lambda: ["/usr/bin/python3 -m pytest", *commands])
+
+
+def _installed(source):
+    return "installed"
+
+
+def test_a_restart_the_sessions_have_outgrown_is_not_printed(monkeypatch):
+    _looked(monkeypatch, [_recorder("s1", version="0.10.19"), _recorder("c1", harness="codex", version="0.10.19")])
+    assert updater.settle_stale_notes(_OLD_UPDATER, plugin_after=_installed) == ""
+
+
+def test_a_session_still_on_the_old_tap_that_cannot_move_keeps_its_sentence_word_for_word(monkeypatch):
+    """A Codex session the service records on 0.10.12 with no Probe plugin in
+    Codex: nothing moves it (`follows_without_restart`), so the restart stays."""
+    _looked(monkeypatch, [_recorder("s1", version="0.10.19"), _recorder("c1", harness="codex", version="0.10.12")])
+    assert updater.settle_stale_notes(_OLD_UPDATER, plugin_after=lambda s: None) == (
+        "Codex: 1 session started before the update still runs tap 0.10.17; restart it to switch to 0.10.19"
+    )
+
+
+def test_an_idle_session_that_moves_at_its_next_prompt_is_told_so_not_to_restart(monkeypatch):
+    """Review of #3392 (CRITICAL 1): a session idle on tap 0.10.12 is still on
+    the old tap, but it moves at its next prompt with no restart (user scope,
+    the Probe plugin installed): the sentence says that, counted afresh."""
+    _ledger("user")
+    _looked(monkeypatch, [_recorder("s1", version="0.10.12")])
+    out = updater.settle_stale_notes(
+        "1 session started before the update still runs tap 0.10.12; restart it to switch to 0.10.19",
+        plugin_after=_installed)
+    assert "restart it" not in out
+    assert out == ("1 session started before the update still runs tap 0.10.12; it moves to 0.10.19 at the next "
+                   "prompt, no restart needed")
+
+
+def test_a_named_agent_whose_sessions_move_gets_the_no_restart_wording_under_its_name(monkeypatch):
+    _ledger("user")
+    _looked(monkeypatch, [_recorder("s1", version="0.10.13"), _recorder("s2", version="0.10.17"),
+                          _recorder("c1", harness="codex", version="0.10.19")])
+    assert updater.settle_stale_notes(_OLD_UPDATER, plugin_after=_installed) == (
+        "Claude Code: 2 sessions started before the update still run tap 0.10.13, 0.10.17; they move to 0.10.19 "
+        "at the next prompt, no restart needed"
+    )
+
+
+def test_a_one_pass_record_is_kept_while_any_agent_still_needs_its_restart(monkeypatch):
+    """Review of #3392 (CRITICAL 2): a record of one pass names no agent, and
+    doctor's own agent (Claude Code from a plain terminal) is not the one it
+    was about: a Kimi Code session still on 0.10.17 keeps the sentence. Kimi
+    follows updates only where its process's record proves it (K4): this one
+    loaded tap 0.10.17, whose hooks do not hand over.
+    """
+    import json
+    import os
+
+    from probe.sdk import session_marker
+
+    _looked(monkeypatch, [_recorder("k1", harness="kimi_code", version="0.10.17")])
+    pid = os.getpid()
+    path = session_marker._process_record_path(pid, session_marker._proc_linux(pid)[1])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"harness": "kimi_code", "session_id": "k1", "loaded": {
+        "plugin_root": "/k/plugins/managed/probe-research@0.177.0", "plugin": "probe-research",
+        "plugin_version": "0.177.0", "plugin_fp": "x", "tap_root": "/k/plugins/managed/probe-research-tap@0.10.17",
+        "tap_version": "0.10.17", "tap_fp": "y", "late": False}}))
+    try:
+        assert updater.settle_stale_notes(_ONE_PASS, plugin_after=_installed) == _ONE_PASS
+    finally:
+        path.unlink()
+
+
+def test_a_one_pass_record_goes_once_no_agent_has_a_session_on_an_older_tap(monkeypatch):
+    note = "transcript tap updated to 0.10.19; " + _ONE_PASS
+    _looked(monkeypatch, [_recorder("s1", version="0.10.19"), _recorder("k1", harness="kimi_code", version="0.10.19")])
+    assert updater.settle_stale_notes(note, plugin_after=_installed) == "transcript tap updated to 0.10.19"
+
+
+def test_a_look_that_could_not_be_made_keeps_the_sentence(monkeypatch):
+    """Review of #3392: "could not look" is never "none left"."""
+    _hosted(monkeypatch, None)
+
+    def unreadable():
+        raise OSError("no ps, no /proc")
+
+    monkeypatch.setattr(updater, "tap_daemons", lambda commands=None: unreadable())
+    monkeypatch.setattr(updater, "_process_commands", lambda: ["/usr/bin/python3 -m pytest"])
+    assert updater.settle_stale_notes(_OLD_UPDATER, plugin_after=_installed) == _OLD_UPDATER
+    monkeypatch.setattr(updater, "_process_commands", lambda: [])  # nothing listed: nothing readable
+    assert updater.stale_tap_sessions("claude_code", "0.10.19") is None
+    assert updater.settle_stale_notes(_ONE_PASS, plugin_after=_installed) == _ONE_PASS
+    assert updater.stale_tap_daemons("claude_code", "0.10.19") == (), "the update report counts none, as before"
+
+
+def test_anything_else_in_the_detail_is_left_alone(monkeypatch):
+    _looked(monkeypatch, [])
+    for detail in ("", "transcript tap is still 0.10.17, behind the latest 0.10.19: git failed",
+                   "Kimi Code: no Probe plugins installed"):
+        assert updater.settle_stale_notes(detail, plugin_after=_installed) == detail
+
+
+def test_doctor_prints_the_attempt_as_it_stands(monkeypatch):
+    from probe._shared import autoupdate as shared
+
+    _looked(monkeypatch, [_recorder("s1", version="0.10.19"), _recorder("c1", harness="codex", version="0.10.19")])
+    attempt = shared.Attempt(at=1, ok=True, to_version="0.311.0", plugin_version="0.176.0",
+                             plugin_detail=_OLD_UPDATER)
+    plugin_after = doctor._probe_plugin_of("claude_code", True)
+    text = doctor._attempt_as_it_stands(attempt, plugin_after).describe()
+    assert "restart" not in text and text.startswith("success -> CLI 0.311.0, plugin 0.176.0")
+    _looked(monkeypatch, [_recorder("s1", version="0.10.12")])
+    # No ledger here: user scope unproven, so the restart line is still the truth.
+    assert "restart them to switch to 0.10.19" in doctor._attempt_as_it_stands(attempt, plugin_after).describe()
+
+
+def test_doctor_reads_another_agents_probe_plugin_from_its_own_record(monkeypatch):
+    from probe.cli import capabilities
+
+    seen = []
+    monkeypatch.setattr(capabilities, "installed_plugins",
+                        lambda source=None, local=False: seen.append((source, local)) or {"probe-research"})
+    plugin_after = doctor._probe_plugin_of("claude_code", False)
+    assert plugin_after("claude_code") is None, "the selected agent: doctor's own read"
+    assert plugin_after("codex") == "installed" and seen == [("codex", True)]
+
+
+# The warning for a tap behind the manifest said "a session started before the
+# update keeps running the old copy until it restarts" on every machine; where
+# open sessions follow an update they move with no restart (release gate C8).
+
+
+def test_a_tap_behind_on_a_machine_whose_sessions_follow_asks_for_no_restart(monkeypatch):
+    _ledger("user")
+    _looked(monkeypatch, [_recorder("s1", version="0.10.17")])
+    warning = doctor.tap_behind_warning([_row("tap", "0.10.17", "0.10.19", VersionStatus.UPDATE)], "claude_code",
+                                        "installed")
+    assert "behind the published 0.10.19" in warning and "the wizard's Update" in warning
+    assert warning.endswith("open sessions move to it by themselves, with no restart")
+    assert "until it restarts" not in warning
+
+
+@pytest.mark.parametrize("why", ["project", "windows", "no_handback", "unlooked"])
+def test_a_tap_behind_where_sessions_cannot_follow_keeps_the_restart_line(monkeypatch, why):
+    _ledger("project" if why == "project" else "user")
+    _looked(monkeypatch, [])
+    if why == "unlooked":
+        monkeypatch.setattr(updater, "_process_commands", lambda: [])
+    monkeypatch.setattr(updater, "_windows", lambda: why == "windows")
+    latest = "0.10.12" if why == "no_handback" else "0.10.19"
+    warning = doctor.tap_behind_warning([_row("tap", "0.10.11", latest, VersionStatus.UPDATE)], "claude_code",
+                                        "installed")
+    assert warning.endswith("a session started before the update keeps running the old copy until it restarts")
+
+
+def test_a_tap_behind_with_an_old_watcher_and_no_probe_plugin_keeps_the_restart_line(monkeypatch):
+    """Review of #3392: a watcher from before the hand-back is moved only by the
+    Probe plugin's prompt hook; Codex with the capture plugin alone has nothing
+    to move it, whatever the warning assumed."""
+    _looked(monkeypatch, [_recorder("c1", harness="codex", version="0.10.11")])
+    rows = [_row("tap", "0.10.11", "0.10.19", VersionStatus.UPDATE)]
+    assert doctor.tap_behind_warning(rows, "codex", None).endswith(
+        "a session started before the update keeps running the old copy until it restarts")
+    assert doctor.tap_behind_warning(rows, "codex", "installed").endswith(
+        "open sessions move to it by themselves, with no restart")

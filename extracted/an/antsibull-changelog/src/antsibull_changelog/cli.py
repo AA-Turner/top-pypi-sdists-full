@@ -21,7 +21,7 @@ import subprocess
 import sys
 import traceback
 from collections.abc import Callable
-from typing import Any, cast, overload
+from typing import Literal, cast, overload
 
 try:
     import argcomplete
@@ -48,6 +48,7 @@ from .logger import LOGGER, setup_logger
 from .plugins import PluginDescription, load_plugins
 from .rendering.changelog import generate_changelog
 from .toml import has_toml_loader_available, load_toml
+from .utils import determine_flatmap
 
 
 def set_paths(
@@ -96,23 +97,9 @@ def set_paths(
         raise ChangelogError(  # pylint: disable=raise-missing-from
             "Only the 'init' command can be used outside an Ansible checkout and outside a "
             "collection repository, or inside one without changelogs/config.yaml.\n"
-            "If you are in a collection without galaxy.yml, specify `--is-collection yes` "
+            "If you are in a collection without galaxy.yml, specify `--is-collection` "
             "on the command line."
         )
-
-
-def parse_boolean_arg(value: Any) -> bool:
-    """
-    Parse a string as a boolean
-    """
-    if isinstance(value, bool):
-        return value
-    value = str(value)
-    if value.lower() in ("yes", "true"):
-        return True
-    if value.lower() in ("no", "false"):
-        return False
-    raise argparse.ArgumentTypeError("Cannot interpret as boolean")
 
 
 def create_argparser(program_name: str) -> argparse.ArgumentParser:
@@ -136,7 +123,7 @@ def create_argparser(program_name: str) -> argparse.ArgumentParser:
     is_collection = argparse.ArgumentParser(add_help=False)
     is_collection.add_argument(
         "--is-collection",
-        type=parse_boolean_arg,
+        action=argparse.BooleanOptionalAction,
         help="override whether this is a collection or not "
         "(needed when galaxy.yml does not exist)",
     )
@@ -152,7 +139,7 @@ def create_argparser(program_name: str) -> argparse.ArgumentParser:
     )
     collection_details.add_argument(
         "--collection-flatmap",
-        type=parse_boolean_arg,
+        action=argparse.BooleanOptionalAction,
         help="override collection flatmapping flag "
         "(needed when galaxy.yml does not exist)",
     )
@@ -415,30 +402,22 @@ def command_init(args: argparse.Namespace) -> int:
     return C.RC_SUCCESS
 
 
-def _determine_flatmap(
-    collection_details: CollectionDetails, config: ChangelogConfig
-) -> bool:
-    """
-    Determine whether flatmapping is used or not for the collection.
-    """
-    flatmap = not config.is_collection
-    flatmap_ = config.flatmap
-    if flatmap_ is not None:
-        flatmap = flatmap_
-    if config.is_collection:
-        flatmap_ = collection_details.get_flatmap()
-        if flatmap_ is not None:
-            flatmap = flatmap_
-    return flatmap
+RefreshPlugins = Literal["allow-removal", "prevent-removal"]
+RefreshFragments = Literal["without-archives", "with-archives"]
 
 
 def _get_refresh_config(
-    args: argparse.Namespace, config: ChangelogConfig
-) -> tuple[str | None, str | None]:
-    refresh_plugins: str | None = args.refresh_plugins
-    refresh_fragments: str | None = args.refresh_fragments
+    *,
+    args_refresh_plugins: RefreshPlugins | None,
+    args_refresh_fragments: RefreshFragments | None,
+    args_refresh: bool,
+    config: ChangelogConfig,
+) -> tuple[RefreshPlugins | None, str | None]:
+    refresh_plugins = args_refresh_plugins
+    refresh_fragments = args_refresh_fragments
+
     always_refresh = config.always_refresh
-    if args.refresh or always_refresh == "full":
+    if args_refresh or always_refresh == "full":
         if refresh_plugins is None:
             refresh_plugins = "allow-removal"
         if refresh_fragments is None:
@@ -476,8 +455,13 @@ def _get_archive_loader(
 
 
 @overload
-def _do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
-    args: argparse.Namespace,
+def do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
+    *,
+    args_refresh_plugins: RefreshPlugins | None,
+    args_refresh_fragments: RefreshFragments | None,
+    args_refresh: bool,
+    args_reload_plugins: bool,
+    args_use_ansible_doc: bool,
     paths: PathsConfig,
     collection_details: CollectionDetails,
     config: ChangelogConfig,
@@ -488,8 +472,13 @@ def _do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
 
 
 @overload
-def _do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
-    args: argparse.Namespace,
+def do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
+    *,
+    args_refresh_plugins: RefreshPlugins | None,
+    args_refresh_fragments: RefreshFragments | None,
+    args_refresh: bool,
+    args_reload_plugins: bool,
+    args_use_ansible_doc: bool,
     paths: PathsConfig,
     collection_details: CollectionDetails,
     config: ChangelogConfig,
@@ -499,8 +488,13 @@ def _do_refresh(  # pylint: disable=too-many-arguments  # noqa: E704
 ) -> tuple[list[PluginDescription] | None, list[ChangelogFragment] | None]: ...
 
 
-def _do_refresh(  # pylint: disable=too-many-arguments
-    args: argparse.Namespace,
+def do_refresh(  # pylint: disable=too-many-arguments,too-many-locals
+    *,
+    args_refresh_plugins: RefreshPlugins | None,
+    args_refresh_fragments: RefreshFragments | None,
+    args_refresh: bool,
+    args_reload_plugins: bool,
+    args_use_ansible_doc: bool,
     paths: PathsConfig,
     collection_details: CollectionDetails,
     config: ChangelogConfig,
@@ -508,7 +502,15 @@ def _do_refresh(  # pylint: disable=too-many-arguments
     plugins: list[PluginDescription] | None = None,
     fragments: list[ChangelogFragment] | None = None,
 ) -> tuple[list[PluginDescription] | None, list[ChangelogFragment] | None]:
-    refresh_plugins, refresh_fragments = _get_refresh_config(args, config)
+    """
+    Refresh plugins and fragments depending on the settings and changelog configuration.
+    """
+    refresh_plugins, refresh_fragments = _get_refresh_config(
+        args_refresh_plugins=args_refresh_plugins,
+        args_refresh_fragments=args_refresh_fragments,
+        args_refresh=args_refresh,
+        config=config,
+    )
 
     if refresh_plugins:
         if plugins is None:
@@ -517,8 +519,8 @@ def _do_refresh(  # pylint: disable=too-many-arguments
                 collection_details=collection_details,
                 config=config,
                 version=changes.latest_version,
-                force_reload=args.reload_plugins,
-                use_ansible_doc=args.use_ansible_doc,
+                force_reload=args_reload_plugins,
+                use_ansible_doc=args_use_ansible_doc,
                 add_plugin_period=config.add_plugin_period,
             )
         allow_removals = refresh_plugins == "allow-removal"
@@ -680,7 +682,7 @@ def command_release(args: argparse.Namespace) -> int:
 
     load_collection_details(collection_details, args)
 
-    flatmap = _determine_flatmap(collection_details, config)
+    flatmap = determine_flatmap(collection_details, config)
 
     version, codename = _get_version_and_codename(
         paths, config, collection_details, args
@@ -712,8 +714,18 @@ def command_release(args: argparse.Namespace) -> int:
         )
         return lint_rc
 
-    plugins, fragments = _do_refresh(
-        args, paths, collection_details, config, changes, plugins, fragments
+    plugins, fragments = do_refresh(
+        args_refresh_plugins=args.refresh_plugins,
+        args_refresh_fragments=args.refresh_fragments,
+        args_refresh=args.refresh,
+        args_reload_plugins=args.reload_plugins,
+        args_use_ansible_doc=args.use_ansible_doc,
+        paths=paths,
+        collection_details=collection_details,
+        config=config,
+        changes=changes,
+        plugins=plugins,
+        fragments=fragments,
     )
     add_release(
         config,
@@ -786,7 +798,7 @@ def command_generate(args: argparse.Namespace) -> int:
 
     load_collection_details(collection_details, args)
 
-    flatmap = _determine_flatmap(collection_details, config)
+    flatmap = determine_flatmap(collection_details, config)
 
     changes = load_changes(config)
     if version is not None:
@@ -798,7 +810,17 @@ def command_generate(args: argparse.Namespace) -> int:
     if not changes.has_release:
         print("Cannot create changelog when not at least one release has been added.")
         return C.RC_COMMAND_FAILED
-    plugins, _ = _do_refresh(args, paths, collection_details, config, changes)
+    plugins, _ = do_refresh(
+        args_refresh_plugins=args.refresh_plugins,
+        args_refresh_fragments=args.refresh_fragments,
+        args_refresh=args.refresh,
+        args_reload_plugins=args.reload_plugins,
+        args_use_ansible_doc=args.use_ansible_doc,
+        paths=paths,
+        collection_details=collection_details,
+        config=config,
+        changes=changes,
+    )
     if args.reload_plugins and plugins is None:
         plugins = load_plugins(
             paths=paths,

@@ -41,18 +41,13 @@ from cozy_runtime.author._attention_scope import (
     expect_attention,
 )
 from cozy_runtime.author._calls import ChildCallError, PendingCall, invocable, prefetch
-from cozy_runtime.author._capture import (
-    ActivationCapture,
-    ActivationCaptureResult,
-    ExecutionEnvironment,
-    ExecutionObservation,
-)
 from cozy_runtime.author._concurrent import concurrently
 from cozy_runtime.author._context import (
     AdapterRef,
     Context,
     Device,
     RequestView,
+    device,
 )
 from cozy_runtime.author._data import data_values
 from cozy_runtime.author._decode import (
@@ -73,7 +68,7 @@ from cozy_runtime.author._decode import (
     MediaDecodeError,
     VideoProbe,
 )
-from cozy_runtime.author._defaults import Clamp, DefaultSet, Overlay, decode_request
+from cozy_runtime.author._defaults import Overlay, decode_request
 from cozy_runtime.author._demand import RequestFeatures
 from cozy_runtime.author._describe import assert_declaration_shape, describe
 from cozy_runtime.author._errors import (
@@ -94,19 +89,21 @@ from cozy_runtime.author._errors import (
 from cozy_runtime.author._image import (
     MEGAPIXEL,
     AspectRatio,
+    Box,
     ImageRequest,
     ImageResult,
     ReferenceImages,
+    Region,
     Seed,
+    Sizes,
     Target,
+    corners,
     held,
 )
 from cozy_runtime.author._invoke import (
     Invocation,
     InvocationResult,
     PreparedRequest,
-    attempt,
-    invoke,
     prepare,
 )
 from cozy_runtime.author._loader import (
@@ -158,7 +155,6 @@ from cozy_runtime.author._recipes import (
     Recipe,
     SelectionPlan,
 )
-from cozy_runtime.author._script import ScriptContext, script_app
 from cozy_runtime.author._services import (
     AdjustmentRow,
     Adjustments,
@@ -195,8 +191,6 @@ __all__ = [
     "MAX_WEIGHTS_NEW_BYTES",
     "MEGAPIXEL",
     "NEUTRAL_ERROR_SET",
-    "ActivationCapture",
-    "ActivationCaptureResult",
     "AdapterCompatibility",
     "AdapterRef",
     "AdjustmentRow",
@@ -218,12 +212,12 @@ __all__ = [
     "AuthorError",
     "Backend",
     "Bound",
+    "Box",
     "Cancelled",
     "CapabilityError",
     "CheckpointRef",
     "CheckpointUnnormalized",
     "ChildCallError",
-    "Clamp",
     "Config",
     "ConformanceError",
     "ConstructionIdentity",
@@ -243,15 +237,12 @@ __all__ = [
     "DecodedVideoFrame",
     "DecoderUnavailable",
     "DefaultResolutionError",
-    "DefaultSet",
     "DerivationHook",
     "DerivedCache",
     "Device",
     "Egress",
     "EgressResponse",
     "EncodingRule",
-    "ExecutionEnvironment",
-    "ExecutionObservation",
     "FileAsset",
     "Fit",
     "Image",
@@ -291,6 +282,7 @@ __all__ = [
     "QuantizationPlan",
     "Recipe",
     "ReferenceImages",
+    "Region",
     "Registration",
     "RegistrationError",
     "ReleaseReceipt",
@@ -300,12 +292,12 @@ __all__ = [
     "SavedVideo",
     "Scheduler",
     "ScopeCall",
-    "ScriptContext",
     "Secrets",
     "Seed",
     "SelectionPlan",
     "Settings",
     "Shape",
+    "Sizes",
     "Surface",
     "Target",
     "Telemetry",
@@ -322,19 +314,19 @@ __all__ = [
     "active_attention_layout",
     "assert_declaration_shape",
     "attach_assessment",
-    "attempt",
     "attention_scope",
     "canonical_json",
     "classify",
     "concurrently",
+    "corners",
     "data_values",
     "decode_request",
     "describe",
+    "device",
     "expect_attention",
     "graph_keys",
     "held",
     "invocable",
-    "invoke",
     "placeable",
     "prefetch",
     "prepare",
@@ -342,7 +334,6 @@ __all__ = [
     "register_adapter",
     "register_attention",
     "registered_adapters",
-    "script_app",
     "sequence_parallel",
     "split",
     "spread",

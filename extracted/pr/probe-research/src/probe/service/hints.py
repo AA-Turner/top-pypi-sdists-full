@@ -11,8 +11,8 @@ once per machine, and never blocks anything:
                   live and unconfined, not `off`. Its recorder is the tap's loop
                   (`tap.hosted`), which reads the transcript into the journal and
                   hands no line out, so this lane keeps its own offset in the
-                  same file: one stat a second per session, and only the new
-                  bytes read (the page cache has them: the recorder just read
+                  same file: one look every POLL_S per session (an open and an
+                  fstat), and only the new bytes read (the page cache has them: the recorder just read
                   them). New whole lines are parsed with the daemon's adapter
                   (`probe.daemon.adapters`, the worker's parse) and its
                   `.probe.config` filter (`exclusions.Filter`, the worker's), so
@@ -24,14 +24,23 @@ once per machine, and never blocks anything:
                   the sender's own transcript holds the message it sent); a
                   WebSearch / WebFetch call (`search`); a shell call that starts
                   a Probe run for certain: `probe exec` opening a new run, or
-                  `probe run start` (`command`). Nothing else
-    the lookup    POST /v1/hints on one kept connection, with the read-only key
+                  `probe run start` (`command`); and (`window`, plan
+                  hints-window-trigger W1) WINDOW_GAP_S after the last window
+                  look, the researcher's prompt or the turn's first step (a
+                  turn's end ends its window), at the agent's next step, when it
+                  wrote at least one message since: every such message, newest
+                  first, each looked up on its own (`segments`). Tool calls and
+                  their output are never sent for a window. Nothing else
+    the lookup    POST /v1/hints on one kept connection per lookup thread
+                  (prompts and the rest on one, windows on their own), with the read-only key
                   of the session's CLI config (KEYS), TIMEOUT_S, failing open:
                   no answer is no hint. The text goes through the capture's
                   secret scan first (`scrubbed`), as all transcript text that
                   leaves the machine does. `ml` is the session's ML gate (the
                   daemon worker's store facts, read only) or null
-    limits        one request per session per SESSION_GAP_S (a newer trigger
+    limits        one request per session per SESSION_GAP_S, windows and the
+                  rest each on their own clock: a window just sent never delays
+                  the session's prompt (a newer trigger
                   replaces the one waiting, but a search or a command never a
                   prompt or a peer's message); a token bucket for the machine
                   (BUCKET_PER_MIN, BUCKET_BURST); holds as `alertpoll` keeps
@@ -39,7 +48,14 @@ once per machine, and never blocks anything:
                   LIMITED_S, a 401 / 403 the key REFUSED_S, a 404 the server
                   MISSING_S; `mode: off` quiets that key on that server
                   OFF_RECHECK_S for every session; the last REPEATS texts of a
-                  session are never sent again
+                  session are never sent again. A window lookup goes on its
+                  own thread, so it never holds up a prompt's; it never takes
+                  the machine's last tokens (WINDOW_TOKEN_RESERVE), waits
+                  WINDOW_TIMEOUT_S, and
+                  is held on its own (`_window_scopes`): a 404, or a 422 naming
+                  `trigger`, holds window lookups on that server MISSING_S, no
+                  answer LIMITED_S, a 429 that key's there LIMITED_S; prompts
+                  and the rest still ask
     delivery      `fire` with a `hint` (as Probe rendered it, at most
                   MAX_HINT_CHARS: a longer one is dropped whole): an unasked
                   message with origin
@@ -54,14 +70,20 @@ once per machine, and never blocks anything:
                   doc ids go with each request (`exclude_doc_ids`) for the
                   server to leave out. A newer researcher prompt, or the end of
                   the agent's turn, withdraws a hint still waiting
+    markers       `<sid>.live` (`mailbox.hints_live_path`) while the lane can
+                  hint the session: its daemon's reader then leaves prompt time
+                  to hints. `<sid>.window` (`mailbox.hints_window_path`) only
+                  while window hints are proven working for it (`_window_works`):
+                  its daemon's reader then stops its check-ins
     off           PROBE_HINTS=off in a session's environment (its recorder's
                   `env`: every PROBE_* variable the agent's shell had), or in
                   the service's own
 
 One log line per lookup (trigger, mode, fire, reason, top score, latency,
-delivered or why not), never the text. Two daemon threads of its own (the tail,
-the lookups), neither waited for at exit; both idle without a timer while no
-session is followed; everything they do is caught and logged.
+how long after the trigger it was answered, delivered or why not), never the
+text. Three daemon threads of its own (the tail, the lookups, the window
+lookups), none waited for at exit; all idle without a timer while no session is
+followed; everything they do is caught and logged.
 
 Stdlib only at import (the service's start path); the daemon's adapters, its
 filter and the mailbox are imported on the lane's threads.
@@ -79,7 +101,7 @@ import shlex
 import stat
 import threading
 import time
-from collections import Counter, OrderedDict
+from collections import Counter, OrderedDict, deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -93,8 +115,10 @@ from .protocol import Mode
 #: turns the lane off there.
 HINTS_ENV = "PROBE_HINTS"
 ROUTE = "/v1/hints"
-#: Every followed transcript is looked at this often.
-POLL_S = 1.0
+#: Every followed transcript is looked at this often: one stat each, and only
+#: new bytes read. A prompt waits half of it on average before its lookup goes
+#: (1.0 s until plan hints-latency L3: ~0.5 s of a ~1.5 s hint).
+POLL_S = 0.25
 #: A served session's hint marker (`mailbox.hints_live_path`) is touched at most
 #: this often; its daemon reads one older than `model.HINTS_LIVE_TTL_S` (120 s)
 #: as no hint lane here, and its reader wakes at prompts again.
@@ -103,6 +127,33 @@ HINTS_LIVE_BEAT_S = 30.0
 POLL_ENV = "PROBE_SERVICE_HINTS_POLL_S"
 #: One request, connect to last byte.
 TIMEOUT_S = 5.0
+#: A window request (plan hints-window-trigger W1/W3): the server spends up to
+#: its 4 s engine budget and then at most five database statements (1.5 s
+#: deadline each) before it answers.
+WINDOW_TIMEOUT_S = 12.0
+#: A window look comes due this long after the last window look or researcher
+#: prompt (the lines' own stamps), at the agent's next step (a message or a
+#: tool call), if it wrote a message since: the mailbox hands a long turn one
+#: hint per 10 minutes (`mailbox.UNASKED_WINDOW_S`), so looking more often
+#: only replaces a waiting one.
+WINDOW_GAP_S = 600.0
+#: The window's messages sent, at most (the newest); the server asks as many.
+WINDOW_MAX_SEGMENTS = 32
+#: One message, at most, as sent (the engine embeds 2,000 characters).
+WINDOW_SEGMENT_CHARS = 2000
+#: A window lookup takes a machine token only while at least this many are
+#: left, so a prompt or a peer's message always finds one.
+WINDOW_TOKEN_RESERVE = 2.0
+#: This many window lookups in a row failing (no answer, any refusal,
+#: `engine_error` or `rate_limited`), the session's or its key's, stop the
+#: session's window marker until one works again.
+WINDOW_FAILURES_STOP = 2
+#: The session's transcript must have been read this recently for its window marker.
+WINDOW_READ_FRESH_S = 60.0
+#: A window clock older than this (the reader's check-in interval) means the
+#: lane has not looked at the turn's work for that long (tool calls only, or a
+#: window that could not go): its window marker stops and the check-in returns.
+WINDOW_COVERS_S = 1800.0
 #: The most text a request carries (the contract's client limit).
 MAX_TEXT_CHARS = 8000
 #: The longest hint posted: one the server sends longer is dropped whole, never
@@ -126,8 +177,12 @@ OFF_RECHECK_S = 10 * 60.0
 REFUSED_S = 5 * 60.0
 #: A server without the route (404, a CLI ahead of its API): that server waits as long as `off`.
 MISSING_S = OFF_RECHECK_S
-#: The most record doc ids a request names as shown already (`exclude_doc_ids`).
-MAX_EXCLUDE_DOC_IDS = 50
+#: The most record doc ids a request names as shown already (`exclude_doc_ids`):
+#: a long turn of window hints passes 50. A server that answered a window
+#: lookup accepts 200; any other may be one before them (#3402), which refuses
+#: more than LEGACY_EXCLUDE_DOC_IDS with a 422.
+MAX_EXCLUDE_DOC_IDS = 100
+LEGACY_EXCLUDE_DOC_IDS = 50
 #: A session's last this-many request texts are never sent again (R16).
 REPEATS = 32
 #: Sessions with a lookup waiting, at most: the oldest goes past it.
@@ -199,6 +254,7 @@ class Trigger:
     PEER = "peer"
     SEARCH = "search"
     COMMAND = "command"
+    WINDOW = "window"
 
 
 #: The triggers a waiting lookup is never replaced by a search or a command for
@@ -213,6 +269,13 @@ class Skip:
     REPEAT = "repeat"  # every record in it was delivered, or waits in a hint
     NOT_POSTED = "not_posted"  # the mailbox step wrote nothing
     TOO_LONG = "too_long"  # longer than MAX_HINT_CHARS: dropped whole
+    #: Asked before a hint from a newer trigger was posted (the other lookup
+    #: thread answered first): it would replace that hint in the session's slot.
+    SUPERSEDED = "superseded"
+    #: The team's hints went off (`mode: off`) while it was asked.
+    OFF = "off"
+    #: The lane closed while it was asked.
+    CLOSED = "closed"
 
 
 def disabled(env) -> bool:
@@ -541,15 +604,57 @@ def ml_state(state: str, sid: str) -> dict | None:
 # -- the request ------------------------------------------------------------------
 
 
-def scrubbed(text: str) -> str:
+def scrubbed(text: str, limit: int = MAX_TEXT_CHARS) -> str:
     """`text` as it may leave this machine: every credential the capture's one
     detector finds replaced (`probe.tap_core.secrets`, as the daemon's store and
-    the tap's journal do before transcript text goes out), then cut to
-    MAX_TEXT_CHARS."""
+    the tap's journal do before transcript text goes out), then cut to `limit`."""
     from probe.tap_core import secrets as detector  # not the stdlib `secrets` this module uses
 
     clean, _rules = detector.redact(text)
-    return clean[:MAX_TEXT_CHARS]
+    return clean[:limit]
+
+
+def window_due(stamp: float, since: float | None, messages) -> bool:
+    """A window look is due at an agent step stamped `stamp`: WINDOW_GAP_S on the
+    window clock (`since`: the last window look, the researcher's prompt or the
+    turn's first step) and at least one agent message since (`messages`)."""
+    return since is not None and bool(messages) and stamp - since >= WINDOW_GAP_S
+
+
+def window_segments(messages) -> list[str]:
+    """A window's `segments`: the agent's messages (kept oldest first), newest
+    first, at most WINDOW_MAX_SEGMENTS, each stripped and kept to
+    WINDOW_SEGMENT_CHARS plus the scan margin (`scrubbed` cuts it when sent)."""
+    out: list[str] = []
+    for message in reversed(list(messages)):
+        message = (message or "").strip()
+        if message:
+            out.append(message[:WINDOW_SEGMENT_CHARS + SCAN_MARGIN_CHARS])
+            if len(out) >= WINDOW_MAX_SEGMENTS:
+                break
+    return out
+
+
+def window_text(segments) -> str:
+    """A window's `text`: its segments (scanned already) joined, newest first,
+    at most MAX_TEXT_CHARS (the server reads names from it)."""
+    return "\n\n".join(segments)[:MAX_TEXT_CHARS]
+
+
+def shows_mid_turn(adapter) -> bool:
+    """Whether the harness hands a `[Probe]` message over after a tool call,
+    mid-turn (`Capabilities.inject_tool`). A window hint needs it: on one that
+    shows messages only at the next prompt (Kimi Code), the turn's end would
+    withdraw every window hint before it is seen."""
+    return bool(getattr(getattr(adapter, "capabilities", None), "inject_tool", False))
+
+
+def names_trigger(data: object) -> bool:
+    """A 422 whose detail names the `trigger` field: a server that knows no
+    `window` lookup (any other 422 is about one request's content)."""
+    detail = data.get("detail") if isinstance(data, dict) else None
+    return isinstance(detail, list) and any(
+        isinstance(item, dict) and "trigger" in (item.get("loc") or []) for item in detail)
 
 
 def credentials(env: dict) -> Endpoint | None:
@@ -571,9 +676,19 @@ class HintFetcher(Fetcher):
     """POST /v1/hints over a kept connection per endpoint (`alertpoll.Fetcher`'s)."""
 
     timeout = TIMEOUT_S
+    #: Set by `abort()` for every endpoint (the lane closing): no request, and
+    #: no second try of one in flight, goes after it.
+    closing = False
+
+    def abort(self, base: str | None = None) -> None:
+        if base is None:
+            self.closing = True
+        super().abort(base)
 
     def __call__(self, ep: Endpoint, body: dict) -> tuple[int | None, object]:
         """`(HTTP status, the JSON answer)`, or `(None, None)` with no answer in time."""
+        if self.closing:
+            return None, None
         prefix = urlsplit(ep.base_url).path.rstrip("/")
         headers = {
             "Authorization": f"Bearer {ep.key}",
@@ -584,21 +699,27 @@ class HintFetcher(Fetcher):
             **self._limit_headers(ep),
         }
         payload = json.dumps(body).encode("utf-8")
-        deadline = time.monotonic() + TIMEOUT_S
-        cutoff = threading.Timer(TIMEOUT_S, self.abort, args=(ep.base_url,))
+        limit = WINDOW_TIMEOUT_S if body.get("trigger") == Trigger.WINDOW else TIMEOUT_S
+        deadline = time.monotonic() + limit
+        cutoff = threading.Timer(limit, self.abort, args=(ep.base_url,))
         cutoff.daemon = True
         cutoff.start()
         try:
-            return self._post(ep, f"{prefix}{ROUTE}", payload, headers, deadline)
+            return self._post(ep, f"{prefix}{ROUTE}", payload, headers, deadline, limit)
         finally:
             cutoff.cancel()
 
-    def _post(self, ep: Endpoint, path: str, payload: bytes, headers: dict, deadline: float):
+    def _post(self, ep: Endpoint, path: str, payload: bytes, headers: dict, deadline: float, limit: float):
         import http.client
 
         for attempt in (1, 2):
             try:
                 conn = self._connection(ep.base_url)
+                # One socket operation, at most this request's own limit: a kept
+                # connection's next connect, and its socket now.
+                conn.timeout = limit
+                if conn.sock is not None:
+                    conn.sock.settimeout(limit)
                 conn.request("POST", path, body=payload, headers=headers)
                 resp = conn.getresponse()
                 body = self._read(resp, deadline)
@@ -613,7 +734,7 @@ class HintFetcher(Fetcher):
                 # deadline: the cutoff's own shutdown lands here too, and a second
                 # try then would ask a slow server twice and wait on it again.
                 self.drop(ep.base_url)
-                if attempt == 2 or time.monotonic() >= deadline:
+                if attempt == 2 or time.monotonic() >= deadline or self.closing:
                     return None, None
             except (OSError, ValueError, http.client.HTTPException):
                 self.drop(ep.base_url)
@@ -721,6 +842,11 @@ class Lookup:
     epoch: int
     #: Where it is asked, with which key (`credentials`, read when it was queued).
     ep: Endpoint | None = None
+    #: A window's agent messages, newest first (`window_segments`): taken from
+    #: the session's window when the lookup goes (`take_due`).
+    segments: list = field(default_factory=list)
+    #: The session's hints posted (`_State.posted`) when its request was built.
+    posted_before: int = 0
 
 
 @dataclass
@@ -734,6 +860,11 @@ class _Tail:
     first: bool = True
     seen_at: float = 0.0
     resolve_at: float = 0.0
+    #: When the transcript was last read without an error (`clock`).
+    read_ok_at: float = float("-inf")
+    #: The file's size when all that was left past `offset` was an unfinished
+    #: line: not read again until it grows.
+    partial_at: int | None = None
 
 
 @dataclass
@@ -741,7 +872,10 @@ class _State:
     """One session's memory, this service's life."""
 
     recent: OrderedDict = field(default_factory=OrderedDict)
+    #: When its last lookup that was no window went, and its last window
+    #: (`clock`): each kind waits SESSION_GAP_S after its own only.
     last_sent: float = float("-inf")
+    window_last_sent: float = float("-inf")
     #: Researcher prompts and ends of the agent's turn seen (`Lookup.epoch`).
     epoch: int = 0
     #: Every hint's records the ledger knows of (this run's and the last week's,
@@ -749,6 +883,21 @@ class _State:
     ledger: dict | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
     no_key_said: bool = False
+    #: The window clock (W1), under the lane's condition: the stamp of the last
+    #: window look, researcher prompt or turn's first step (None from a turn's
+    #: end until the next agent step), the newest agent step's, and the agent's
+    #: messages since, oldest first.
+    window_since: float | None = None
+    window_seen: float | None = None
+    window_messages: deque = field(default_factory=lambda: deque(maxlen=WINDOW_MAX_SEGMENTS))
+    #: Window lookups failed in a row (no answer, refused, engine_error or
+    #: rate_limited): WINDOW_FAILURES_STOP of them stop the `.window` marker.
+    window_failures: int = 0
+    #: Hints this lane posted for the session, and the newest trigger time
+    #: (`Lookup.happened`) among them: under `lock`. Two lookup threads can
+    #: answer out of order (`_deliver`).
+    posted: int = 0
+    posted_happened: float = float("-inf")
 
 
 class _Facts:
@@ -801,6 +950,9 @@ class HintLane:
         self.version = version
         self.enabled = not disabled(os.environ if environ is None else environ)
         self.transport = transport if transport is not None else HintFetcher(version)
+        #: The window thread's own: a fetcher's kept connections are not shared
+        #: across threads. A test's `transport` serves both.
+        self.window_transport = transport if transport is not None else HintFetcher(version)
         self.endpoint_of = endpoint_of
         self._post = post
         self._withdraw = withdraw
@@ -833,6 +985,11 @@ class HintLane:
         self.stats: Counter = Counter()
         #: When each served session's hint marker was last touched (`clock`).
         self._beats: dict[str, float] = {}
+        #: (base URL, key) whose window lookups the server answered as such (a 200
+        #: with `trigger_class: window`), with no 404 / 422 naming `trigger` since (W3).
+        self._window_ok: dict[tuple, bool] = {}
+        #: (base URL, key) -> its window lookups failed in a row, whichever session's.
+        self._window_key_failures: dict[tuple, int] = {}
 
     # -- lifecycle --------------------------------------------------------------
 
@@ -842,8 +999,10 @@ class HintLane:
             return
         try:
             if not self._threads:
-                for name, target in (("hints-tail", self._tail_loop), ("hints-lookup", self._lookup_loop)):
-                    thread = threading.Thread(target=target, name=name, daemon=True)
+                for name, target, args in (("hints-tail", self._tail_loop, ()),
+                                           ("hints-lookup", self._lookup_loop, (False,)),
+                                           ("hints-window", self._lookup_loop, (True,))):
+                    thread = threading.Thread(target=target, args=args, name=name, daemon=True)
                     self._threads.append(thread)
                     thread.start()
             self._wake.set()
@@ -855,10 +1014,11 @@ class HintLane:
         self._wake.set()
         with self._cv:
             self._cv.notify_all()
-        abort = getattr(self.transport, "abort", None)
-        if abort is not None:
-            with contextlib.suppress(Exception):
-                abort()
+        for transport in {id(t): t for t in (self.transport, self.window_transport)}.values():
+            abort = getattr(transport, "abort", None)
+            if abort is not None:
+                with contextlib.suppress(Exception):
+                    abort()
 
     def _state(self, sid: str) -> _State:
         state = self._states.get(sid)
@@ -914,7 +1074,9 @@ class HintLane:
         answering `mode: off`), its marker is touched, at most every
         HINTS_LIVE_BEAT_S: the session's daemon then leaves prompt time to hints
         (`model.hints_live`). Not touched, the marker goes stale and the reader
-        wakes at prompts again."""
+        wakes at prompts again. Its `.window` marker is touched in the same beat
+        only while window hints are proven working for it (`_window_works`): its
+        reader then stops its check-ins (`model.window_hints_live`)."""
         now = self.clock()
         if now - self._beats.get(session.sid, float("-inf")) < HINTS_LIVE_BEAT_S:
             return
@@ -931,8 +1093,32 @@ class HintLane:
 
         with mailbox.rooted(session.state):
             path = mailbox.hints_live_path(session.sid)
+            window = mailbox.hints_window_path(session.sid)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()  # an existing one's mtime moves to now
+        if self._window_works(session, ep, now):
+            window.touch()
+
+    def _window_works(self, session: Followed, ep: Endpoint, now: float) -> bool:
+        """Window hints proven working for `session` (plan hints-window-trigger
+        W3): its transcript read without an error within WINDOW_READ_FRESH_S;
+        its server and key answered a window lookup as one, with no 404 (or 422
+        naming `trigger`) to one since; and fewer than WINDOW_FAILURES_STOP of its window lookups
+        in a row failed, its own or its key's; its harness shows a hint mid-turn
+        (`shows_mid_turn`); and its window clock started within WINDOW_COVERS_S
+        (a turn of tool calls only, or a window that could not go, is looked at
+        by no one). Until then its reader keeps its check-ins."""
+        tail = self._tails.get(session.sid)
+        if tail is None or now - tail.read_ok_at > WINDOW_READ_FRESH_S or not shows_mid_turn(tail.adapter):
+            return False
+        pair = (ep.base_url, ep.key)
+        with self._cv:
+            state = self._states.get(session.sid)
+            failures = state.window_failures if state is not None else 0
+            since = state.window_since if state is not None else None
+            return (self._window_ok.get(pair, False) and failures < WINDOW_FAILURES_STOP
+                    and self._window_key_failures.get(pair, 0) < WINDOW_FAILURES_STOP
+                    and (since is None or self.wall() - since <= WINDOW_COVERS_S))
 
     def _tail(self, session: Followed) -> _Tail | None:
         tail = self._tails.get(session.sid)
@@ -984,6 +1170,7 @@ class HintLane:
             info = os.fstat(handle.fileno())
             if not stat.S_ISREG(info.st_mode):
                 return
+            tail.read_ok_at = self.clock()
             if tail.offset is None:
                 tail.inode = info.st_ino
                 tail.offset = max(0, info.st_size - INITIAL_BACK_BYTES)
@@ -991,10 +1178,14 @@ class HintLane:
             elif info.st_ino != tail.inode or info.st_size < tail.offset:
                 # Rewritten or replaced under the offset: on from its end.
                 tail.inode, tail.offset, tail.skipping = info.st_ino, info.st_size, False
+                tail.partial_at = None
                 return
             if info.st_size <= tail.offset:
                 tail.first = False
                 return
+            if tail.partial_at == info.st_size:
+                return  # only an unfinished line past the offset, and no new byte
+            size = info.st_size
             handle.seek(tail.offset)
             buf = handle.read(min(MAX_READ_BYTES, info.st_size - tail.offset))
         start = tail.offset
@@ -1011,8 +1202,9 @@ class HintLane:
             if len(buf) >= MAX_READ_BYTES:
                 tail.offset, tail.skipping = start + len(buf), True  # a line over MAX_READ_BYTES: skipped
             else:
-                tail.offset = start
+                tail.offset, tail.partial_at = start, size
             return
+        tail.partial_at = None
         tail.offset = start + last + 1
         fresh_after = tail.seen_at - FRESH_S if tail.first else None
         tail.first = False
@@ -1046,20 +1238,97 @@ class HintLane:
         newer = fresh_after is None
         from probe.daemon.events import Kind
 
-        if any(e.stream == MAIN_STREAM and e.kind == Kind.TURN_END for e in events):
-            self.turn_ended(session, newer=newer)
+        when = stamp if stamp is not None else self.wall()
+        ended = any(e.stream == MAIN_STREAM and e.kind == Kind.TURN_END for e in events)
         found = [(event, hit) for event in events if (hit := trigger_of(event)) is not None]
-        if not found:
-            return
-        # `.probe.config`: the worker's own filter, over the events that would ask.
-        line_cwd = obj.get("cwd") if isinstance(obj.get("cwd"), str) else None
-        kept = {id(e) for e in tail.filter.keep([e for e, _ in found], stream=MAIN_STREAM, line_cwd=line_cwd)}
+        # The agent's steps (W1): its messages and tool calls; never a tool's
+        # output, nor its reasoning. None where a window hint could not be shown.
+        steps = [e for e in events if e.stream == MAIN_STREAM and e.kind in (Kind.AGENT_TEXT, Kind.TOOL_CALL)]
+        if not shows_mid_turn(tail.adapter):
+            steps = []
+        kept: set = set()
+        if found or steps:
+            # `.probe.config`: the worker's own filter, over the events that would
+            # ask and the messages a window would send. A tool call that is only
+            # counted gets the folder's verdict alone: the filter's per-call reads
+            # walk trees, and nothing of it leaves.
+            line_cwd = obj.get("cwd") if isinstance(obj.get("cwd"), str) else None
+            asking = {id(e) for e, _ in found} | {id(e) for e in steps if e.kind == Kind.AGENT_TEXT}
+            kept = {id(e) for e in tail.filter.keep([e for e in events if id(e) in asking], stream=MAIN_STREAM,
+                                                    line_cwd=line_cwd)}
+            kept |= {id(e) for e in steps if id(e) not in asking
+                     and not tail.filter.folder_excluded(e, line_cwd=line_cwd)}
+        # Before the turn end: a line can end the turn with its last message (pi),
+        # and the turn's end ends its window too.
+        self._window_steps(session, [e for e in steps if id(e) in kept], when)
+        if ended:
+            self.turn_ended(session, newer=newer)
         for event, (trigger, text, senders) in found:
             if id(event) not in kept:
                 self.stats["excluded"] += 1
                 # Never asked about, but still a newer prompt: a waiting hint is stale.
                 text = ""
             self.trigger(session, trigger, text, senders, happened=stamp, newer=newer)
+
+    def _window_steps(self, session: Followed, steps: list, stamp: float) -> None:
+        """The agent's steps of one line, for the window (W1): its messages kept
+        (the newest WINDOW_MAX_SEGMENTS), and a window look queued at the first
+        step it is due (`window_due`). Its messages are taken when it goes
+        (`take_due`), so one replaced while it waits loses nothing."""
+        if not steps:
+            return
+        from probe.daemon.events import Kind
+
+        state = self._state(session.sid)
+        with self._cv:
+            if state.window_since is None:
+                state.window_since = stamp  # the clock starts at the session's first step seen here
+            state.window_seen = stamp
+            for event in steps:
+                text = (event.text or "").strip() if event.kind == Kind.AGENT_TEXT else ""
+                if text:
+                    state.window_messages.append(text[:WINDOW_SEGMENT_CHARS + SCAN_MARGIN_CHARS])
+            if not window_due(stamp, state.window_since, state.window_messages):
+                return
+            if session.sid in self._pending:
+                return  # a lookup waits (a window, or another trigger's): again at a later step
+        self._queue_window(session, state, stamp)
+
+    def _queue_window(self, session: Followed, state: _State, stamp: float) -> None:
+        """A window look, queued. With no key, or the team's hints off, none
+        is, and the clock starts again: the next is WINDOW_GAP_S on."""
+        try:
+            ep = self.endpoint_of(session.env)
+        except Exception:  # noqa: BLE001 -- unknown: not asked
+            ep = None
+        now = self.clock()
+        with self._cv:
+            if ep is None or now < self._off.get((ep.base_url, ep.key), float("-inf")):
+                self.stats["no_key" if ep is None else "quiet"] += 1
+                state.window_since = stamp
+                state.window_messages.clear()
+                return
+            if session.sid in self._pending:
+                return
+            self._pending[session.sid] = Lookup(
+                sid=session.sid, session=session, trigger=Trigger.WINDOW, text="", senders=[], queued=now,
+                happened=stamp, epoch=state.epoch, ep=ep)
+            self._evict()
+            self.stats[f"trigger_{Trigger.WINDOW}"] += 1
+            # notify_all: two lookup threads wait on this condition, each for its
+            # own kind, and the one woken must be the one with work.
+            self._cv.notify_all()
+
+    def _evict(self) -> None:
+        """Past MAX_PENDING, the oldest waiting window goes first (the least
+        asked-for), else the oldest lookup. Under the lane's condition."""
+        while len(self._pending) > MAX_PENDING:
+            window = next((sid for sid, job in self._pending.items() if job.trigger == Trigger.WINDOW), None)
+            if window is None:
+                self._pending.popitem(last=False)
+            else:
+                del self._pending[window]
+            self.stats["dropped"] += 1
 
     # -- triggers -----------------------------------------------------------------
 
@@ -1076,6 +1345,14 @@ class HintLane:
                 state.epoch += 1
                 if newer:
                     self._take_back(session, state, "a newer prompt")
+            with self._cv:
+                # The window clock starts again (W1): the prompt gets its own
+                # search now, and a window look waiting would ask about older work.
+                state.window_since = happened if happened is not None else self.wall()
+                state.window_messages.clear()
+                waiting = self._pending.get(session.sid)
+                if waiting is not None and waiting.trigger == Trigger.WINDOW:
+                    del self._pending[session.sid]
         if not text:
             return False
         try:
@@ -1108,18 +1385,18 @@ class HintLane:
                 sid=session.sid, session=session, trigger=trigger, text=text, senders=list(senders or []),
                 queued=now,
                 happened=happened if happened is not None else self.wall(), epoch=state.epoch, ep=ep)
-            while len(self._pending) > MAX_PENDING:
-                self._pending.popitem(last=False)
-                self.stats["dropped"] += 1
+            self._evict()
             self.stats[f"trigger_{trigger}"] += 1
-            self._cv.notify()
+            self._cv.notify_all()
         return True
 
     def turn_ended(self, session: Followed, newer: bool = True) -> None:
         """The main agent's turn is over (TURN_END): a hint still waiting was for
         it, and the next prompt's hook would hand it over stale (R5), so it goes
         (`newer` False: not one read on a first look); a lookup in flight for it
-        is stale, and one still waiting out the session's gap is not sent."""
+        is stale, and one still waiting out the session's gap is not sent. The
+        turn's window ends with it: its messages are not looked at again, and
+        the clock starts again at the next turn's first step."""
         state = self._state(session.sid)
         with state.lock:
             state.epoch += 1
@@ -1128,6 +1405,8 @@ class HintLane:
         with self._cv:
             if self._pending.pop(session.sid, None) is not None:
                 self.stats["ended"] += 1
+            state.window_since = None
+            state.window_messages.clear()
 
     def _take_back(self, session: Followed, state: _State, why: str) -> None:
         """A newer researcher prompt, or the end of the turn: the session's hints
@@ -1146,12 +1425,14 @@ class HintLane:
 
     # -- the lookups --------------------------------------------------------------
 
-    def _lookup_loop(self) -> None:
+    def _lookup_loop(self, windows: bool) -> None:
+        """One lookup thread: window lookups (`windows`), or every other kind
+        (`take_due`)."""
         while True:
             with self._cv:
                 job = None
                 while not self._closed:
-                    job, wait = self.take_due()
+                    job, wait = self.take_due(windows)
                     if job is not None:
                         break
                     self._cv.wait(wait)
@@ -1167,43 +1448,72 @@ class HintLane:
         self._tokens = min(BUCKET_BURST, self._tokens + max(0.0, now - self._filled_at) * rate)
         self._filled_at = now
 
-    def take_due(self) -> tuple[Lookup | None, float | None]:
-        """The next lookup that may go now, or `(None, how long to wait)`
-        (None: until something is queued). Call with the lane's condition held."""
+    def take_due(self, windows: bool) -> tuple[Lookup | None, float | None]:
+        """The next lookup of one kind that may go now, window lookups
+        (`windows`) or every other kind, or `(None, how long to wait)` (None:
+        until something is queued). A window leaves the machine's tokens to the
+        other kind's lookups due now, and WINDOW_TOKEN_RESERVE besides. Call
+        with the lane's condition held."""
         now = self.clock()
         for table in (self._holds, self._off):
             for scope in [k for k, until in table.items() if until <= now]:
                 del table[scope]  # past: forgotten, so neither table grows
         if not self._pending:
             return None, None
-        best, best_due = None, None
+        best, best_due, best_rank = None, None, None
+        others_due_now = 0  # the other kind's lookups due now (a window leaves them their tokens)
         for sid, job in list(self._pending.items()):
             state = self._state(sid)
             if job.ep is not None and (job.ep.base_url, job.ep.key) in self._off:
                 del self._pending[sid]  # its team's setting is off: not asked
                 continue
-            held = max((self._holds.get(scope, float("-inf")) for scope in _scopes(job.ep)), default=float("-inf"))
-            due = max(job.queued, state.last_sent + SESSION_GAP_S, held)
-            if best_due is None or due < best_due:
-                best, best_due = job, due
+            window = job.trigger == Trigger.WINDOW
+            if window and not state.window_messages:
+                del self._pending[sid]  # a prompt started the window again: nothing to look at
+                continue
+            scopes = (*_scopes(job.ep), *_window_scopes(job.ep)) if window else _scopes(job.ep)
+            held = max((self._holds.get(scope, float("-inf")) for scope in scopes), default=float("-inf"))
+            sent = state.window_last_sent if window else state.last_sent
+            due = max(job.queued, sent + SESSION_GAP_S, held)
+            if window != windows:  # the other thread's
+                others_due_now += due <= now
+                continue
+            rank = (max(due, now), due)
+            if best_rank is None or rank < best_rank:
+                best, best_due, best_rank = job, due, rank
         if best is None:
             return None, None
         if best_due > now:
             return None, best_due - now
         self._refill(now)
-        if self._tokens < 1.0:
-            return None, (1.0 - self._tokens) / (BUCKET_PER_MIN / 60.0)
+        # A window never takes the machine's last tokens, nor those the other
+        # thread's lookups due now need: a prompt finds one.
+        need = WINDOW_TOKEN_RESERVE + others_due_now if windows else 1.0
+        if self._tokens < need:
+            return None, (need - self._tokens) / (BUCKET_PER_MIN / 60.0)
         self._tokens -= 1.0
         del self._pending[best.sid]
-        self._state(best.sid).last_sent = now
+        state = self._state(best.sid)
+        if best.trigger == Trigger.WINDOW:
+            state.window_last_sent = now
+            # Its messages, taken now; the clock starts again at the newest step.
+            best.segments = window_segments(state.window_messages)
+            state.window_messages.clear()
+            state.window_since = state.window_seen
+        else:
+            state.last_sent = now
         return best, None
 
     def run_due(self) -> int:
-        """Every lookup due now, on this thread (tests). How many ran."""
+        """Every lookup due now, on this thread, taken as the two lookup
+        threads take them (the other kinds first, then the windows; tests).
+        How many ran."""
         ran = 0
         while True:
             with self._cv:
-                job, _wait = self.take_due()
+                job, _wait = self.take_due(False)
+                if job is None:
+                    job, _wait = self.take_due(True)
             if job is None:
                 return ran
             self.lookup(job)
@@ -1226,11 +1536,21 @@ class HintLane:
             ml = self._ml(session.state, job.sid) if session.mode == Mode.DAEMON else None
         except Exception:  # noqa: BLE001 -- unknown: the server's record-type rule
             ml = None
+        window = job.trigger == Trigger.WINDOW
+        segments: list[str] = []
         try:
-            text = scrubbed(job.text)
+            if window:
+                # Each message scanned before its cut, then joined clean.
+                segments = [clean for clean in (scrubbed(m, WINDOW_SEGMENT_CHARS).strip() for m in job.segments)
+                            if clean]
+                text = window_text(segments)
+            else:
+                text = scrubbed(job.text)
         except Exception as exc:  # noqa: BLE001 -- unscanned text never leaves: no request
             self.stats["unscanned"] += 1
             self._log(f"hints: session {job.sid}: the secret scan failed ({type(exc).__name__}); not asked")
+            return
+        if window and not segments:
             return
         exclude: list = []
         for sender in job.senders:
@@ -1239,23 +1559,60 @@ class HintLane:
                 exclude.append(sid)
         try:
             with state.lock:
+                job.posted_before = state.posted
                 shown = self._shown(session, state)
         except Exception:  # noqa: BLE001 -- unknown: none named (the all-repeated rule still holds)
             shown = []
+        with self._cv:
+            newer_server = any(pair[0] == ep.base_url for pair in self._window_ok)
+        limit = MAX_EXCLUDE_DOC_IDS if newer_server else LEGACY_EXCLUDE_DOC_IDS
         body = {"text": text, "trigger": job.trigger, "session_id": job.sid,
-                "exclude_session_ids": exclude, "exclude_doc_ids": exclude_doc_ids(shown), "ml": ml,
+                "exclude_session_ids": exclude, "exclude_doc_ids": exclude_doc_ids(shown, limit), "ml": ml,
                 "client": {"harness": harness, "mode": session.mode, "cli": self.version}}
+        if window:
+            body["segments"] = segments
+            if state.epoch != job.epoch:
+                # Its turn ended, or a newer prompt came: the hint would be
+                # dropped (`_deliver`), so it is not asked. Best effort: a turn
+                # end read after this still drops it there.
+                self.stats["stale"] += 1
+                return
         started = self.clock()
         try:
-            status, data = self.transport(ep, body)
+            status, data = (self.window_transport if window else self.transport)(ep, body)
         except Exception as exc:  # noqa: BLE001 -- fail open
             status, data = None, None
             self._log(f"hints: session {job.sid}: the request failed: {type(exc).__name__}")
         took = (self.clock() - started) * 1000.0
-        line = f"hints: session {job.sid} {job.trigger}"
+        # Plan hints-latency R9: every answer's delay from the trigger, posted or
+        # not, so a slow lookup shows even when it fires nothing.
+        answered = f"answered {(self.wall() - job.happened) * 1000:.0f} ms after the trigger"
+        line = f"hints: session {job.sid} {job.trigger}" + (f" ({len(segments)} messages)" if window else "")
+        unsupported = self._window_answered(job, state, status, data) if window else False
         if status is None:
             self.stats["unanswered"] += 1
-            self._log(f"{line}: no answer in {took:.0f} ms; no hint")
+            held = ""
+            if window:
+                # A window waits WINDOW_TIMEOUT_S on its thread: while the server
+                # is not answering, none goes for LIMITED_S.
+                scope = _window_scopes(ep)[0]
+                with self._cv:
+                    self._holds[scope] = max(self._holds.get(scope, float("-inf")), self.clock() + LIMITED_S)
+                self.stats["held_window_unanswered"] += 1
+                held = f"; {_SCOPE_NAMES[scope[0]]} are not asked for {LIMITED_S:.0f} s"
+            self._log(f"{line}: no answer in {took:.0f} ms; no hint{held}")
+            return
+        if window and (unsupported or status == 429 or (status == 200 and isinstance(data, dict)
+                                                        and data.get("reason") == "rate_limited")):
+            # A window's own: an older server without window lookups, or one
+            # costing more than the team's rate has left. Prompts still ask.
+            wait = MISSING_S if unsupported else LIMITED_S
+            scope = _window_scopes(ep)[0 if unsupported else 1]
+            with self._cv:
+                self._holds[scope] = max(self._holds.get(scope, float("-inf")), self.clock() + wait)
+            self.stats[f"held_window_{status}"] += 1
+            self._log(f"{line}: answered {status}; {_SCOPE_NAMES[scope[0]]} are not asked for {wait:.0f} s; "
+                      f"{answered}")
             return
         if status in (401, 403, 404, 429) or (status == 200 and isinstance(data, dict)
                                                and data.get("reason") == "rate_limited"):
@@ -1264,14 +1621,16 @@ class HintLane:
             with self._cv:
                 self._holds[scope] = max(self._holds.get(scope, float("-inf")), self.clock() + wait)
             self.stats[f"held_{status}"] += 1
-            self._log(f"{line}: answered {status}; {_SCOPE_NAMES[scope[0]]} is not asked for {wait:.0f} s")
+            self._log(f"{line}: answered {status}; {_SCOPE_NAMES[scope[0]]} is not asked for {wait:.0f} s; "
+                      f"{answered}")
             return
         if status != 200 or not isinstance(data, dict):
             self.stats["refused"] += 1
-            self._log(f"{line}: answered {status} in {took:.0f} ms; no hint")
+            self._log(f"{line}: answered {status} in {took:.0f} ms; no hint; {answered}")
             return
         with self._cv:
-            state.recent[_repeat_key(job.trigger, job.text)] = None
+            if not window:
+                state.recent[_repeat_key(job.trigger, job.text)] = None
             while len(state.recent) > REPEATS:
                 state.recent.popitem(last=False)
             mode = data.get("mode")
@@ -1281,8 +1640,16 @@ class HintLane:
         fire = data.get("fire") is True
         hint = data.get("hint")
         outcome = "not shown"
+        with self._cv:
+            off = self.clock() < self._off.get((ep.base_url, ep.key), float("-inf"))
         if fire and mode == "on" and isinstance(hint, str) and hint.strip():
-            if len(hint) > MAX_HINT_CHARS:
+            if self._closed:
+                outcome = Skip.CLOSED
+            elif off:
+                # Another lookup's answer turned the team's hints off meanwhile.
+                self.stats["off"] += 1
+                outcome = Skip.OFF
+            elif len(hint) > MAX_HINT_CHARS:
                 self.stats["too_long"] += 1
                 outcome = Skip.TOO_LONG
             else:
@@ -1292,7 +1659,40 @@ class HintLane:
                 outcome = f"posted {(self.wall() - job.happened) * 1000:.0f} ms after the trigger" if posted else why
         self.stats[f"mode_{mode}"] += 1
         self._log(f"{line}: mode={mode} fire={fire} reason={data.get('reason')} "
-                  f"top={_number(data.get('top_score'))} in {took:.0f} ms; {outcome}")
+                  f"top={_number(data.get('top_score'))} in {took:.0f} ms; {outcome}; {answered}")
+
+    def _window_answered(self, job: Lookup, state: _State, status: int | None, data: object) -> bool:
+        """What a window lookup's answer proves (W3, `_window_works`): a 200 as a
+        window shows the server and key do window lookups; a 404, or a 422
+        naming `trigger`, that the server does not (True: `unsupported`). No
+        answer, any other status, `engine_error` or `rate_limited` is one more
+        failure in a row, the session's and its key's; a failure a retry can
+        pass (no answer, a 5xx, a 429, `engine_error`, `rate_limited`) puts its
+        messages back for the next look, unless its turn is over (a 4xx is
+        about those messages: they go). A 200 that searched ends both runs."""
+        ep = job.ep
+        pair = (ep.base_url, ep.key)
+        answer = data if status == 200 and isinstance(data, dict) else None
+        unsupported = status == 404 or (status == 422 and names_trigger(data))
+        with self._cv:
+            if unsupported:
+                for known in [p for p in self._window_ok if p[0] == ep.base_url]:
+                    del self._window_ok[known]
+            if answer is not None and answer.get("trigger_class") == Trigger.WINDOW:
+                self._window_ok[pair] = True
+            if answer is not None and answer.get("reason") not in ("engine_error", "rate_limited"):
+                state.window_failures = 0
+                self._window_key_failures.pop(pair, None)
+                return False
+            state.window_failures += 1
+            self._window_key_failures[pair] = self._window_key_failures.get(pair, 0) + 1
+            retry = status is None or status >= 500 or status == 429 or answer is not None
+            if retry and state.epoch == job.epoch:
+                # Looked at by no one: back as the oldest of the next look's messages.
+                kept = [*reversed(job.segments), *state.window_messages][-WINDOW_MAX_SEGMENTS:]
+                state.window_messages.clear()
+                state.window_messages.extend(kept)
+        return unsupported
 
     def _deliver(self, job: Lookup, state: _State, hint: str, records: object) -> tuple[bool, str]:
         session = job.session
@@ -1301,7 +1701,16 @@ class HintLane:
             if state.epoch != job.epoch:
                 self.stats["stale"] += 1
                 return False, Skip.STALE
-            if keys and keys <= self._seen(session, state):
+            if job.happened < state.posted_happened:
+                self.stats["superseded"] += 1
+                return False, Skip.SUPERSEDED
+            if keys and (
+                keys <= self._seen(session, state)
+                # A hint posted while this one was asked, and delivered since,
+                # shares a record with it: asked after it, the server would have
+                # left that record out. (One still waiting is replaced by this.)
+                or (state.posted != job.posted_before and keys & self._delivered_records(session, state))
+            ):
                 self.stats["repeat"] += 1
                 return False, Skip.REPEAT
             from probe.daemon import mailbox
@@ -1316,6 +1725,8 @@ class HintLane:
             # which are all `_seen` reads.
             if state.ledger is not None:
                 state.ledger[message["id"]] = keys
+            state.posted += 1
+            state.posted_happened = max(state.posted_happened, job.happened)
             self._remember(job.sid, message["id"], keys)
         self.stats["posted"] += 1
         with contextlib.suppress(Exception):
@@ -1341,6 +1752,17 @@ class HintLane:
     def _seen(self, session: Followed, state: _State) -> set:
         """The records the session was shown or has waiting (`_shown`)."""
         return set().union(*self._shown(session, state))
+
+    def _delivered_records(self, session: Followed, state: _State) -> set:
+        """The records of the ledger's hints the session was delivered (the
+        claim log), none waiting. Under the session's lock."""
+        if state.ledger is None:
+            state.ledger = self._load_ledger(session.sid)
+        try:
+            ids = self._delivered(session.sid, session.state)
+        except Exception:  # noqa: BLE001 -- unknown: none counts
+            return set()
+        return set().union(*(keys for mid, keys in state.ledger.items() if mid in ids))
 
     # -- the ledger: which records each hint carried ------------------------------
 
@@ -1421,8 +1843,18 @@ def _scopes(ep: Endpoint | None) -> tuple:
     return (("key", ep.key), ("server", ep.base_url), ("pair", ep.base_url, ep.key))
 
 
+def _window_scopes(ep: Endpoint | None) -> tuple:
+    """A window lookup's own holds, beside `_scopes`: the server, without window
+    lookups (a 404, a 422 naming `trigger`) or not answering; that key on that
+    server, past its team's rate (a 429, `rate_limited`)."""
+    if ep is None:
+        return ()
+    return (("window", ep.base_url), ("window_pair", ep.base_url, ep.key))
+
+
 #: How the log names a hold's scope (never the key itself).
-_SCOPE_NAMES = {"key": "this key", "server": "this server", "pair": "this key on this server"}
+_SCOPE_NAMES = {"key": "this key", "server": "this server", "pair": "this key on this server",
+                "window": "window lookups on this server", "window_pair": "window lookups of this key on this server"}
 
 
 def _repeat_key(trigger: str, text: str) -> tuple[str, str]:
@@ -1434,4 +1866,5 @@ def _number(value: object) -> str:
 
 
 __all__ = ["Followed", "HintFetcher", "HintLane", "Lookup", "Senders", "Trigger", "followed", "launches_run",
-           "ml_state", "sender_of", "trigger_of"]
+           "ml_state", "names_trigger", "sender_of", "shows_mid_turn", "trigger_of", "window_due", "window_segments",
+           "window_text"]

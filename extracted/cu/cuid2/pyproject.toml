@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "cuid2"
-version = "2.0.3"
+version = "2.1.0"
 description = "Next generation GUIDs. Collision-resistant ids optimized for horizontal scaling and performance."
 readme = "README.md"
 requires-python = ">=3.10"

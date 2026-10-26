@@ -42,7 +42,7 @@ awk=gawk
 grep=/usr/bin/grep
 objcopy=objcopy
 readelf=readelf
-mkdir_p="/usr/bin/mkdir -p"
+mkdir_p="/home/runner/work/tvm-ffi/tvm-ffi/cmake/Utils/../../3rdparty/libbacktrace/install-sh -c -d"
 
 build_id_dir="$1"
 src="$2"

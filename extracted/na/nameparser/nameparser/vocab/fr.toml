@@ -1,0 +1,183 @@
+schema = 1
+
+[[word]]
+text = "madame"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "mme"
+salutation = { gender = "f", same_as = "madame", after_given = true }
+
+[[word]]
+text = "mademoiselle"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "mlle"
+salutation = { gender = "f", same_as = "mademoiselle", after_given = true }
+
+[[word]]
+text = "monsieur"
+salutation = { gender = "m", after_given = true }
+
+[[word]]
+text = "cheikh"
+style = { addresses = "given", gender = "m", same_as = "sheikh", expands = "the French transliteration, 'Cheikh Anta Diop'" }
+
+[[word]]
+text = "me"
+academic = { expands = "Maître, the address of a lawyer or notary" }
+
+[[word]]
+text = "mgr"
+religious = { expands = "Monsignor, Monseigneur" }
+
+[[word]]
+text = "monseigneur"
+religious = {}
+
+[[word]]
+text = "saint"
+religious = {}
+
+[[word]]
+text = "sainte"
+religious = { gender = "f" }
+
+[[word]]
+text = "st"
+religious = { expands = "Saint, abbreviated" }
+saint = { may_be_given = true, expands = "Saint, abbreviated" }
+
+[[word]]
+text = "baron"
+nobility = { gender = "m" }
+
+[[word]]
+text = "comtesse"
+nobility = { gender = "f" }
+
+[[word]]
+text = "duchesse"
+nobility = { gender = "f" }
+
+[[word]]
+text = "marquis"
+nobility = { gender = "m" }
+
+[[word]]
+text = "marquise"
+nobility = { gender = "f" }
+
+[[word]]
+text = "seigneur"
+nobility = {}
+
+[[word]]
+text = "attaché"
+office = {}
+
+[[word]]
+text = "chargé"
+office = { expands = "chargé d'affaires, the head of a mission below an ambassador" }
+
+[[word]]
+text = "compositeur"
+occupation = {}
+
+[[word]]
+text = "historien"
+occupation = {}
+
+[[word]]
+text = "d'affaires"
+modifier = { expands = "the second word of chargé d'affaires" }
+
+[[word]]
+text = "fils"
+family = { us_census_2010 = 767, wikidata = 5, as_of = 2026-10-16 }
+[word.excluded.generation]
+reason = "pack-shaped: Marie Fils, 767 US Census bearers of Fils"
+issue = [679, 684]
+
+[[word]]
+text = "père"
+[word.excluded]
+generation = { reason = "pack-shaped: collides outside French", issue = [679, 684] }
+
+[[word]]
+text = "d'"
+[word.preposition]
+may_be_given = false
+issue = 700
+expands = "of, elided de"
+note = "Written apart mostly where an index form moves it behind the given name (\"Ivoi, Paul d'\"); glued (\"d'Ivoi\") it stays one word."
+
+[[word]]
+text = "d’"
+[word.preposition]
+may_be_given = false
+issue = 700
+expands = "the same, typographic apostrophe"
+same_as = "d'"
+
+[[word]]
+text = "de"
+[word.preposition]
+may_be_given = false
+expands = "of"
+note = "\"De\" IS a borne Bengali and Odia surname -- trailing, so it never reaches this rule. The case that forced C-i's positional qualifier."
+
+[[word]]
+text = "du"
+[word.preposition]
+may_be_given = true
+expands = "of the, de le contracted"
+note = "Du is a Chinese surname (Du Fu), leading under a family-first reading"
+
+[[word]]
+text = "l'"
+article = { may_be_given = false, expands = "the, elided: \"L'Enfant\"" }
+
+[[word]]
+text = "l’"
+[word.article]
+may_be_given = false
+issue = 700
+expands = "the same, typographic apostrophe"
+same_as = "l'"
+
+[[word]]
+text = "la"
+article = { may_be_given = true, expands = "the, fem. sg." }
+
+[[word]]
+text = "le"
+[word.article]
+may_be_given = true
+expands = "the, masc. sg."
+note = "Lê is among the most common Vietnamese surnames and leads under a family-first reading"
+
+[[word]]
+text = "ste"
+[word.saint]
+may_be_given = false
+issue = 360
+expands = "Sainte, contracted"
+note = "Has a vowel, which is why the criterion is \"abbreviation of a word that is never itself a name\" rather than the vowel shape #360 first proposed. Measured misparse: \"Ste Marie\" gave given='Ste'."
+
+[[word]]
+text = "et"
+conjunction = {}
+
+[[word]]
+text = "né"
+birth_marker = { issue = 274, gender = "m" }
+
+[[word]]
+text = "née"
+birth_marker = { issue = 274, gender = "f" }
+
+[[word]]
+text = "nee"
+birth_marker = { same_as = "née", gender = "f" }

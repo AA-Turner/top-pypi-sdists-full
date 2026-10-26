@@ -1,8 +1,8 @@
 """FAISS-backed file store: chunk JSONL stays authoritative; FAISS HNSW replaces the linear vector scan."""
 
 import asyncio
-import hashlib
 import json
+from collections.abc import Callable
 from contextlib import suppress
 from uuid import uuid4
 
@@ -388,28 +388,6 @@ class FaissLocalFileStore(LocalFileStore):
 
     # -- persistence ------------------------------------------------------
 
-    def _chunks_embedding_digest(self) -> str:
-        """Order-independent digest of the live (chunk_id, embedding) set.
-
-        Hashes float16 canonical bytes (the chunk JSONL serialization dtype) so
-        the value is identical whether an embedding sits fresh in memory
-        (possibly float32 from the provider; assignment bypasses the pydantic
-        validator) or has round-tripped through the JSONL. Written into the
-        idmap sidecar at dump time and recomputed from ``self.file_chunks`` at
-        load time: a mismatch means the sidecar vectors belong to a different
-        chunk generation than the authoritative JSONL, which the live-id set
-        check alone cannot detect for same-ID in-place updates.
-        """
-        digest = hashlib.sha256()
-        eligible = sorted(
-            cid for cid, chunk in self.file_chunks.items() if self._embedding_dim_matches(chunk.embedding)
-        )
-        for cid in eligible:
-            digest.update(cid.encode("utf-8"))
-            digest.update(b"\x00")
-            digest.update(np.asarray(self.file_chunks[cid].embedding, dtype=np.float16).tobytes())
-        return digest.hexdigest()
-
     async def load(self) -> None:
         """Load chunks via the parent, then attach FAISS state (sidecar or rebuild)."""
         await super().load()
@@ -664,6 +642,7 @@ class FaissLocalFileStore(LocalFileStore):
             return []
 
         q = self._prepare(query_embedding)
+        matches = self._prepare_search_filter(search_filter)
         ntotal = index.ntotal
 
         # Small-index shortcut: when ntotal is below the brute-force threshold,
@@ -683,14 +662,14 @@ class FaissLocalFileStore(LocalFileStore):
         if ntotal < max(1, (max(limit, ef_search)) ** 0.5) * self.hnsw_m:
             k = ntotal if search_filter else min(ntotal, limit + len(self._tombstones))
             scores, rows = index.storage.search(q, k)
-            return self._collect_hits(rows[0].tolist(), scores[0].tolist(), limit, search_filter)
+            return self._collect_hits(rows[0].tolist(), scores[0].tolist(), limit, matches=matches)
 
         if not search_filter:
             # No filter: simple over-fetch to cover tombstones.
             k = min(ntotal, limit + len(self._tombstones))
             self._set_ef_search(index, limit)
             scores, rows = index.search(q, k)
-            return self._collect_hits(rows[0].tolist(), scores[0].tolist(), limit, search_filter)
+            return self._collect_hits(rows[0].tolist(), scores[0].tolist(), limit, matches=matches)
 
         # With filter: progressively increase k until we collect enough results
         # or exhaust the entire index.
@@ -698,7 +677,7 @@ class FaissLocalFileStore(LocalFileStore):
         while True:
             self._set_ef_search(index, limit)
             scores, rows = index.search(q, k)
-            results = self._collect_hits(rows[0].tolist(), scores[0].tolist(), limit, search_filter)
+            results = self._collect_hits(rows[0].tolist(), scores[0].tolist(), limit, matches=matches)
             if len(results) >= limit or k >= ntotal:
                 return results
             k = min(ntotal, k * 2)
@@ -709,15 +688,19 @@ class FaissLocalFileStore(LocalFileStore):
         scores: list[float],
         limit: int,
         search_filter: dict | None = None,
+        *,
+        matches: Callable[[FileChunk], bool] | None = None,
     ) -> list[FileChunk]:
         """Map raw FAISS rows back to chunks, skipping tombstones and stale ids."""
+        if matches is None:
+            matches = self._prepare_search_filter(search_filter)
         results: list[FileChunk] = []
         for raw_row, score in zip(rows, scores):
             row = int(raw_row)
             if row < 0 or row in self._tombstones or row >= len(self._id_map):
                 continue
             chunk = self.file_chunks.get(self._id_map[row])
-            if chunk is None or not self._matches_search_filter(chunk, search_filter):
+            if chunk is None or not matches(chunk):
                 continue
             results.append(chunk.model_copy(update={"scores": {"vector": float(score), "score": float(score)}}))
             if len(results) >= limit:

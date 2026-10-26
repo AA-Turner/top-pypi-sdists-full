@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import errno
 import logging
+import re
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -1033,6 +1034,8 @@ class TestReproducibilityNotice:
                 "project_requires_python": None,
                 "project_uploaded_prior_to": None,
                 "project_dist_policy": "sdist-only",
+                "project_assume_universal_deps": None,
+                "project_allow_zip_sdists": None,
                 "project_build_policy": None,
                 "project_build_requires_depth": None,
                 "project_decision_order": None,
@@ -1044,6 +1047,7 @@ class TestReproducibilityNotice:
             },
             flags={},
         )
+
         assert overrides == {
             "resolution": "lowest",
             "cache-dir": Path("/c"),
@@ -1116,7 +1120,7 @@ class TestBuildCliTables:
 
         assert str(caught.value) == (
             "--project-environment-platform reads 'runs-on-macos=14.0' as a"
-            " key on the item before it, and no item is open; write the id"
+            " key on the item before it, and no item is open\n    try: write the id"
             " first"
         )
 
@@ -1229,7 +1233,7 @@ class TestBuildCliTables:
 
         assert str(caught.value) == (
             "--project-matrix-platforms reads 'libc=musl' as a key on the item"
-            " before it, and no item is open; write the id first"
+            " before it, and no item is open\n    try: write the id first"
         )
 
     def test_a_pair_token_needs_an_equals(self) -> None:
@@ -1503,6 +1507,8 @@ class TestParserFoldHelpers:
                 "requires-python",
                 "uploaded-prior-to",
                 "dist-policy",
+                "assume-universal-deps",
+                "allow-zip-sdists",
                 "build-policy",
                 "build-requires-depth",
                 "environment",
@@ -1606,6 +1612,49 @@ class TestScalarProjectOptions:
     surface is the project-dir nab.toml home, the category check, the
     cross-file conflict check, and nab config visibility.
     """
+
+    @pytest.mark.parametrize("enabled", [False, True])
+    def test_allow_zip_sdists_from_project_nab_toml(
+        self, tmp_path: Path, enabled: bool
+    ) -> None:
+        _project(tmp_path)
+        _write(tmp_path / "nab.toml", f"allow-zip-sdists = {str(enabled).lower()}\n")
+        effective = _resolve(SourceRoots(project_dir=tmp_path))["allow-zip-sdists"]
+
+        assert effective.value is enabled
+        assert effective.origin.kind is SourceKind.PROJECT_TOML
+
+    @pytest.mark.parametrize("enabled", [False, True])
+    def test_allow_zip_sdists_cli_overrides_project(
+        self, tmp_path: Path, enabled: bool
+    ) -> None:
+        _project(tmp_path, f"allow-zip-sdists = {str(not enabled).lower()}\n")
+        effective = _resolve(
+            SourceRoots(project_dir=tmp_path), cli={"allow-zip-sdists": enabled}
+        )["allow-zip-sdists"]
+
+        assert effective.value is enabled
+        assert effective.origin.kind is SourceKind.CLI
+
+    def test_allow_zip_sdists_conflicting_project_files(self, tmp_path: Path) -> None:
+        _project(tmp_path, "allow-zip-sdists = true\n")
+        _write(tmp_path / "nab.toml", "allow-zip-sdists = false\n")
+        with pytest.raises(SourceConfigError, match="conflicting values"):
+            _resolve(SourceRoots(project_dir=tmp_path))
+
+    def test_allow_zip_sdists_rejected_in_user_settings(self, tmp_path: Path) -> None:
+        _project(tmp_path)
+        user = _write(tmp_path / "usr" / "nab.toml", "allow-zip-sdists = true\n")
+        with pytest.raises(SourceConfigError, match="project-scope option"):
+            _resolve(SourceRoots(user_toml=user, project_dir=tmp_path))
+
+    @pytest.mark.parametrize("value", ['"yes"', "1", "[]"])
+    def test_allow_zip_sdists_rejects_non_boolean(
+        self, tmp_path: Path, value: str
+    ) -> None:
+        _project(tmp_path, f"allow-zip-sdists = {value}\n")
+        with pytest.raises(SourceConfigError, match="allow-zip-sdists must be"):
+            _resolve(SourceRoots(project_dir=tmp_path))
 
     def test_mode_from_pyproject(self, tmp_path: Path) -> None:
         _project(tmp_path, 'mode = "universal"\n')
@@ -2584,17 +2633,42 @@ class TestArrayOfTablesSources:
 
 
 class TestOverrideTables:
-    """The per-package override tables: packages, package-rules, index.
+    """Per-package policy tables from layered configuration sources."""
 
-    ``packages`` (name-keyed sugar) and ``package-rules`` (array of tables)
-    both desugar into the same ``PackageOverride`` tuple; each is its own
-    file-only PROJECT row that carries the same-field overlap check over
-    its own surface.  ``index`` is a name-keyed table.  Each reuses the
-    single-environment parser per layer so shape/key/body/overlap messages
-    match the pyproject path; the cross-key checks (packages-vs-package-rules
-    overlap, route or key names a declared index) run over the merged config
-    instead.
-    """
+    @pytest.mark.parametrize("filename", ["pyproject.toml", "nab.toml"])
+    @pytest.mark.parametrize("key", ["packages", "package-rules"])
+    def test_package_shape_repairs_parse(
+        self, tmp_path: Path, filename: str, key: str
+    ) -> None:
+        project = _project(tmp_path)
+        path = tmp_path / filename
+        prefix = "tool.nab." if filename == "pyproject.toml" else ""
+        project_metadata = project.read_text() if path == project else ""
+        malformed_header = (
+            f"[[{prefix}packages]]"
+            if key == "packages"
+            else f"[{prefix}package-rules.demo]"
+        )
+
+        _write(path, project_metadata + malformed_header + '\nbuild-policy = "never"\n')
+
+        with pytest.raises(SourceConfigError) as excinfo:
+            read_pyproject_config(project, discover_workspace=False)
+
+        # Require a table name to exclude the [...] match placeholder.
+        headers = re.findall(r"\[\[?[a-z][^\]\n]+\]\]?", str(excinfo.value))
+        assert len(headers) == 2
+        for header in headers:
+            repair = header.replace("<name>", "demo") + "\n"
+            if header.startswith("[["):
+                repair += 'match = ["demo"]\n'
+            _write(path, project_metadata + repair + 'build-policy = "never"\n')
+
+            (override,) = read_pyproject_config(
+                project, discover_workspace=False
+            ).package_overrides
+            assert override.name == "demo"
+            assert override.build_policy is BuildPolicy.NEVER
 
     def test_packages_from_pyproject(self, tmp_path: Path) -> None:
         _project(tmp_path, '[tool.nab.packages.lxml]\ndist-policy = "sdist-only"\n')

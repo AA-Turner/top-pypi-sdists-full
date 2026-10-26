@@ -179,6 +179,7 @@ def test_every_approved_reads_file_is_pinned_here():
             "agent-facing/inline-reads.NEW.md", "agent-facing/inline-reads-old-cli.NEW.md",
             "agent-facing/ask-inline.NEW.md",
             "skills/track-work/RENDERED.main-agent.md", "skills/track-work/RENDERED.writer.md",
+            "skills/edit-notes/RENDERED.main-agent.md", "skills/edit-notes/RENDERED.writer.md",
             # pinned in test_daemon_reader_gate.py
             "gate/gate-instructions.NEW.md", "gate/final_result.NEW.md",
             # the `bash` tool set: pinned in test_daemon_bash_tools.py
@@ -1165,6 +1166,76 @@ def test_a_session_no_hint_serves_keeps_its_prompt_wakes(tmp_path, monkeypatch):
     lane = _lane(w, Reader())
     lane.last_turn_at = now[0]
     assert lane.due() == "prompt"
+
+
+@pytest.mark.parametrize("marker, every, wake", [
+    ("window", None, None),  # window hints proven working: the check-in is theirs
+    ("stale window", None, "events"),  # the service stopped proving them
+    ("live", None, "events"),  # hints serve the session, window lookups unproven
+    ("window", "1800", "events"),  # an explicit PROBE_READER_EVERY_S keeps check-ins
+])
+def test_check_ins_stop_only_while_window_hints_are_proven_working(tmp_path, monkeypatch, marker, every, wake):
+    """Plan hints-window-trigger W4: the 30-minute check-in is skipped only while
+    the service's `.window` marker is fresh; an ask still wakes the reader."""
+    import os
+
+    from probe.daemon import model as model_mod
+
+    monkeypatch.setattr(model_mod, "_HINTS_SID", None)
+    model_mod.bind_hints(SID)
+    monkeypatch.setattr(rl, "READ_EVERY_EXPLICIT", every is not None)
+    path = (mailbox.hints_live_path if marker == "live" else mailbox.hints_window_path)(SID)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    if marker == "stale window":
+        old = time.time() - model_mod.HINTS_LIVE_TTL_S - 5
+        os.utime(path, (old, old))
+    now = [1000.0]
+    w = _worker(tmp_path, clock=lambda: now[0])
+    lane = _lane(w, Reader())
+    with w.store.tx():
+        w.store.set_fact("read_cursor", w.store.events_between(1)[-1].seq)
+    with w.session.transcript.open("a") as handle:
+        handle.write(_line({"type": "assistant", "message": {"content": [{"type": "text", "text": "C=100 next"}]}}))
+    w.read_new()
+    lane.last_turn_at = now[0]
+    now[0] += rl.READ_EVERY_S
+    assert lane.due() == wake
+    mailbox.write_ask(SID, "q")
+    lane.take_asks()
+    assert lane.due() == "ask"
+
+
+@pytest.mark.parametrize("raw, explicit", [(None, False), ("1800", True), ("0", True), ("30m", False), ("  ", False)])
+def test_only_a_readable_probe_reader_every_s_keeps_the_check_ins(raw, explicit):
+    import os
+    import subprocess
+    import sys
+
+    env = {k: v for k, v in os.environ.items() if k != "PROBE_READER_EVERY_S"}
+    if raw is not None:
+        env["PROBE_READER_EVERY_S"] = raw
+    out = subprocess.run([sys.executable, "-c", "from probe.daemon import reader_lane as r; print(r.READ_EVERY_EXPLICIT)"],
+                         capture_output=True, text=True, env=env, timeout=60)
+    assert out.stdout.strip() == str(explicit), out.stderr
+
+
+def test_while_window_hints_hold_the_check_ins_an_ask_reads_the_newest_events(tmp_path, monkeypatch):
+    """Nothing drains the backlog turn by turn while the check-ins are the
+    window hints', even with prompt wakes on: an ask reads the work now."""
+    from probe.daemon import model as model_mod
+
+    monkeypatch.setenv(model_mod.ENV_READER_PROMPT_WAKE, "on")
+    monkeypatch.setattr(model_mod, "window_hints_live", lambda now=None: True)
+    monkeypatch.setattr(rl, "READ_EVERY_EXPLICIT", False)
+    monkeypatch.setattr(rl, "READ_MAX_EVENTS", 3)
+    w = _worker(tmp_path)
+    lane = _lane(w, Reader(end=""))
+    for n in range(6):
+        _append_turn(w, f"backlog prompt {n}")
+    w.read_new()
+    shown = lane.next_window()
+    assert shown and shown[-1].seq == lane.store.newest_seq()
 
 
 def test_with_prompt_wakes_off_a_turn_reads_the_newest_window(tmp_path, monkeypatch):

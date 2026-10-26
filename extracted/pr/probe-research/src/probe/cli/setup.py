@@ -36,10 +36,15 @@ so no automation can re-enable a refusal behind someone's back.
 from __future__ import annotations
 
 import contextlib
+import threading
+from concurrent.futures import Future
+from concurrent.futures import wait as wait_for_futures
+import contextvars
+from contextvars import ContextVar
 import json
 import os
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from probe._compat import StrEnum
 from pathlib import Path
@@ -1812,6 +1817,109 @@ def reports_failure(message: str) -> bool:
     return message.lower().startswith(_FAILURE_MARKERS)
 
 
+#: The refreshes and installs `marketplace_refreshes` runs together: the
+#: sources still to take theirs, each one's answer once run (its refresh and
+#: the installs after it), the installs each source asked for, which of their
+#: capabilities the run may install (`allow_batch_installs`), and the installs
+#: already taken. None outside one.
+_refresh_batch: ContextVar[dict | None] = ContextVar("probe_marketplace_refreshes", default=None)
+
+
+@contextlib.contextmanager
+def marketplace_refreshes(
+    sources: Iterable[str], installs: Mapping[str, Sequence[tuple[Capability, str]]] | None = None
+):
+    """In this block, the first `refresh_marketplace` of any of `sources`
+    refreshes all of them at once, one thread each, then installs each one's
+    `installs` (capability, plugin name), in order, on the same thread, and
+    returns once every one has answered; each source's own first refresh and
+    its installs (`install_plugin`) then take their answers instead of running
+    again (a second one, an install's retry, runs for real).
+
+    An install for several agents refreshed and installed one agent after
+    another, a git clone or fetch (~2.5 s on a first install) and a plugin
+    install or two each. Here they overlap. The first refresh is an install
+    step, after the sign-in: nothing is written while a person approves
+    (`sdk.device`), and a first `add` writes Claude Code's settings or Codex's
+    config.toml. Only plugins whose credential the sign-in got are installed
+    (`allow_batch_installs`). Every one answers before the first refresh
+    returns, so none runs beside another agent's install steps."""
+    token = _refresh_batch.set({
+        "pending": set(sources), "answers": {}, "installed": {}, "installs": dict(installs or {}),
+        "allowed": frozenset(), "taken": set(),
+    })
+    try:
+        yield
+    finally:
+        _refresh_batch.reset(token)
+
+
+def allow_batch_installs(capabilities: Iterable[Capability]) -> None:
+    """The capabilities whose plugins the open batch may install with its
+    refreshes: those the run holds a credential for, set at the install's
+    refresh step. Unset, the batch installs nothing: each agent installs at
+    its own step, as before."""
+    batch = _refresh_batch.get()
+    if batch is not None and not batch["answers"]:
+        batch["allowed"] = frozenset(capabilities)
+
+
+def _taken_install(name: str, source: str) -> "claude_cli.Result | None":
+    """The open batch's install of `name` for `source`, once, if it ran."""
+    batch = _refresh_batch.get()
+    future = batch["installed"].get(source) if batch is not None else None
+    if future is None or not future.done() or future.exception() is not None:
+        return None
+    installed = future.result()
+    if name not in installed or (source, name) in batch["taken"]:
+        return None
+    batch["taken"].add((source, name))
+    return installed[name]
+
+
+def _refresh_together(batch: dict) -> None:
+    """Start every refresh in `batch` on its own thread and wait for them all.
+    A daemon thread each, and an interrupted wait is not resumed: a cancelled
+    wizard exits now (a terminal's Ctrl-C stops the agents' CLIs with it). A
+    source whose thread cannot start (a process limit) refreshes on its own, at
+    its own step, as it did before the batch."""
+    answers: dict[str, Future] = batch["answers"]
+    for each in sorted(batch["pending"]):
+        refreshed: Future = Future()
+        installed: Future = Future()
+        plan = [name for capability, name in batch["installs"].get(each, ()) if capability in batch["allowed"]]
+
+        def run(each=each, refreshed=refreshed, installed=installed, plan=plan) -> None:
+            try:
+                refreshed.set_result(_refresh_marketplace_now(each))
+            except BaseException as exc:  # noqa: BLE001 - re-raised to its source's refresh
+                refreshed.set_exception(exc)
+            try:
+                retried: list[bool] = []
+                # One retry for the agent, as `_run_wizard_action`'s budget allows.
+                installed.set_result({
+                    name: install_plugin(
+                        name, source=each, on_retry=lambda: not retried and not retried.append(True)
+                    )
+                    for name in plan
+                })
+            except BaseException as exc:  # noqa: BLE001 - the agent's own step installs again
+                installed.set_exception(exc)
+
+        try:
+            # An empty context: a thread that saw this batch (a free-threaded
+            # build copies the caller's) would wait on itself from a retry.
+            threading.Thread(
+                target=contextvars.Context().run, args=(run,), name=f"probe-marketplace-{each}", daemon=True
+            ).start()
+        except RuntimeError:
+            break
+        answers[each] = refreshed
+        batch["installed"][each] = installed
+    batch["pending"].intersection_update(answers)
+    wait_for_futures([*answers.values(), *batch["installed"].values()])
+
+
 def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
     """Bring the local marketplace copy up to date. ONCE per wizard run.
 
@@ -1829,7 +1937,10 @@ def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
 
     `add` failing is NOT fatal and is not reported: the common case is "already
     on disk", which exits non-zero on some versions. `update` is the one whose
-    success decides whether the catalog we install from is current.
+    success decides whether the catalog we install from is current, except
+    after an `add` that cloned the marketplace just now: that copy is current,
+    and its answer is the refresh's (`_refresh_marketplace_now`). Inside
+    `marketplace_refreshes`, several agents' refreshes run at once.
 
     pi has no marketplace to refresh -- `install_plugin`/`uninstall_plugin`
     route it through `pi_config`'s settings.json entry instead (see
@@ -1845,13 +1956,30 @@ def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
     codex. A failure-shaped no-op would paint a real success red.
     """
     selected = source or agent_source()
+    batch = _refresh_batch.get()
+    if batch is not None and selected in batch["pending"] and not batch["answers"]:
+        _refresh_together(batch)
+    if batch is None or selected not in batch["pending"]:
+        return _refresh_marketplace_now(selected)
+    batch["pending"].discard(selected)
+    return batch["answers"][selected].result()
+
+
+def _refresh_marketplace_now(selected: str) -> claude_cli.Result:
+    """`refresh_marketplace` for `selected`, run now."""
     if selected == "pi":
         return claude_cli.Result(ok=True, detail=f"{selected} has no plugin marketplace to refresh")
     if selected not in INSTALLABLE_AGENT_SOURCES:
         return claude_cli.Result(
             ok=False, detail=f"{selected} has no plugin marketplace", reachable=False
         )
+    checkout = plugin_cli.marketplace_checkout(selected, MARKETPLACE)
+    cloning = checkout is not None and not checkout.exists()
     added = plugin_cli.add_marketplace(selected, MARKETPLACE_REPO, name=MARKETPLACE)
+    if cloning and added.ok and checkout.exists():
+        # This `add` cloned it just now, so the copy is current: an `update`
+        # would fetch the same repository again, ~2 s of a first install.
+        return added
     refreshed = plugin_cli.refresh_marketplace(selected, MARKETPLACE)
     if not refreshed.ok and not added.ok:
         from probe.cli import updater
@@ -1948,6 +2076,9 @@ def install_plugin(name: str, *, source: str | None = None, on_retry=None) -> cl
 
         keeper.allow()
     selected = source or agent_source()
+    taken = _taken_install(name, selected)
+    if taken is not None:
+        return taken  # installed with its marketplace's refresh (`marketplace_refreshes`)
     if selected not in INSTALLABLE_AGENT_SOURCES:
         return claude_cli.Result(
             ok=False, detail=f"{selected} has no plugin marketplace", reachable=False
@@ -5334,12 +5465,22 @@ RECORDER_ROW_COPY: dict[str, tuple[str, ...]] = {
 }
 
 
-def follow_machine_recorder(source: str, caps: Capabilities, *, base_url: str, rules: bool | None = None) -> list[str]:
+def follow_machine_recorder(
+    source: str,
+    caps: "Capabilities | Callable[[], Capabilities]",
+    *,
+    base_url: str,
+    rules: bool | None = None,
+) -> list[str]:
     """A coding agent set up for the FIRST time joins the device's Who records:
     where the other agents record through the daemon, a new one starts there too
     (Richard 2026-10-06) instead of on its own. Only at first setup: an agent
     already set up never moves on its own, because who records decides what
-    leaves the machine (`_run_recorder_action`)."""
+    leaves the machine (`_run_recorder_action`).
+
+    `caps` may be a callable that takes the snapshot, called only when the
+    agent moves: the install calls this for every first setup, and most move
+    nowhere."""
     from probe.sdk import session_marker
 
     from probe.cli.daemon_cli import ai_libraries
@@ -5353,7 +5494,7 @@ def follow_machine_recorder(source: str, caps: Capabilities, *, base_url: str, r
         # Setting the daemon up here would open a browser mid-install.
         return [f"{agent_label(source)} records itself for now: the daemon is not ready on this device. "
                 "`probe wizard` › Who records moves it."]
-    lines = apply_recorder(caps, daemon, base_url=base_url, rules=rules)
+    lines = apply_recorder(caps() if callable(caps) else caps, daemon, base_url=base_url, rules=rules)
     return [f"{agent_label(source)}: Who records — the daemon, like this device's other agents.", *lines]
 
 

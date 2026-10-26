@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strongtyping
-Version: 3.14.5
+Version: 3.14.6
 Summary: Decorator which checks whether the function is called with the correct type of parameters
 Author: FelixTheC
 License: CC-BY-ND-4.0
@@ -14,11 +14,9 @@ Classifier: Programming Language :: Python :: 3.15
 Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: ujson>=5.12.0
-Requires-Dist: librt>=0.10.0
-Requires-Dist: typing-extensions>=4.4.0
-Requires-Dist: pytest>=9.0.3
-Requires-Dist: ruff>=0.15.12
+Requires-Dist: ujson>=6.0.0
+Requires-Dist: librt>=0.16.0
+Requires-Dist: typing-extensions>=4.16.0
 Dynamic: license-file
 
 [![Python 3.10](https://img.shields.io/badge/python-3.10-blue.svg)](https://www.python.org/downloads/release/python-3100/)
@@ -88,3 +86,9 @@ pytest tests/test_skills.py
 ```
 
 ## [Docs are available on 'readthedocs'](https://strongtyping.readthedocs.io/en/latest/#the-solution)
+
+---
+
+## You want to support me
+
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/FEisenmenger)

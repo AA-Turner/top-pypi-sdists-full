@@ -278,6 +278,78 @@ def describe_map_async_iterable():
         with pytest.raises(StopAsyncIteration):
             await anext(doubles)
 
+    async def separate_iterator_is_closed_when_mapped_iterable_is_closed():
+        closed = False
+
+        async def source():
+            nonlocal closed
+            try:
+                yield 1
+            finally:
+                closed = True
+
+        iterator = source()
+
+        class Iterable:
+            def __aiter__(self):
+                return iterator
+
+        doubles = map_async_iterable(Iterable(), double)
+        assert await anext(doubles) == 2
+        assert not closed
+        await doubles.aclose()
+        assert closed
+        with pytest.raises(StopAsyncIteration):
+            await anext(doubles)
+
+    async def separate_iterator_is_closed_on_thrown_error():
+        closed = False
+
+        async def source():
+            nonlocal closed
+            try:
+                yield 1
+            finally:
+                closed = True
+
+        iterator = source()
+
+        class Iterable:
+            def __aiter__(self):
+                return iterator
+
+        doubles = map_async_iterable(Iterable(), double)
+        assert await anext(doubles) == 2
+        assert not closed
+        with pytest.raises(RuntimeError, match="Ouch"):
+            await doubles.athrow(RuntimeError("Ouch"))
+        assert closed
+        with pytest.raises(StopAsyncIteration):
+            await anext(doubles)
+
+    async def separate_iterator_is_closed_on_callback_error():
+        closed = False
+
+        async def source():
+            nonlocal closed
+            try:
+                yield 1
+            finally:
+                closed = True
+
+        iterator = source()
+
+        class Iterable:
+            def __aiter__(self):
+                return iterator
+
+        doubles = map_async_iterable(Iterable(), throw)
+        with pytest.raises(RuntimeError, match="Ouch"):
+            await anext(doubles)
+        assert closed
+        with pytest.raises(StopAsyncIteration):
+            await anext(doubles)
+
     async def iterable_exits_on_callback_error():
         exited = False
 

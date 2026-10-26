@@ -24,8 +24,10 @@ import time
 import warnings
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
 from concurrent.futures import Future
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from probe._compat import StrEnum
 from pathlib import Path
@@ -1199,7 +1201,7 @@ def installed_plugins(*, source: str | None = None, local: bool = False) -> Plug
         if not merged.tracking_off:
             names.add(tracking_plugin_name(selected))
         return PluginState(names=frozenset(names), verified=False)
-    if local and selected in LOCAL_PLUGIN_RECORDS:
+    if (local or _read_records.get()) and selected in LOCAL_PLUGIN_RECORDS:
         return _local_plugins(selected)
     result = plugin_cli.list_plugins(selected)
     if not result.reachable:
@@ -1225,6 +1227,26 @@ def installed_plugins(*, source: str | None = None, local: bool = False) -> Plug
     return PluginState(
         names=frozenset(names), verified=result.ok, error=None if result.ok else (result.detail or None)
     )
+
+
+#: Whether `installed_plugins` reads each agent's own record in place of its
+#: `plugin list` (`plugin_records`).
+_read_records: ContextVar[bool] = ContextVar("probe_plugin_records", default=False)
+
+
+@contextmanager
+def plugin_records(on: bool = True) -> Iterator[None]:
+    """In this block, `installed_plugins` reads each agent's own plugin record,
+    the file its `plugin list` reads (`_local_plugins`, as `probe status` does),
+    instead of starting the agent's CLI; `on=False` turns that back off. The wizard reads every agent's state on
+    entry and again after every change, and each `plugin list` is a Node start
+    (~0.6 s on a fast Linux box, more on a laptop); the records take
+    milliseconds and say the same."""
+    token = _read_records.set(on)
+    try:
+        yield
+    finally:
+        _read_records.reset(token)
 
 
 def claude_plugin_ledger(env: "dict[str, str] | None" = None) -> Path:
@@ -1436,11 +1458,11 @@ def ask_mcp_token_verdict(token: str) -> str:
     """The API's verdict on `token` -- ok | rejected | unreachable -- recording
     nothing. Split from `refresh_mcp_token_verdict` so a caller that bounds the
     wait (`probe status --refresh`) records only an answer that came in time."""
-    from probe.cli.main import _verify
+    from probe.cli.main import _verify_read
     from probe.sdk.config import resolve
 
     try:
-        state, _identity = _verify(token, resolve().base_url)
+        state, _identity = _verify_read(token, resolve().base_url)
     except Exception:  # noqa: BLE001 - a failed check is "unknown", never "rejected"
         state = "unreachable"
     return state

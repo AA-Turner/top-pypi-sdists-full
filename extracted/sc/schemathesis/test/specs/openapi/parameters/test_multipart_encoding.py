@@ -40,6 +40,7 @@ def make_operation(
     method: str = "post",
     required: bool = True,
     responses: dict | None = None,
+    **kwargs,
 ):
     request_body = {"content": {media_type: content}}
     if required:
@@ -54,28 +55,33 @@ def make_operation(
             }
         },
         version="3.0.0",
+        **kwargs,
     )
     return schema[path][method.upper()]
 
 
-def test_multipart_with_custom_encoding(ctx):
+@pytest.mark.parametrize("declared", ["inline", "ref"])
+def test_multipart_with_custom_encoding(ctx, declared):
     xml_strategy = st.just(b"<?xml version='1.0'?><root>test</root>")
     schemathesis.openapi.media_type("text/xml", xml_strategy)
 
     # Given an OpenAPI schema with multipart/form-data and custom encoding
+    upload = {
+        "type": "object",
+        "required": ["name", "file"],
+        "properties": {
+            # Keeps a referenced body bundled with a `$ref` at its root
+            "name": {"$ref": "#/components/schemas/Name"},
+            "file": {"type": "string", "format": "binary"},
+        },
+    }
     operation = make_operation(
         ctx,
         {
-            "schema": {
-                "type": "object",
-                "required": ["name", "file"],
-                "properties": {
-                    "name": {"type": "string"},
-                    "file": {"type": "string", "format": "binary"},
-                },
-            },
+            "schema": upload if declared == "inline" else {"$ref": "#/components/schemas/Upload"},
             "encoding": {"file": {"contentType": "text/xml"}},
         },
+        components={"schemas": {"Upload": upload, "Name": {"type": "string"}}},
     )
 
     @run_given(case=operation.as_strategy(), max_examples=100)
@@ -529,7 +535,7 @@ def test_multipart_comma_separated_without_custom_strategy(ctx):
     @run_given(case=operation.as_strategy(), max_examples=100)
     def test(case):
         if isinstance(case.body, dict):
-            files, _ = case.operation.prepare_multipart(case.body, case.multipart_content_types)
+            files, _ = case.operation.prepare_multipart(case.body, case.media_type, case.multipart_content_types)
 
             if files:
                 for file_tuple in files:

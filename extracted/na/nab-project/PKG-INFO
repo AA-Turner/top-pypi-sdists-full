@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nab-project
-Version: 0.0.22
+Version: 0.0.23
 Summary: Index-backed provider, lockfile emitter, and downloader for nab
 Project-URL: Homepage, https://github.com/notatallshaw/nab
 Project-URL: Documentation, https://nab.readthedocs.io/
@@ -22,10 +22,10 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: build>=1.2
 Requires-Dist: installer>=1.0
-Requires-Dist: nab-index==0.0.22
-Requires-Dist: nab-markersets==0.0.22
-Requires-Dist: nab-provider==0.0.22
-Requires-Dist: nab-resolver==0.0.22
+Requires-Dist: nab-index==0.0.23
+Requires-Dist: nab-markersets==0.0.23
+Requires-Dist: nab-provider==0.0.23
+Requires-Dist: nab-resolver==0.0.23
 Requires-Dist: packaging>=24.0
 Requires-Dist: pyproject-hooks>=1.2
 Requires-Dist: tomli-w>=1.2
@@ -35,10 +35,10 @@ Description-Content-Type: text/markdown
 
 # nab-project
 
-The application layer that connects [`nab-provider`](https://pypi.org/project/nab-provider/) to
-networking and files. It supplies the provider's I/O through
-[`nab-index`](https://pypi.org/project/nab-index/), and adds the resolve orchestration, workspace
-discovery, the PEP 517 build path, the lockfile emitter and the downloader.
+`nab-project` connects [`nab-provider`](https://pypi.org/project/nab-provider/) to networking and
+files. It supplies the provider's I/O through [`nab-index`](https://pypi.org/project/nab-index/),
+and adds the resolve orchestration, workspace discovery, the PEP 517 build path, the lockfile
+emitter and the downloader.
 
 ## When to use it
 
@@ -46,4 +46,4 @@ Use `nab-project` to embed Python package resolution in another tool, with nab's
 lockfile emitter but without the CLI. If you already own your networking, take `nab-provider`
 instead.
 
-The API is currently under rapid experimentation, if you use it pin to an exact version.
+The API is experimental. Pin an exact version when embedding it.

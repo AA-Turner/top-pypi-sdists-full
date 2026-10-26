@@ -21,6 +21,7 @@ THUMBNAIL_KEY_DBCOLUMN = 'key'
 # sorl.thumbnail.engines.convert_engine.Engine
 # sorl.thumbnail.engines.pil_engine.Engine
 # sorl.thumbnail.engines.pgmagick_engine.Engine
+# sorl.thumbnail.engines.vips_engine.Engine
 # convert is preferred but requires imagemagick or graphicsmagick, se docs
 THUMBNAIL_ENGINE = 'sorl.thumbnail.engines.pil_engine.Engine'
 
@@ -28,12 +29,11 @@ THUMBNAIL_ENGINE = 'sorl.thumbnail.engines.pil_engine.Engine'
 THUMBNAIL_CONVERT = 'convert'
 THUMBNAIL_IDENTIFY = 'identify'
 
-# Path to ``vipsthumbnail`` and ``vipsheader``
-THUMBNAIL_VIPSTHUMBNAIL = 'vipsthumbnail'
-THUMBNAIL_VIPSHEADER = 'vipsheader'
-
-# Seconds a convert, identify, vipsthumbnail or vipsheader call may run, None for no limit
+# Seconds a convert or identify call may run, None for no limit
 THUMBNAIL_COMMAND_TIMEOUT = 60
+
+# Operations the vips engine keeps in the libvips cache, for the whole process
+THUMBNAIL_VIPS_CACHE_MAX = 0
 
 # Storage for the generated thumbnails, as an alias of the Django STORAGES setting.
 THUMBNAIL_STORAGE = 'default'
@@ -52,7 +52,7 @@ THUMBNAIL_DBM_FILE = "thumbnail_kvstore"
 THUMBNAIL_DBM_MODE = 0o644
 
 # Cache timeout for ``cached_db`` store. You should probably keep this at
-# maximum or ``0`` if your caching backend can handle that as infinite.
+# maximum or ``None`` if your caching backend can handle that as infinite.
 THUMBNAIL_CACHE_TIMEOUT = 3600 * 24 * 365 * 10  # 10 years
 
 # The cache configuration to use for storing thumbnail data
@@ -97,10 +97,8 @@ THUMBNAIL_ORIENTATION = True
 # regardless of the thumbnail source content
 THUMBNAIL_DUMMY = False
 
-# Thumbnail dummy (placeholder) source. Some you might try are:
-# http://placekitten.com/%(width)s/%(height)s
-# http://placekitten.com/g/%(width)s/%(height)s
-# http://placehold.it/%(width)sx%(height)s
+# Thumbnail dummy (placeholder) source, another one that works the same way:
+# https://placehold.co/%(width)sx%(height)s
 THUMBNAIL_DUMMY_SOURCE = 'https://dummyimage.com/%(width)sx%(height)s'
 
 # Sets the source image ratio for dummy generation of images with only width
@@ -110,9 +108,6 @@ THUMBNAIL_DUMMY_RATIO = 1.5
 # Enables creation of multiple-resolution (aka "Retina") images.
 # We don't create retina images by default to optimize performance.
 THUMBNAIL_ALTERNATIVE_RESOLUTIONS = []
-
-# Lazy fill empty thumbnail like THUMBNAIL_DUMMY
-THUMBNAIL_LAZY_FILL_EMPTY = False
 
 # Timeout, in seconds, to use when retrieving images with urllib2
 THUMBNAIL_URL_TIMEOUT = None

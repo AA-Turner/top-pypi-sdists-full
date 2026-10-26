@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: scramp
-Version: 1.4.18
+Version: 1.5.0
 Summary: An implementation of the SCRAM protocol.
 Project-URL: Homepage, https://codeberg.org/tlocke/scramp
 Author: The Contributors
@@ -38,9 +38,12 @@ Scramp supports the following mechanisms:
 
 - [Installation](#installation)
 - [Examples](#examples)
-  - [Client and Server](#client-and-server)
-  - [Client only](#client-only)
-  - [Server only](#server-only)
+  - [Client And Server Without Channel Binding](#client-and-server-without-channel-binding)
+  - [Client Only Without Channel Binding](#client-only-without-channel-binding)
+  - [Server Only Without Channel Binding](#server-only-without-channel-binding)
+  - [Client And Server With Channel Binding](#client-and-server-with-channel-binding)
+  - [Client Only With Channel Binding](#client-only-with-channel-binding)
+  - [Server Only With Channel Binding](#server-only-with-channel-binding)
   - [Server Error](#server-error)
   - [Avoiding User Enumeration](#avoiding-user-enumeration)
 - [Standards](#standards)
@@ -51,11 +54,11 @@ Scramp supports the following mechanisms:
   - [scramp.ScramClient](#scrampscramclient)
   - [scramp.ScramMechanism](#scrampscrammechanism)
   - [scramp.ScramServer](#scrampscramserver)
-  - [scramp.make\_channel\_binding(name, ssl\_socket)](#scrampmake_channel_bindingname-ssl_socket)
 - [Testing](#testing)
 - [OpenSSF Scorecard](#openssf-scorecard)
 - [Doing A Release Of Scramp](#doing-a-release-of-scramp)
 - [Release Notes](#release-notes)
+  - [Version 1.5.0, 2026-10-25](#version-150-2026-10-25)
   - [Version 1.4.18, 2026-10-22](#version-1418-2026-10-22)
   - [Version 1.4.17, 2026-08-07](#version-1417-2026-08-07)
   - [Version 1.4.16, 2026-08-06](#version-1416-2026-08-06)
@@ -94,10 +97,10 @@ Scramp supports the following mechanisms:
 
 ## Examples
 
-### Client and Server
+### Client And Server Without Channel Binding
 
-Here's an example using both the client and the server. It's a bit contrived as
-normally you'd be using either the client or server on its own.
+Here's an example using both the client and the server. It doesn't use
+channel binding (the mechanism doesn't have a `-PLUS` suffix).
 
 ```python
 >>> from scramp import ScramClient, ScramMechanism
@@ -146,10 +149,11 @@ normally you'd be using either the client or server on its own.
 >>> # has succeeded
 ```
 
-### Client only
+### Client Only Without Channel Binding
 
-Here's an example using just the client. The client nonce is specified in order
-to give a reproducible example, but in production you'd omit the `c_nonce`
+Here's an example using just the client. It doesn't use channel binding
+(the mechanism doesn't have a `-PLUS` suffix). The client nonce is specified in
+order to give a reproducible example, but in production you'd omit the `c_nonce`
 parameter and let `ScramClient` generate a client nonce:
 
 ```python
@@ -187,11 +191,12 @@ c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p=dHzbZapWIk4jUhN+Ut
 >>> # has succeeded
 ```
 
-### Server only
+### Server Only Without Channel Binding
 
-Here's an example using just the server. The server nonce and salt is specified
-in order to give a reproducible example, but in production you'd omit the
-`s_nonce` and `salt` parameters and let Scramp generate them:
+Here's an example using just the server. It doesn't use channel binding
+(the mechanism doesn't have a `-PLUS` suffix). The server nonce and salt is
+specified in order to give a reproducible example, but in production you'd omit
+the `s_nonce` and `salt` parameters and let Scramp generate them:
 
 ```python
 >>> from scramp import ScramMechanism
@@ -230,12 +235,217 @@ r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,
 >>> # Set the final message from the client
 >>> s.set_client_final(
 ...     'c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,'
-...     'p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=')
+...     'p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ='
+... )
 >>>
 >>> # Get the final server message and send it to the client
 >>> sfinal = s.get_server_final()
 >>> print(sfinal)
 v=6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=
+>>>
+>>> # If it all runs through without raising an exception, the authentication
+>>> # has succeeded
+```
+
+### Client And Server With Channel Binding
+
+Here's an example using both the client and the server. It uses channel binding
+(the mechanism name has the `-PLUS` suffix).
+
+```python
+>>> from scramp import ScramClient, ScramMechanism
+>>>
+>>> USERNAME = 'user'
+>>> PASSWORD = 'pencil'
+>>>
+>>> # Choose a mechanism for our server
+>>> m = ScramMechanism(mechanism="SCRAM-SHA-256-PLUS")
+>>>
+>>> # On the server side we create the authentication information for each user
+>>> # and store it in an authentication database. We'll use a dict:
+>>> db = {}
+>>>
+>>> salt, stored_key, server_key, iteration_count = m.make_auth_info(PASSWORD)
+>>>
+>>> db[USERNAME] = salt, stored_key, server_key, iteration_count
+>>>
+>>> # Define your own function for retrieving the authentication information
+>>> # from the database given a username
+>>>
+>>> def auth_fn(username):
+...     return db[username]
+>>>
+>>> # Create the server channel binding tuple (name, data)
+>>> # Normally this would be done using the ssl_socket:
+>>> #
+>>> # server_channel_binding = 'tls-unique', ssl_socket
+>>> #
+>>> # and let ScramServer get the data from the socket. But for demonstration
+>>> # purposes we'll use literal data
+>>>
+>>> server_channel_binding = 'tls-unique', b'xxx'
+>>>
+>>> # Make the SCRAM server
+>>> s = m.make_server(auth_fn, channel_binding=server_channel_binding)
+>>>
+>>> # Now set up the client and carry out authentication with the server
+>>>
+>>> # The server will advertise a list of supported mechanisms, but the way
+>>> # it does that depends on the host protocol. Let's make up a list for
+>>> # demonstration purposes
+>>>
+>>> MECHANISMS = ['SCRAM-SHA-256-PLUS']
+>>>
+>>> # Create the client channel binding tuple (name, data)
+>>> # Normally this would be done using the ssl_socket:
+>>> #
+>>> # client_channel_binding = 'tls-unique', ssl_socket
+>>> #
+>>> # and let ScramClient get the data from the socket. But for demonstration
+>>> # purposes we'll use literal data
+>>>
+>>> client_channel_binding = 'tls-unique', b'xxx'
+>>>
+>>> c = ScramClient(MECHANISMS, USERNAME, PASSWORD, channel_binding=client_channel_binding)
+>>>
+>>> cfirst = c.get_client_first()
+>>>
+>>> s.set_client_first(cfirst)
+>>> sfirst = s.get_server_first()
+>>>
+>>> c.set_server_first(sfirst)
+>>> cfinal = c.get_client_final()
+>>>
+>>> s.set_client_final(cfinal)
+>>> sfinal = s.get_server_final()
+>>>
+>>> c.set_server_final(sfinal)
+>>>
+>>> # If it all runs through without raising an exception, the authentication
+>>> # has succeeded
+```
+
+### Client Only With Channel Binding
+
+Here's an example using just the client, with channel binding:
+
+```python
+>>> from scramp import ScramClient
+>>>
+>>> USERNAME = 'user'
+>>> PASSWORD = 'pencil'
+>>> C_NONCE = 'rOprNGfwEbeRWgbNEkqO'
+>>>
+>>> # The server will advertise a list of supported mechanisms, but the way
+>>> # it does that depends on the host protocol. Let's make up a list for
+>>> # demonstration purposes
+>>>
+>>> MECHANISMS = ['SCRAM-SHA-256-PLUS']
+>>>
+>>> # Normally the c_nonce would be omitted, in which case ScramClient will
+>>> # generate the nonce itself, but we'll use a hardcoded c_nonce to make
+>>> # the example reproducible.
+>>>
+>>> # Create the channel binding tuple (name, data)
+>>> # Normally this would be done using the ssl_socket:
+>>> #
+>>> # channel_binding = 'tls-unique', ssl_socket
+>>> #
+>>> # and let ScramClient get the data from the socket. But for demonstration
+>>> # purposes we'll use literal data
+>>>
+>>> channel_binding = 'tls-unique', b'xxx'
+>>>
+>>> c = ScramClient(
+...     MECHANISMS, USERNAME, PASSWORD, channel_binding=channel_binding, c_nonce=C_NONCE
+... )
+>>>
+>>> # Get the client first message and send it to the server
+>>> cfirst = c.get_client_first()
+>>> print(cfirst)
+p=tls-unique,,n=user,r=rOprNGfwEbeRWgbNEkqO
+>>>
+>>> # Set the first message from the server
+>>> c.set_server_first(
+...     "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+...     "s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096"
+... )
+>>>
+>>> # Get the client final message and send it to the server
+>>> cfinal = c.get_client_final()
+>>> print(cfinal)
+c=cD10bHMtdW5pcXVlLCx4eHg=,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p=v0J7PaQUPWowoTrwRLCKLzIZBpNUhWFlTrUKI1j9DpM=
+>>>
+>>> # Set the final message from the server
+>>> c.set_server_final("v=XjAev9iHBOvTxT+eNzBaFmP1IrqWah2PpZAa0wQrfY4=")
+>>>
+>>> # If it all runs through without raising an exception, the authentication
+>>> # has succeeded
+```
+
+### Server Only With Channel Binding
+
+Here's an example using just the server, but with channel binding. The server
+nonce and salt is specified in order to give a reproducible example, but in
+production you'd omit the `s_nonce` and `salt` parameters and let Scramp
+generate them:
+
+```python
+>>> from scramp import ScramMechanism
+>>>
+>>> USERNAME = 'user'
+>>> PASSWORD = 'pencil'
+>>> S_NONCE = '%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0'
+>>> SALT = b'[m\x99h\x9d\x125\x8e\xec\xa0K\x14\x126\xfa\x81'
+>>>
+>>> db = {}
+>>>
+>>> m = ScramMechanism("SCRAM-SHA-256-PLUS")
+>>>
+>>> salt, stored_key, server_key, iteration_count = m.make_auth_info(
+...     PASSWORD, salt=SALT)
+>>>
+>>> db[USERNAME] = salt, stored_key, server_key, iteration_count
+>>>
+>>> # Define your own function for getting a password given a username
+>>> def auth_fn(username):
+...     return db[username]
+>>>
+>>> # Create the channel binding tuple (name, data)
+>>> # Normally this would be done using the ssl_socket:
+>>> #
+>>> # channel_binding = 'tls-unique', ssl_socket
+>>> #
+>>> # and let ScramServer get the data from the socket. But for demonstration
+>>> # purposes we'll use literal data
+>>>
+>>> channel_binding = 'tls-unique', b'xxx'
+>>>
+>>> # Normally the s_nonce parameter would be omitted, in which case the
+>>> # server will generate the nonce itself.
+
+>>> # Make the SCRAM server
+>>> s = m.make_server(auth_fn, channel_binding=channel_binding, s_nonce=S_NONCE)
+>>>
+>>> # Set the first message from the client
+>>> s.set_client_first("p=tls-unique,,n=user,r=rOprNGfwEbeRWgbNEkqO")
+>>>
+>>> # Get the first server message, and send it to the client
+>>> sfirst = s.get_server_first()
+>>> print(sfirst)
+r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096
+>>>
+>>> # Set the final message from the client
+>>> s.set_client_final(
+...     "c=cD10bHMtdW5pcXVlLCx4eHg=,"
+...     "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,"
+...     "p=v0J7PaQUPWowoTrwRLCKLzIZBpNUhWFlTrUKI1j9DpM="
+... )
+>>>
+>>> # Get the final server message and send it to the client
+>>> sfinal = s.get_server_final()
+>>> print(sfinal)
+v=XjAev9iHBOvTxT+eNzBaFmP1IrqWah2PpZAa0wQrfY4=
 >>>
 >>> # If it all runs through without raising an exception, the authentication
 >>> # has succeeded
@@ -434,10 +644,19 @@ A tuple of the supported mechanism names.
 
 Constructor of the `scramp.ScramClient` class, with the following parameters:
 
-- `mechanisms` - A list or tuple of mechanism names. ScramClient will choose
-  the most secure. If `cbind_data` is `None`, the '-PLUS' variants will be
-  filtered out first. The chosen mechanism is available as the property
-  `mechanism_name`.
+- `mechanisms` - A list or tuple of mechanism names, advertised by the server.
+  The way that a server provides the list depends on the host protocol. Here
+  are some of the common methods:
+  - PostgreSQL: the server’s AuthenticationSASL message
+  - SMTP: the AUTH line in the EHLO response.
+  - IMAP: AUTH= entries in the CAPABILITY response.
+  - XMPP: \<mechanisms\> in the stream features.
+  - LDAP: the supportedSASLMechanisms attribute of the root DSE.
+
+  ScramClient will choose the most secure. If `cbind_data` is `None`, the
+  `-PLUS` variants will be filtered out first. In choosing the mechanism,
+  `-PLUS` variants are favoured over non-`-PLUS` then algorithm strength within
+  that. The chosen mechanism is available as the property `mechanism_name`.
 - `username`
 - `password`
 - `channel_binding` - Providing a value for this parameter allows channel
@@ -447,8 +666,8 @@ Constructor of the `scramp.ScramClient` class, with the following parameters:
   `tls-unique`, the `channel_binding` parameter would be `('tls-unique', data)`,
   where `data` is obtained by calling
   [SSLSocket.get\_channel\_binding()][SSLSocket.get\_channel\_binding()]
-  The convenience function `scramp.make_channel_binding()` can be used to create
-  a channel binding tuple.
+  For `tls-unique` or `tls-server-end-point` you can put an `ssl.SSLSocket`
+  object instead of `data` and `ScramClient` will extract the data for you.
 - `c_nonce` - The client nonce. It's sometimes useful to set this when testing /
   debugging, but in production this should be omitted, in which case
   `ScramClient` will generate a client nonce.
@@ -467,7 +686,13 @@ The `ScramClient` object has the following methods and properties:
 
 Constructor of the `ScramMechanism` class, with the following parameter:
 
-- `mechanism` - The SCRAM mechanism to use.
+- `mechanism` - The name of the SCRAM mechanism to use. The way that the client
+  sends the chosen mechanism name to the server depends on the host protocol.
+  Common examples are:
+  - PostgreSQL: In the SASLInitialResponse message
+  - IMAP: A1 AUTHENTICATE SCRAM-SHA-256-PLUS
+  - SMTP: AUTH SCRAM-SHA-256-PLUS
+  - XMPP: \<auth mechanism="SCRAM-SHA-256-PLUS"\>
 
 The `ScramMechanism` object has the following methods and properties:
 
@@ -493,11 +718,14 @@ The `ScramMechanism` object has the following methods and properties:
     name and the channel binding data. For example, if the channel binding name
     is 'tls-unique', the `channel_binding` parameter would be
     `('tls-unique', data)`, where `data` is obtained by calling
-    [SSLSocket.get\_channel\_binding()][SSLSocket.get\_channel\_binding()]. The
-    convenience function `scramp.make_channel_binding()` can be used to create a
-    channel binding tuple. If `channel_binding` is provided and the mechanism
-    isn't a `-PLUS` variant, then the server will negotiate with the client to
-    use the `-PLUS` variant if the client supports it, or otherwise to use the
+    [SSLSocket.get\_channel\_binding()][SSLSocket.get\_channel\_binding()].
+    For `tls-unique` you can put an `ssl.SSLSocket` object instead of `data`
+    and `ScramServer` will extract the data for you. Likewise, for
+    `tls-server-end-point` you can put a `str` object of the PEM
+    server certificate instead of `data` and `ScramServer` will extract the
+    data for you. If channel_binding is provided and the mechanism isn't a
+    `-PLUS` variant, then the server will negotiate with the client to use the
+    `-PLUS` variant if the client supports it, or otherwise to use the
     mechanism without channel binding.
   - `s_nonce` - The server nonce as a `str`. It's sometimes useful to set this
     when testing / debugging, but in production this should be omitted, in which
@@ -521,16 +749,6 @@ Note that `ScramServer` doesn't enforce a maximum message or field length, so
 that's something you might want to consider doing if you're embedding it in a
 network-facing server.
 
-### scramp.make\_channel\_binding(name, ssl\_socket)
-
-A helper function that makes a `channel_binding` tuple when given a channel
-binding name and an SSL socket. The parameters are:
-
-- `name` - A channel binding name such as 'tls-unique' or
-  'tls-server-end-point'.
-- `ssl_socket` - An instance of
-  [ssl.SSLSocket](https://docs.python.org/3/library/ssl.html#ssl.SSLSocket).
-
 ## Testing
 
 - Activate the virtual environment: `source venv/bin/activate`
@@ -553,6 +771,15 @@ Run `tox` to make sure all tests pass, then update the release notes, then do:
 - `twine upload dist/*`
 
 ## Release Notes
+
+### Version 1.5.0, 2026-10-25
+
+- Removed `make_channel_binding()`, in favour of accepting other types (
+  e.g. `ssl.SSLSocket`) as well as `bytes` as the channel binding data. This is
+  a breaking change, but the idea is to make the API simpler and less error
+  prone. See the API docs for `ScramClient` and `make_server` for more
+  details.
+- Message parsing tightened up.
 
 ### Version 1.4.18, 2026-10-22
 

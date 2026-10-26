@@ -11,7 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Expose package-wide elements."""
+"""Expose package-wide elements.
+
+```{todo}
+Remove the deprecated aliases that `extra_platforms/_deprecated.py` registers,
+and their tests, in `14.0.0`.
+```
+"""
 
 from __future__ import annotations
 
@@ -98,6 +104,7 @@ from .detection import (
     is_armv6l,
     is_armv7l,
     is_armv8l,
+    is_artix,
     is_ash,
     is_azure_pipelines,
     is_bamboo,
@@ -305,6 +312,7 @@ from .platform_data import (
     AMZN,
     ANDROID,
     ARCH,
+    ARTIX,
     BUILDROOT,
     CACHYOS,
     CENTOS,
@@ -430,7 +438,7 @@ Pytest optional.
 """
 
 
-__version__ = "13.12.0"
+__version__ = "13.13.0"
 
 
 def _initialize_group_detection_functions() -> None:
@@ -595,6 +603,7 @@ __all__ = (
     "ARMV6L",
     "ARMV7L",
     "ARMV8L",
+    "ARTIX",
     "ASH",
     "AZURE_PIPELINES",
     "BAMBOO",
@@ -807,6 +816,7 @@ __all__ = (
     "is_armv6l",
     "is_armv7l",
     "is_armv8l",
+    "is_artix",
     "is_ash",
     "is_azure_pipelines",
     "is_bamboo",

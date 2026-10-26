@@ -90,6 +90,7 @@ from nab_provider.requirements_file import expand_extra_requirements
 from nab_provider.resolver_inputs import ProxyConstraints
 from nab_provider.tags import PlatformSpec
 from nab_provider.target import Matrix, ResolveTarget
+from nab_provider.testing import make_sdist, make_wheel
 from nab_resolver.errors import ResolutionError
 
 if TYPE_CHECKING:
@@ -102,36 +103,19 @@ if TYPE_CHECKING:
 def _make_wheel(
     version: str, *, package: str, upload_time: str | None = None
 ) -> WheelFile:
-    return WheelFile(
-        filename=f"{package}-{version}-py3-none-any.whl",
+    """Build a hashed wheel at the target fixtures' short URL."""
+    return make_wheel(
+        version,
+        package=package,
         url=f"https://example.com/{package}-{version}.whl",
-        version=version,
-        requires_python=None,
-        has_metadata=True,
         upload_time=upload_time,
         hashes=(("sha256", "a" * 64),),
     )
 
 
 def _make_sdist(version: str, *, package: str) -> SdistFile:
-    return SdistFile(
-        filename=f"{package}-{version}.tar.gz",
-        url=f"https://example.com/{package}-{version}.tar.gz",
-        version=version,
-        requires_python=None,
-        upload_time=None,
-        hashes=(("sha256", "b" * 64),),
-    )
-
-
-def _make_coordinator(listings: dict[str, list[WheelFile]]) -> FakeFetchPort:
-    """Fetch port pre-loaded with each package's listing.
-
-    Metadata fetches return minimal valid METADATA text for whatever
-    name/version is requested so look-ahead in ``choose_version``
-    passes without stubbing each version explicitly.
-    """
-    return make_coordinator(listings=listings, auto_metadata=True)
+    """Build a hashed sdist for lock emission."""
+    return make_sdist(version, package=package, hashes=(("sha256", "b" * 64),))
 
 
 def _reqs(*texts: str) -> list[Requirement]:
@@ -205,7 +189,9 @@ def test_default_root_evaluator_is_shared_only_within_one_resolve(
     monkeypatch.setattr(resolve_mod, "DependencyMarkerEvaluator", ObservedEvaluator)
     monkeypatch.setattr(MarkerSet, "from_marker", classmethod(observed))
     for _ in range(2):
-        coordinator = _make_coordinator({"demo": [_make_wheel("1.0", package="demo")]})
+        coordinator = make_coordinator(
+            listings={"demo": [_make_wheel("1.0", package="demo")]}, auto_metadata=True
+        )
         result = resolve_with_coordinator(
             coordinator, targets, requirements, inputs=_no_build()
         )
@@ -224,7 +210,9 @@ def test_default_root_evaluator_is_shared_only_within_one_resolve(
         received.append(environment)
         return False
 
-    coordinator = _make_coordinator({"demo": [_make_wheel("1.0", package="demo")]})
+    coordinator = make_coordinator(
+        listings={"demo": [_make_wheel("1.0", package="demo")]}, auto_metadata=True
+    )
     result = resolve_with_coordinator(
         coordinator, targets, requirements, inputs=_no_build(), marker_holds=custom
     )
@@ -427,13 +415,14 @@ class TestConflictForkResolve:
     once the conflict is declared (the datamodel-code-generator shape)."""
 
     def _black_coordinator(self) -> FakeFetchPort:
-        return _make_coordinator(
-            {
+        return make_coordinator(
+            listings={
                 "black": [
                     _make_wheel("22.1", package="black"),
                     _make_wheel("23.12", package="black"),
-                ],
-            }
+                ]
+            },
+            auto_metadata=True,
         )
 
     def _black_forks(self) -> list[ResolveFork]:
@@ -590,11 +579,12 @@ class TestConflictForkBaseNames:
     membership marker (the at_most_one over-install fix)."""
 
     def _coordinator(self) -> FakeFetchPort:
-        return _make_coordinator(
-            {
+        return make_coordinator(
+            listings={
                 "base": [_make_wheel("1.0", package="base")],
                 "accel": [_make_wheel("5.0", package="accel")],
-            }
+            },
+            auto_metadata=True,
         )
 
     def _forks(self) -> list[ResolveFork]:
@@ -653,11 +643,12 @@ class TestConflictForkBaseNames:
         marker is the conjunction across those sets" by checking the
         emitted marker references every one of the four memberships.
         """
-        coordinator = _make_coordinator(
-            {
+        coordinator = make_coordinator(
+            listings={
                 "base": [_make_wheel("1.0", package="base")],
                 "crossdep": [_make_wheel("5.0", package="crossdep")],
-            }
+            },
+            auto_metadata=True,
         )
 
         # cpu x mon, cpu x debug, gpu x mon, gpu x debug = 4 forks, each
@@ -874,7 +865,9 @@ class TestDroppedMembershipMarkerWarnedOnce:
     many targets, forks and base passes read it."""
 
     def _coordinator(self) -> FakeFetchPort:
-        return _make_coordinator({"base": [_make_wheel("1.0", package="base")]})
+        return make_coordinator(
+            listings={"base": [_make_wheel("1.0", package="base")]}, auto_metadata=True
+        )
 
     def _two_targets(self) -> list[ResolveTarget]:
         return Matrix(
@@ -958,7 +951,7 @@ class TestDirectPackages:
 
     def _direct_packages(self, *texts: str) -> frozenset[str]:
         """The ``direct_packages`` a resolve of ``texts`` hands the provider."""
-        coordinator = _make_coordinator({})
+        coordinator = make_coordinator(listings={}, auto_metadata=True)
         with (
             patch.object(engine_mod, "Provider") as provider_cls,
             patch.object(engine_mod, "Resolver") as resolver_cls,
@@ -1582,7 +1575,9 @@ class TestResolveOneTarget:
 
     def test_success_returns_pins(self) -> None:
         """A trivial resolve produces a TargetResult with pins set."""
-        coordinator = _make_coordinator({"pkg": [_make_wheel("1.0", package="pkg")]})
+        coordinator = make_coordinator(
+            listings={"pkg": [_make_wheel("1.0", package="pkg")]}, auto_metadata=True
+        )
         tr = _resolve_one_target(
             _linux_311(), _reqs("pkg"), (), _settings(coordinator, _no_build()), {}
         )
@@ -1597,7 +1592,7 @@ class TestResolveOneTarget:
 
     def test_failure_returns_error(self) -> None:
         """A resolve with no candidate version reports failure."""
-        coordinator = _make_coordinator({"pkg": []})
+        coordinator = make_coordinator(listings={"pkg": []}, auto_metadata=True)
         tr = _resolve_one_target(
             _linux_311(), _reqs("pkg"), (), _settings(coordinator, _no_build()), {}
         )
@@ -1614,7 +1609,7 @@ class TestResolveOneTarget:
             has_metadata=True,
             upload_time=None,
         )
-        coordinator = _make_coordinator({"pkg": [unhashed]})
+        coordinator = make_coordinator(listings={"pkg": [unhashed]}, auto_metadata=True)
         tr = _resolve_one_target(
             _linux_311(), _reqs("pkg"), (), _settings(coordinator, _no_build()), {}
         )
@@ -1637,7 +1632,9 @@ class TestResolveOneTarget:
         left to try the target fails with a no-versions ResolutionError,
         not a post-resolution MissingSdistError.
         """
-        coordinator = _make_coordinator({"pkg": [_make_wheel("1.0", package="pkg")]})
+        coordinator = make_coordinator(
+            listings={"pkg": [_make_wheel("1.0", package="pkg")]}, auto_metadata=True
+        )
         settings = _settings(
             coordinator, _no_build(dist_policy=DistPolicy.SDIST_INSTALL)
         )
@@ -1702,7 +1699,7 @@ class TestVcsConfigPlumbing:
         NoneType crash or a generic ``ValueError``).
         """
         settings = _settings(
-            _make_coordinator({}),
+            make_coordinator(listings={}, auto_metadata=True),
             _no_build(
                 vcs=VcsConfig(policy=VcsPolicy.BLOCK), vcs_sources=(self._source(),)
             ),
@@ -1721,8 +1718,9 @@ class TestVcsConfigPlumbing:
         reached the provider (the BLOCK fast-fail in
         ``index_vcs_sources`` would have raised at construction time).
         """
-        coordinator = _make_coordinator(
-            {"other": [_make_wheel("1.0", package="other")]}
+        coordinator = make_coordinator(
+            listings={"other": [_make_wheel("1.0", package="other")]},
+            auto_metadata=True,
         )
         settings = _settings(
             coordinator,
@@ -1744,7 +1742,7 @@ class TestVcsConfigPlumbing:
         on ``provider.vcs_cache_dir`` instead.
         """
         settings = _settings(
-            _make_coordinator({}),
+            make_coordinator(listings={}, auto_metadata=True),
             _no_build(vcs=self._allow(), vcs_sources=(self._source(),)),
             source_root=None,
         )
@@ -1759,7 +1757,7 @@ class TestVcsConfigPlumbing:
         """
         with pytest.raises(ValueError, match="vcs_sources require VcsPolicy.ALLOW"):
             resolve_with_coordinator(
-                _make_coordinator({}),
+                make_coordinator(listings={}, auto_metadata=True),
                 _one_target(),
                 _reqs("pkg"),
                 inputs=_no_build(
@@ -1806,7 +1804,7 @@ class TestVcsConfigPlumbing:
         monkeypatch.setattr(vcs_mod, "prepare_clone", spy_prepare_clone)
 
         result = resolve_with_coordinator(
-            _make_coordinator({}),
+            make_coordinator(listings={}, auto_metadata=True),
             _one_target(),
             _reqs("pkg"),
             inputs=_no_build(vcs=self._allow(), vcs_sources=(self._source(),)),
@@ -1841,7 +1839,7 @@ class TestVcsConfigPlumbing:
         monkeypatch.chdir(tmp_path)
 
         result = resolve_with_coordinator(
-            _make_coordinator({}),
+            make_coordinator(listings={}, auto_metadata=True),
             _one_target(),
             _reqs("pkg"),
             inputs=_no_build(vcs=self._allow(), vcs_sources=(self._source(),)),
@@ -1881,7 +1879,7 @@ class TestVcsConfigPlumbing:
         monkeypatch.setattr(subprocess, "run", fake_run)
 
         result = resolve_with_coordinator(
-            _make_coordinator({}),
+            make_coordinator(listings={}, auto_metadata=True),
             _one_target(),
             _reqs("pkg"),
             inputs=_no_build(vcs=self._allow(), vcs_sources=(self._source(),)),
@@ -1913,8 +1911,8 @@ class TestCutoffAndOverridePlumbing:
 
     def _coordinator(self) -> FakeFetchPort:
         """Two foo releases either side of March 2024, plus a bar to depend on."""
-        return _make_coordinator(
-            {
+        return make_coordinator(
+            listings={
                 "foo": [
                     _make_wheel(
                         "2.0", package="foo", upload_time="2024-06-01T00:00:00Z"
@@ -1924,7 +1922,8 @@ class TestCutoffAndOverridePlumbing:
                     ),
                 ],
                 "bar": [_make_wheel("1.0", package="bar")],
-            }
+            },
+            auto_metadata=True,
         )
 
     def _pins(self, inputs: ResolveInputs = _NO_BUILD) -> dict[str, Version]:
@@ -1987,7 +1986,7 @@ class TestRunPassSerial:
     def test_serial_align_propagates_pins(self) -> None:
         """Each target's pins update the accumulated preferences."""
         wheels = [_make_wheel("1.0", package="pkg"), _make_wheel("2.0", package="pkg")]
-        coordinator = _make_coordinator({"pkg": wheels})
+        coordinator = make_coordinator(listings={"pkg": wheels}, auto_metadata=True)
 
         results = _run_pass(
             [_linux_311(), _windows_311()],
@@ -2002,7 +2001,7 @@ class TestRunPassSerial:
     def test_serial_no_align_skips_pin_propagation(self) -> None:
         """With alignment off, each target resolves independently."""
         wheels = [_make_wheel("1.0", package="pkg"), _make_wheel("2.0", package="pkg")]
-        coordinator = _make_coordinator({"pkg": wheels})
+        coordinator = make_coordinator(listings={"pkg": wheels}, auto_metadata=True)
 
         results = _run_pass(
             [_linux_311(), _windows_311()],
@@ -2029,7 +2028,7 @@ class TestRunPassConflict:
             [_linux_311()],
             _reqs("pkg==1.0", "pkg==2.0"),
             (),
-            _settings(_make_coordinator({}), _no_build()),
+            _settings(make_coordinator(listings={}, auto_metadata=True), _no_build()),
             {},
         )
         assert len(results) == 1
@@ -2049,7 +2048,7 @@ class TestRunPassConstraintMarker:
         constraints, would mis-pin a target's lock.
         """
         wheels = [_make_wheel("1.0", package="pkg"), _make_wheel("2.0", package="pkg")]
-        coordinator = _make_coordinator({"pkg": wheels})
+        coordinator = make_coordinator(listings={"pkg": wheels}, auto_metadata=True)
         results = _run_pass(
             [_linux_311(), _windows_311()],
             _reqs("pkg"),
@@ -2264,11 +2263,12 @@ class TestServingIndexInLock:
     def test_pin_records_the_index_that_served_it(self) -> None:
         """``foo`` is served by a private index, ``bar`` by the default one."""
         internal_url = "https://internal.example/simple/"
-        coordinator = _make_coordinator(
-            {
+        coordinator = make_coordinator(
+            listings={
                 "foo": [_make_wheel("1.0", package="foo")],
                 "bar": [_make_wheel("1.0", package="bar")],
-            }
+            },
+            auto_metadata=True,
         )
 
         # A resolve that never passed its indexes on would still record PyPI
@@ -2300,7 +2300,9 @@ class TestResolveWithCoordinator:
 
     def test_first_pass_returns_pins(self) -> None:
         """A single-target resolve produces a ResolveResult with pins."""
-        coordinator = _make_coordinator({"pkg": [_make_wheel("1.0", package="pkg")]})
+        coordinator = make_coordinator(
+            listings={"pkg": [_make_wheel("1.0", package="pkg")]}, auto_metadata=True
+        )
         result = resolve_with_coordinator(coordinator, _one_target(), _reqs("pkg"))
         assert result.success
         assert result.target_results[0].pins == {"pkg": Version("1.0")}
@@ -2311,7 +2313,9 @@ class TestResolveWithCoordinator:
         With the default ``ExtrasMode.ERROR_USER``, a missing user extra
         is an error rather than a silent drop.
         """
-        coordinator = _make_coordinator({"pkg": [_make_wheel("1.0", package="pkg")]})
+        coordinator = make_coordinator(
+            listings={"pkg": [_make_wheel("1.0", package="pkg")]}, auto_metadata=True
+        )
         with pytest.raises(MissingExtraError):
             resolve_with_coordinator(coordinator, _one_target(), _reqs("pkg[missing]"))
 
@@ -2412,13 +2416,14 @@ class TestResolveWithCoordinator:
 
     def test_constraints_passed_through(self) -> None:
         """The config's constraints reach the resolver."""
-        coordinator = _make_coordinator(
-            {
+        coordinator = make_coordinator(
+            listings={
                 "pkg": [
                     _make_wheel("1.0", package="pkg"),
                     _make_wheel("2.0", package="pkg"),
                 ]
-            }
+            },
+            auto_metadata=True,
         )
         result = resolve_with_coordinator(
             coordinator,
@@ -2616,13 +2621,14 @@ class TestResolveWithCoordinator:
 
     def test_resolution_strategy_overrides_the_config(self) -> None:
         """An explicit strategy wins over the config's ``resolution``."""
-        coordinator = _make_coordinator(
-            {
+        coordinator = make_coordinator(
+            listings={
                 "pkg": [
                     _make_wheel("1.0", package="pkg"),
                     _make_wheel("2.0", package="pkg"),
                 ]
-            }
+            },
+            auto_metadata=True,
         )
         result = resolve_with_coordinator(
             coordinator,
@@ -2636,12 +2642,7 @@ class TestResolveWithCoordinator:
 
 
 class TestLocalVcsRequiresPython:
-    """A local or VCS pin must satisfy each targeted Python version.
-
-    Index candidates are filtered by Requires-Python while listing;
-    local-path and VCS sources skip that filter, so the resolve checks
-    them after resolving.
-    """
+    """A local or VCS pin must satisfy each targeted Python version."""
 
     def _write(self, tmp_path: Path, body: str) -> LocalSource:
         (tmp_path / "pyproject.toml").write_text(body, encoding="utf-8")
@@ -2657,6 +2658,42 @@ class TestLocalVcsRequiresPython:
             inputs=ResolveInputs(local_sources=(local,)),
         )
 
+    def test_backtracks_past_python_incompatible_source(self, tmp_path: Path) -> None:
+        local = self._write(
+            tmp_path,
+            '[project]\nname = "foo"\nversion = "1.0"\nrequires-python = ">=3.12"\n',
+        )
+        coordinator = make_coordinator(
+            [_make_wheel("1.0", package="alpha"), _make_wheel("2.0", package="alpha")],
+            package="alpha",
+            metadata_by_version={
+                "1.0": "Metadata-Version: 2.4\nName: alpha\nVersion: 1.0\n\n",
+                "2.0": "Metadata-Version: 2.4\nName: alpha\nVersion: 2.0\nRequires-Dist: foo\n\n",
+            },
+        )
+        result = resolve_with_coordinator(
+            coordinator,
+            Matrix(
+                python=">=3.11,<3.13", platforms=(PlatformSpec("linux_x86_64"),)
+            ).expand(),
+            _reqs("alpha"),
+            align_across_targets=False,
+            inputs=ResolveInputs(
+                local_sources=(local,), build_policy=BuildPolicy.NEVER
+            ),
+        )
+
+        assert result.success
+        older, newer = result.target_results
+        assert older.pins == {"alpha": Version("1.0")}
+        assert newer.pins == {"alpha": Version("2.0"), "foo": Version("1.0")}
+
+        assert older.lock is not None
+        assert newer.lock is not None
+
+        assert older.lock.dependencies == {}
+        assert newer.lock.dependencies == {"alpha": ("foo",)}
+
     def test_excluding_python_fails_the_target(self, tmp_path: Path) -> None:
         local = self._write(
             tmp_path,
@@ -2670,8 +2707,10 @@ class TestLocalVcsRequiresPython:
         assert not result.success
         error = result.target_results[0].error
         assert error is not None
-        assert "foo 1.0 requires Python" in str(error)
-        assert "3.10" in str(error)
+        assert "rejected on its metadata" in str(error)
+        assert error.verbose_message is not None
+        assert "foo 1.0 requires Python" in error.verbose_message
+        assert "3.10" in error.verbose_message
 
     def test_compatible_python_with_index_dep_succeeds(self, tmp_path: Path) -> None:
         local = self._write(
@@ -2797,8 +2836,11 @@ class TestArchiveSourceAcrossTargets:
             assert str(target_result.pins["foo"]) == "1.0"
             assert str(target_result.pins["bar"]) == "2.0"
 
-    def test_poisoned_legacy_cached_tree_is_not_reused(self, tmp_path: Path) -> None:
-        """A tree written before source-cache isolation cannot affect a resolve."""
+    @pytest.mark.parametrize("bucket", ["archive", "archive-v1"])
+    def test_poisoned_legacy_cached_tree_is_not_reused(
+        self, tmp_path: Path, bucket: str
+    ) -> None:
+        """A previous cache layout cannot affect a resolve or be overwritten."""
         fresh = '[project]\nname = "foo"\nversion = "1.0"\n'
         data = _archive_bytes("foo", "1.0", fresh)
         digest = hashlib.sha256(data).hexdigest()
@@ -2806,7 +2848,7 @@ class TestArchiveSourceAcrossTargets:
             name="foo", url=f"https://ex.com/foo-1.0.tar.gz#sha256={digest}"
         )
 
-        legacy_entry = tmp_path / "archive" / digest
+        legacy_entry = tmp_path / bucket / digest
         legacy_tree = legacy_entry / "tree"
         legacy_tree.mkdir(parents=True)
         (legacy_tree / "pyproject.toml").write_text(
@@ -2857,8 +2899,6 @@ class TestArchiveSourceAcrossTargets:
         assert str(result.target_results[0].pins["foo"]) == "1.0"
 
     def test_requires_python_excluding_target_fails(self, tmp_path: Path) -> None:
-        # An archive skips the listing Requires-Python filter, so the source
-        # guard must reject one that excludes the target's Python.
         pyproject = (
             '[project]\nname = "foo"\nversion = "1.0"\nrequires-python = ">=3.12"\n'
         )
@@ -2881,7 +2921,9 @@ class TestArchiveSourceAcrossTargets:
         assert not result.success
         error = result.target_results[0].error
         assert error is not None
-        assert "foo 1.0 requires Python" in str(error)
+        assert "rejected on its metadata" in str(error)
+        assert error.verbose_message is not None
+        assert "foo 1.0 requires Python" in error.verbose_message
 
 
 class TestSharedListingFilter:
@@ -2905,7 +2947,7 @@ class TestSharedListingFilter:
         )
 
     def _coordinator(self, wheels: list[WheelFile]) -> FakeFetchPort:
-        return _make_coordinator({"pkg": wheels})
+        return make_coordinator(listings={"pkg": wheels}, auto_metadata=True)
 
     def _targets(self, python: str) -> list[ResolveTarget]:
         return Matrix(
@@ -2947,6 +2989,7 @@ class TestSharedListingFilter:
                 self._targets("==3.11"),
                 _reqs("pkg"),
                 inputs=_no_build(),
+                align_across_targets=False,
             )
 
         assert result.success
@@ -2988,13 +3031,16 @@ class TestSharedListingFilter:
                 self._targets("==3.11"),
                 _reqs("pkg"),
                 inputs=_no_build(),
+                align_across_targets=False,
             )
 
         assert result.success
         assert calls == ["pkg@3.11.0"]
+
         pinned = {
             tr.target.platform_id: str(tr.pins["pkg"]) for tr in result.target_results
         }
+
         assert pinned == {"linux_x86_64": "2.0", "windows_amd64": "1.0"}
 
     def test_each_python_filters_the_listing_once(self) -> None:
@@ -3083,6 +3129,7 @@ class TestSharedListingFilter:
             self._targets("==3.11"),
             _reqs("pkg"),
             inputs=_no_build(),
+            align_across_targets=False,
         )
 
         assert result.success

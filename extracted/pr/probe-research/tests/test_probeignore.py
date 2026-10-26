@@ -506,6 +506,7 @@ def _what_reached(app) -> dict[str, set[str]]:
 
 
 @pytest.mark.parametrize("how", ["init(ignore=)", "PROBE_IGNORE", "nothing (control)"])
+@pytest.mark.heavy
 def test_patterns_reach_every_capture_under_probe_exec(app, tmp_path, how):
     """The re-review's MED: `probe.init(ignore=['*.ckpt'])` inside `probe exec`
     did nothing -- the launcher collects the child's reads and sweeps its

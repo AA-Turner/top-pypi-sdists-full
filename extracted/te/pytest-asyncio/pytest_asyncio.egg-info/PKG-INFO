@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pytest-asyncio
-Version: 1.4.0
+Version: 1.4.1
 Summary: Pytest support for asyncio
 Author-email: Tin Tvrtković <tinchester@gmail.com>
-Maintainer-email: Michael Seifert <m.seifert@digitalernachschub.de>
+Maintainer-email: Tom Kuson <mail@tjkuson.me>, Michael Seifert <m.seifert@digitalernachschub.de>
 License-Expression: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/pytest-dev/pytest-asyncio/issues
 Project-URL: Changelog, https://pytest-asyncio.readthedocs.io/en/stable/reference/changelog.html
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Testing
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
@@ -88,5 +89,12 @@ This is enough for pytest to pick up pytest-asyncio.
 
 Contributing
 ------------
-Contributions are very welcome. Tests can be run with ``tox``, please ensure
-the coverage at least stays the same before you submit a pull request.
+
+Contributions are very welcome.
+
+Tests can be run with ``tox``. Please ensure that all tests are passing and
+coverage at least stays the same before opening a pull request and marking it as
+ready for review.
+
+Use of AI in contributions, including issues, pull requests, and comments, must
+follow our `AI policy <.github/AI_POLICY.md>`_.

@@ -45,7 +45,9 @@ STDLIB ONLY (plus certifi when it is importable, which it always is beside
 httpx). The journal's enqueue path and the urllib callers must be able to use
 this without importing an HTTP client.
 
-ONE CONTEXT PER PROCESS, SHARED by every client. Nothing here may load
+ONE CONTEXT PER SET OF THESE VARIABLES, SHARED by every client: one per
+process, except in the daemon host, where each session's run has its own
+variables (a few contexts, each built once). Nothing here may load
 certificates into it, change its verify mode or its hostname check after it is
 built. The one mutation it does see is httpcore setting the ALPN list on each
 new connection; every client in the package is HTTP/1.1-only, so every such
@@ -75,9 +77,16 @@ _EXTRA_BUNDLES: tuple[str, ...] = ("REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE")
 _ENV_NAMES: tuple[str, ...] = tuple(name for name, _, _ in _OPENSSL_PAIR) + _EXTRA_BUNDLES
 
 _lock = threading.Lock()
-#: (the env values it was built from, the context). One slot: the variables
-#: change at most a handful of times in a process's life.
-_cached: tuple[tuple[str | None, ...], ssl.SSLContext] | None = None
+#: The env values each was built from -> the context, newest last, at most
+#: CACHE_SLOTS (None: empty). One entry per process, except in the daemon host,
+#: where each session's run may name its own variables.
+_cached: dict[tuple[str | None, ...], ssl.SSLContext] | None = None
+CACHE_SLOTS = 16
+#: How long a caller waits for another's build of the same variables before it builds its own.
+BUILD_WAIT_S = 30.0
+#: The variables whose context a caller is building now: the others with the
+#: same ones wait for it (`ssl_context`), never building it twice.
+_building: dict[tuple[str | None, ...], threading.Event] = {}
 #: (variable, value) pairs already warned about, so a bad path costs ONE line
 #: per process however many clients get built.
 _warned: set[tuple[str, str]] = set()
@@ -90,8 +99,9 @@ def _reset_lock_after_fork() -> None:
     # A thread building the context at the moment of a fork (a DataLoader
     # worker, say) would leave the child's lock held forever, and the child's
     # first client would hang. The cached context itself is safe to inherit.
-    global _lock
+    global _lock, _building
     _lock = threading.Lock()
+    _building = {}  # its builders are the parent's threads: none runs here
 
 
 if hasattr(os, "register_at_fork"):  # POSIX only
@@ -106,16 +116,48 @@ def ssl_context() -> ssl.SSLContext:
     global _cached
     key = tuple(os.environ.get(name) or None for name in _ENV_NAMES)
     fresh: list[_Problem] = []
-    with _lock:
-        if _cached is not None and _cached[0] == key:
-            return _cached[1]
+    pending: threading.Event | None = None
+    # Registered and released in one try: an interrupt anywhere (a SIGINT, an
+    # eval harness's alarm) never leaves the variables marked as being built.
+    try:
+        while True:
+            with _lock:
+                hit = (_cached or {}).get(key)
+                if hit is not None:
+                    return hit
+                building = _building.get(key)
+                if building is None:
+                    pending = _building[key] = threading.Event()
+                    break
+            # The same variables, built by another caller now: theirs, once. One
+            # that never finishes (a hung mount) costs a waiter BUILD_WAIT_S, then
+            # it builds its own: either context is right.
+            if not building.wait(BUILD_WAIT_S):
+                break
+        # Built OUTSIDE the lock: it reads the variables' paths, and in the daemon
+        # host each session's run has its own variables -- one on a hung mount must
+        # not stall every other run's next client.
         problems: list[_Problem] = []
         context = _build(problems)
-        _cached = (key, context)
-        for name, value, problem in problems:
-            if (name, value) not in _warned:
-                _warned.add((name, value))
-                fresh.append((name, value, problem))
+        with _lock:
+            cache = dict(_cached or {})
+            cache.pop(key, None)
+            cache[key] = context
+            while len(cache) > CACHE_SLOTS:
+                cache.pop(next(iter(cache)))
+            _cached = cache
+            for name, value, problem in problems:
+                if (name, value) not in _warned:
+                    _warned.add((name, value))
+                    fresh.append((name, value, problem))
+    finally:
+        if pending is not None:
+            try:
+                pending.set()
+            finally:
+                with _lock:
+                    if _building.get(key) is pending:
+                        del _building[key]
     # Emitted OUTSIDE the lock: a warnings hook (a logging handler, a harness's
     # showwarning) that builds a client of its own would otherwise deadlock on it.
     for name, value, problem in fresh:

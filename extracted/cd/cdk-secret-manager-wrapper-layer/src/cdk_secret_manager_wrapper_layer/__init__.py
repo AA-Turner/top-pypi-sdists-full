@@ -105,6 +105,8 @@ curl ${FnUrl}
 {"KEY2":"VALUE2","KEY1":"VALUE1","KEY3":"VALUE3"}
 ```
 '''
+from __future__ import annotations
+
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
@@ -118,27 +120,29 @@ import jsii
 import publication
 import typing_extensions
 
-import typeguard
-from importlib.metadata import version as _metadata_package_version
-TYPEGUARD_MAJOR_VERSION = int(_metadata_package_version('typeguard').split('.')[0])
+from jsii._type_checking import cached_type_hints, check_type
 
-def check_type(argname: str, value: object, expected_type: typing.Any) -> typing.Any:
-    if TYPEGUARD_MAJOR_VERSION <= 2:
-        return typeguard.check_type(argname=argname, value=value, expected_type=expected_type) # type:ignore
-    else:
-        if isinstance(value, jsii._reference_map.InterfaceDynamicProxy): # pyright: ignore [reportAttributeAccessIssue]
-           pass
-        else:
-            if TYPEGUARD_MAJOR_VERSION == 3:
-                typeguard.config.collection_check_strategy = typeguard.CollectionCheckStrategy.ALL_ITEMS # type:ignore
-                typeguard.check_type(value=value, expected_type=expected_type) # type:ignore
-            else:
-                typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 from ._jsii import *
 
-import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
-import constructs as _constructs_77d1e7e8
+class _LazyImport:
+    def __init__(self, module_name: str) -> None:
+        self._module_name = module_name
+        self._module: typing.Any = None
+    def __getattr__(self, name: str) -> typing.Any:
+        if self._module is None:
+            import importlib
+            self._module = importlib.import_module(self._module_name)
+        return getattr(self._module, name)
+
+if typing.TYPE_CHECKING:
+
+    import aws_cdk.aws_lambda as _aws_cdk_aws_lambda_ceddda9d
+    import constructs as _constructs_77d1e7e8
+else:
+
+    _aws_cdk_aws_lambda_ceddda9d = _LazyImport("aws_cdk.aws_lambda")
+    _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
 class SecretManagerWrapperLayer(
@@ -165,7 +169,7 @@ class SecretManagerWrapperLayer(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ffb39aa2a0e2e2a32a6428a50af4da3ab83165cae954863332d289d007447bd)
+            type_hints = cached_type_hints(_typecheckingstub__5ffb39aa2a0e2e2a32a6428a50af4da3ab83165cae954863332d289d007447bd)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = SecretManagerWrapperLayerProps(lambda_architecture=lambda_architecture)
@@ -198,7 +202,7 @@ class SecretManagerWrapperLayerProps:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__524b68bc4f6f4ba7515f1e15f1ce7839f9063fa179a96dced4c022f91447f7e9)
+            type_hints = cached_type_hints(_typecheckingstub__524b68bc4f6f4ba7515f1e15f1ce7839f9063fa179a96dced4c022f91447f7e9)
             check_type(argname="argument lambda_architecture", value=lambda_architecture, expected_type=type_hints["lambda_architecture"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if lambda_architecture is not None:

@@ -65,10 +65,34 @@ def _publish(path: Path, payload: dict) -> bool:
         return False
 
 
+#: `may_write`'s answer when another daemon process -- or, in the daemon host,
+#: another run of this one -- holds the lease (the model and the trace read it).
+FOREIGN_HOLDER = "another daemon process holds the session's write lease"
+
+
+def _owner() -> str | None:
+    """This run's token in the daemon host (`runctx.token`), else None: one
+    process may hold runs of one session (the old one handing over, the new one
+    taking over), and they share a pid."""
+    from probe.daemon import runctx
+
+    return runctx.token()
+
+
+def _identity(payload: dict) -> dict:
+    owner = _owner()
+    return {**payload, "owner": owner} if owner is not None else payload
+
+
+def ours(data: object) -> bool:
+    """Does a lease record name THIS process -- and, in the daemon host, this run?"""
+    return isinstance(data, dict) and data.get("pid") == os.getpid() and data.get("owner") == _owner()
+
+
 def renew(session_id: str, *, now: float | None = None, ttl: float = LEASE_TTL_SECONDS) -> bool:
     at = time.time() if now is None else now
-    return _publish(lease_path(session_id), {"v": LEASE_VERSION, "writer": WRITER, "pid": os.getpid(),
-                                             "expires_at": at + ttl, "renewed_at": at, "reason": None})
+    return _publish(lease_path(session_id), _identity({"v": LEASE_VERSION, "writer": WRITER, "pid": os.getpid(),
+                                                       "expires_at": at + ttl, "renewed_at": at, "reason": None}))
 
 
 def release(session_id: str, reason: str, *, now: float | None = None, offline: bool = False) -> bool:
@@ -80,7 +104,7 @@ def release(session_id: str, reason: str, *, now: float | None = None, offline: 
               "expires_at": at, "renewed_at": at, "reason": reason}
     if offline:
         record["offline"] = True
-    return _publish(lease_path(session_id), record)
+    return _publish(lease_path(session_id), _identity(record))
 
 
 def held(session_id: str, *, now: float | None = None) -> bool:
@@ -90,7 +114,7 @@ def held(session_id: str, *, now: float | None = None) -> bool:
     except (OSError, ValueError):
         return False
     at = time.time() if now is None else now
-    return (isinstance(data, dict) and data.get("pid") == os.getpid() and data.get("reason") is None
+    return (ours(data) and data.get("reason") is None
             and float(data.get("expires_at") or 0) > at)
 
 
@@ -168,8 +192,8 @@ def may_write(session_id: str, *, now: float | None = None) -> str | None:
         data = json.loads(lease_path(session_id).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return "this daemon holds no write lease for the session"
-    if not isinstance(data, dict) or data.get("pid") != os.getpid():
-        return "another daemon process holds the session's write lease"
+    if not ours(data):
+        return FOREIGN_HOLDER
     if data.get("reason") is not None:
         return f"the write lease was released ({data.get('reason')})"
     try:

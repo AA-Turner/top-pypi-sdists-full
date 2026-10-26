@@ -34,6 +34,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Topic :: Software Development :: Testing",
   "Topic :: Software Development :: Testing :: Acceptance",
@@ -48,26 +49,26 @@ classifiers = [
   "Framework :: Robot Framework :: Tool",
 ]
 requires-python = ">=3.10"
-dependencies = ["robotcode-core==2.7.0", "robotcode-plugin==2.7.0", "robotcode-robot==2.7.0"]
+dependencies = ["robotcode-core==2.8.0", "robotcode-plugin==2.8.0", "robotcode-robot==2.8.0"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-debugger = ["robotcode-debugger==2.7.0"]
-languageserver = ["robotcode-language-server==2.7.0"]
-runner = ["robotcode-runner==2.7.0"]
-analyze = ["robotcode-analyze==2.7.0"]
+debugger = ["robotcode-debugger==2.8.0"]
+languageserver = ["robotcode-language-server==2.8.0"]
+runner = ["robotcode-runner==2.8.0"]
+analyze = ["robotcode-analyze==2.8.0"]
 yaml = ["PyYAML>=5.4"]
 lint = ["robotframework-robocop>=2.0.0"]
 rest = ["docutils"]
-repl = ["robotcode-repl==2.7.0"]
-replserver = ["robotcode-repl-server==2.7.0"]
+repl = ["robotcode-repl==2.8.0"]
+replserver = ["robotcode-repl-server==2.8.0"]
 all = [
-  "robotcode-debugger==2.7.0",
-  "robotcode-language-server==2.7.0",
-  "robotcode-runner==2.7.0",
-  "robotcode-analyze==2.7.0",
-  "robotcode-repl==2.7.0",
-  "robotcode-repl-server==2.7.0",
+  "robotcode-debugger==2.8.0",
+  "robotcode-language-server==2.8.0",
+  "robotcode-runner==2.8.0",
+  "robotcode-analyze==2.8.0",
+  "robotcode-repl==2.8.0",
+  "robotcode-repl-server==2.8.0",
   "PyYAML>=5.4",
   "robotframework-robocop>=6.0.0",
   "docutils"
@@ -83,7 +84,7 @@ repl = ["robotcode-repl"]
 yaml = ["PyYAML>=5.4"]
 lint = ["robotframework-robocop>=6.0.0"]
 rest = ["docutils"]
-html = ["html-to-markdown>=2.0"]
+html = ["html-to-markdown>=3.18"]
 all = [
   { "include-group" = "debugger" },
   { "include-group" = "languageserver" },
@@ -158,15 +159,18 @@ build_command = "pip install hatch && hatch build"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -vv -rf --ignore=bundled --ignore=.hatch"
+addopts = "-q --tb=short --force-short-summary -rf --ignore=bundled --ignore=.hatch"
 filterwarnings = [
   "ignore:.*Using or importing the ABCs from 'collections' instead of from 'collections.abc'.*:DeprecationWarning",
   "ignore:cannot collect test class 'TestCaseDefinition'.*:pytest.PytestCollectionWarning",
+  # the XML library of Robot Framework < 6.1 has `'^<\?xml .*\?>'` without a raw string, which Python 3.12+
+  # reports when Robot Framework reads the source of the library for the line numbers of its keywords
+  "ignore:invalid escape sequence '\\\\\\?':SyntaxWarning",
 ]
 testpaths = ["tests"]
 junit_suite_name = "robotcode"
 # console_output_style = "classic"
-log_cli = true
+# log_cli = true
 # log_cli_level = 4
 # log_cli_format = "%(levelname)s %(name)s: %(message)s"
 asyncio_mode = "auto"
@@ -206,6 +210,7 @@ select = [
   #"ANN",
   #"BLE",
   #"B",
+  "B012", # return, break or continue in a finally block (PEP 765 warns about it)
   #"A"
   #"COM"
   # "C4", # TODO enable this

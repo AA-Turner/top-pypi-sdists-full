@@ -15,7 +15,9 @@ deliver.
     due:  an ask waits -> now; the researcher's prompt arrived -> now (unless a
           Probe hint serves the session and the server agreed, or
           PROBE_READER_PROMPT_WAKE=off: `model.reader_prompt_wake`); new
-          events and READ_EVERY_S since the last turn -> now
+          events and READ_EVERY_S since the last turn -> now (unless the
+          service's window hints work for the session, `model.window_hints_live`,
+          and PROBE_READER_EVERY_S is not set)
     turn: the next user message = only the events new since its last turn, plus
           the ask it answers; ends with final_result(message); history, cursor,
           the ask's state and the message are saved in ONE transaction, then the
@@ -69,7 +71,11 @@ def _env_seconds(name: str, default: float) -> float:
 #: it was 20 s): in a week 1,012 such turns sent 59 messages, and on the reader
 #: bench 20 s / 10 min / off all recalled 2 of 3 at $2.31 / $1.35 / $1.11 an
 #: active hour. `PROBE_READER_EVERY_S` overrides it.
-READ_EVERY_S = _env_seconds("PROBE_READER_EVERY_S", 1800.0)
+READ_EVERY_ENV = "PROBE_READER_EVERY_S"
+READ_EVERY_S = _env_seconds(READ_EVERY_ENV, 1800.0)
+#: Set (and readable) in the environment: the check-ins stay on whatever the
+#: Probe service's window hints do (`_checkins_off`).
+READ_EVERY_EXPLICIT = _env_seconds(READ_EVERY_ENV, -1.0) >= 0
 #: An ask the reader has held this long without an answer is closed as failed.
 READ_ASK_TIMEOUT_S = 10 * 60.0
 #: A turn shows at most this many new events, and about this many characters of
@@ -201,6 +207,16 @@ class TurnResult:
     text: str = ""
 
 
+def _checkins_off() -> bool:
+    """The 30-minute check-in is the Probe service's window hints' (plan
+    hints-window-trigger W4): they look at this session's work every 10
+    minutes (`model.window_hints_live`), and no explicit PROBE_READER_EVERY_S
+    keeps it. An ask still wakes the reader."""
+    from probe.daemon import model as model_mod
+
+    return not READ_EVERY_EXPLICIT and model_mod.window_hints_live()
+
+
 class ReaderLane:
     """The reader beside the writer, in the writer's process and event loop."""
 
@@ -258,7 +274,13 @@ class ReaderLane:
                 raise
             except Exception as exc:  # noqa: BLE001 -- the reader never ends the worker
                 log.exception("reader tick failed: %s", exc)
-            await asyncio.sleep(READ_POLL_S)
+            pause = getattr(self.w, "pause", None)
+            if pause is None:
+                await asyncio.sleep(READ_POLL_S)
+            else:
+                # Idle with its writer in the daemon host: woken by the same
+                # change (an ask, new lines), else every IDLE_POLL_S (plan M2).
+                await pause(READ_POLL_S, getattr(self.w, "_reader_wake", None))
 
     # -- one poll --------------------------------------------------------------
     async def tick(self) -> None:
@@ -372,7 +394,8 @@ class ReaderLane:
         from probe.daemon import model as model_mod
 
         start = self.cursor() if after is None else after
-        if model_mod.reader_prompt_wake():
+        # The window hints' check-ins (`_checkins_off`) drain no backlog either.
+        if model_mod.reader_prompt_wake() and not _checkins_off():
             return self.new_events(start)
         out, used = [], 0
         for ev in reversed(self.store.events_upto(start, self.store.newest_seq(), READ_MAX_EVENTS)):
@@ -426,6 +449,12 @@ class ReaderLane:
         if model_mod.reader_prompt_wake() and self.store.has_prompt_after(mark, new=True):
             return "prompt"
         if READ_EVERY_S > 0 and self.clock() - self.last_turn_at >= READ_EVERY_S:
+            # Where the Probe service's window hints work for this session they
+            # look at the agent's work every 10 minutes, so the 30-minute
+            # check-in is theirs (plan hints-window-trigger W4); an explicit
+            # PROBE_READER_EVERY_S keeps it. An ask still wakes the reader.
+            if _checkins_off():
+                return None
             return "events"
         return None
 

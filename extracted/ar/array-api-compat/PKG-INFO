@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: array-api-compat
-Version: 1.15.0
+Version: 1.16.0
 Summary: A wrapper around NumPy and other array libraries to make them compatible with the Array API standard
 Author: Consortium for Python Data API Standards
 License-Expression: MIT
@@ -22,7 +22,8 @@ Description-Content-Type: text/markdown
 
 This is a small wrapper around common array libraries that is compatible with
 the [Array API standard](https://data-apis.org/array-api/latest/). Currently,
-NumPy, CuPy, PyTorch, Dask, JAX, ndonnx and `sparse` are supported. If you want
+NumPy, CuPy, PyTorch, Dask, JAX, mparray, ndonnx, `sparse` and dpnp are
+supported. If you want
 support for other array libraries, or if you encounter any issues, please [open
 an issue](https://github.com/data-apis/array-api-compat/issues).
 

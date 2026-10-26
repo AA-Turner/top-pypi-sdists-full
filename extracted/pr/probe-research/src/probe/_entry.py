@@ -36,41 +36,68 @@ def _explain(tool: str, extra: str, module: str) -> int:
     return 1
 
 
-#: Commands that only read: during an in-place update (the one kind that still
-#: holds a start back) they answer busy at once instead of waiting.
-_READ_ONLY = frozenset({("version",), ("status",), ("doctor",), ("help",), ("session", "status"),
-                        ("service", "status")})
-_READ_ONLY_FLAGS = frozenset({"--version", "-V", "--help", "-h"})
+#: How long a `probe` command (an agent's or a person's, read-only ones too)
+#: waits out an in-place update before it answers busy: under an agent's own
+#: command timeout (Claude Code's Bash tool: 120 s). A machine's first update
+#: (the one-time switch to the side-by-side layout) is in place and takes
+#: longer than WAIT_S; failing the command there disturbed running agents
+#: (release gate, 2026-10-25), waiting does not.
+IN_PLACE_WAIT_S = 90.0
+#: Set on the fresh interpreter a waited start re-runs in (`_rerun`), with the
+#: count of re-runs so far: never more than MAX_RERUNS.
+RERUN_ENV = "PROBE_ENTRY_RERUN"
+MAX_RERUNS = 3
 
 
 def _never_waits(args: list[str]) -> bool:
     """A start that must never wait for an update: a hook's (its deadline is
     the agent's turn, plan D12: only while it is live, never a detached job's
-    that outlived its hook, `barrier.hook_deadline_live`) and a read-only
-    command's."""
+    that outlived its hook, `barrier.hook_deadline_live`)."""
     from probe.service import barrier
 
-    if barrier.hook_deadline_live():
-        return True
-    if _READ_ONLY_FLAGS.intersection(args):
-        return True
-    words = [a for a in args if not a.startswith("-")]
-    return tuple(words[:1]) in _READ_ONLY or tuple(words[:2]) in _READ_ONLY
+    return barrier.hook_deadline_live()
+
+
+def _rerun(argv: list[str] | None) -> int:
+    """Run this same command again in a fresh interpreter, on the code the
+    update just installed. This process imported `probe.service` (the barrier,
+    its paths) before the files were replaced, and the new CLI loaded on top
+    of those old modules fails (`module 'probe.service.procid' has no
+    attribute 'exists'`, CLI 0.286.0 -> main, release gate 2026-10-25).
+    POSIX: exec (same pid, stdin and exit status). Windows: exec does not
+    keep the console's wait, so a child whose exit status is returned."""
+    import os
+
+    count = int(os.environ.get(RERUN_ENV) or "0") + 1
+    env = dict(os.environ, **{RERUN_ENV: str(count)})
+    if argv is None:
+        command = [sys.executable, *getattr(sys, "orig_argv", [sys.executable, *sys.argv])[1:]]
+    else:
+        command = [sys.executable, "-m", "probe", *argv]
+    if os.name == "nt":
+        import subprocess
+
+        return subprocess.call(command, env=env)
+    os.execve(sys.executable, command, env)
+    return 0  # not reached
 
 
 def _update_barrier(argv: list[str] | None) -> int | None:
     """While the Probe service updates the CLI's env in place (plan X1), wait
-    up to 10 s for it, else end here with the busy status: BEFORE the CLI is
-    imported, so nothing loads from files being replaced. An update side by
+    for it (IN_PLACE_WAIT_S), then run the command again in a fresh
+    interpreter on the new code (`_rerun`); still updating after that: the
+    busy status. All BEFORE the CLI is imported, so nothing loads from files
+    being replaced. An update side by
     side or of the plugins only replaces nothing a `probe` runs from, and a
     process pinned to a version env is never replaced: no wait at all, the
-    installed version runs (`barrier._blocks`, plan C6). A hook's call or a
-    read-only command never waits: busy at once. One stat when no update
+    installed version runs (`barrier._blocks`, plan C6). A hook's call never
+    waits: busy at once. One stat when no update
     runs. `probe daemon worker` gets the worker's own come-back-later status,
     which its supervisor answers with a later respawn instead of a crash
     count; it also comes back later while the service is stopping the running
     workers before an update (plan D7), so it never starts on the code about
-    to be replaced."""
+    to be replaced. A read-only command waits like any other: busy would fail
+    an agent's command mid-work."""
     try:
         from probe.service import barrier
     except Exception:  # noqa: BLE001 -- never a reason not to run `probe`
@@ -81,12 +108,38 @@ def _update_barrier(argv: list[str] | None) -> int | None:
         if worker and barrier.workers_held():
             print(f"probe: {barrier.MESSAGE}.", file=sys.stderr)
             return barrier.WORKER_BUSY_EXIT_CODE
-        if barrier.wait(0.0 if _never_waits(args) else None):
-            return None
+        if barrier.wait(0.0):
+            return None  # the common path: no update holds a start back
+        if worker or _never_waits(args):
+            pass  # a worker comes back later; a hook's call never waits
+        else:
+            import os
+
+            print("probe: Probe is updating itself on this machine; waiting for it to finish...",
+                  file=sys.stderr)
+            if barrier.wait(IN_PLACE_WAIT_S):
+                if int(os.environ.get(RERUN_ENV) or "0") >= MAX_RERUNS:
+                    return None
+                return _rerun(argv)
     except Exception:  # noqa: BLE001 -- never a reason not to run `probe`
         return None
     print(f"probe: {barrier.MESSAGE}.", file=sys.stderr)
     return barrier.WORKER_BUSY_EXIT_CODE if worker else barrier.BUSY_EXIT_CODE
+
+
+def _daemon_worker_proxy(argv: list[str] | None) -> int | None:
+    """`probe daemon worker` started by an old tap: its run goes to the Probe
+    service's daemon host, this process waits for it (`probe.daemon.proxy`).
+    None: no host to reach, the worker runs here as before."""
+    args = sys.argv[1:] if argv is None else argv
+    if args[:2] != ["daemon", "worker"]:
+        return None
+    try:
+        from probe.daemon import proxy
+
+        return proxy.main(args[2:]) if proxy.eligible() else None
+    except Exception:  # noqa: BLE001 -- never a reason not to run the worker
+        return None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -94,8 +147,17 @@ def main(argv: list[str] | None = None) -> int:
     busy = _update_barrier(argv)
     if busy is not None:
         return busy
+    hosted = _daemon_worker_proxy(argv)
+    if hosted is not None:
+        return hosted
     try:
+        import importlib
+
         from probe.cli import main as cli_main
+
+        # `probe.cli` loads its implementation on first use: load it here, so a
+        # missing extra is this message, not a traceback from inside the call.
+        importlib.import_module("probe.cli.main")
     except ModuleNotFoundError as exc:
         module = _missing_dependency(exc, _CLI_MODULES)
         if module is None:

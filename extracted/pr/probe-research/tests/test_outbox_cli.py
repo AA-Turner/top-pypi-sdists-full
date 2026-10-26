@@ -496,6 +496,39 @@ def test_outbox_pause_blocks_drain_and_resume_rekicks(wired_async, outbox_dir, c
     assert len(wired_async.spawned) > kicks_before
 
 
+def test_outbox_pause_says_when_it_ends(wired_async, outbox_dir, capsys):
+    """A pause ends by itself (24 h unless --hours), and says when; only
+    --until-resume holds until `resume`. Status shows the same end."""
+    from probe.sdk.journal import Journal as J
+
+    assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "pause"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("outbox paused until ") and "UTC" in out
+    until = J.read_status(str(outbox_dir))["paused_until"]
+    assert until and until[:16].replace("T", " ") in out
+
+    assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "pause", "--hours", "2"]) == 0
+    capsys.readouterr()
+    cli.main(["--spool-dir", str(outbox_dir), "outbox", "status"])
+    status = json.loads(capsys.readouterr().out)
+    assert status["paused"] is True
+    from datetime import datetime, timezone
+
+    left = (datetime.fromisoformat(status["paused_until"]) - datetime.now(timezone.utc)).total_seconds()
+    assert 2 * 3600 - 60 < left <= 2 * 3600
+
+    assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "pause", "--until-resume"]) == 0
+    assert capsys.readouterr().out.strip() == "outbox paused until `probe outbox resume`"
+    assert J.read_status(str(outbox_dir))["paused_until"] is None and J(outbox_dir).paused
+
+    assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "pause", "--hours", "0"]) == 2
+    assert cli.main(["--spool-dir", str(outbox_dir), "outbox", "pause", "--hours", "1e12"]) == 2
+    assert cli.main(
+        ["--spool-dir", str(outbox_dir), "outbox", "pause", "--hours", "1", "--until-resume"]
+    ) == 2
+    cli.main(["--spool-dir", str(outbox_dir), "outbox", "resume"])
+
+
 def test_outbox_retry_requeues_dead_letters(wired_async, outbox_dir, capsys):
     journal = Journal(outbox_dir)
     journal.append_http("POST", "/v1/runs/poisoned/badroute", {})

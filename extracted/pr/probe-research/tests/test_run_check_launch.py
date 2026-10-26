@@ -7,7 +7,10 @@ import pytest
 from tests.conftest import make_client, open_run
 
 # Storage-agnostic: every case here runs under both snapshot storages.
-pytestmark = pytest.mark.usefixtures("code_storage")
+pytestmark = [
+    pytest.mark.usefixtures("code_storage"),
+    pytest.mark.heavy,
+]
 
 
 def _snap(run, tmp_path):

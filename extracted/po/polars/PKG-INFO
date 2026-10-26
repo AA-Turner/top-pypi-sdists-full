@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polars
-Version: 2.0.0
+Version: 2.1.0
 Summary: Blazingly fast DataFrame library
 Author-email: Ritchie Vink <ritchie46@gmail.com>
 License: Copyright (c) 2025 Ritchie Vink
@@ -37,23 +37,25 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Scientific/Engineering
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: polars-runtime-32==2.0.0
+Requires-Dist: polars-runtime-32==2.1.0
 Provides-Extra: rt64
-Requires-Dist: polars-runtime-64==2.0.0; extra == "rt64"
+Requires-Dist: polars-runtime-64==2.1.0; extra == "rt64"
 Provides-Extra: rtcompat
-Requires-Dist: polars-runtime-compat==2.0.0; extra == "rtcompat"
+Requires-Dist: polars-runtime-compat==2.1.0; extra == "rtcompat"
 Provides-Extra: polars-cloud
-Requires-Dist: polars_cloud>=0.11.0; extra == "polars-cloud"
+Requires-Dist: polars_cloud>=0.13.0; extra == "polars-cloud"
+Provides-Extra: polars-nanook
+Requires-Dist: polars_nanook; extra == "polars-nanook"
 Provides-Extra: numpy
 Requires-Dist: numpy>=1.16.0; extra == "numpy"
 Provides-Extra: pandas
@@ -89,6 +91,7 @@ Provides-Extra: deltalake
 Requires-Dist: deltalake!=1.5.*,>=1.0.0; extra == "deltalake"
 Provides-Extra: iceberg
 Requires-Dist: pyiceberg>=0.12.0; extra == "iceberg"
+Requires-Dist: polars-iceberg<1.0.0,>=0.1.0; extra == "iceberg"
 Provides-Extra: async
 Requires-Dist: gevent; extra == "async"
 Provides-Extra: cloudpickle

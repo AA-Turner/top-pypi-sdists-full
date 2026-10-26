@@ -64,6 +64,18 @@ def test_capitalized_idempotent(text: str) -> None:
     assert once.capitalized() == once
 
 
+@given(st.text(alphabet=st.sampled_from("aAbBmcC.ʿʻŉ3 -'"), max_size=40))
+@settings(max_examples=200, deadline=None, derandomize=True)
+def test_capitalized_is_a_fixpoint_past_full_stops_and_modifiers(
+        text: str) -> None:
+    # _ALPHABET holds no modifier letter (Lm) and is shared, so this
+    # alphabet is its own: full stops, Lm leads, 'ŉ' and a Mac prefix,
+    # under both views (#838)
+    for force in (False, True):
+        once = parse(text).capitalized(force=force)
+        assert once.capitalized(force=force) == once
+
+
 @given(st.text(alphabet=_ALPHABET, max_size=100))
 @settings(max_examples=200, deadline=None, derandomize=True)
 def test_render_reparse_reaches_fixpoint(text: str) -> None:
@@ -826,12 +838,8 @@ def test_a_trailing_title_is_transparent_to_the_maiden_clause() -> None:
     empty). The invariant is claimed over the forms below and no
     wider. Where the clause KEEPS the credential the spellings differ,
     a clause being one contiguous run: 'Doe nee Smith ba Prof.' gives
-    the title up, 'Doe nee Smith Prof. ba' cannot; and where something
-    in or ahead of the clause would take the title they differ too
-    ('Jane van der Berg nee Smith PhD Prof.' against '... Prof. PhD',
-    'Jane Doe nee Smith do MA Prof.' against '... do Prof. MA') --
-    rules/M2's Accepted pairs, which are examples rather than a
-    complete list. No head or run below has a particle, a bound given
+    the title up, 'Doe nee Smith Prof. ba' cannot -- an example
+    rather than a complete list. No head or run below has a particle, a bound given
     name or an empty name in or ahead of the clause.
 
     An invariant over two INPUTS (docs/design/AGENTS.md axis 11), so it
@@ -2244,7 +2252,7 @@ def _initial_spans(name: ParsedName,
 def _initial_reading_moved(on: ParsedName, off: ParsedName,
                            letters: frozenset[str]) -> bool:
     """Whether the two parses disagree about a class letter being an
-    INITIAL -- rules/P3's marked-subset clause rather than its
+    INITIAL -- rules/P8's marked-subset clause rather than P3's
     both-sides one, and the one thing an off-switch comparison cannot
     hold fixed: taking the word out of the connectives decides that
     question too, in either direction. A marked letter in a one-case
@@ -2306,8 +2314,9 @@ def _off_switch_findings() -> dict[str, list[str]]:
         # is decisions/P3's own -- a one-case name reads the
         # marked letter as an initial and so reads as its ALL-CAPS
         # twin already did -- and a class letter the caller's lexicon
-        # leaves UNMARKED is the shape P3's Accepted block records
-        # instead, where a bare Latin capital and its lowercase
+        # leaves UNMARKED is the shape rules/P8's Accepted bullet
+        # "Two 1.4.0 parity breaks, one in each direction" records
+        # (decisions/P8) instead, where a bare Latin capital and its lowercase
         # spelling genuinely part. The `conj+v` variant is exactly
         # that caller: it adds 'v' to the connectives and not to the
         # marked subset, so 'carod y rovira, v' and its ALL-CAPS twin
@@ -3182,8 +3191,9 @@ def _twin_record(name: ParsedName) -> tuple[object, ...]:
     return (name.as_dict(), kinds)
 
 
-def _comma_twin_findings(parser: Parser) -> tuple[list[str], int]:
-    """Each body with a ' - ' core in one interior gap, against the same
+def _comma_twin_findings(parser: Parser,
+                         core: str = " - ") -> tuple[list[str], int]:
+    """Each body with `core` in one interior gap, against the same
     text with a typed comma there, all seven fields."""
     failures = []
     total = 0
@@ -3193,17 +3203,18 @@ def _comma_twin_findings(parser: Parser) -> tuple[list[str], int]:
             for gap in range(1, len(parts)):
                 left, right = " ".join(parts[:gap]), " ".join(parts[gap:])
                 total += 1
-                got = _twin_record(parser.parse(f"{head} {left} - {right}"))
+                got = _twin_record(
+                    parser.parse(f"{head} {left}{core}{right}"))
                 want = _twin_record(parser.parse(f"{head} {left}, {right}"))
                 if got != want:
-                    failures.append(f"{head} {left} - {right}: "
+                    failures.append(f"{head} {left}{core}{right}: "
                                     f"{got} != {want}")
     return failures, total
 
 
 def test_a_delimiter_core_in_a_tail_reads_as_its_comma_twin() -> None:
-    """rules/C10's statement: "a delimiter the policy declares parts a trailing
-    suffix part as a comma would" (#549). Every role field of a name
+    """rules/C10's statement: "a suffix delimiter parts the suffix words on
+    each side of it as a comma would" (#549). Every role field of a name
     with a declared core standing in a part after the suffix comma, and
     every kind it reports but `comma-structure` (`_twin_record`),
     equals that of the same text written with a comma in the core's
@@ -3222,6 +3233,76 @@ def test_a_delimiter_core_in_a_tail_reads_as_its_comma_twin() -> None:
     dash = Parser(policy=Policy(extra_suffix_delimiters=frozenset({" - "})))
     failures, total = _comma_twin_findings(dash)
     assert total == 129
+    assert not failures, "\n".join(failures)
+
+
+def test_a_semicolon_standing_alone_in_a_tail_reads_as_its_comma_twin() -> None:
+    """rules/C10's "The semicolon is a delimiter by default" -- the
+    same walk with no policy at all, the semicolon standing alone.
+
+    RECORDED NEGATIVE CONTROL: at 638685b4, before the semicolon was a
+    delimiter, all 129 texts disagreed, the semicolon a word of the
+    suffix run where the comma parts it."""
+    failures, total = _comma_twin_findings(Parser(), " ; ")
+    assert total == 129
+    assert not failures, "\n".join(failures)
+
+
+# rules/C10's "A delimiter glued to a suffix word parts it from the next
+# as a comma glued there would" -- so a semicolon glued to a word after
+# the first comma reads as the same text with a space in its place, the
+# glued word kept in its field with its semicolon. Two inputs (docs/
+# design/AGENTS.md axis 11), over every comma shape AGENTS.md's sweep
+# names (a whole name, one word, an empty head, a nickname head, a
+# suffix before the comma, a particle, a connective and a title-particle
+# head), a second comma part or none, and all three orders, with a word
+# of each kind a glued word can be: a listed credential, a generation, a
+# word of the ambiguous class, an unlisted all-caps credential, a title,
+# a numeral written like an initial, a semicolon glued to the front. Left
+# out by C10's Accepted bullets: a split 'Ph. D.', a credential only as a
+# pair the glued half cannot join, and a glued particle, which joins
+# nothing where its space twin joins a neighbour.
+_GLUED_HEADS = ("John Smith", "Smith", "", "(Bob)", "John Smith Jr.",
+                "Juan de la Vega", "Ortega y Gasset", "Freiherr von Berg",
+                "St. John", "Dr. John Smith", "Rev. Sr. Smith")
+_GLUED_TAILS = ("MD; PhD", "MD;PhD", "MD;", "PhD; MD; MPH", "Jr.; PhD",
+                "III; MD", "M.D.; Ph.D.", "md; phd", "V; MD", "Esq.;",
+                "MA; PhD", "MBBS; FCPS", "Dr; MD", "MD ;PhD")
+
+
+def _glued_twin_findings() -> tuple[list[str], int]:
+    failures = []
+    total = 0
+    for order in (GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST):
+        parser = Parser(policy=Policy(name_order=order))
+        for head in _GLUED_HEADS:
+            for second in ("", " John,"):
+                for tail in _GLUED_TAILS:
+                    text = f"{head},{second} {tail}"
+                    twin = f"{head},{second} {tail.replace(';', ' ')}"
+                    got, want = parser.parse(text), parser.parse(twin)
+                    total += 1
+                    records = [
+                        ({k: " ".join(v.replace(";", " ").split())
+                          for k, v in name.as_dict().items()},
+                         [a.kind for a in name.ambiguities])
+                        for name in (got, want)]
+                    if records[0] != records[1]:
+                        failures.append(f"{order} {text!r}: {records[0]} "
+                                        f"!= {records[1]}")
+    return failures, total
+
+
+def test_a_glued_semicolon_reads_as_its_space_twin() -> None:
+    """Every field of a name with a semicolon glued to a word after the
+    first comma, read with its semicolons as spaces, and every kind it
+    reports, equals that of the twin with a space in the semicolon's
+    place.
+
+    RECORDED NEGATIVE CONTROL: at 638685b4, before a glued semicolon
+    parted anything, 726 of these 924 texts disagreed."""
+    failures, total = _glued_twin_findings()
+    assert total == 924
     assert not failures, "\n".join(failures)
 
 
@@ -3440,3 +3521,51 @@ def test_the_one_case_grid_sees_the_letter_in_front(
             _vocab.is_trailing_numeral_suffix(text, preceding, None))
     assert (len(_one_case_disagreements())
             == _ONE_CASE_LETTER_IN_FRONT_UNGUARDED)
+
+
+#: H8's grid (#835): family-comma heads, given parts and tails
+#: holding a bare salutation, each paired with its period-marked twin.
+#: 704 texts, each parsed with its twin under each of the three
+#: orders: 2,112 pairs, about 0.5s on py3.11 (measured 2026-10-24).
+_SALUTATION_HEADS = ("Doe, ", "van Doe, ", ", ", "Doe Jr., ")
+_SALUTATION_GIVENS = ("Jane", "abdul", "Jane van", "Jane van der",
+                      "abdul van", "J.", "Jane Q", "St", "Freiherr",
+                      "jane", "JANE")
+_SALUTATION_TAILS = ("Mrs", "Mr Mrs", "Mrs Jr", "Mr Jr Mrs", "Mrs Jr Mr",
+                     "Mrs PhD Mr", "Mrs, PhD", "Mrs V", "Mr VI", "Mrs MA",
+                     "Mrs MA Mr", "Mrs Jr MA Mr", "Mrs Sr.", "Mrs X.Y.Z.",
+                     "Mrs III", "Mrs, Jr., PhD")
+
+
+def test_a_bare_salutation_reads_as_its_period_marked_twin() -> None:
+    """H8's first Then bullet (#835), the bare spelling reading as the
+    period-marked one reads. After a family comma a listed salutation
+    written bare chains into H5's trailing title run as the
+    period-marked spelling does, so the two spellings read alike, fields (stops aside) and ambiguity kinds, in
+    every comma shape here and under every order. The grid crosses a
+    bound given name and a trailing particle, whose group-side
+    predictors read the part through `tail_reading`, with title,
+    suffix, title tails, which reach that function's second chain pass.
+
+    Mutation-checked 2026-10-24: dropping the `salutations` hand-off on
+    `tail_reading`'s second chain call fails this on 192 of its 2,112
+    pairs, and the suite had no other test of that call."""
+    def dotted(text: str) -> str:
+        return re.sub(r"\b(Mrs|Mr)\b", r"\1.", text)
+
+    def fields(name: ParsedName) -> tuple[object, ...]:
+        stops_aside = sorted((k, v.replace(".", ""))
+                             for k, v in name.as_dict().items())
+        return (tuple(stops_aside),
+                tuple(sorted(a.kind for a in name.ambiguities)))
+
+    failures = []
+    for order in (GIVEN_FIRST, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST):
+        parser = Parser(policy=Policy(name_order=order))
+        for head, given_part, tail in itertools.product(
+                _SALUTATION_HEADS, _SALUTATION_GIVENS, _SALUTATION_TAILS):
+            text = f"{head}{given_part} {tail}"
+            if fields(parser.parse(text)) != fields(parser.parse(dotted(text))):
+                failures.append(f"{order!r}: {text!r}")
+    assert not failures, (f"{len(failures)} bare salutation(s) read unlike "
+                          f"the period-marked twin:\n" + "\n".join(failures[:10]))

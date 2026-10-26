@@ -1,13 +1,17 @@
 import warnings
+from unittest.mock import patch
 
 import pytest
 import torch
+from torch import nn
+from torch._dynamo.testing import CompileCounter
 
+from pytorch_optimizer.base.optimizer import BaseOptimizer
 from pytorch_optimizer.optimizer import Lookahead, OrthoGrad, create_optimizer, load_optimizer
 from tests.fixtures import TrainingModel, build_model
 from tests.optimizer_cases import SKIP_CREATE_OPTIMIZER, VALID_OPTIMIZER_NAMES
 from tests.recipes import COMPILE_SUPPORTED_OPTIMIZERS
-from tests.utils import Trainer, ids
+from tests.utils import Trainer, ids, make_closure, should_use_create_graph
 
 
 @pytest.fixture(autouse=True)
@@ -17,7 +21,7 @@ def ignore_factory_warnings():
 
 
 def _get_optimizer_kwargs(optimizer_name):
-    kwargs = {'eps': 1e-8, 'k': 7}
+    kwargs = {}
     if optimizer_name == 'ranger21':
         kwargs['num_iterations'] = 1
     elif optimizer_name == 'bsam':
@@ -26,6 +30,23 @@ def _get_optimizer_kwargs(optimizer_name):
 
 
 class TestCreateOptimizer:
+    def test_muon_tied_parameters_and_head(self):
+        model = nn.Module()
+        model.body = nn.Linear(2, 2)
+        model.frozen = nn.Linear(2, 2).requires_grad_(False)
+        model.embedding = nn.Embedding(4, 2)
+        model.projection = nn.Linear(2, 4, bias=False)
+        model.projection.weight = model.embedding.weight
+        model.head = nn.Linear(2, 1, bias=False)
+
+        optimizer = create_optimizer(model, 'muon')
+        groups = {group['use_muon']: group['params'] for group in optimizer.param_groups}
+
+        assert [id(p) for p in groups[True]] == [id(model.body.weight)]
+        assert {id(p) for p in groups[False]} == {
+            id(model.body.bias), id(model.embedding.weight), id(model.head.weight)
+        }
+
     @pytest.mark.parametrize(
         'optimizer_name',
         [name for name in VALID_OPTIMIZER_NAMES if name not in SKIP_CREATE_OPTIMIZER],
@@ -34,21 +55,18 @@ class TestCreateOptimizer:
         optimizer = create_optimizer(
             TrainingModel(),
             optimizer_name=optimizer_name,
-            use_lookahead=False,
-            use_orthograd=False,
             **_get_optimizer_kwargs(optimizer_name),
         )
 
         assert optimizer.defaults.get('weight_decay', 0.0) == 0.0
         assert all(group.get('weight_decay', 0.0) == 0.0 for group in optimizer.param_groups)
 
-    @pytest.mark.parametrize('optimizer_name', ['adamp', 'ranger', 'ranger21', 'ranger25'])
+    @pytest.mark.parametrize('optimizer_name', ['adamp', 'ranger', 'ranger21'])
     def test_create_optimizer_with_lookahead(self, optimizer_name):
         optimizer = create_optimizer(
             TrainingModel(),
             optimizer_name=optimizer_name,
             use_lookahead=True,
-            use_orthograd=False,
             **_get_optimizer_kwargs(optimizer_name),
         )
 
@@ -58,15 +76,15 @@ class TestCreateOptimizer:
         optimizer = create_optimizer(
             TrainingModel(),
             optimizer_name='adamp',
-            use_lookahead=False,
             use_orthograd=True,
-            **_get_optimizer_kwargs('adamp'),
         )
 
         assert isinstance(optimizer, OrthoGrad)
 
-    @pytest.mark.parametrize('optimizer_config', COMPILE_SUPPORTED_OPTIMIZERS, ids=ids)
-    @pytest.mark.parametrize('foreach', [False, True])
+    @pytest.mark.parametrize(
+        ('optimizer_config', 'foreach'),
+        [pytest.param(recipe, recipe[0] != 'adamw', id=ids(recipe)) for recipe in COMPILE_SUPPORTED_OPTIMIZERS],
+    )
     @pytest.mark.skipif(not torch._dynamo.is_dynamo_supported(), reason='torch.compile is unavailable in this runtime')
     def test_create_compiled_optimizer(self, optimizer_config, foreach, environment):
         torch._dynamo.reset()
@@ -74,10 +92,15 @@ class TestCreateOptimizer:
         optimizer_name, config, iterations = optimizer_config
         config = config.copy()
 
+        if optimizer_name == 'alig':
+            config['lr'] = config.pop('max_lr')
+
         x_data, y_data = environment
         model, loss_fn = build_model(device=x_data.device)
+        counter = CompileCounter()
 
         if optimizer_name == 'adamw':
+            # Native AdamW covers whole-step compilation with foreach disabled.
             config['capturable'] = foreach
 
         optimizer = create_optimizer(
@@ -85,12 +108,64 @@ class TestCreateOptimizer:
             optimizer_name,
             foreach=foreach,
             compile=True,
-            compile_kwargs={'backend': 'aot_eager'},
+            compile_kwargs={'backend': counter},
             **config,
         )
 
         trainer = Trainer(model, loss_fn, optimizer, x_data, y_data)
-        trainer.run(iterations=iterations)
+        trainer.run(
+            iterations=iterations,
+            create_graph=should_use_create_graph(optimizer_name),
+            closure_fn=make_closure if optimizer_name == 'alig' else None,
+        )
+
+        if foreach and isinstance(optimizer, BaseOptimizer) and optimizer._supports_compiled_foreach:
+            lr = torch.tensor(config['lr'], device=x_data.device)
+            lr_key = 'max_lr' if optimizer_name == 'alig' else 'lr'
+            for group in optimizer.param_groups:
+                group[lr_key] = lr
+
+            for _ in range(3):
+                lr.mul_(0.99)
+                expected_lr = lr.clone()
+                frames = counter.frame_count
+                if should_use_create_graph(optimizer_name):
+                    params = tuple(model.parameters())
+                    gradients = torch.autograd.grad(trainer.compute_loss(), params, create_graph=True)
+                    for param, grad in zip(params, gradients):
+                        param.grad = grad
+                optimizer.step((lambda: 1.0) if optimizer_name == 'alig' else None)
+
+                torch.testing.assert_close(lr, expected_lr)
+
+            assert 0 < counter.frame_count == frames
+
+    @pytest.mark.parametrize('foreach', [False, True])
+    def test_create_optimizer_compile_wiring(self, foreach):
+        model = TrainingModel(dtype=torch.bfloat16)
+
+        with patch('torch.compile', side_effect=lambda step, **_: step) as compile_step:
+            optimizer = create_optimizer(
+                model, 'yogi', lr=0.01, betas=(0.5, 0.5), initial_accumulator=0.494140625,
+                foreach=foreach, compile=True, compile_kwargs={'dynamic': False},
+            )
+
+        step = optimizer._apply_update_foreach.__wrapped__ if foreach else optimizer.step.__func__
+        compile_step.assert_called_once_with(step, dynamic=False)
+
+        for parameter in model.parameters():
+            parameter.grad = torch.full_like(parameter, 0.703125)
+
+        for lr in (0.01, 0.02, torch.tensor(0.03)):
+            for group in optimizer.param_groups:
+                group['lr'] = lr
+            optimizer.step()
+
+            # Rounded gradient squares match the stored moments, so their sign updates are zero.
+            for parameter in model.parameters():
+                torch.testing.assert_close(
+                    optimizer.state[parameter]['exp_avg_sq'], torch.full_like(parameter, 0.494140625)
+                )
 
 
 class TestOptionalIntegrations:

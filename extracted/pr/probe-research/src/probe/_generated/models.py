@@ -2,18 +2,204 @@
 
 from __future__ import annotations
 
-from datetime import date
-from probe._compat import StrEnum
+from datetime import date as date_aliased
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel, constr
 
-
-class Role(StrEnum):
-    owner = 'owner'
-    admin = 'admin'
-    member = 'member'
+from .enums import (  # noqa: F401 - re-exported
+    Role,
+    Kind,
+    AccessMode,
+    AccessSetting,
+    AccountStatus,
+    AckState,
+    AddressKind,
+    AnchorLevel,
+    AnswerStyle,
+    ArtifactKind,
+    ArtifactScope,
+    Authorship,
+    BackfillState,
+    Fn,
+    BranchState,
+    CursorParameter,
+    Cadence,
+    CanvasEndType,
+    CanvasInclude,
+    CanvasPaperEdgeType,
+    Mode,
+    CaptureStatus,
+    ChannelError,
+    ChartSettingsTier,
+    FinishReason,
+    ReasoningEffort,
+    ToolChoice,
+    ClaimDecision,
+    AutoUpdate,
+    Capture,
+    Tracking,
+    Mcp,
+    Skills,
+    ClientKind,
+    ClientMode,
+    ClientUpdateStatus,
+    Fn1,
+    CodeAccess,
+    CodeSourceStatus,
+    CodeSourceVia,
+    CodeUnavailableReason,
+    CompanionErrorCode,
+    Role1,
+    Op,
+    CreatorKind,
+    Role2,
+    Role3,
+    Decision,
+    Status,
+    CaptureSource,
+    Status1,
+    DirectionOutput,
+    Status2,
+    DisconnectReason,
+    EffortWindow,
+    DisabledFilter,
+    EntityType,
+    Kind1,
+    Nonfinite,
+    FeedbackKind,
+    FieldSource,
+    Key,
+    Frame,
+    GitHubIntegrationState,
+    GitHubSetupFlow,
+    Grant,
+    GrantLevel,
+    GraphState,
+    HierarchyEntityKind,
+    HintReason,
+    IdentityStrength,
+    Outcome,
+    IndexCorpus,
+    InheritedKind,
+    CaptureSources1Enum,
+    Role5,
+    IntegrationState,
+    IntentEntity,
+    Role6,
+    JobState,
+    SourceReadContractEnum,
+    LineageEntityType,
+    LineageRelation,
+    LiveError,
+    LiveState,
+    MatchSource,
+    MessageState,
+    Origin,
+    MetricCoverage,
+    MetricDataSource,
+    MetricExactness,
+    MetricGoal,
+    Agg,
+    MetricReadErrorCode,
+    MetricReduce,
+    MirrorSource,
+    NextStep,
+    NodeKind,
+    NoteKind,
+    OnboardingFlow,
+    OnboardingStep,
+    OriginType,
+    OriginVia,
+    Content,
+    Job,
+    Source,
+    PaperExpansion,
+    PaperMode,
+    PaperProvenance,
+    ParentProvenance,
+    ParentRelation,
+    PickEvent,
+    ProjectKind,
+    ProjectSetting,
+    Content2,
+    Job3,
+    Source4,
+    ProvenanceFormat,
+    Content3,
+    Readiness,
+    ReadmeState,
+    ReadmeUnavailableReason,
+    Recency,
+    RecordKind,
+    Fn2,
+    RefType,
+    ReferenceDirection,
+    Refusal,
+    Registered,
+    Relation,
+    Relayout,
+    ResourceKind,
+    Job4,
+    RunAlertKind,
+    RunCodeState,
+    RunCompareState,
+    LivenessProtocolEnum,
+    RunStatus,
+    ObservedBy,
+    Status3,
+    CompareMode,
+    Phase,
+    Fn3,
+    Scope,
+    SearchEntityType,
+    SearchRetrieval,
+    SearchState,
+    SemanticRefKind,
+    SenderKind,
+    Smoothing,
+    SourceReadContract1Enum,
+    XAxis,
+    SessionOrder,
+    Fn4,
+    SourceKind,
+    SourceProvider,
+    StoredState,
+    SummaryDetail,
+    SummaryFormat,
+    SummaryState,
+    SyncState,
+    Role9,
+    Role10,
+    Role11,
+    Role12,
+    TimelineState,
+    Trigger,
+    TriggerClass,
+    Fn5,
+    UnitStatus,
+    Via,
+    VisualsState,
+    WandbSourceState,
+    WebSearchCategory,
+    WebState,
+    Fn6,
+    State1,
+    WorkspaceKind,
+    WriteMode,
+    Lease,
+    ExitStatus,
+    WriterRole,
+    AppBranchesScopeScopeType,
+    AppCatalogProvenanceDirection,
+    AppMetricsVocabularyAnchorType,
+    AppMetricsVocabularyScopeType,
+    AppOverviewsVisualsScopeKind,
+    AppPapersCitationStoreDirection,
+    AppProjectsTwinScopeKind,
+    AppSummariesSchemasAnchorType,
+)
 
 
 class AcceptInviteOut(BaseModel):
@@ -24,11 +210,6 @@ class AcceptInviteOut(BaseModel):
 class AccessGroupCreate(BaseModel):
     members: list[UUID] | None = Field(None, title='Members')
     name: str = Field(..., max_length=120, min_length=1, title='Name')
-
-
-class Kind(StrEnum):
-    workspace = 'workspace'
-    project = 'project'
 
 
 class AccessGroupOut(BaseModel):
@@ -49,55 +230,10 @@ class AccessGroupPatch(BaseModel):
     name: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
-class AccessMode(StrEnum):
-    """
-    A PROJECT's rule (0219). Three states, and the third one is the point.
-
-    `WriteMode` has two values because a workspace is a root — it always owns a
-    rule and cannot defer to anything. A project can, and collapsing "defer to
-    my parent" into OPEN was a real bug: the climb treats OPEN as an answer, so
-    a project explicitly set to Everyone inside a restricted workspace was
-    skipped and the workspace answered instead. Its own setting was inert.
-    """
-
-    inherit = 'inherit'
-    open = 'open'
-    restricted = 'restricted'
-
-
-class AccessSetting(StrEnum):
-    """
-    One dimension of a node's rule (0221): who may READ it, or who may WRITE it.
-
-    Two named settings replace the composite `WriteMode`/`AccessMode` labels,
-    which had to be decoded -- "restricted" did not say restricted *to what*,
-    against *which* dimension. `everyone` and `whitelist` say what they mean.
-    """
-
-    everyone = 'everyone'
-    whitelist = 'whitelist'
-
-
 class AccountOut(BaseModel):
     customer_id: str | None = Field(None, title='Customer Id')
     email: str | None = Field(None, title='Email')
     role: str | None = Field(None, title='Role')
-
-
-class AccountStatus(StrEnum):
-    ok = 'ok'
-    signed_out = 'signed_out'
-    rejected = 'rejected'
-    unknown = 'unknown'
-
-
-class AddressKind(StrEnum):
-    """
-    What the route addressed: the scope a recorder names in `probe visuals`.
-    """
-
-    project = 'project'
-    experiment = 'experiment'
 
 
 class AgentSessionOut(BaseModel):
@@ -140,34 +276,6 @@ class AgentSessionsOut(BaseModel):
     sessions: list[AgentSessionOut] | None = Field(None, title='Sessions')
 
 
-class AnchorLevel(StrEnum):
-    """
-    The three re-fileable artifact anchors (a Shared or paper file never moves
-    here). Ordered run < experiment < project so `move`
-    can tell a promote (derive the target up the chain) from a demote (target_id
-    required, and validated to sit inside the current subtree) from a LATERAL move
-    (same rank, a different sibling id).
-    """
-
-    run = 'run'
-    experiment = 'experiment'
-    project = 'project'
-
-
-class AnchorType(StrEnum):
-    """
-    What a summary (and a summary_refresh queue row) is about.
-
-    Mirrors the `summary_refresh.anchor_type` CHECK constraint -- adding a member
-    here without widening that CHECK makes every enqueue for it fail (silently,
-    since `enqueue_summary_refresh` swallows to protect the domain write).
-    """
-
-    project = 'project'
-    run = 'run'
-    trial = 'trial'
-
-
 class AnchoredMultipartCreate(BaseModel):
     """
     Open a multipart upload at a project, experiment or Shared:
@@ -188,11 +296,6 @@ class AnchoredMultipartCreate(BaseModel):
         title='Notes',
     )
     size_bytes: int = Field(..., gt=0, le=5497558138880, title='Size Bytes')
-
-
-class AnswerStyle(StrEnum):
-    simple = 'simple'
-    verbose = 'verbose'
 
 
 class AppliedOp(BaseModel):
@@ -234,23 +337,6 @@ class ArtifactFolderOut(BaseModel):
     count: int = Field(..., title='Count')
     name: str = Field(..., title='Name')
     path: str = Field(..., title='Path')
-
-
-class ArtifactKind(StrEnum):
-    """
-    The ten values `artifacts.kind` may hold (0336 CHECK).
-    """
-
-    checkpoint = 'checkpoint'
-    dataset = 'dataset'
-    evaluation = 'evaluation'
-    code = 'code'
-    other = 'other'
-    code_snapshot = 'code_snapshot'
-    code_bytes = 'code_bytes'
-    inputs_decision = 'inputs_decision'
-    harbor_trial = 'harbor_trial'
-    harbor_capture_manifest = 'harbor_capture_manifest'
 
 
 class ArtifactMove(BaseModel):
@@ -322,22 +408,6 @@ class ArtifactPatch(BaseModel):
     op_key: str | None = Field(None, deprecated=True, title='Op Key')
 
 
-class ArtifactScope(StrEnum):
-    """
-    Which anchor levels a run's artifact listing spans.
-
-    OWN (default) is the run's own artifacts only -- the historical behavior, so the
-    run bundle, dashboard, and `artifact_count` are untouched. INHERITED and ALL are
-    opt-in reads for the live-run/CLI case where a run needs to see what has been
-    promoted to its experiment/project. Inheritance is resolution/listing on THIS
-    endpoint only; it never widens the run's own count surfaces.
-    """
-
-    own = 'own'
-    inherited = 'inherited'
-    all = 'all'
-
-
 class ArtifactVersionCreate(BaseModel):
     """
     Append a version. Either PROMOTE from an existing artifact (`from_artifact_id`,
@@ -379,35 +449,33 @@ class Name(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
-class Authorship(StrEnum):
+class Reason(RootModel[str]):
+    root: str = Field(
+        ...,
+        description='Why, in one or two sentences. Required from an agent (any token).',
+        max_length=500,
+        title='Reason',
+    )
+
+
+class BestPickPost(BaseModel):
     """
-    Who composed the text on this write. The WIRE vocabulary.
+    Pick an experiment as the scope's best.
     """
 
-    human = 'human'
-    agent = 'agent'
-
-
-class BackfillState(StrEnum):
-    queued = 'queued'
-    running = 'running'
-    cancel_requested = 'cancel_requested'
-    canceled = 'canceled'
-    completed = 'completed'
-    failed = 'failed'
-
-
-class Fn(StrEnum):
-    add = 'add'
-    sub = 'sub'
-    mul = 'mul'
-    div = 'div'
-    pow = 'pow'
-    mod = 'mod'
-    min = 'min'
-    max = 'max'
-    hypot = 'hypot'
-    atan2 = 'atan2'
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    experiment_id: UUID = Field(
+        ...,
+        description="An experiment in the project's tree, or in the workspace's projects.",
+        title='Experiment Id',
+    )
+    reason: Reason | None = Field(
+        None,
+        description='Why, in one or two sentences. Required from an agent (any token).',
+        title='Reason',
+    )
 
 
 class BodyConsentOauthConsentPost(BaseModel):
@@ -435,10 +503,8 @@ class BodyTokenOauthTokenPost(BaseModel):
     scope: str | None = Field(None, title='Scope')
 
 
-class CursorParameter(StrEnum):
-    cursor = 'cursor'
-    runs_cursor = 'runs_cursor'
-    subprojects_cursor = 'subprojects_cursor'
+class BusyItem(RootModel[tuple[AwareDatetime, AwareDatetime]]):
+    root: tuple[AwareDatetime, AwareDatetime] = Field(..., max_length=2, min_length=2)
 
 
 class BrowseContinuationStream(BaseModel):
@@ -479,16 +545,13 @@ class BrowseCursors(BaseModel):
     subprojects: str | None = Field(None, title='Subprojects')
 
 
-class Cadence(StrEnum):
-    weekdays = 'weekdays'
-    mwf = 'mwf'
-    weekly = 'weekly'
+class BundleCompleted(BaseModel):
+    bytes: int = Field(..., title='Bytes')
+    id: UUID = Field(..., title='Id')
 
 
-class CanvasEndType(StrEnum):
-    project = 'project'
-    experiment = 'experiment'
-    paper = 'paper'
+class Span(RootModel[tuple[AwareDatetime, AwareDatetime]]):
+    root: tuple[AwareDatetime, AwareDatetime] = Field(..., max_length=2, min_length=2)
 
 
 class CanvasGroup(BaseModel):
@@ -497,29 +560,9 @@ class CanvasGroup(BaseModel):
     members: list[str] = Field(..., title='Members')
 
 
-class CanvasInclude(StrEnum):
-    """
-    What a board serves only when asked (`?include=`).
-    """
-
-    papers = 'papers'
-
-
 class CanvasLiveRun(BaseModel):
     id: UUID = Field(..., title='Id')
     name: str | None = Field(None, title='Name')
-
-
-class CanvasPaperEdgeType(StrEnum):
-    """
-    `cites` as the citation graph computes it; the others as stored. Listed
-    in the order a capped board keeps them: the declared links first.
-    """
-
-    informed_by = 'informed_by'
-    discovered_via = 'discovered_via'
-    relates_to = 'relates_to'
-    cites = 'cites'
 
 
 class CanvasRef(BaseModel):
@@ -582,14 +625,17 @@ class CanvasTotals(BaseModel):
     runs: int = Field(..., title='Runs')
 
 
+class CanvasWindowHoursOut(BaseModel):
+    all: float = Field(..., title='All')
+    day: float = Field(..., title='Day')
+    live: float = Field(..., title='Live')
+    month: float = Field(..., title='Month')
+    week: float = Field(..., title='Week')
+
+
 class CanvasWorkspace(BaseModel):
     id: UUID | None = Field(..., title='Id')
     name: str = Field(..., title='Name')
-
-
-class Mode(StrEnum):
-    field_100644 = '100644'
-    field_100755 = '100755'
 
 
 class CaptureItem(BaseModel):
@@ -614,10 +660,15 @@ class CaptureItemOut(BaseModel):
     upload_url: str | None = Field(None, title='Upload Url')
 
 
-class CaptureStatus(StrEnum):
-    ok = 'ok'
-    rejected = 'rejected'
-    unknown = 'unknown'
+class CardEffortOut(BaseModel):
+    """
+    The experiment card's effort (D6).
+    """
+
+    agent_h: float = Field(..., title='Agent H')
+    busy_h: float = Field(..., title='Busy H')
+    cost_usd: float | None = Field(..., title='Cost Usd')
+    run_h: float = Field(..., title='Run H')
 
 
 class Note(RootModel[str]):
@@ -632,17 +683,6 @@ class ChangeIn(BaseModel):
 
     note: Note | None = Field(None, title='Note')
     stats: dict[str, int] | None = Field(None, title='Stats')
-
-
-class ChannelError(StrEnum):
-    """
-    Machine-readable per-channel failure reasons (state:"partial").
-    """
-
-    engine_unconfigured = 'engine_unconfigured'
-    engine_timeout = 'engine_timeout'
-    engine_error = 'engine_error'
-    sql_budget_exceeded = 'sql_budget_exceeded'
 
 
 class ChartSettingsDelete(BaseModel):
@@ -669,29 +709,6 @@ class ChartSettingsPut(BaseModel):
     settings: dict[str, Any] | None = Field(None, title='Settings')
 
 
-class ChartSettingsTier(StrEnum):
-    """
-    Which anchor a stored row belongs to, stated rather than inferred.
-
-    The client used to read the tier off whichever id was non-null, which makes
-    every consumer re-derive the same rule and get it subtly different. Stating
-    it once is also what lets the public bundle gate its NULL-metric-key bypass
-    on the RUN tier specifically, rather than admitting any page-level row.
-    """
-
-    project = 'project'
-    experiment = 'experiment'
-    run = 'run'
-
-
-class FinishReason(StrEnum):
-    stop = 'stop'
-    length = 'length'
-    tool_calls = 'tool_calls'
-    content_filter = 'content_filter'
-    function_call = 'function_call'
-
-
 class MaxCompletionTokens(RootModel[int]):
     root: int = Field(..., ge=1, title='Max Completion Tokens')
 
@@ -700,24 +717,8 @@ class MaxTokens(RootModel[int]):
     root: int = Field(..., ge=1, title='Max Tokens')
 
 
-class ReasoningEffort(StrEnum):
-    none = 'none'
-    minimal = 'minimal'
-    low = 'low'
-    medium = 'medium'
-    high = 'high'
-    xhigh = 'xhigh'
-    max = 'max'
-
-
 class Temperature(RootModel[float]):
     root: float = Field(..., ge=0.0, le=2.0, title='Temperature')
-
-
-class ToolChoice(StrEnum):
-    none = 'none'
-    auto = 'auto'
-    required = 'required'
 
 
 class TopP(RootModel[float]):
@@ -749,11 +750,6 @@ class ChatUsageOut(BaseModel):
 
 class UserCode(RootModel[str]):
     root: str = Field(..., max_length=16, title='User Code')
-
-
-class ClaimDecision(StrEnum):
-    approve = 'approve'
-    deny = 'deny'
 
 
 class ClaimViewIn(BaseModel):
@@ -789,24 +785,6 @@ class ClassifyOut(BaseModel):
     )
 
 
-class AutoUpdate(StrEnum):
-    on = 'on'
-    off = 'off'
-    unknown = 'unknown'
-
-
-class Capture(StrEnum):
-    installed = 'installed'
-    absent = 'absent'
-    unknown = 'unknown'
-
-
-class Tracking(StrEnum):
-    installed = 'installed'
-    absent = 'absent'
-    unknown = 'unknown'
-
-
 class ClientCapabilitiesOut(BaseModel):
     """
     Always answered in v2, whatever the caller sent.
@@ -820,18 +798,6 @@ class ClientCapabilitiesOut(BaseModel):
     reported_at: AwareDatetime = Field(..., title='Reported At')
     schema_version: Literal[2] = Field(2, title='Schema Version')
     tracking: Tracking = Field(..., title='Tracking')
-
-
-class Mcp(StrEnum):
-    installed = 'installed'
-    absent = 'absent'
-    unknown = 'unknown'
-
-
-class Skills(StrEnum):
-    installed = 'installed'
-    absent = 'absent'
-    unknown = 'unknown'
 
 
 class ClientCapabilitiesV1In(BaseModel):
@@ -868,30 +834,12 @@ class ClientCapabilitiesV2In(BaseModel):
     tracking: Tracking = Field(..., title='Tracking')
 
 
-class ClientKind(StrEnum):
-    """
-    First-party clients that may report their installed version.
+class Cli(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Cli')
 
-    ADDING A MEMBER IS A THREE-PLACE CHANGE, and the two places that are not
-    this file both fail SILENTLY when they are missed:
 
-      1. the `client_version_observations.client_kind` CHECK constraint, which
-         rejects the write outright (loud, and the only loud one);
-      2. `dashboard/src/lib/api/client-versions.ts::parseStaleClient`, which
-         returns null for a kind it does not recognise -- so the row simply
-         VANISHES from the UI with no error anywhere;
-      3. `_pair_for` in status_router, which decides which manifest entry the
-         kind is compared against.
-
-    Because of (2), the database, this enum and the dashboard parser must all
-    ship BEFORE any client starts sending a new kind. A client release that
-    lands first reports versions nobody can see.
-    """
-
-    cli = 'cli'
-    plugin = 'plugin'
-    sdk = 'sdk'
-    tap = 'tap'
+class Harness(RootModel[str]):
+    root: str = Field(..., max_length=64, title='Harness')
 
 
 class ClientName(RootModel[str]):
@@ -920,13 +868,17 @@ class ClientRegistrationIn(BaseModel):
     )
 
 
-class ClientUpdateStatus(StrEnum):
-    """
-    How urgently one observed client should be updated.
-    """
-
-    update = 'update'
-    required = 'required'
+class ClimbPointOut(BaseModel):
+    agent_h: float = Field(
+        ..., description="The branch's agent-hours up to then.", title='Agent H'
+    )
+    at: AwareDatetime = Field(
+        ..., description="The run's end (now for a live run).", title='At'
+    )
+    best: float = Field(..., title='Best')
+    experiment: UUID = Field(..., title='Experiment')
+    live: bool = Field(..., title='Live')
+    run: UUID = Field(..., title='Run')
 
 
 class ClusterOut(BaseModel):
@@ -936,22 +888,7 @@ class ClusterOut(BaseModel):
     y: float = Field(..., title='Y')
 
 
-class Fn1(StrEnum):
-    gt = 'gt'
-    gte = 'gte'
-    lt = 'lt'
-    lte = 'lte'
-    eq = 'eq'
-    ne = 'ne'
-
-
-class CodeAccess(StrEnum):
-    installation = 'installation'
-    public = 'public'
-    unavailable = 'unavailable'
-
-
-class Reason(RootModel[str]):
+class Reason1(RootModel[str]):
     root: str = Field(..., max_length=500, title='Reason')
 
 
@@ -976,37 +913,6 @@ class CodeSourcePatch(BaseModel):
     ref: Ref | None = Field(None, title='Ref')
     start_at: AwareDatetime | None = Field(None, title='Start At')
     start_sha: StartSha1 | None = Field(None, title='Start Sha')
-
-
-class CodeSourceStatus(StrEnum):
-    suggested = 'suggested'
-    active = 'active'
-    revoked = 'revoked'
-    missing = 'missing'
-
-
-class CodeSourceVia(StrEnum):
-    dashboard = 'dashboard'
-    cli = 'cli'
-    agent = 'agent'
-    snapshot_suggestion = 'snapshot_suggestion'
-    wizard = 'wizard'
-
-
-class CodeUnavailableReason(StrEnum):
-    """
-    Why a timeline read could not be served, in UI-renderable vocabulary.
-
-    NOT_FOUND_OR_NO_ACCESS stays one reason, not three — GitHub's 404 is
-    deliberately an existence non-oracle for private repositories (same
-    contract as the README panel).
-    """
-
-    not_found_or_no_access = 'not_found_or_no_access'
-    rate_limited = 'rate_limited'
-    upstream_error = 'upstream_error'
-    bound_unresolved = 'bound_unresolved'
-    ref_unavailable = 'ref_unavailable'
 
 
 class WorkingFolder(RootModel[str]):
@@ -1104,25 +1010,6 @@ class CommitRunLink(BaseModel):
     run_id: UUID = Field(..., title='Run Id')
 
 
-class CompanionErrorCode(StrEnum):
-    """
-    `detail.code` (`error.code` on `/chat/completions`) on every refusal
-    these routes make. Part of the wire contract.
-    """
-
-    companion_disabled = 'companion_disabled'
-    companion_credential_required = 'companion_credential_required'
-    gateway_rejected = 'gateway_rejected'
-    budget_exhausted = 'budget_exhausted'
-    rate_limited = 'rate_limited'
-    gateway_upstream = 'gateway_upstream'
-    invalid_request = 'invalid_request'
-    model_not_allowed = 'model_not_allowed'
-    stream_unsupported = 'stream_unsupported'
-    gateway_timeout = 'gateway_timeout'
-    prompt_too_large = 'prompt_too_large'
-
-
 class CompanionErrorDetail(BaseModel):
     code: CompanionErrorCode
     message: str = Field(..., title='Message')
@@ -1135,12 +1022,6 @@ class CompanionErrorOut(BaseModel):
     """
 
     detail: CompanionErrorDetail
-
-
-class Role1(StrEnum):
-    system = 'system'
-    user = 'user'
-    assistant = 'assistant'
 
 
 class CompanionMessage(BaseModel):
@@ -1185,15 +1066,6 @@ class CompositionPartIn(BaseModel):
     rows: Rows | None = Field(None, title='Rows')
     share: float | None = Field(None, title='Share')
     target: str = Field(..., max_length=2048, min_length=1, title='Target')
-
-
-class Op(StrEnum):
-    field_ = '='
-    field__ = '!='
-    field__1 = '<'
-    field___1 = '<='
-    field__2 = '>'
-    field___2 = '>='
 
 
 class ConfigComparison(BaseModel):
@@ -1255,16 +1127,6 @@ class CoordinateOut(BaseModel):
     last_seen_at: AwareDatetime = Field(..., title='Last Seen At')
 
 
-class CreatorKind(StrEnum):
-    """
-    The credential kind that wrote a row. See the module docstring: this is the
-    credential, not a proven actor type.
-    """
-
-    user = 'user'
-    ingest = 'ingest'
-
-
 class CredentialAttachmentGrantOut(BaseModel):
     expires_at: AwareDatetime = Field(..., title='Expires At')
     grant: str = Field(..., title='Grant')
@@ -1275,12 +1137,6 @@ class CredentialAttachmentIn(BaseModel):
         extra='forbid',
     )
     grant: str = Field(..., max_length=256, min_length=32, title='Grant')
-
-
-class Role2(StrEnum):
-    api = 'api'
-    mcp = 'mcp'
-    companion = 'companion'
 
 
 class CredentialAttachmentOut(BaseModel):
@@ -1340,12 +1196,6 @@ class DesktopGroup(BaseModel):
     name: str = Field(..., title='Name')
 
 
-class Role3(StrEnum):
-    owner = 'owner'
-    admin = 'admin'
-    member = 'member'
-
-
 class DesktopMember(BaseModel):
     email: str = Field(..., title='Email')
     name: str | None = Field(..., title='Name')
@@ -1372,39 +1222,12 @@ class DesktopUser(BaseModel):
     picture: str | None = Field(..., title='Picture')
 
 
-class Decision(StrEnum):
-    approve = 'approve'
-    deny = 'deny'
-
-
 class DeviceAuthorizationDecision(BaseModel):
     decision: Decision = Field(..., title='Decision')
 
 
-class Status(StrEnum):
-    approved = 'approved'
-    denied = 'denied'
-    onboarding_required = 'onboarding_required'
-
-
 class DeviceAuthorizationDecisionOut(BaseModel):
     status: Status = Field(..., title='Status')
-
-
-class CaptureSource(StrEnum):
-    claude_code = 'claude_code'
-    codex = 'codex'
-    pi = 'pi'
-    kimi_code = 'kimi_code'
-
-
-class Status1(StrEnum):
-    pending = 'pending'
-    approved = 'approved'
-    denied = 'denied'
-    expired = 'expired'
-    consumed = 'consumed'
-    onboarding_required = 'onboarding_required'
 
 
 class CaptureSources(RootModel[list[CaptureSource]]):
@@ -1458,11 +1281,6 @@ class DeviceTokenExchange(BaseModel):
     device_code: str = Field(..., max_length=256, min_length=32, title='Device Code')
 
 
-class DirectionOutput(StrEnum):
-    reference = 'reference'
-    citer = 'citer'
-
-
 class DirectionOut(BaseModel):
     contributors: list[Contributor] = Field(..., title='Contributors')
     evidence_count: int = Field(..., title='Evidence Count')
@@ -1488,45 +1306,11 @@ class Statement(RootModel[str]):
     root: str = Field(..., max_length=4000, title='Statement')
 
 
-class Status2(StrEnum):
-    retired = 'retired'
-    confirmed = 'confirmed'
-
-
 class DirectionPatch(BaseModel):
     name: Name1 | None = Field(None, title='Name')
     parent_id: UUID | None = Field(None, title='Parent Id')
     statement: Statement | None = Field(None, title='Statement')
     status: Status2 | None = Field(None, title='Status')
-
-
-class DisconnectReason(StrEnum):
-    """
-    Why a capture device's credential was revoked (`client.device_disconnected`).
-
-    The endpoint the tap calls to revoke a bearer is reached by two flows that
-    mean opposite things, and the server could not tell them apart until the tap
-    started saying which -- both posted an empty body. `UNINSTALL` is someone
-    leaving; `REPAIR` is the re-pair path revoking the superseded bearer AFTER a
-    replacement already works, which is someone whose setup is now healthier.
-
-    `DASHBOARD` is the operator half: a disconnect pressed in our own UI, which
-    a client is not entitled to claim. There is deliberately no value for
-    retirement -- retiring a machine emits `client.retired` for the whole call,
-    and a per-credential disconnect beside it would count one decision twice.
-
-    UNSPECIFIED is the honest answer for every client already in the field: they
-    post `{}` and always will, since an installed plugin only learns to send a
-    reason by being updated. It therefore covers BOTH flows and must be read as
-    "a device was disconnected, cause unknown" -- never bucketed with UNINSTALL
-    for convenience. The churn destination should treat it as low confidence,
-    and its share shrinks on its own as clients roll forward.
-    """
-
-    uninstall = 'uninstall'
-    repair = 'repair'
-    dashboard = 'dashboard'
-    unspecified = 'unspecified'
 
 
 class DownloadBatchRequest(BaseModel):
@@ -1539,27 +1323,54 @@ class DownloadResponse(BaseModel):
     download_url: str = Field(..., title='Download Url')
 
 
+class Span1(RootModel[tuple[AwareDatetime, AwareDatetime]]):
+    root: tuple[AwareDatetime, AwareDatetime] = Field(
+        ...,
+        description='First -> last activity (created, a run, an agent bucket).',
+        max_length=2,
+        min_length=2,
+        title='Span',
+    )
+
+
+class EffortOut(BaseModel):
+    agent_h: float = Field(
+        ...,
+        description='Agent-session time attributed here: parallel agents add up.',
+        title='Agent H',
+    )
+    busy_h: float = Field(
+        ...,
+        description='The union of run and agent time: parallel work once.',
+        title='Busy H',
+    )
+    cost_estimated: bool = Field(
+        ...,
+        description='Worker tokens priced at list are part of the cost.',
+        title='Cost Estimated',
+    )
+    cost_usd: float | None = Field(
+        ...,
+        description='Daemon dollars plus worker tokens at list price, split by time; null when unknown.',
+        title='Cost Usd',
+    )
+    run_h: float = Field(
+        ..., description='Run durations summed: parallel runs add up.', title='Run H'
+    )
+    span: Span1 | None = Field(
+        ...,
+        description='First -> last activity (created, a run, an agent bucket).',
+        title='Span',
+    )
+
+
+class EffortTruncatedOut(BaseModel):
+    sessions_counted: int = Field(..., title='Sessions Counted')
+    sessions_total: int = Field(..., title='Sessions Total')
+
+
 class Project(RootModel[str]):
     root: str = Field(..., max_length=200, min_length=1, title='Project')
-
-
-class DisabledFilter(StrEnum):
-    entity_types = 'entity_types'
-    statuses = 'statuses'
-    created_after = 'created_after'
-    created_before = 'created_before'
-    project = 'project'
-    owner = 'owner'
-    tags = 'tags'
-    config = 'config'
-    metrics = 'metrics'
-
-
-class EntityType(StrEnum):
-    project = 'project'
-    experiment = 'experiment'
-    run = 'run'
-    paper = 'paper'
 
 
 class EntryRefOut(BaseModel):
@@ -1608,6 +1419,12 @@ class ExecutionRecordOut(BaseModel):
     hardware: dict[str, Any] | None = Field(None, title='Hardware')
     paths: dict[str, Any] | None = Field(None, title='Paths')
     settings: dict[str, Any] | None = Field(None, title='Settings')
+
+
+class ExperimentEffortOut(BaseModel):
+    agent_h: float = Field(..., title='Agent H')
+    busy_h: float = Field(..., title='Busy H')
+    run_h: float = Field(..., title='Run H')
 
 
 class Name2(RootModel[str]):
@@ -1715,11 +1532,6 @@ class ExperimentGroupOut(BaseModel):
     spec: dict[str, Any] | None = Field(None, title='Spec')
 
 
-class Kind1(StrEnum):
-    files = 'files'
-    runs = 'runs'
-
-
 class ExperimentManifestOut(BaseModel):
     """
     One frozen manifest (an experiment version): the leaf door's
@@ -1785,6 +1597,24 @@ class ExperimentOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
+class ExperimentValueOut(BaseModel):
+    """
+    An experiment's value under its resolved metric: its best run's.
+    """
+
+    live: bool = Field(
+        ...,
+        description='That run is still running, so the value can still move.',
+        title='Live',
+    )
+    run_id: UUID = Field(
+        ...,
+        description='The run it comes from (ties: the run that ended first).',
+        title='Run Id',
+    )
+    value: float = Field(..., title='Value')
+
+
 class ExperimentVersionMint(BaseModel):
     """
     Mint an immutable reproduction manifest (fold #6). `as_of` defaults to the
@@ -1815,12 +1645,6 @@ class ExperimentVersionOut(BaseModel):
     version: int = Field(..., title='Version')
 
 
-class Nonfinite(StrEnum):
-    nan = 'nan'
-    inf = 'inf'
-    field_inf = '-inf'
-
-
 class ExportPoint(BaseModel):
     dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
     id: int = Field(..., title='Id')
@@ -1839,48 +1663,9 @@ class FeedbackAccepted(BaseModel):
     id: UUID = Field(..., title='Id')
 
 
-class FeedbackKind(StrEnum):
-    looks_right = 'looks_right'
-    separate = 'separate'
-    done = 'done'
-    wrong_name = 'wrong_name'
-    wrong_parent = 'wrong_parent'
-    not_accurate = 'not_accurate'
-
-
-class FieldSource(StrEnum):
-    """
-    Who composed the text now in the row. The STORED vocabulary.
-
-    A superset of `Authorship`: the wire cannot say `lane`, because a client is
-    never the generation lane. Mirrors `entity_overviews.source`, deliberately.
-    """
-
-    lane = 'lane'
-    agent = 'agent'
-    human = 'human'
-
-
-class Key(StrEnum):
-    entity_types = 'entity_types'
-    statuses = 'statuses'
-    created_after = 'created_after'
-    created_before = 'created_before'
-    project = 'project'
-    owner = 'owner'
-    tags = 'tags'
-    config = 'config'
-    metrics = 'metrics'
-
-
 class FilterChip(BaseModel):
     key: Key = Field(..., title='Key')
     label: str = Field(..., title='Label')
-
-
-class Frame(StrEnum):
-    normalized = 'normalized'
-    local = 'local'
 
 
 class FunctionCall(BaseModel):
@@ -1893,6 +1678,18 @@ class FunctionDefinition(BaseModel):
     name: str = Field(..., max_length=256, min_length=1, title='Name')
     parameters: dict[str, Any] | None = Field(None, title='Parameters')
     strict: bool | None = Field(None, title='Strict')
+
+
+class GainOut(BaseModel):
+    agent_h_since_best: float = Field(..., title='Agent H Since Best')
+    last_delta: float | None = Field(..., title='Last Delta')
+
+
+class GapOut(BaseModel):
+    abs: float = Field(..., title='Abs')
+    pct: float | None = Field(
+        ..., description='% of the reference value; null when it is 0.', title='Pct'
+    )
 
 
 class GitHubBranchOut(BaseModel):
@@ -1944,16 +1741,6 @@ class GitHubInstallationOut(BaseModel):
     suspended: bool = Field(..., title='Suspended')
 
 
-class GitHubIntegrationState(StrEnum):
-    """
-    Server-side integration state the Integrations page renders.
-    """
-
-    not_configured = 'not_configured'
-    available = 'available'
-    installed = 'installed'
-
-
 class GitHubRepositoryOut(BaseModel):
     """
     One repository an installation covers, as the attach dialog lists them.
@@ -1964,45 +1751,6 @@ class GitHubRepositoryOut(BaseModel):
     private: bool = Field(..., title='Private')
     repo: str = Field(..., title='Repo')
     repo_id: int = Field(..., title='Repo Id')
-
-
-class GitHubSetupFlow(StrEnum):
-    integration_detail = 'integration_detail'
-
-
-class Grant(StrEnum):
-    """
-    What ONE browser approval authorizes.
-
-    A grant is a CAPABILITY, not a scope. `probe setup` asks for a set of them so
-    the human approves once and the consent screen shows every capability
-    together, instead of three separate round-trips each showing a fragment.
-
-    The distinction matters most for CAPTURE. Scopes describe what an API caller
-    may do to research data; they cannot express "stream this machine's prompts,
-    file contents and tool output off the device". Rendering that as `read` on a
-    consent screen would actively misdescribe it, so it gets its own name.
-    """
-
-    api = 'api'
-    mcp = 'mcp'
-    capture = 'capture'
-    companion = 'companion'
-
-
-class GrantLevel(StrEnum):
-    """
-    What a whitelisted subject gets. `edit` implies `view`.
-    """
-
-    view = 'view'
-    edit = 'edit'
-
-
-class GraphState(StrEnum):
-    ok = 'ok'
-    partial = 'partial'
-    pending = 'pending'
 
 
 class GroupedPoint(BaseModel):
@@ -2051,18 +1799,6 @@ class GroupedSeriesResult(BaseModel):
     where: dict[str, Any] | None = Field(None, title='Where')
 
 
-class HierarchyEntityKind(StrEnum):
-    """
-    Entity levels that can appear in a dashboard containment path.
-    """
-
-    project = 'project'
-    experiment = 'experiment'
-    run = 'run'
-    artifact = 'artifact'
-    group = 'group'
-
-
 class HierarchyPathSegment(BaseModel):
     """
     One root-first, human-readable segment in an entity containment path.
@@ -2071,6 +1807,27 @@ class HierarchyPathSegment(BaseModel):
     id: UUID = Field(..., title='Id')
     kind: HierarchyEntityKind
     name: str = Field(..., title='Name')
+
+
+class ExcludeDocId(RootModel[str]):
+    root: str = Field(..., max_length=512)
+
+
+class ExcludeSessionId(RootModel[str]):
+    root: str = Field(..., max_length=256)
+
+
+class Segment(RootModel[str]):
+    root: str = Field(..., max_length=8000)
+
+
+class SessionId(RootModel[str]):
+    root: str = Field(
+        ...,
+        description="The coding agent's session id: its own documents are never shown.",
+        max_length=256,
+        title='Session Id',
+    )
 
 
 class HostedMultipart(BaseModel):
@@ -2130,15 +1887,9 @@ class HostedUploadsOut(BaseModel):
     uploads: list[HostedUpload] = Field(..., title='Uploads')
 
 
-class IdentityStrength(StrEnum):
-    """
-    How strong a dataset version's identity is (`meta.identity`, C3/C5):
-    every byte hashed, some files fingerprinted, or a pointer Probe never read.
-    """
-
-    bytes = 'bytes'
-    partial = 'partial'
-    pointer = 'pointer'
+class ImportAgentSettingsOut(BaseModel):
+    settings: dict[str, dict[str, dict[str, str]]] = Field(..., title='Settings')
+    version: str = Field(..., title='Version')
 
 
 class Attempt(RootModel[int]):
@@ -2155,11 +1906,6 @@ class FailureKind(RootModel[str]):
 
 class Machine(RootModel[str]):
     root: str = Field(..., max_length=64, title='Machine')
-
-
-class Outcome(StrEnum):
-    failed = 'failed'
-    launch_failed = 'launch_failed'
 
 
 class UnitsDone(RootModel[int]):
@@ -2219,21 +1965,6 @@ class ImportSelection(BaseModel):
     target_workspace_id: UUID = Field(..., title='Target Workspace Id')
 
 
-class IndexCorpus(StrEnum):
-    """
-    The /v1/search corpus filter vocabulary (github.* and claude_code
-    transcript docs are engine-native, not custom-ingest projections).
-    """
-
-    experiments = 'experiments'
-    papers = 'papers'
-    files = 'files'
-    github = 'github'
-    transcripts = 'transcripts'
-    digests = 'digests'
-    notes = 'notes'
-
-
 class IngestArtifact(BaseModel):
     content_hash: str | None = Field(None, title='Content Hash')
     content_type: str | None = Field(None, title='Content Type')
@@ -2275,15 +2006,6 @@ class InheritedFileOut(BaseModel):
     run_slug: str | None = Field(None, title='Run Slug')
     size_bytes: int | None = Field(None, title='Size Bytes')
     source_experiment_id: UUID = Field(..., title='Source Experiment Id')
-
-
-class InheritedKind(StrEnum):
-    """
-    What `GET .../inherited` lists.
-    """
-
-    files = 'files'
-    runs = 'runs'
 
 
 class InheritedRunOut(BaseModel):
@@ -2332,13 +2054,6 @@ class InstallCodeCreated(BaseModel):
     expires_in: int = Field(..., title='Expires In')
 
 
-class CaptureSources1Enum(StrEnum):
-    claude_code = 'claude_code'
-    codex = 'codex'
-    pi = 'pi'
-    kimi_code = 'kimi_code'
-
-
 class CaptureSources1(RootModel[list[CaptureSources1Enum]]):
     root: list[CaptureSources1Enum] = Field(..., min_length=1, title='Capture Sources')
 
@@ -2352,12 +2067,6 @@ class InstallationCaptureOut(BaseModel):
     os: str | None = Field(None, title='Os')
     source: str = Field(..., title='Source')
     state: str | None = Field('authorized', title='State')
-
-
-class Role5(StrEnum):
-    api = 'api'
-    mcp = 'mcp'
-    companion = 'companion'
 
 
 class InstallationNameIn(BaseModel):
@@ -2382,23 +2091,6 @@ class InstallationNameOut(BaseModel):
 
 class IntegrationCapabilities(BaseModel):
     detail_pages: bool = Field(..., title='Detail Pages')
-
-
-class IntegrationState(StrEnum):
-    """
-    Mirrors the GitHub integration's state vocabulary so the dashboard's
-    integration cards can share one rendering path.
-    """
-
-    not_configured = 'not_configured'
-    available = 'available'
-    connected = 'connected'
-
-
-class IntentEntity(StrEnum):
-    run = 'run'
-    experiment = 'experiment'
-    project = 'project'
 
 
 class IntentOut(BaseModel):
@@ -2428,11 +2120,6 @@ class IntentOut(BaseModel):
     step_id: int = Field(..., title='Step Id')
 
 
-class Role6(StrEnum):
-    admin = 'admin'
-    member = 'member'
-
-
 class InviteCreate(BaseModel):
     email: str = Field(
         ..., max_length=254, pattern='^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$', title='Email'
@@ -2448,21 +2135,8 @@ class InviteOut(BaseModel):
     role: Role6 = Field(..., title='Role')
 
 
-class JobState(StrEnum):
-    queued = 'queued'
-    running = 'running'
-    cancel_requested = 'cancel_requested'
-    canceled = 'canceled'
-    completed = 'completed'
-    failed = 'failed'
-
-
 class Keys(RootModel[list[str]]):
     root: list[str] = Field(..., max_length=200, title='Keys')
-
-
-class SourceReadContractEnum(StrEnum):
-    coverage_v1 = 'coverage-v1'
 
 
 class SourceReadContract(RootModel[SourceReadContractEnum | None]):
@@ -2491,6 +2165,13 @@ class LatestScalarsRequest(BaseModel):
     )
 
 
+class LeaderChangeOut(BaseModel):
+    at: AwareDatetime = Field(..., title='At')
+    branch: UUID = Field(..., title='Branch')
+    experiment: UUID = Field(..., title='Experiment')
+    value: float = Field(..., title='Value')
+
+
 class LineageEdgeOut(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     customer_id: str = Field(..., title='Customer Id')
@@ -2504,51 +2185,6 @@ class LineageEdgeOut(BaseModel):
     source_type: str = Field(..., title='Source Type')
     target_id: UUID = Field(..., title='Target Id')
     target_type: str = Field(..., title='Target Type')
-
-
-class LineageEntityType(StrEnum):
-    """
-    The endpoints a lineage edge can connect (closed set).
-    """
-
-    run = 'run'
-    artifact = 'artifact'
-    artifact_version = 'artifact_version'
-    paper = 'paper'
-    project = 'project'
-    source = 'source'
-
-
-class LineageRelation(StrEnum):
-    """
-    The closed relation vocabulary.
-
-    Two families, and the split is what the prompt teaches:
-
-    GENEALOGY (run -> run) is "another attempt at the same thing". A run may have
-    more than one such parent since 0275 (a retry of one run and a branch of
-    another); the FIRST one is mirrored in `runs.parent_run_id`.
-    DATAFLOW is "this used that", stays many-to-many, and is the only family with an
-    artifact at either end today.
-
-    `retried_from`/`branched_from` arrived in 0166 with run -> run genealogy;
-    `retry` and `branch` were 18 of the 24 rows migrated out of
-    `runs.parent_relation` and had no equivalent here at all.
-    """
-
-    consumes = 'consumes'
-    produces = 'produces'
-    evaluates_on = 'evaluates_on'
-    promoted_to = 'promoted_to'
-    derived_from = 'derived_from'
-    forked_from = 'forked_from'
-    resumed_from = 'resumed_from'
-    retried_from = 'retried_from'
-    branched_from = 'branched_from'
-    discovered_via = 'discovered_via'
-    supersedes = 'supersedes'
-    informed_by = 'informed_by'
-    relates_to = 'relates_to'
 
 
 class LineageRunRef(BaseModel):
@@ -2590,26 +2226,6 @@ class LinkedSessionsOut(BaseModel):
     sessions: list[AgentSessionOut] | None = Field(None, title='Sessions')
 
 
-class LiveError(StrEnum):
-    """
-    Why a live table was not read, in words a client may see (never an
-    exception's class name).
-    """
-
-    timeout = 'timeout'
-    too_large = 'too_large'
-    budget = 'budget'
-    error = 'error'
-
-
-class LiveState(StrEnum):
-    paused = 'paused'
-    idle = 'idle'
-    running = 'running'
-    error = 'error'
-    auth_required = 'auth_required'
-
-
 class WriteEpoch(RootModel[int]):
     root: int = Field(..., ge=1, title='Write Epoch')
 
@@ -2648,20 +2264,9 @@ class LogStreamOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class MatchSource(StrEnum):
-    exact = 'exact'
-    semantic = 'semantic'
-    structured = 'structured'
-
-
 class MergedInto(BaseModel):
     id: UUID = Field(..., title='Id')
     name: str = Field(..., title='Name')
-
-
-class Origin(StrEnum):
-    logged = 'logged'
-    derived = 'derived'
 
 
 class Kind2(RootModel[str]):
@@ -2679,27 +2284,6 @@ class MetricComparison(BaseModel):
     kind: Kind2 | None = Field(None, title='Kind')
     op: Op = Field(..., title='Op')
     value: float = Field(..., title='Value')
-
-
-class MetricCoverage(StrEnum):
-    complete = 'complete'
-    partial = 'partial'
-    sampled = 'sampled'
-    summary = 'summary'
-
-
-class MetricDataSource(StrEnum):
-    probe = 'probe'
-    wandb = 'wandb'
-
-
-class MetricExactness(StrEnum):
-    exact = 'exact'
-    sampled = 'sampled'
-    sampled_smoothed = 'sampled_smoothed'
-    sampled_unsmoothed = 'sampled_unsmoothed'
-    summary_only = 'summary_only'
-    unknown = 'unknown'
 
 
 class MetricExpectation(BaseModel):
@@ -2729,14 +2313,6 @@ class MetricInsertResult(BaseModel):
     series_count: int | None = Field(None, title='Series Count')
 
 
-class Agg(StrEnum):
-    mean = 'mean'
-    sum = 'sum'
-    min = 'min'
-    max = 'max'
-    count = 'count'
-
-
 class MetricPointIn(BaseModel):
     agg: Agg | None = Field(None, title='Agg')
     dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
@@ -2761,18 +2337,6 @@ class MetricPointOut(BaseModel):
     step_index: int | None = Field(None, title='Step Index')
     value: float | None = Field(..., title='Value')
     wall_clock: AwareDatetime = Field(..., title='Wall Clock')
-
-
-class MetricReadErrorCode(StrEnum):
-    source_auth_failed = 'source_auth_failed'
-    source_object_missing = 'source_object_missing'
-    source_rate_limited = 'source_rate_limited'
-    source_unavailable = 'source_unavailable'
-    source_read_limit = 'source_read_limit'
-    source_changed_retry = 'source_changed_retry'
-    unsupported_source_query = 'unsupported_source_query'
-    source_materialization_required = 'source_materialization_required'
-    source_backed_read_only = 'source_backed_read_only'
 
 
 class MetricReadProvenance(BaseModel):
@@ -2907,14 +2471,24 @@ class ExpectedRevision(RootModel[int]):
     root: int = Field(..., ge=0, title='Expected Revision')
 
 
-class MirrorSource(StrEnum):
-    wandb = 'wandb'
-    benchling = 'benchling'
-
-
 class MixturePart(BaseModel):
     share: float = Field(..., title='Share')
     target: str = Field(..., max_length=2048, min_length=1, title='Target')
+
+
+class PMl(RootModel[float]):
+    root: float = Field(..., ge=0.0, le=1.0, title='P Ml')
+
+
+class MlState(BaseModel):
+    """
+    The session's ML-gate state as the service read it from the daemon's
+    worker store. `signal`: a deterministic ML signal fired; `p_ml`: the gate's
+    last answer. Null on the request when there is no worker or no answer.
+    """
+
+    p_ml: PMl | None = Field(None, title='P Ml')
+    signal: bool | None = Field(False, title='Signal')
 
 
 class MultipartCreate(BaseModel):
@@ -2961,42 +2535,9 @@ class NamedToolChoice(BaseModel):
     type: Literal['function'] = Field(..., title='Type')
 
 
-class NextStep(StrEnum):
-    edit_name = 'edit_name'
-    edit_parent = 'edit_parent'
-
-
 class NextToOut(BaseModel):
     next_to: str = Field(..., title='Next To')
     score: float = Field(..., title='Score')
-
-
-class NodeKind(StrEnum):
-    primary = 'primary'
-    suggested = 'suggested'
-
-
-class NoteKind(StrEnum):
-    """
-    Every document carrier the Notes explorer can open.
-
-    SUB_NOTE (0146) is a catalog row and a history target, NEVER a carrier:
-    it has no /v1/{plural} entity path, no NOTE_LIMIT_BY_KIND entry (its cap
-    is its PARENT carrier's — a sub-note kind has no single cap), and no
-    entry in app/notes/service.py::CARRIERS. Code keyed exhaustively on the
-    carrier kinds must not learn it by accident, which is why the sub-note
-    paths derive from the parent instead.
-
-    Sweep groups and files carry no notes (2026-10-16); their kinds left this
-    enum when 0374 dropped their storage (PLAN P3). A `parent_kind` of either
-    is now an enum-validation 422.
-    """
-
-    team_note = 'team_note'
-    project = 'project'
-    experiment = 'experiment'
-    run = 'run'
-    sub_note = 'sub_note'
 
 
 class NoteVersionOut(BaseModel):
@@ -3087,22 +2628,6 @@ class ObservedClientOut(BaseModel):
     status: ClientUpdateStatus | None = None
 
 
-class OnboardingFlow(StrEnum):
-    create_team = 'create_team'
-    join_team = 'join_team'
-
-
-class OnboardingStep(StrEnum):
-    team = 'team'
-    workspace = 'workspace'
-    invites = 'invites'
-    sources = 'sources'
-    wandb = 'wandb'
-    install = 'install'
-    tutorial = 'tutorial'
-    complete = 'complete'
-
-
 class OpenAIErrorBody(BaseModel):
     code: str | None = Field(None, title='Code')
     message: str = Field(..., title='Message')
@@ -3156,47 +2681,9 @@ class OptionsRunOut(BaseModel):
     status: str = Field(..., title='Status')
 
 
-class OriginType(StrEnum):
-    """
-    What a node's origin is. Not `LineageEntityType`: an origin can be a
-    container that is never an edge end (a group, a workspace, the unfiled
-    bucket), and an experiment and a project -- one `projects` row type -- are
-    named apart so a reader need not look the kind up.
-    """
-
-    run = 'run'
-    group = 'group'
-    experiment = 'experiment'
-    project = 'project'
-    artifact = 'artifact'
-    paper = 'paper'
-    workspace = 'workspace'
-    shared_folder = 'shared_folder'
-    unfiled = 'unfiled'
-
-
-class OriginVia(StrEnum):
-    lineage = 'lineage'
-    container = 'container'
-
-
-class Content(StrEnum):
-    absent = 'absent'
-    fresh = 'fresh'
-    stale = 'stale'
-
-
-class Job(StrEnum):
-    idle = 'idle'
-    queued = 'queued'
-    generating = 'generating'
-    failed = 'failed'
-
-
-class Source(StrEnum):
-    lane = 'lane'
-    agent = 'agent'
-    human = 'human'
+class OverlapOut(BaseModel):
+    branch: UUID = Field(..., title='Branch')
+    hours: float = Field(..., title='Hours')
 
 
 class OverviewOut(BaseModel):
@@ -3421,12 +2908,6 @@ class Title(RootModel[str]):
     root: str = Field(..., max_length=500, min_length=1, title='Title')
 
 
-class PaperExpansion(StrEnum):
-    similar = 'similar'
-    citers = 'citers'
-    references = 'references'
-
-
 class PaperListOut(BaseModel):
     """
     Compact list row; provider text stays off the 50-row collection path.
@@ -3449,22 +2930,6 @@ class PaperListOut(BaseModel):
     tags: list[str] | None = Field(None, title='Tags')
     title: str = Field(..., title='Title')
     updated_at: AwareDatetime = Field(..., title='Updated At')
-
-
-class PaperMode(StrEnum):
-    """
-    Which Research Index question is being asked.
-
-    One route, three modes, because they are the same noun read three ways --
-    the `read_metrics(mode=...)` shape. `PaperSearchRequest` refuses arguments
-    that do not belong to the chosen mode rather than dropping them, so a
-    `paper_id` sent with `mode=search` is an error and not a silently ignored
-    filter.
-    """
-
-    search = 'search'
-    read = 'read'
-    similar = 'similar'
 
 
 class PaperOut(BaseModel):
@@ -3541,23 +3006,6 @@ class PaperPatch(BaseModel):
     title: Title | None = Field(None, title='Title')
 
 
-class PaperProvenance(StrEnum):
-    """
-    How an edge came to be known -- four different strengths of claim.
-
-    Stored in `lineage_edges.provenance`, mandatory on any edge touching a paper
-    (`lineage_edges_paper_provenance_chk`). The UI must render these differently:
-    an inferred edge that looks like an observed one is a fabricated measurement,
-    and a reader who cannot tell them apart trusts the weakest as much as the
-    strongest.
-    """
-
-    observed_call = 'observed_call'
-    provider_citation = 'provider_citation'
-    human = 'human'
-    inferred = 'inferred'
-
-
 class PaperRelatesToIn(BaseModel):
     """
     How this paper relates to an EARLIER one in the project (0357),
@@ -3576,7 +3024,7 @@ class PaperRelatesToIn(BaseModel):
 
     paper: UUID | None = Field(None, title='Paper')
     provenance: PaperProvenance | None = None
-    reason: Reason | None = Field(None, title='Reason')
+    reason: Reason1 | None = Field(None, title='Reason')
 
 
 class Authors2(RootModel[str]):
@@ -3616,23 +3064,6 @@ class PaperSearchRequest(BaseModel):
     published_from: PublishedFrom | None = Field(None, title='Published From')
     published_to: PublishedTo | None = Field(None, title='Published To')
     query: Query | None = Field(None, title='Query')
-
-
-class ParentProvenance(StrEnum):
-    """
-    How a run's declared parent is known: the run-side subset of
-    `lineage_edges.provenance` (`provider_citation` is a paper-only word).
-    """
-
-    human = 'human'
-    observed_call = 'observed_call'
-
-
-class ParentRelation(StrEnum):
-    fork = 'fork'
-    resume = 'resume'
-    retry = 'retry'
-    branch = 'branch'
 
 
 class PartUrlOut(BaseModel):
@@ -3680,6 +3111,20 @@ class PendingInviteOut(BaseModel):
     display_name: str = Field(..., title='Display Name')
     id: UUID = Field(..., title='Id')
     role: Role6 = Field(..., title='Role')
+
+
+class PickedExperimentOut(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    project_id: UUID = Field(..., title='Project Id')
+    slug: str = Field(..., title='Slug')
+
+
+class PickedOut(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    project_id: UUID = Field(..., title='Project Id')
+    slug: str = Field(..., title='Slug')
 
 
 class PinnedExperiment(BaseModel):
@@ -3850,13 +3295,13 @@ class ProjectExperimentMutationOut(BaseModel):
         title='Name',
     )
     notes_limit_chars: int | None = Field(
-        150000,
+        None,
         description="The notes' character backstop; the cap is `notes_limit_tokens`.",
         title='Notes Limit Chars',
     )
     notes_limit_tokens: int | None = Field(
-        30000,
-        description="The notes' size cap, in tokens: a write past it is refused.",
+        None,
+        description="The notes' size cap, in tokens: a write that changes the notes and leaves them past it is refused.",
         title='Notes Limit Tokens',
     )
     notes_remaining_chars: int | None = Field(
@@ -3957,8 +3402,8 @@ class ProjectExperimentOut(BaseModel):
         title='Name',
     )
     notes_limit_tokens: int | None = Field(
-        30000,
-        description="The notes' size cap, in tokens: a write past it is refused.",
+        None,
+        description="The notes' size cap, in tokens: a write that changes the notes and leaves them past it is refused.",
         title='Notes Limit Tokens',
     )
     notes_remaining_tokens: int | None = Field(
@@ -4052,7 +3497,7 @@ class Name8(RootModel[str]):
 class Notes(RootModel[str]):
     root: str = Field(
         ...,
-        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`. Capped at 30,000 o200k_base tokens (a 422 past it); `max_length` is the character backstop.',
+        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`. Capped at `notes_limit_tokens` o200k_base tokens and `notes_limit_chars` characters (the experiment GET carries both; a 422 past either); `max_length` bounds the request. Notes already over the cap stay as they are until a write changes them, and that write must bring them under it.',
         max_length=150000,
         title='Notes',
     )
@@ -4111,7 +3556,7 @@ class ProjectExperimentPatch(BaseModel):
     )
     notes: Notes | None = Field(
         None,
-        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`. Capped at 30,000 o200k_base tokens (a 422 past it); `max_length` is the character backstop.',
+        description='Whole-document replace of the experiment\'s Markdown notes; `""` clears them. Requires `base_version`, or `force`. Capped at `notes_limit_tokens` o200k_base tokens and `notes_limit_chars` characters (the experiment GET carries both; a 422 past either); `max_length` bounds the request. Notes already over the cap stay as they are until a write changes them, and that write must bring them under it.',
         title='Notes',
     )
     parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
@@ -4129,18 +3574,6 @@ class ProjectExperimentPatch(BaseModel):
         description='The new question. Blank is refused: an experiment always has one.',
         title='Question',
     )
-
-
-class ProjectKind(StrEnum):
-    """
-    What a project is FOR. Presentation + generation steering only.
-    """
-
-    training = 'training'
-    evaluation = 'evaluation'
-    research = 'research'
-    general = 'general'
-    experiment = 'experiment'
 
 
 class ProjectMutationOut(BaseModel):
@@ -4164,8 +3597,8 @@ class ProjectMutationOut(BaseModel):
     kind: str | None = Field('general', title='Kind')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: str = Field(..., title='Name')
-    notes_limit_chars: int | None = Field(150000, title='Notes Limit Chars')
-    notes_limit_tokens: int | None = Field(30000, title='Notes Limit Tokens')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
     notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
     notes_tokens: int | None = Field(None, title='Notes Tokens')
@@ -4194,7 +3627,7 @@ class ProjectOut(BaseModel):
     kind: str | None = Field('general', title='Kind')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: str = Field(..., title='Name')
-    notes_limit_tokens: int | None = Field(30000, title='Notes Limit Tokens')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
     notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
     notes_tokens: int | None = Field(None, title='Notes Tokens')
     parent_project_id: UUID | None = Field(None, title='Parent Project Id')
@@ -4271,22 +3704,6 @@ class ProjectReferenceCreate(BaseModel):
     to_project_id: UUID = Field(..., title='To Project Id')
 
 
-class ProjectSetting(StrEnum):
-    """
-    A PROJECT's rule for one dimension: the two above, plus `inherit`.
-
-    A project defers to the nearest ancestor that owns a rule; a workspace
-    cannot, because nothing is above it. Both of a project's dimensions are
-    `inherit` or neither -- the CHECK enforces it -- because a node that had an
-    opinion about writing and none about reading would stop the write climb and
-    not the read climb. Two climbs, two stamps. One climb is the whole point.
-    """
-
-    inherit = 'inherit'
-    everyone = 'everyone'
-    whitelist = 'whitelist'
-
-
 class ProjectSubtreeOut(BaseModel):
     """
     Every descendant of one project, in one response (0148).
@@ -4356,37 +3773,6 @@ class ProjectWorkspaceRunsOut(BaseModel):
     total: int = Field(
         ..., description='Every run in scope the caller can see.', title='Total'
     )
-
-
-class Content2(StrEnum):
-    """
-    absent: no page the caller may read; fresh: there is one. `stale` stays legal for older clients; nothing sends it since the overview lane was deleted.
-    """
-
-    absent = 'absent'
-    fresh = 'fresh'
-    stale = 'stale'
-
-
-class Job3(StrEnum):
-    """
-    idle, or failed: the overview lane's last job for the page failed (`failed_reason`). `queued` and `generating` stay legal for older clients; no page job is queued since the lane was deleted.
-    """
-
-    idle = 'idle'
-    queued = 'queued'
-    generating = 'generating'
-    failed = 'failed'
-
-
-class Source4(StrEnum):
-    """
-    Who wrote the page: lane, agent or human.
-    """
-
-    lane = 'lane'
-    agent = 'agent'
-    human = 'human'
 
 
 class ProjectWorkspaceSummaryOut(BaseModel):
@@ -4475,11 +3861,6 @@ class ProjectWriters(BaseModel):
     groups: list[UUID] | None = Field(None, max_length=200, title='Groups')
     mode: AccessMode | None = 'inherit'
     users: list[UUID] | None = Field(None, max_length=200, title='Users')
-
-
-class ProvenanceFormat(StrEnum):
-    graph = 'graph'
-    steps = 'steps'
 
 
 class PublicAccessSource(BaseModel):
@@ -4633,11 +4014,6 @@ class PublicNoteVersionsOut(BaseModel):
 
     next_before: int | None = Field(None, title='Next Before')
     versions: list[PublicNoteVersionOut] = Field(..., title='Versions')
-
-
-class Content3(StrEnum):
-    fresh = 'fresh'
-    stale = 'stale'
 
 
 class PublicOverviewOut(BaseModel):
@@ -4832,71 +4208,8 @@ class ReadPageRequest(BaseModel):
     url: str = Field(..., max_length=2000, min_length=1, title='Url')
 
 
-class Readiness(StrEnum):
-    ready = 'ready'
-    pending = 'pending'
-    unplaced = 'unplaced'
-
-
-class ReadmeState(StrEnum):
-    snapshot = 'snapshot'
-    live = 'live'
-    none = 'none'
-    unavailable = 'unavailable'
-
-
-class ReadmeUnavailableReason(StrEnum):
-    not_found_or_no_access = 'not_found_or_no_access'
-    rate_limited = 'rate_limited'
-    upstream_error = 'upstream_error'
-    app_permission_required = 'app_permission_required'
-
-
-class Recency(StrEnum):
-    """
-    How far back a search may reach.
-
-    A closed vocabulary rather than Firecrawl's `tbs` string, which also accepts
-    custom date ranges and sort directives. The model is not given a free-text
-    field that steers the upstream query: it picks a window, and `service.py`
-    spells it.
-    """
-
-    day = 'day'
-    week = 'week'
-    month = 'month'
-    year = 'year'
-
-
 class ReconnectIn(BaseModel):
     credentials: dict[str, str] = Field(..., title='Credentials')
-
-
-class Fn2(StrEnum):
-    sum = 'sum'
-    mean = 'mean'
-    median = 'median'
-    std = 'std'
-    var = 'var'
-    min = 'min'
-    max = 'max'
-    first = 'first'
-    last = 'last'
-    count = 'count'
-
-
-class ReferenceDirection(StrEnum):
-    """
-    Which side of a stored edge the caller is standing on (0153).
-
-    The row exists once; this is the only field that differs between its two
-    readings. A closed vocabulary rather than a bare `str` so the OpenAPI, the
-    generated SDK model and the dashboard all advertise the two legal values
-    instead of an open string.
-    """
-
-    outgoing = 'outgoing'
-    incoming = 'incoming'
 
 
 class Host(RootModel[str]):
@@ -4922,36 +4235,15 @@ class ReferenceSpec(BaseModel):
     uri: str = Field(..., max_length=4096, min_length=1, title='Uri')
 
 
-class Registered(StrEnum):
-    """
-    `GET /v1/catalog/datasets?registered=`: team datasets, run-logged
-    dataset files never registered, or both.
-    """
-
-    all = 'all'
-    yes = 'yes'
-    no = 'no'
-
-
-class Relation(StrEnum):
-    """
-    Closed: these three and nothing else.
-    """
-
-    cites = 'cites'
-    discovered_via = 'discovered_via'
-    relates_to = 'relates_to'
-
-
-class Relayout(StrEnum):
-    all = 'all'
-
-
 class ReleaseRow(BaseModel):
     html_url: str = Field(..., title='Html Url')
     name: str | None = Field(None, title='Name')
     published_at: AwareDatetime | None = Field(None, title='Published At')
     tag: str = Field(..., title='Tag')
+
+
+class ReportAccepted(BaseModel):
+    id: UUID = Field(..., title='Id')
 
 
 class ReproduceCompleteness(BaseModel):
@@ -4969,18 +4261,6 @@ class ReproduceCompleteness(BaseModel):
     state: str = Field(..., title='State')
 
 
-class ResourceKind(StrEnum):
-    """
-    Values match the dashboard's SharedResourceKind byte-for-byte.
-    """
-
-    project = 'project'
-    experiment = 'experiment'
-    run = 'run'
-    paper = 'paper'
-    note = 'note'
-
-
 class RetirementRequest(BaseModel):
     """
     Explicit ids. Never a filter, never "everything that looks old".
@@ -4995,13 +4275,6 @@ class RetirementRequest(BaseModel):
 class RetirementResultOut(BaseModel):
     captures_revoked: int = Field(..., title='Captures Revoked')
     retired: list[UUID] = Field(..., title='Retired')
-
-
-class Job4(StrEnum):
-    idle = 'idle'
-    queued = 'queued'
-    generating = 'generating'
-    failed = 'failed'
 
 
 class RevisionOut(BaseModel):
@@ -5028,16 +4301,6 @@ class RevokeRequest(BaseModel):
     reason: DisconnectReason | None = 'unspecified'
 
 
-class RunAlertKind(StrEnum):
-    """
-    `run_alerts.kind` -- mirrors its CHECK.
-    """
-
-    crashed = 'crashed'
-    still_running = 'still_running'
-    flagged_then_stopped = 'flagged_then_stopped'
-
-
 class RunAlertOut(BaseModel):
     """
     One run alert, as one plain sentence the agent reads as-is.
@@ -5048,22 +4311,6 @@ class RunAlertOut(BaseModel):
     kind: RunAlertKind
     run_id: UUID = Field(..., title='Run Id')
     text: str = Field(..., title='Text')
-
-
-class RunCodeState(StrEnum):
-    resolved = 'resolved'
-    unresolved = 'unresolved'
-    none = 'none'
-
-
-class RunCompareState(StrEnum):
-    """
-    The compare verdict. Mismatches are named answers, never errors.
-    """
-
-    comparable = 'comparable'
-    different_repos = 'different_repos'
-    missing_code = 'missing_code'
 
 
 class RunCounts(BaseModel):
@@ -5090,20 +4337,12 @@ class LabeledPointBudget(RootModel[int]):
     root: int = Field(..., ge=1, le=100000000, title='Labeled Point Budget')
 
 
-class LivenessProtocolEnum(StrEnum):
-    leases = 'leases'
-
-
 class LivenessProtocol(RootModel[LivenessProtocolEnum | None]):
     root: LivenessProtocolEnum | None = Field(None, title='Liveness Protocol')
 
 
 class Name10(RootModel[str]):
     root: str = Field(..., min_length=1, title='Name')
-
-
-class Notes2(RootModel[str]):
-    root: str = Field(..., max_length=10000, title='Notes')
 
 
 class RunFileOut(BaseModel):
@@ -5292,10 +4531,6 @@ class RunOutputsWriteOut(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
-class NotesAppend1(RootModel[str]):
-    root: str = Field(..., max_length=10000, title='Notes Append')
-
-
 class ProjectId(RootModel[str]):
     root: str = Field(
         ...,
@@ -5336,16 +4571,6 @@ class RunReproduceSummary(BaseModel):
     status: str = Field(..., title='Status')
 
 
-class RunStatus(StrEnum):
-    created = 'created'
-    running = 'running'
-    completed = 'completed'
-    failed = 'failed'
-    crashed = 'crashed'
-    canceled = 'canceled'
-    untracked = 'untracked'
-
-
 class Signal(RootModel[int]):
     root: int = Field(..., ge=1, le=128, title='Signal')
 
@@ -5358,11 +4583,6 @@ class RunWriterExit(BaseModel):
 
     code: int | None = Field(None, title='Code')
     signal: Signal | None = Field(None, title='Signal')
-
-
-class ObservedBy(StrEnum):
-    output_helper = 'output_helper'
-    node_agent = 'node_agent'
 
 
 class Pid(RootModel[int]):
@@ -5430,23 +4650,6 @@ class SandboxDiffCounts(BaseModel):
     unchanged: int = Field(..., title='Unchanged')
 
 
-class Status3(StrEnum):
-    added = 'added'
-    modified = 'modified'
-    deleted = 'deleted'
-    unchanged = 'unchanged'
-
-
-class CompareMode(StrEnum):
-    size_mtime = 'size_mtime'
-    hash = 'hash'
-
-
-class Phase(StrEnum):
-    begin = 'begin'
-    end = 'end'
-
-
 class SandboxFileContent(BaseModel):
     """
     One added/modified file's END-state content from `end-delta.tar.gz`
@@ -5479,26 +4682,6 @@ class SandboxFileSide(BaseModel):
     mode: str | None = Field(None, title='Mode')
     mtime: float | None = Field(None, title='Mtime')
     size: int | None = Field(None, title='Size')
-
-
-class Fn3(StrEnum):
-    cumsum = 'cumsum'
-    cumprod = 'cumprod'
-    cummax = 'cummax'
-    cummin = 'cummin'
-    delta = 'delta'
-
-
-class Scope(StrEnum):
-    """
-    Coarse v1 authorization scopes (D2). Narrowable later; checked as explicit
-    sets per route, NOT as a hierarchy (a `write` token does not imply `read`).
-    """
-
-    read = 'read'
-    write = 'write'
-    delete = 'delete'
-    admin = 'admin'
 
 
 class ScopeEntry(BaseModel):
@@ -5546,38 +4729,6 @@ class ScopedUploadRequest(BaseModel):
         title='Notes',
     )
     size_bytes: SizeBytes7 | None = Field(None, title='Size Bytes')
-
-
-class SearchEntityType(StrEnum):
-    """
-    Entities the exact SQL channel searches (names + slugs).
-    """
-
-    project = 'project'
-    experiment = 'experiment'
-    artifact = 'artifact'
-    run = 'run'
-    trial = 'trial'
-
-
-class SearchRetrieval(StrEnum):
-    """
-    How the semantic leg retrieves, when it runs at all.
-
-    AGENTIC is the engine's full search: grounding, vector + BM25 + graph and a
-    model choosing the passages, metered as a recall action. KEYWORD is BM25
-    over document text and titles through the engine's `/retrieve/direct`, with
-    no model call anywhere on the path -- the agent-facing `search(semantic=
-    false)`. `include_semantic=false` is the third case: no index leg at all.
-    """
-
-    agentic = 'agentic'
-    keyword = 'keyword'
-
-
-class SearchState(StrEnum):
-    ok = 'ok'
-    partial = 'partial'
 
 
 class SectionOut(BaseModel):
@@ -5655,19 +4806,6 @@ class SemanticPlaceIn(BaseModel):
     relayout: Relayout1 | Relayout | None = Field(None, title='Relayout')
 
 
-class SemanticRefKind(StrEnum):
-    """
-    research-os entities a semantic doc id resolves back to.
-    """
-
-    run = 'run'
-    experiment = 'experiment'
-    file = 'file'
-    project = 'project'
-    group = 'group'
-    trial = 'trial'
-
-
 class SeriesNode(BaseModel):
     """
     Leaf: one stored series of the anchor run. Must resolve to EXACTLY one
@@ -5697,17 +4835,6 @@ class MaxPoints1(RootModel[int]):
     root: int = Field(..., ge=2, le=100000, title='Max Points')
 
 
-class Smoothing(StrEnum):
-    ema = 'ema'
-    sma = 'sma'
-    gaussian = 'gaussian'
-    twema = 'twema'
-
-
-class SourceReadContract1Enum(StrEnum):
-    coverage_v1 = 'coverage-v1'
-
-
 class SourceReadContract1(RootModel[SourceReadContract1Enum | None]):
     root: SourceReadContract1Enum | None = Field(None, title='Source Read Contract')
 
@@ -5724,11 +4851,6 @@ class SampleEvery(RootModel[int]):
 
 class SelectorId(RootModel[str]):
     root: str = Field(..., min_length=1, title='Selector Id')
-
-
-class XAxis(StrEnum):
-    step = 'step'
-    wall_clock = 'wall_clock'
 
 
 class SeriesSelector(BaseModel):
@@ -5867,23 +4989,94 @@ class SessionMediaOut(BaseModel):
     url: str = Field(..., title='Url')
 
 
-class SessionOrder(StrEnum):
+class SessionMessageAckIn(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    state: AckState
+
+
+class SessionMessageIn(BaseModel):
     """
-    Which way an entity's session list runs.
-
-    `oldest`: by `first_seen_at` ascending -- when each session first touched
-    THIS entity, so at run level the first row is the session the run
-    originated in. The order every list has always had, and the default.
-
-    `newest`: by `last_seen_at` descending -- the session most recently active
-    first, which is what a recorder catching up on an entity reads. The key
-    MOVES while a session runs, so a walk through a live entity can show a
-    session twice or skip the one that just woke; a page is a snapshot, not a
-    ledger.
+    A message for the session's agent: plain text, at most 2,000 characters.
     """
 
-    oldest = 'oldest'
-    newest = 'newest'
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    body: str = Field(..., max_length=2000, min_length=1, title='Body')
+
+
+class SessionMessageOut(BaseModel):
+    """
+    One message as its sender sees it.
+    """
+
+    acked_at: AwareDatetime | None = Field(None, title='Acked At')
+    body: str = Field(..., title='Body')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    delivered_to_agent_at: AwareDatetime | None = Field(
+        None, title='Delivered To Agent At'
+    )
+    id: UUID = Field(..., title='Id')
+    sender: SenderKind
+    sender_session_id: str | None = Field(None, title='Sender Session Id')
+    session_id: str = Field(..., title='Session Id')
+    state: MessageState
+
+
+class SessionMessageSenderOut(BaseModel):
+    """
+    Who the agent is told sent it. `kind` comes from the credential (A26);
+    `session_title` names the sending agent session only when the same person
+    owns it.
+    """
+
+    kind: SenderKind
+    name: str = Field(..., title='Name')
+    session_title: str | None = Field(None, title='Session Title')
+
+
+class SessionMessageSentOut(BaseModel):
+    """
+    The send's answer: the message, and whether a daemon is listening.
+    """
+
+    acked_at: AwareDatetime | None = Field(None, title='Acked At')
+    body: str = Field(..., title='Body')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    daemon_polled_at: AwareDatetime | None = Field(None, title='Daemon Polled At')
+    delivered_to_agent_at: AwareDatetime | None = Field(
+        None, title='Delivered To Agent At'
+    )
+    id: UUID = Field(..., title='Id')
+    reachable: bool = Field(..., title='Reachable')
+    sender: SenderKind
+    sender_session_id: str | None = Field(None, title='Sender Session Id')
+    session_id: str = Field(..., title='Session Id')
+    state: MessageState
+
+
+class SessionMessagesSentOut(BaseModel):
+    can_send: bool = Field(..., title='Can Send')
+    daemon_polled_at: AwareDatetime | None = Field(None, title='Daemon Polled At')
+    messages: list[SessionMessageOut] = Field(..., title='Messages')
+    reachable: bool = Field(..., title='Reachable')
+    reason: Refusal | None = None
+    session_id: str = Field(..., title='Session Id')
+
+
+class SessionOut(BaseModel):
+    agent_h: float = Field(..., title='Agent H')
+    cost_usd: float | None = Field(..., title='Cost Usd')
+    first: AwareDatetime = Field(..., title='First')
+    harness: str | None = Field(..., title='Harness')
+    last: AwareDatetime = Field(..., title='Last')
+    person: str | None = Field(
+        ..., description='`user:<uuid>`; an agent reads as its person.', title='Person'
+    )
+    session: str = Field(..., title='Session')
+    title: str | None = Field(..., title='Title')
 
 
 class SessionRunAlertsOut(BaseModel):
@@ -5940,6 +5133,13 @@ class SessionWorkOut(BaseModel):
     totals: dict[str, int] | None = Field(None, title='Totals')
 
 
+class SessionsByOut(BaseModel):
+    agent_h: float = Field(..., title='Agent H')
+    harness: str | None = Field(..., title='Harness')
+    person: str | None = Field(..., title='Person')
+    sessions: int = Field(..., title='Sessions')
+
+
 class SharedDeviceOut(BaseModel):
     """
     Another machine this same credential is bound to.
@@ -5947,11 +5147,6 @@ class SharedDeviceOut(BaseModel):
 
     id: UUID = Field(..., title='Id')
     name: str = Field(..., title='Name')
-
-
-class Fn4(StrEnum):
-    ema = 'ema'
-    sma = 'sma'
 
 
 class SourceCounts(BaseModel):
@@ -5983,16 +5178,6 @@ class Title2(RootModel[str]):
     root: str = Field(..., max_length=500, title='Title')
 
 
-class SourceKind(StrEnum):
-    """
-    What an external source IS (`external_sources.kind`).
-    """
-
-    dataset = 'dataset'
-    model = 'model'
-    other = 'other'
-
-
 class SourceOut(BaseModel):
     canonical_key: str = Field(..., title='Canonical Key')
     citation: str | None = Field(None, title='Citation')
@@ -6014,23 +5199,6 @@ class SourceOut(BaseModel):
     title: str | None = Field(None, title='Title')
     updated_at: AwareDatetime = Field(..., title='Updated At')
     uri: str = Field(..., title='Uri')
-
-
-class SourceProvider(StrEnum):
-    """
-    Where an external source lives (`external_sources.provider`), derived by
-    the server from the uri's form (`app.catalog.sources.canonicalize`).
-    """
-
-    huggingface = 'huggingface'
-    s3 = 's3'
-    gcs = 'gcs'
-    azure = 'azure'
-    http = 'http'
-    git = 'git'
-    database = 'database'
-    local = 'local'
-    other = 'other'
 
 
 class SourceReadErrorOut(BaseModel):
@@ -6176,11 +5344,6 @@ class StoredPartOut(BaseModel):
     size: int = Field(..., title='Size')
 
 
-class StoredState(StrEnum):
-    stored = 'stored'
-    reference = 'reference'
-
-
 class SubNoteCreate(BaseModel):
     """
     POST /v1/{carrier}s/{id}/sub-notes. An empty body is a real create —
@@ -6311,50 +5474,6 @@ class SubNoteWriteOut(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
-class SummaryDetail(StrEnum):
-    """
-    WHY a summary is in the state it is in — for an operator, not a reader.
-
-    `state` is the badge and it is deliberately coarse: a researcher wants to
-    know whether what they are reading is current, and four values say that. An
-    operator asked a different question — "why is this anchor not generating?" —
-    and `failed` answered it with one word for five situations that need five
-    different responses:
-
-      NO_EVIDENCE      nothing to summarise yet. Not a fault, and the one case
-                       where the honest action is to wait.
-      STANDS_DOWN      a run or trial on a tenant with overview pages (0203):
-                       no summary will ever arrive here, the experiment's page
-                       is the write-up. Do not wait.
-      PENDING          queued, not yet claimed. Backlog, not breakage.
-      DEAD_LETTER      exhausted its attempts. Someone has to look.
-      GATEWAY_DOWN     no LLM gateway configured for this deployment. Every
-                       anchor is affected, and no per-anchor retry helps.
-      VALIDATION       the model answered and the grounding gate refused it.
-                       A prompt or context problem, never an outage.
-
-    The USER-FACING placeholder stays quiet whatever this says. A reader should
-    not have to learn the difference between a dead-letter and a gateway
-    outage — that is our job, and telling them is noise dressed as transparency.
-    """
-
-    no_evidence = 'no_evidence'
-    stands_down = 'stands_down'
-    pending = 'pending'
-    dead_letter = 'dead_letter'
-    gateway_down = 'gateway_down'
-    validation_failed = 'validation_failed'
-
-
-class SummaryFormat(StrEnum):
-    """
-    What `GET .../summary?format=` hands over, and what a push sent.
-    """
-
-    markdown = 'markdown'
-    html = 'html'
-
-
 class Html(RootModel[str]):
     root: str = Field(..., max_length=504000, title='Html')
 
@@ -6367,7 +5486,7 @@ class Series1(RootModel[list[Any]]):
     root: list[Any] = Field(..., max_length=64, title='Series')
 
 
-class SessionId(RootModel[str]):
+class SessionId1(RootModel[str]):
     root: str = Field(..., max_length=200, title='Session Id')
 
 
@@ -6383,7 +5502,7 @@ class SummaryIn(BaseModel):
     html: Html | None = Field(None, title='Html')
     markdown: Markdown | None = Field(None, title='Markdown')
     series: Series1 | None = Field(None, title='Series')
-    session_id: SessionId | None = Field(None, title='Session Id')
+    session_id: SessionId1 | None = Field(None, title='Session Id')
 
 
 class SummaryOut(BaseModel):
@@ -6400,35 +5519,10 @@ class SummaryOut(BaseModel):
     mode: str = Field(..., title='Mode')
     series: list[dict[str, Any]] | None = Field(None, title='Series')
     session_title: str | None = Field(None, title='Session Title')
-    today: date = Field(..., title='Today')
+    today: date_aliased = Field(..., title='Today')
     version: int = Field(..., title='Version')
     via: str | None = Field(None, title='Via')
     you: str = Field(..., title='You')
-
-
-class SummaryState(StrEnum):
-    """
-    Derived UI state for a summary (badge).
-    """
-
-    fresh = 'fresh'
-    generating = 'generating'
-    stale = 'stale'
-    failed = 'failed'
-
-
-class SummaryStatusOut(BaseModel):
-    anchor_id: UUID = Field(..., title='Anchor Id')
-    anchor_type: AnchorType
-    attempts: int = Field(..., title='Attempts')
-    detail: SummaryDetail | None = None
-    eta_seconds: int | None = Field(None, title='Eta Seconds')
-    has_summary: bool = Field(..., title='Has Summary')
-    last_error: str | None = Field(None, title='Last Error')
-    last_error_at: AwareDatetime | None = Field(None, title='Last Error At')
-    queued: bool | None = Field(False, title='Queued')
-    state: SummaryState
-    updated_at: AwareDatetime | None = Field(None, title='Updated At')
 
 
 class SummaryVersionOut(BaseModel):
@@ -6499,13 +5593,6 @@ class SyncPatch(BaseModel):
     sync_enabled: bool | None = Field(None, title='Sync Enabled')
 
 
-class SyncState(StrEnum):
-    idle = 'idle'
-    running = 'running'
-    paused = 'paused'
-    error = 'error'
-
-
 class SyncSummary(BaseModel):
     citers: str | None = Field('pending', title='Citers')
     citers_capped: int | None = Field(None, title='Citers Capped')
@@ -6528,11 +5615,6 @@ class Name13(RootModel[str]):
     root: str = Field(..., max_length=256, title='Name')
 
 
-class Role9(StrEnum):
-    system = 'system'
-    developer = 'developer'
-
-
 class TeamCreate(BaseModel):
     """
     POST /auth/teams. `slug` format/uniqueness is validated
@@ -6548,12 +5630,6 @@ class TeamFeaturesOut(BaseModel):
     features: list[str] = Field(..., title='Features')
 
 
-class Role10(StrEnum):
-    owner = 'owner'
-    admin = 'admin'
-    member = 'member'
-
-
 class TeamMemberOut(BaseModel):
     """
     One active team membership joined to its human identity.
@@ -6565,11 +5641,6 @@ class TeamMemberOut(BaseModel):
     picture: str | None = Field(None, title='Picture')
     role: Role10 = Field(..., title='Role')
     user_id: UUID = Field(..., title='User Id')
-
-
-class Role11(StrEnum):
-    admin = 'admin'
-    member = 'member'
 
 
 class TeamMemberRoleUpdate(BaseModel):
@@ -6719,12 +5790,6 @@ class TeamNoteVersionsOut(BaseModel):
     versions: list[TeamNoteVersionOut] = Field(..., title='Versions')
 
 
-class Role12(StrEnum):
-    owner = 'owner'
-    admin = 'admin'
-    member = 'member'
-
-
 class TeamOut(BaseModel):
     customer_id: str = Field(..., title='Customer Id')
     display_name: str | None = Field(None, title='Display Name')
@@ -6734,16 +5799,6 @@ class TeamOut(BaseModel):
 class TextPart(BaseModel):
     text: str = Field(..., title='Text')
     type: Literal['text'] = Field(..., title='Type')
-
-
-class TimelineState(StrEnum):
-    """
-    Freshness verdict on a proxied read, rendered rather than hidden.
-    """
-
-    ok = 'ok'
-    stale = 'stale'
-    unavailable = 'unavailable'
 
 
 class TokenCreate(BaseModel):
@@ -6910,44 +5965,6 @@ class TrialPatch(BaseModel):
     name: Name14 | None = Field(None, title='Name')
 
 
-class Fn5(StrEnum):
-    log = 'log'
-    log10 = 'log10'
-    log2 = 'log2'
-    log1p = 'log1p'
-    exp = 'exp'
-    expm1 = 'expm1'
-    sqrt = 'sqrt'
-    cbrt = 'cbrt'
-    abs = 'abs'
-    neg = 'neg'
-    sign = 'sign'
-    reciprocal = 'reciprocal'
-    floor = 'floor'
-    ceil = 'ceil'
-    round = 'round'
-    trunc = 'trunc'
-    sigmoid = 'sigmoid'
-    tanh = 'tanh'
-    relu = 'relu'
-    sin = 'sin'
-    cos = 'cos'
-    tan = 'tan'
-    asin = 'asin'
-    acos = 'acos'
-    atan = 'atan'
-    sinh = 'sinh'
-    cosh = 'cosh'
-
-
-class UnitStatus(StrEnum):
-    pending = 'pending'
-    running = 'running'
-    completed = 'completed'
-    failed = 'failed'
-    dead = 'dead'
-
-
 class UnresolvedReference(BaseModel):
     list_owner_key: str = Field(..., title='List Owner Key')
     ordinal: int = Field(..., title='Ordinal')
@@ -6957,6 +5974,21 @@ class UnresolvedReference(BaseModel):
 
 class UpdateReportAccepted(BaseModel):
     recorded: bool = Field(..., title='Recorded')
+
+
+class UpdateRequestIn(BaseModel):
+    """
+    The POST's body, `{}`. REQUIRED, and that is the CSRF guard: the session
+    cookie is SameSite=Lax on the parent domain, so a page on any sibling
+    subdomain could post a FORM here with a staff member's cookie, and a form
+    cannot send JSON. Only a JSON body reaches the route (FastAPI answers 422
+    otherwise), and a cross-site `fetch` with a JSON body needs a CORS preflight
+    this API does not grant. DELETE needs no body: no form can send one.
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
 
 
 class UploadGcRequest(BaseModel):
@@ -6990,6 +6022,16 @@ class UploadResponse(BaseModel):
     key: str | None = Field(None, title='Key')
     upload_headers: dict[str, str] | None = Field(None, title='Upload Headers')
     upload_url: str | None = Field(None, title='Upload Url')
+
+
+class UploadSlot(BaseModel):
+    """
+    Send the zip with exactly this method, URL and every one of these headers.
+    """
+
+    headers: dict[str, str] = Field(..., title='Headers')
+    method: Literal['PUT'] = Field('PUT', title='Method')
+    url: str = Field(..., title='Url')
 
 
 class UpstreamRunOut(BaseModel):
@@ -7053,7 +6095,7 @@ class UseIn(BaseModel):
     evidence: Evidence1 | None = Field(None, title='Evidence')
     mixture: Mixture | None = Field(None, title='Mixture')
     provenance: PaperProvenance | None = None
-    reason: Reason | None = Field(None, title='Reason')
+    reason: Reason1 | None = Field(None, title='Reason')
     role: str | None = Field(None, title='Role')
     roles: list[str] | None = Field(None, title='Roles')
     share: float | None = Field(None, title='Share')
@@ -7098,6 +6140,21 @@ class ValidationError(BaseModel):
     loc: list[str | int] = Field(..., title='Location')
     msg: str = Field(..., title='Message')
     type: str = Field(..., title='Error Type')
+
+
+class ValueOut(BaseModel):
+    """
+    A value and the run it comes from.
+    """
+
+    experiment: UUID = Field(..., title='Experiment')
+    live: bool = Field(
+        ...,
+        description='That run is still running: the value can still move.',
+        title='Live',
+    )
+    run: UUID = Field(..., title='Run')
+    value: float = Field(..., title='Value')
 
 
 class VersionPair(BaseModel):
@@ -7187,20 +6244,6 @@ class VisualsSetOut(BaseModel):
     changed: bool = Field(..., title='Changed')
     version: int = Field(..., title='Version')
     visuals: list[VisualSetEntryOut] = Field(..., title='Visuals')
-
-
-class VisualsState(StrEnum):
-    """
-    What an experiment's results section is, for the read route.
-    """
-
-    ready = 'ready'
-    none = 'none'
-    failed = 'failed'
-    withheld = 'withheld'
-    no_rows_for_run = 'no_rows_for_run'
-    no_current_data = 'no_current_data'
-    recipe = 'recipe'
 
 
 class Name16(RootModel[str]):
@@ -7293,12 +6336,6 @@ class WandbSourcePatch(BaseModel):
     sync_enabled: bool = Field(..., title='Sync Enabled')
 
 
-class WandbSourceState(StrEnum):
-    active = 'active'
-    revoked = 'revoked'
-    needs_review = 'needs_review'
-
-
 class WebResult(BaseModel):
     """
     One hit. `text` is present only when `include_content` was set.
@@ -7309,23 +6346,6 @@ class WebResult(BaseModel):
     text_truncated: bool | None = Field(False, title='Text Truncated')
     title: str = Field(..., title='Title')
     url: str = Field(..., title='Url')
-
-
-class WebSearchCategory(StrEnum):
-    """
-    Firecrawl's result filters, restricted to the three worth offering.
-
-    `RESEARCH` narrows an ordinary web search to academic hosts (arxiv, nature,
-    ieee, pubmed, biorxiv, medrxiv and similar). It is NOT a literature search
-    -- it returns web pages from those domains, which is a different and
-    weaker thing than searching abstracts. `/v1/web/papers` is the literature
-    search; this is here for the case where a paper's project page, errata or
-    blog write-up is what the researcher actually wants.
-    """
-
-    research = 'research'
-    github = 'github'
-    pdf = 'pdf'
 
 
 class ExcludeDomain(RootModel[str]):
@@ -7355,15 +6375,6 @@ class WebSearchRequest(BaseModel):
     limit: int | None = Field(5, ge=1, le=50, title='Limit')
     query: str = Field(..., max_length=500, min_length=1, title='Query')
     recency: Recency | None = None
-
-
-class WebState(StrEnum):
-    """
-    Whether the upstream answered. Mirrors SearchState in app/search.
-    """
-
-    ok = 'ok'
-    empty = 'empty'
 
 
 class WhitelistEntry(BaseModel):
@@ -7406,28 +6417,11 @@ class WideSeriesResult(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
-class Fn6(StrEnum):
-    mean = 'mean'
-    std = 'std'
-    var = 'var'
-    min = 'min'
-    max = 'max'
-    median = 'median'
-
-
 class WithoutSectionOut(BaseModel):
     experiment_id: UUID = Field(..., title='Experiment Id')
     job: Job4 = Field(..., title='Job')
     position: int = Field(..., title='Position')
     state: VisualsState
-
-
-class State1(StrEnum):
-    absent = 'absent'
-    generating = 'generating'
-    fresh = 'fresh'
-    stale = 'stale'
-    failed = 'failed'
 
 
 class WorkspaceDigestOut(BaseModel):
@@ -7448,21 +6442,6 @@ class WorkspaceDigestOut(BaseModel):
     workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
-class WorkspaceKind(StrEnum):
-    """
-    Legacy wire/storage vocabulary; every kind now behaves equally.
-
-    Existing rows keep their kind and member metadata for compatibility. New
-    named workspaces and the generic empty-team fallback use TEAM. PERSONAL
-    no longer controls provisioning, ordering or deletion; SHARED remains a
-    historical value accepted for existing installations.
-    """
-
-    personal = 'personal'
-    shared = 'shared'
-    team = 'team'
-
-
 class WorkspacePatch(BaseModel):
     """
     The one user-editable workspace field.
@@ -7473,20 +6452,6 @@ class WorkspacePatch(BaseModel):
     """
 
     name: str = Field(..., max_length=120, min_length=1, title='Name')
-
-
-class WriteMode(StrEnum):
-    """
-    Whether a workspace restricts who may edit what is filed in it.
-
-    An enum rather than a bool because the third state people reach for next is
-    "restricted, but admins too" -- and a bool named `locked` would have to be
-    re-typed everywhere to admit it. Also the project rule: never compare a
-    domain value against a hardcoded string.
-    """
-
-    open = 'open'
-    restricted = 'restricted'
 
 
 class WriteOut(BaseModel):
@@ -7525,12 +6490,6 @@ class Rank(RootModel[int]):
 
 class WorldSize(RootModel[int]):
     root: int = Field(..., ge=1, title='World Size')
-
-
-class Lease(StrEnum):
-    live = 'live'
-    released = 'released'
-    gone = 'gone'
 
 
 class WriterBeatOut(BaseModel):
@@ -7577,33 +6536,10 @@ class WriterOut(BaseModel):
     write_epoch: int = Field(..., title='Write Epoch')
 
 
-class ExitStatus(StrEnum):
-    completed = 'completed'
-    failed = 'failed'
-    canceled = 'canceled'
-    crashed = 'crashed'
-
-
 class WriterReleaseOut(BaseModel):
     closed: bool = Field(..., title='Closed')
     liveness_protocol: str | None = Field(None, title='Liveness Protocol')
     run_status: str = Field(..., title='Run Status')
-
-
-class WriterRole(StrEnum):
-    """
-    What a lease's process is to the run (SDK reliability 2.8).
-    """
-
-    launcher = 'launcher'
-    rank = 'rank'
-    owner = 'owner'
-    observer = 'observer'
-
-
-class AppCatalogProvenanceDirection(StrEnum):
-    upstream = 'upstream'
-    downstream = 'downstream'
 
 
 class AppIntegrationsGithubControlSchemasBackfillRetry(BaseModel):
@@ -7646,34 +6582,9 @@ class AppIntegrationsOperationsBackfillRetry(BaseModel):
     idempotency_key: UUID = Field(..., title='Idempotency Key')
 
 
-class AppOverviewsVisualsScopeKind(StrEnum):
-    project = 'project'
-    experiment = 'experiment'
-    run = 'run'
-
-
 class AppOverviewsVisualsScopeOut(BaseModel):
     id: UUID = Field(..., title='Id')
     kind: AppOverviewsVisualsScopeKind
-
-
-class AppPapersCitationStoreDirection(StrEnum):
-    reference = 'reference'
-    citer = 'citer'
-
-
-class AppProjectsTwinScopeKind(StrEnum):
-    """
-    What a scope id names: a project, an experiment, or a run.
-
-    The values are `AnchorLevel`'s (`app.artifacts.schemas`), so a file anchor
-    converts with `ScopeKind(level)`, and the T16 workspace read model's
-    `scope=project:P|experiment:E|run:R` prefixes.
-    """
-
-    project = 'project'
-    experiment = 'experiment'
-    run = 'run'
 
 
 class ArtifactDetailOut(BaseModel):
@@ -7811,6 +6722,52 @@ class BackfillStart(BaseModel):
     scope: list[ScopeItem] = Field(..., max_length=500, min_length=1, title='Scope')
 
 
+class BestPickEventOut(BaseModel):
+    """
+    One pick event as the caller may see it.
+    """
+
+    at: AwareDatetime = Field(..., title='At')
+    by: str = Field(
+        ...,
+        description='Who made it (`user:<uuid>`); an agent reads as its person.',
+        title='By',
+    )
+    event: PickEvent
+    experiment: PickedExperimentOut | None = Field(
+        ..., description='The picked experiment; null on a clear and when `gone`.'
+    )
+    gone: bool = Field(
+        ...,
+        description='The picked experiment is in the trash, was deleted, or (current pick only) has left the scope. Never replaced by an older pick.',
+        title='Gone',
+    )
+    id: int = Field(
+        ...,
+        description="The event's order: the scope's current pick is its latest.",
+        title='Id',
+    )
+    reason: str | None = Field(..., title='Reason')
+    source: FieldSource = Field(
+        ..., description='`human` (a dashboard login) or `agent` (any token).'
+    )
+
+
+class BundleSlot(BaseModel):
+    expires_at: AwareDatetime = Field(..., title='Expires At')
+    id: UUID = Field(..., title='Id')
+    upload: UploadSlot
+
+
+class CanvasBranchEffortOut(BaseModel):
+    agent_h: CanvasWindowHoursOut
+    busy_h: CanvasWindowHoursOut
+    members: list[UUID] = Field(..., title='Members')
+    name: str = Field(..., title='Name')
+    root: UUID = Field(..., title='Root')
+    span: dict[EffortWindow, Span | None] = Field(..., title='Span')
+
+
 class CanvasEdge(BaseModel):
     backfill: str | None = Field(None, title='Backfill')
     by: str | None = Field(None, title='By')
@@ -7847,11 +6804,21 @@ class CanvasExperiment(BaseModel):
     updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
+class CanvasExperimentEffortOut(BaseModel):
+    agent_h: CanvasWindowHoursOut
+    run_h: CanvasWindowHoursOut
+
+
 class CanvasExperimentRunsOut(BaseModel):
     experiment_id: UUID = Field(..., title='Experiment Id')
     next_cursor: str | None = Field(None, title='Next Cursor')
     runs: list[CanvasRun] = Field(..., title='Runs')
     runs_truncated: bool = Field(..., title='Runs Truncated')
+
+
+class CanvasMetricOut(BaseModel):
+    goal: MetricGoal
+    key: str = Field(..., title='Key')
 
 
 class CanvasPaper(BaseModel):
@@ -7982,6 +6949,12 @@ class ClaimCompleteIn(BaseModel):
     user_code: UserCode | None = Field(None, title='User Code')
 
 
+class ClientInfo(BaseModel):
+    cli: Cli | None = Field(None, title='Cli')
+    harness: Harness | None = Field(None, title='Harness')
+    mode: ClientMode | None = 'daemon'
+
+
 class ClientStatusOut(BaseModel):
     """
     Server-side update-banner decision for the authenticated user.
@@ -8004,7 +6977,7 @@ class ClientVersionOut(BaseModel):
 class CodeSourceCreate(BaseModel):
     add_readme_embed: bool | None = Field(False, title='Add Readme Embed')
     path_prefix: str | None = Field('', title='Path Prefix')
-    reason: Reason | None = Field(None, title='Reason')
+    reason: Reason1 | None = Field(None, title='Reason')
     ref: Ref | None = Field(None, title='Ref')
     repo: str = Field(..., title='Repo')
     start_at: AwareDatetime | None = Field(None, title='Start At')
@@ -8306,7 +7279,7 @@ class DownloadBatchResponse(BaseModel):
 class EdgeCreate(BaseModel):
     meta: dict[str, Any] | None = Field(None, title='Meta')
     provenance: PaperProvenance | None = None
-    reason: Reason | None = Field(None, title='Reason')
+    reason: Reason1 | None = Field(None, title='Reason')
     relation: LineageRelation
     source_id: UUID = Field(..., title='Source Id')
     source_type: LineageEntityType
@@ -8455,13 +7428,13 @@ class ExperimentForkOut(BaseModel):
         title='Name',
     )
     notes_limit_chars: int | None = Field(
-        150000,
+        None,
         description="The notes' character backstop; the cap is `notes_limit_tokens`.",
         title='Notes Limit Chars',
     )
     notes_limit_tokens: int | None = Field(
-        30000,
-        description="The notes' size cap, in tokens: a write past it is refused.",
+        None,
+        description="The notes' size cap, in tokens: a write that changes the notes and leaves them past it is refused.",
         title='Notes Limit Tokens',
     )
     notes_remaining_chars: int | None = Field(
@@ -8784,6 +7757,115 @@ class HashWriteOut(BaseModel):
     writer: LineageRunRef
 
 
+class HeadlineMetricPut(BaseModel):
+    """
+    Declare the headline metric on a project (its experiments and subprojects
+    inherit it) or on one experiment (an override).
+    """
+
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    goal: MetricGoal = Field(
+        ..., description='Which way is better: `max` or `min`. Never inferred.'
+    )
+    key: str = Field(
+        ...,
+        description='The metric key as runs log it (`test/acc`); a summary or series key.',
+        max_length=256,
+        min_length=1,
+        title='Key',
+    )
+    reduce: MetricReduce | None = Field(
+        'final',
+        description="Which of a run's values counts: `final` (its summary value, else the series' last) or `best` (the series' extreme along `goal`; `final` for a summary-only key).",
+    )
+
+
+class HintRecord(BaseModel):
+    date: str | None = Field(
+        None, description='MM-DD the record was written (UTC).', title='Date'
+    )
+    doc_id: str = Field(..., title='Doc Id')
+    identity: str = Field(..., title='Identity')
+    kind: RecordKind
+    ml_record: bool = Field(..., title='Ml Record')
+    name: str | None = Field(
+        None,
+        description='The name that found it (`via: name`), normalized.',
+        title='Name',
+    )
+    score: float = Field(
+        ...,
+        description="The record's cosine similarity to its lookup (vector channel).",
+        title='Score',
+    )
+    snippet: str = Field(..., title='Snippet')
+    title: str | None = Field(None, title='Title')
+    via: Via
+    who: str = Field(..., title='Who')
+
+
+class HintsIn(BaseModel):
+    client: ClientInfo | None = None
+    exclude_doc_ids: list[ExcludeDocId] | None = Field(
+        None,
+        description='Records already delivered to this session: never shown again (a fresh one fills the slot).',
+        max_length=200,
+        title='Exclude Doc Ids',
+    )
+    exclude_session_ids: list[ExcludeSessionId] | None = Field(
+        None,
+        description="More sessions whose documents are never shown (a peer message's sender).",
+        max_length=16,
+        title='Exclude Session Ids',
+    )
+    ml: MlState | None = None
+    segments: list[Segment] | None = Field(
+        None,
+        description="`window` only: the agent's messages of the window, newest first, each looked up on its own. Ignored for every other trigger.",
+        max_length=128,
+        title='Segments',
+    )
+    session_id: SessionId | None = Field(
+        None,
+        description="The coding agent's session id: its own documents are never shown.",
+        title='Session Id',
+    )
+    text: str = Field(
+        ...,
+        description='The message, search query or command line (the client sends at most 8,000 characters).',
+        max_length=32000,
+        min_length=1,
+        title='Text',
+    )
+    trigger: Trigger
+
+
+class HintsOut(BaseModel):
+    baseline_n: int | None = Field(0, title='Baseline N')
+    fire: bool = Field(..., title='Fire')
+    hint: str | None = Field(
+        None, description='Present only when the lookup fired.', title='Hint'
+    )
+    mode: Literal['on'] = Field(
+        'on',
+        description='Always `on`: hints have no switch. CLI 0.297.0 delivers a hint only when it reads `on`.',
+        title='Mode',
+    )
+    reason: HintReason
+    records: list[HintRecord] | None = Field(None, title='Records')
+    segments_failed: int | None = Field(
+        None,
+        description="`window` only: how many of its messages' lookups failed (more than half failing is engine_error).",
+        title='Segments Failed',
+    )
+    timing_ms: dict[str, float] | None = Field(None, title='Timing Ms')
+    top_score: float | None = Field(None, title='Top Score')
+    trigger_class: TriggerClass
+    z: float | None = Field(None, title='Z')
+
+
 class ImportLaunch(BaseModel):
     batch_id: UUID = Field(..., title='Batch Id')
     selections: list[ImportSelection] = Field(
@@ -8932,12 +8014,43 @@ class LatestScalarsWithSettings(BaseModel):
     scalars: list[LatestScalarOut] = Field(..., title='Scalars')
 
 
+class LeaderOut(BaseModel):
+    best: ValueOut | None
+    branch: UUID = Field(
+        ..., description="The branch's first experiment.", title='Branch'
+    )
+    incomplete: bool | None = Field(
+        False,
+        description='The scope was cut at its bounds: a better branch may exist outside it.',
+        title='Incomplete',
+    )
+    name: str = Field(..., title='Name')
+
+
+class LinkRefOut(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    relation: str = Field(..., title='Relation')
+    type: RefType
+
+
+class MetricAnchorOut(BaseModel):
+    id: UUID = Field(..., title='Id')
+    type: AppMetricsVocabularyAnchorType
+
+
 class MetricBatch(BaseModel):
     origin: Origin | None = Field('logged', title='Origin')
     points: list[MetricPointIn] = Field(..., max_length=50000, title='Points')
     provenance: DerivedProvenance | None = None
     session_id: UUID | None = Field(None, title='Session Id')
     write_epoch: WriteEpoch | None = Field(None, title='Write Epoch')
+
+
+class MetricOut(BaseModel):
+    goal: MetricGoal
+    key: str = Field(..., title='Key')
+    reduce: MetricReduce
 
 
 class MetricViewData(BaseModel):
@@ -9150,7 +8263,7 @@ class PaperLineageIn(BaseModel):
     """
 
     provenance: PaperProvenance | None = None
-    reason: Reason | None = Field(None, title='Reason')
+    reason: Reason1 | None = Field(None, title='Reason')
     via: UUID | None = Field(None, title='Via')
 
 
@@ -9159,6 +8272,20 @@ class PaperSearchResponse(BaseModel):
     passages: list[PaperPassage] | None = Field(None, title='Passages')
     results: list[Paper] | None = Field(None, title='Results')
     state: WebState
+
+
+class PickOut(BaseModel):
+    at: AwareDatetime = Field(..., title='At')
+    by: str = Field(..., title='By')
+    experiment: PickedOut | None = Field(..., description='Null when `gone`.')
+    gone: bool = Field(..., title='Gone')
+    reason: str | None = Field(..., title='Reason')
+    source: str = Field(..., title='Source')
+
+
+class PickScopeOut(BaseModel):
+    id: UUID = Field(..., title='Id')
+    type: AppMetricsVocabularyScopeType
 
 
 class ProjectCreate(BaseModel):
@@ -9173,134 +8300,6 @@ class ProjectCreate(BaseModel):
     summary_markdown: str | None = Field(None, title='Summary Markdown')
     tags: list[str] | None = Field(None, title='Tags')
     workspace_id: UUID | None = Field(None, title='Workspace Id')
-
-
-class ProjectExperimentDetailOut(BaseModel):
-    """
-    One experiment, with its notes and the status of its overview page.
-    """
-
-    conclusion: str | None = Field(
-        None,
-        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or the overview lane; see `conclusion_source`.",
-        title='Conclusion',
-    )
-    conclusion_by: str | None = Field(
-        None,
-        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for the overview lane's and for conclusions written before writers were recorded.",
-        title='Conclusion By',
-    )
-    conclusion_source: FieldSource | None = Field(
-        None,
-        description="Who wrote `conclusion`: `human`, `agent` or `lane` (the overview page's AI summary); null when undeclared or unset. A person's is never replaced by an agent or the lane; an agent's is never replaced by the lane.",
-    )
-    created_at: AwareDatetime = Field(..., title='Created At')
-    created_by: str | None = Field(
-        None,
-        description="Server-stamped creator: 'user:<uuid>' or 'ingest:<token-uuid>'; null when unknown.",
-        title='Created By',
-    )
-    document: str | None = Field(
-        None,
-        description="The overview page's authored Markdown block (what `PATCH` with `document` writes, and a person edits on the page). Null when the page holds none.",
-        title='Document',
-    )
-    fork_count: int | None = Field(
-        0, description='How many forks were made from this one.', title='Fork Count'
-    )
-    forked_from: ExperimentForkSourceOut | None = Field(
-        None,
-        description="The experiment this one was forked from (`POST .../fork`), or null. Its runs' files are listed by `GET .../inherited`.",
-    )
-    id: UUID = Field(..., title='Id')
-    inherits: bool | None = Field(
-        False,
-        description='Whether this experiment is a fork that reads runs and files live from a source (`GET .../inherited`). True also when `forked_from` is null because its source is a fork in the trash that it still reads through to a live source.',
-        title='Inherits',
-    )
-    legacy_slug: str | None = Field(
-        None,
-        description='The slug this experiment had before it was renamed around a project holding the same one. Refs and ingest pushes that use it still resolve.',
-        title='Legacy Slug',
-    )
-    name: str = Field(
-        ...,
-        description='Display name. An unnamed experiment reads as its slug.',
-        title='Name',
-    )
-    notes: str | None = Field(
-        None, description='Free-text Markdown notes on the experiment.', title='Notes'
-    )
-    notes_limit_chars: int | None = Field(
-        150000,
-        description="The notes' character backstop; the cap is `notes_limit_tokens`.",
-        title='Notes Limit Chars',
-    )
-    notes_limit_tokens: int | None = Field(
-        30000,
-        description="The notes' size cap, in tokens: a write past it is refused.",
-        title='Notes Limit Tokens',
-    )
-    notes_remaining_chars: int | None = Field(
-        None,
-        description='Room left in the notes before the `notes_limit_chars` backstop refuses the next write. The cap that refuses first is in tokens (`notes_remaining_tokens`).',
-        title='Notes Remaining Chars',
-    )
-    notes_remaining_tokens: int | None = Field(
-        None,
-        description='Tokens left before `notes_limit_tokens`; null when `notes_tokens` is.',
-        title='Notes Remaining Tokens',
-    )
-    notes_tokens: int | None = Field(
-        None,
-        description='How full the notes are, in o200k_base tokens, against `notes_limit_tokens`; 0 for empty notes; null when the count is unknown (a list never counts).',
-        title='Notes Tokens',
-    )
-    notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
-    notes_version: int | None = Field(
-        0,
-        description="The notes' write counter; a notes edit names it to refuse a stale overwrite.",
-        title='Notes Version',
-    )
-    parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
-        None,
-        description="The experiment page's saved parallel-coordinates panel (what `PATCH` with `parallel_coordinates_panel_v1` writes); null when none was saved.",
-        title='Parallel Coordinates Panel V1',
-    )
-    project_id: UUID = Field(
-        ...,
-        description='The project this experiment is filed under. Never the experiment itself.',
-        title='Project Id',
-    )
-    question: str = Field(
-        ...,
-        description='The question the experiment answers. Never blank.',
-        title='Question',
-    )
-    run_count: int = Field(
-        ...,
-        description='How many runs the caller can see in this experiment (trashed runs excluded).',
-        title='Run Count',
-    )
-    slug: str = Field(
-        ...,
-        description='Unique in the tenant, in one namespace shared with project slugs.',
-        title='Slug',
-    )
-    summary: ProjectWorkspaceSummaryOut | None = Field(
-        None,
-        description="The experiment's overview page status (its generation job, why it failed or skipped, its queue position). Null for a service token, which the page's own status route stays closed to.",
-    )
-    tags: list[str] | None = Field(
-        None,
-        description="The experiment's stored tags, in their original order.",
-        title='Tags',
-    )
-    updated_at: AwareDatetime = Field(
-        ...,
-        description="Last substantive activity (a run edit, telemetry, a file, an edit to the experiment). Sort by this for 'recently active'.",
-        title='Updated At',
-    )
 
 
 class ProjectExperimentListOut(BaseModel):
@@ -9563,6 +8562,32 @@ class ReleasesPage(BaseModel):
     state: TimelineState
 
 
+class ResolvedMetricOut(BaseModel):
+    """
+    The metric an anchor resolves to, and where it was declared.
+    """
+
+    declared_on: MetricAnchorOut = Field(
+        ...,
+        description='The project or experiment carrying the declaration (this one, or an ancestor).',
+    )
+    goal: MetricGoal
+    inherited: bool = Field(
+        ...,
+        description='Declared on an ancestor, not on this anchor itself.',
+        title='Inherited',
+    )
+    key: str = Field(..., title='Key')
+    reduce: MetricReduce
+    set_at: AwareDatetime = Field(..., title='Set At')
+    set_by: str = Field(
+        ..., description='Who declared it (`user:<uuid>`).', title='Set By'
+    )
+    source: FieldSource = Field(
+        ..., description='`human` (a dashboard login) or `agent` (any token).'
+    )
+
+
 class RunCodeOut(BaseModel):
     """
     What a run page's code panel renders instead of a dead `git:` URI.
@@ -9621,8 +8646,8 @@ class RunDetailOut(BaseModel):
     name: str = Field(..., title='Name')
     name_customized: bool | None = Field(False, title='Name Customized')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(10000, title='Notes Limit Chars')
-    notes_limit_tokens: int | None = Field(2000, title='Notes Limit Tokens')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
     notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
     notes_tokens: int | None = Field(None, title='Notes Tokens')
@@ -9707,8 +8732,8 @@ class RunLineageNodeOut(BaseModel):
     name: str = Field(..., title='Name')
     name_customized: bool | None = Field(False, title='Name Customized')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(10000, title='Notes Limit Chars')
-    notes_limit_tokens: int | None = Field(2000, title='Notes Limit Tokens')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
     notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
     notes_tokens: int | None = Field(None, title='Notes Tokens')
@@ -9797,8 +8822,8 @@ class RunPageDetailOut(BaseModel):
     name: str = Field(..., title='Name')
     name_customized: bool | None = Field(False, title='Name Customized')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(10000, title='Notes Limit Chars')
-    notes_limit_tokens: int | None = Field(2000, title='Notes Limit Tokens')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
     notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
     notes_tokens: int | None = Field(None, title='Notes Tokens')
@@ -9847,8 +8872,8 @@ class RunPatch(BaseModel):
         None, title='Metric Expectations'
     )
     name: Name10 | None = Field(None, title='Name')
-    notes: Notes2 | None = Field(None, title='Notes')
-    notes_append: NotesAppend1 | None = Field(None, title='Notes Append')
+    notes: Notes1 | None = Field(None, title='Notes')
+    notes_append: NotesAppend | None = Field(None, title='Notes Append')
     notes_edit: NotesEdit | None = None
     op_key: OpKey | None = Field(None, title='Op Key')
     parent_relation: ParentRelation | None = None
@@ -10037,6 +9062,19 @@ class SeriesQueryResult(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
+class SessionMessageForDaemonOut(BaseModel):
+    acked_at: AwareDatetime | None = Field(None, title='Acked At')
+    body: str = Field(..., title='Body')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    id: UUID = Field(..., title='Id')
+    sender: SessionMessageSenderOut
+
+
+class SessionMessagesOut(BaseModel):
+    messages: list[SessionMessageForDaemonOut] = Field(..., title='Messages')
+    revoked: list[UUID] | None = Field([], title='Revoked')
+
+
 class SourceIn(BaseModel):
     """
     `POST /v1/sources`.
@@ -10062,6 +9100,32 @@ class SpanBatch(BaseModel):
     session_id: UUID | None = Field(None, title='Session Id')
     spans: list[SpanCreate] = Field(..., max_length=10000, title='Spans')
     write_epoch: WriteEpoch | None = Field(None, title='Write Epoch')
+
+
+class StandingOut(BaseModel):
+    """
+    A branch's place in one metric group.
+    """
+
+    best: ValueOut | None
+    branch: UUID = Field(
+        ..., description="The branch's first experiment.", title='Branch'
+    )
+    name: str = Field(..., title='Name')
+
+
+class SummaryStatusOut(BaseModel):
+    anchor_id: UUID = Field(..., title='Anchor Id')
+    anchor_type: AppSummariesSchemasAnchorType
+    attempts: int = Field(..., title='Attempts')
+    detail: SummaryDetail | None = None
+    eta_seconds: int | None = Field(None, title='Eta Seconds')
+    has_summary: bool = Field(..., title='Has Summary')
+    last_error: str | None = Field(None, title='Last Error')
+    last_error_at: AwareDatetime | None = Field(None, title='Last Error At')
+    queued: bool | None = Field(False, title='Queued')
+    state: SummaryState
+    updated_at: AwareDatetime | None = Field(None, title='Updated At')
 
 
 class SyncOut(BaseModel):
@@ -10136,31 +9200,6 @@ class WebSearchResponse(BaseModel):
     query: str = Field(..., title='Query')
     results: list[WebResult] | None = Field(None, title='Results')
     state: WebState
-
-
-class WorkspaceCanvasOut(BaseModel):
-    edges: list[CanvasEdge] = Field(..., title='Edges')
-    experiments: list[CanvasExperiment] = Field(..., title='Experiments')
-    experiments_truncated: bool = Field(..., title='Experiments Truncated')
-    generated_at: AwareDatetime = Field(..., title='Generated At')
-    groups: list[CanvasGroup] | None = Field([], title='Groups', validate_default=True)
-    paper_edges: list[CanvasPaperEdge] | None = Field(
-        [], title='Paper Edges', validate_default=True
-    )
-    paper_edges_truncated: bool | None = Field(False, title='Paper Edges Truncated')
-    papers: list[CanvasPaper] | None = Field([], title='Papers', validate_default=True)
-    papers_truncated: bool | None = Field(False, title='Papers Truncated')
-    projects: list[CanvasProject] = Field(..., title='Projects')
-    projects_truncated: bool = Field(..., title='Projects Truncated')
-    references: list[CanvasReference] = Field(..., title='References')
-    run_links: list[CanvasRunLink] | None = Field(
-        [], title='Run Links', validate_default=True
-    )
-    run_links_truncated: bool | None = Field(False, title='Run Links Truncated')
-    semantic_map: bool | None = Field(False, title='Semantic Map')
-    session_order: list[CanvasSessionStep] = Field(..., title='Session Order')
-    totals: CanvasTotals
-    workspace: CanvasWorkspace
 
 
 class WorkspaceOut(BaseModel):
@@ -10291,6 +9330,12 @@ class WriterRelease(BaseModel):
     writer: WriterLeaseFields | None = None
 
 
+class AppBranchesSchemasScopeOut(BaseModel):
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    type: AppBranchesScopeScopeType
+
+
 class AppExperimentsReadSchemasScopeOut(BaseModel):
     """
     Where an id lives: what it is, and the project (and experiment) it is filed under.
@@ -10342,6 +9387,106 @@ class BackfillHistoryOut(BaseModel):
     next_cursor: str | None = Field(None, title='Next Cursor')
 
 
+class BestPickOut(BaseModel):
+    """
+    A scope's current pick, and on a read its history.
+    """
+
+    history: list[BestPickEventOut] | None = Field(
+        None,
+        description='Events newest first (at most 50 read; `GET` only). Events naming an experiment the caller cannot read are left out.',
+        title='History',
+    )
+    pick: BestPickEventOut | None = Field(
+        ...,
+        description='The current pick: null with no pick, after a clear, or when the caller cannot read the picked experiment.',
+    )
+    scope: PickScopeOut
+
+
+class BranchExperimentOut(BaseModel):
+    conclusion: str | None = Field(..., title='Conclusion')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    effort: ExperimentEffortOut
+    id: UUID = Field(..., title='Id')
+    metric: MetricOut | None = Field(..., description='Its resolved metric.')
+    name: str = Field(..., title='Name')
+    parent: UUID | None = Field(
+        ..., description='Its tree parent, when the caller can see it.', title='Parent'
+    )
+    project_id: UUID = Field(..., title='Project Id')
+    relation: str | None = Field(..., title='Relation')
+    slug: str = Field(..., title='Slug')
+    superseded: bool = Field(..., title='Superseded')
+    value: ValueOut | None = Field(
+        ..., description='Its best run under its resolved metric.'
+    )
+
+
+class BranchOut(BaseModel):
+    behind_leader: GapOut | None
+    best: ValueOut | None
+    built_on: list[LinkRefOut] = Field(..., title='Built On')
+    built_on_total: int = Field(..., title='Built On Total')
+    busy: list[BusyItem] = Field(
+        ..., description='Merged busy intervals, newest 20.', title='Busy'
+    )
+    busy_total: int = Field(..., title='Busy Total')
+    climb: list[ClimbPointOut] = Field(
+        ...,
+        description='Where its best improved, at run ends (newest 20).',
+        title='Climb',
+    )
+    cycle: bool = Field(
+        ...,
+        description='Its first experiment opens a cycle of continuation links.',
+        title='Cycle',
+    )
+    effort: EffortOut
+    experiments: list[BranchExperimentOut] = Field(
+        ..., description='Oldest first, at most 50.', title='Experiments'
+    )
+    experiments_total: int = Field(..., title='Experiments Total')
+    gain: GainOut | None
+    last_active_at: AwareDatetime | None = Field(..., title='Last Active At')
+    metric: MetricOut | None = Field(
+        ..., description="Its first experiment's resolved metric."
+    )
+    name: str = Field(..., title='Name')
+    of: int | None = Field(
+        ..., description='Branches ranked in that group.', title='Of'
+    )
+    overlaps: list[OverlapOut] = Field(
+        ...,
+        description='Branches busy at the same time, most hours first (5).',
+        title='Overlaps',
+    )
+    parent_branch: UUID | None = Field(..., title='Parent Branch')
+    project_id: UUID = Field(..., title='Project Id')
+    rank: int | None = Field(
+        ..., description='Its place in its metric group, 1 = leader.', title='Rank'
+    )
+    root: UUID = Field(
+        ..., description="The branch's first experiment: its identity.", title='Root'
+    )
+    sessions: list[SessionOut] = Field(
+        ..., description='Most agent-hours first, at most 10.', title='Sessions'
+    )
+    sessions_by: list[SessionsByOut] = Field(
+        ..., description='Every session, by harness and person.', title='Sessions By'
+    )
+    sessions_total: int = Field(..., title='Sessions Total')
+    split_at: AwareDatetime | None = Field(..., title='Split At')
+    split_from: UUID | None = Field(
+        ...,
+        description='The experiment whose sibling fork split it off.',
+        title='Split From',
+    )
+    state: BranchState
+    used_by: list[LinkRefOut] = Field(..., title='Used By')
+    used_by_total: int = Field(..., title='Used By Total')
+
+
 class BrowseResponse(BaseModel):
     continuation_handles: list[BrowseContinuationStream] | None = Field(
         None, title='Continuation Handles'
@@ -10359,6 +9504,41 @@ class BrowseResponse(BaseModel):
     subprojects: list[ProjectNode] | None = Field(None, title='Subprojects')
     team_note: TeamNoteExcerpt | None = None
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class CanvasBestOut(BaseModel):
+    """
+    One project tree's pick, leader and best path.
+    """
+
+    leader_id: UUID | None = Field(..., title='Leader Id')
+    leader_value: float | None = Field(..., title='Leader Value')
+    metric: CanvasMetricOut | None
+    path: list[UUID] = Field(
+        ...,
+        description="Experiment ids, the tree's first experiment first, ending at the pick (else the leader).",
+        title='Path',
+    )
+    pick_gone: bool | None = Field(
+        False,
+        description="The pick's experiment left the tree or was trashed: never a silent fallback.",
+        title='Pick Gone',
+    )
+    pick_id: UUID | None = Field(..., title='Pick Id')
+    pick_value: float | None = Field(..., title='Pick Value')
+    project_id: UUID = Field(
+        ..., description="The tree's root project.", title='Project Id'
+    )
+
+
+class CanvasEffortOut(BaseModel):
+    branches: list[CanvasBranchEffortOut] = Field(..., title='Branches')
+    experiments: dict[str, CanvasExperimentEffortOut] = Field(..., title='Experiments')
+    partial: bool = Field(
+        ...,
+        description='The server ran out of time: experiments missing from `experiments` are unknown.',
+        title='Partial',
+    )
 
 
 class ChatChoiceOut(BaseModel):
@@ -10503,12 +9683,46 @@ class ExperimentSharingOut(BaseModel):
     publication: ExperimentShareOut | None = None
 
 
+class GroupOut(BaseModel):
+    """
+    The branches measured on one metric, ranked. Never compared across groups.
+    """
+
+    gap: GapOut | None
+    leader: LeaderOut | None
+    leader_changes: list[LeaderChangeOut] = Field(
+        ...,
+        description="Every new best of the group at its run end, with the branch that reached it: takeovers and the leader's own improvements (the newest 20).",
+        title='Leader Changes',
+    )
+    metric: MetricOut
+    runner_up: StandingOut | None
+    standings: list[StandingOut] = Field(..., title='Standings')
+
+
 class HashLookupOut(BaseModel):
     content_hash: str = Field(..., title='Content Hash')
     readers: list[ArtifactReaderOut] = Field(..., title='Readers')
     truncated: bool | None = Field(False, title='Truncated')
     versions: list[HashVersionOut] = Field(..., title='Versions')
     writes: list[HashWriteOut] | None = Field(None, title='Writes')
+
+
+class HeadlineMetricOut(BaseModel):
+    """
+    An anchor's metric after a read or a write.
+    """
+
+    anchor: MetricAnchorOut
+    cleared_here: bool | None = Field(
+        False,
+        description='A person cleared the metric on this anchor while a parent declares one: inheritance stops here, and an agent may not refill it.',
+        title='Cleared Here',
+    )
+    metric: ResolvedMetricOut | None = Field(
+        ...,
+        description='What the anchor resolves to now; null when nothing is declared up its chain.',
+    )
 
 
 class LineageNodeOut(BaseModel):
@@ -10574,8 +9788,8 @@ class ProjectDetailOut(BaseModel):
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: str = Field(..., title='Name')
     notes: str | None = Field(None, title='Notes')
-    notes_limit_chars: int | None = Field(150000, title='Notes Limit Chars')
-    notes_limit_tokens: int | None = Field(30000, title='Notes Limit Tokens')
+    notes_limit_chars: int | None = Field(None, title='Notes Limit Chars')
+    notes_limit_tokens: int | None = Field(None, title='Notes Limit Tokens')
     notes_remaining_chars: int | None = Field(None, title='Notes Remaining Chars')
     notes_remaining_tokens: int | None = Field(None, title='Notes Remaining Tokens')
     notes_tokens: int | None = Field(None, title='Notes Tokens')
@@ -10597,6 +9811,156 @@ class ProjectDetailOut(BaseModel):
     workspace_name: str | None = Field(None, title='Workspace Name')
     writable: bool | None = Field(None, title='Writable')
     write_setting: str | None = Field('inherit', title='Write Setting')
+
+
+class ProjectExperimentDetailOut(BaseModel):
+    """
+    One experiment, with its notes and the status of its overview page.
+    """
+
+    conclusion: str | None = Field(
+        None,
+        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or the overview lane; see `conclusion_source`.",
+        title='Conclusion',
+    )
+    conclusion_by: str | None = Field(
+        None,
+        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for the overview lane's and for conclusions written before writers were recorded.",
+        title='Conclusion By',
+    )
+    conclusion_source: FieldSource | None = Field(
+        None,
+        description="Who wrote `conclusion`: `human`, `agent` or `lane` (the overview page's AI summary); null when undeclared or unset. A person's is never replaced by an agent or the lane; an agent's is never replaced by the lane.",
+    )
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: str | None = Field(
+        None,
+        description="Server-stamped creator: 'user:<uuid>' or 'ingest:<token-uuid>'; null when unknown.",
+        title='Created By',
+    )
+    document: str | None = Field(
+        None,
+        description="The overview page's authored Markdown block (what `PATCH` with `document` writes, and a person edits on the page). Null when the page holds none.",
+        title='Document',
+    )
+    effort: CardEffortOut | None = Field(
+        None,
+        description='Its effort, all time: `busy_h` (run and agent time, parallel work once), `run_h` (run durations summed), `agent_h` (agent-session time attributed to it) and `cost_usd` (daemon dollars plus worker tokens at list price, split by time; null when unknown).',
+    )
+    fork_count: int | None = Field(
+        0, description='How many forks were made from this one.', title='Fork Count'
+    )
+    forked_from: ExperimentForkSourceOut | None = Field(
+        None,
+        description="The experiment this one was forked from (`POST .../fork`), or null. Its runs' files are listed by `GET .../inherited`.",
+    )
+    id: UUID = Field(..., title='Id')
+    inherits: bool | None = Field(
+        False,
+        description='Whether this experiment is a fork that reads runs and files live from a source (`GET .../inherited`). True also when `forked_from` is null because its source is a fork in the trash that it still reads through to a live source.',
+        title='Inherits',
+    )
+    is_pick: bool | None = Field(
+        False,
+        description='Whether a person or agent picked this experiment as the best of its project tree or of a workspace (`GET /v1/projects/{P}/best`).',
+        title='Is Pick',
+    )
+    leads: bool | None = Field(
+        False,
+        description="Whether it LEADS ITS BRANCH on its metric: the best value among its branch's experiments measured on the same metric, superseded ones aside (`GET /v1/projects/{P}/experiments/{E}/branch`).",
+        title='Leads',
+    )
+    legacy_slug: str | None = Field(
+        None,
+        description='The slug this experiment had before it was renamed around a project holding the same one. Refs and ingest pushes that use it still resolve.',
+        title='Legacy Slug',
+    )
+    metric: ResolvedMetricOut | None = Field(
+        None,
+        description="The headline metric this experiment is measured on: its own override, else its project's, else the nearest ancestor's (`declared_on` says which). Null when none is declared.",
+    )
+    name: str = Field(
+        ...,
+        description='Display name. An unnamed experiment reads as its slug.',
+        title='Name',
+    )
+    notes: str | None = Field(
+        None, description='Free-text Markdown notes on the experiment.', title='Notes'
+    )
+    notes_limit_chars: int | None = Field(
+        None,
+        description="The notes' character backstop; the cap is `notes_limit_tokens`.",
+        title='Notes Limit Chars',
+    )
+    notes_limit_tokens: int | None = Field(
+        None,
+        description="The notes' size cap, in tokens: a write that changes the notes and leaves them past it is refused.",
+        title='Notes Limit Tokens',
+    )
+    notes_remaining_chars: int | None = Field(
+        None,
+        description='Room left in the notes before the `notes_limit_chars` backstop refuses the next write. The cap that refuses first is in tokens (`notes_remaining_tokens`).',
+        title='Notes Remaining Chars',
+    )
+    notes_remaining_tokens: int | None = Field(
+        None,
+        description='Tokens left before `notes_limit_tokens`; null when `notes_tokens` is.',
+        title='Notes Remaining Tokens',
+    )
+    notes_tokens: int | None = Field(
+        None,
+        description='How full the notes are, in o200k_base tokens, against `notes_limit_tokens`; 0 for empty notes; null when the count is unknown (a list never counts).',
+        title='Notes Tokens',
+    )
+    notes_updated_at: AwareDatetime | None = Field(None, title='Notes Updated At')
+    notes_version: int | None = Field(
+        0,
+        description="The notes' write counter; a notes edit names it to refuse a stale overwrite.",
+        title='Notes Version',
+    )
+    parallel_coordinates_panel_v1: dict[str, Any] | None = Field(
+        None,
+        description="The experiment page's saved parallel-coordinates panel (what `PATCH` with `parallel_coordinates_panel_v1` writes); null when none was saved.",
+        title='Parallel Coordinates Panel V1',
+    )
+    project_id: UUID = Field(
+        ...,
+        description='The project this experiment is filed under. Never the experiment itself.',
+        title='Project Id',
+    )
+    question: str = Field(
+        ...,
+        description='The question the experiment answers. Never blank.',
+        title='Question',
+    )
+    run_count: int = Field(
+        ...,
+        description='How many runs the caller can see in this experiment (trashed runs excluded).',
+        title='Run Count',
+    )
+    slug: str = Field(
+        ...,
+        description='Unique in the tenant, in one namespace shared with project slugs.',
+        title='Slug',
+    )
+    summary: ProjectWorkspaceSummaryOut | None = Field(
+        None,
+        description="The experiment's overview page status (its generation job, why it failed or skipped, its queue position). Null for a service token, which the page's own status route stays closed to.",
+    )
+    tags: list[str] | None = Field(
+        None,
+        description="The experiment's stored tags, in their original order.",
+        title='Tags',
+    )
+    updated_at: AwareDatetime = Field(
+        ...,
+        description="Last substantive activity (a run edit, telemetry, a file, an edit to the experiment). Sort by this for 'recently active'.",
+        title='Updated At',
+    )
+    value: ExperimentValueOut | None = Field(
+        None,
+        description="The experiment's value under `metric`: its best run's, among the runs the caller can see inside the plan's window. Null with no metric or no value.",
+    )
 
 
 class ProjectLineageOut(BaseModel):
@@ -10778,7 +10142,7 @@ class RunCreate(BaseModel):
     liveness_protocol: LivenessProtocol | None = Field(None, title='Liveness Protocol')
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
     name: Name10 | None = Field(None, title='Name')
-    notes: Notes2 | None = Field(None, title='Notes')
+    notes: Notes1 | None = Field(None, title='Notes')
     offline: bool | None = Field(False, title='Offline')
     parent_provenance: ParentProvenance | None = None
     parent_relation: ParentRelation | None = None
@@ -10877,6 +10241,33 @@ class SemanticSection(BaseModel):
     trace_ids: list[str] | None = Field(None, title='Trace Ids')
 
 
+class WorkspaceCanvasOut(BaseModel):
+    best: list[CanvasBestOut] | None = Field([], title='Best', validate_default=True)
+    edges: list[CanvasEdge] = Field(..., title='Edges')
+    effort: CanvasEffortOut | None = None
+    experiments: list[CanvasExperiment] = Field(..., title='Experiments')
+    experiments_truncated: bool = Field(..., title='Experiments Truncated')
+    generated_at: AwareDatetime = Field(..., title='Generated At')
+    groups: list[CanvasGroup] | None = Field([], title='Groups', validate_default=True)
+    paper_edges: list[CanvasPaperEdge] | None = Field(
+        [], title='Paper Edges', validate_default=True
+    )
+    paper_edges_truncated: bool | None = Field(False, title='Paper Edges Truncated')
+    papers: list[CanvasPaper] | None = Field([], title='Papers', validate_default=True)
+    papers_truncated: bool | None = Field(False, title='Papers Truncated')
+    projects: list[CanvasProject] = Field(..., title='Projects')
+    projects_truncated: bool = Field(..., title='Projects Truncated')
+    references: list[CanvasReference] = Field(..., title='References')
+    run_links: list[CanvasRunLink] | None = Field(
+        [], title='Run Links', validate_default=True
+    )
+    run_links_truncated: bool | None = Field(False, title='Run Links Truncated')
+    semantic_map: bool | None = Field(False, title='Semantic Map')
+    session_order: list[CanvasSessionStep] = Field(..., title='Session Order')
+    totals: CanvasTotals
+    workspace: CanvasWorkspace
+
+
 class WorkspaceCreate(BaseModel):
     """
     Create an ordinary workspace using the existing TEAM storage kind.
@@ -10889,6 +10280,52 @@ class WorkspaceCreate(BaseModel):
     name: Name16 | None = Field(None, title='Name')
     slug: str = Field(..., max_length=120, min_length=1, title='Slug')
     writers: WorkspaceWriters | None = None
+
+
+class BranchesOut(BaseModel):
+    branches: list[BranchOut] = Field(..., title='Branches')
+    effort_truncated: EffortTruncatedOut | None = Field(
+        ..., description='Only the newest 500 sessions were counted.'
+    )
+    elsewhere_agent_h: float = Field(
+        ...,
+        description='Agent-hours the counted sessions spent anywhere else: unattributed, or on work outside this scope or hidden from you. Never named.',
+        title='Elsewhere Agent H',
+    )
+    focus: UUID | None = Field(
+        None,
+        description='The experiment route: the branch the experiment is in.',
+        title='Focus',
+    )
+    gap: GapOut | None
+    generated_at: AwareDatetime = Field(..., title='Generated At')
+    groups: list[GroupOut] = Field(..., title='Groups')
+    leader: LeaderOut | None = Field(
+        ...,
+        description="The leader on `metric` (a workspace: its only group's, if it has one).",
+    )
+    locked_runs: int = Field(
+        ...,
+        description="Runs behind the plan's retention lock: no value read.",
+        title='Locked Runs',
+    )
+    metric: ResolvedMetricOut | None = Field(
+        ...,
+        description="A project scope's resolved metric. A workspace has none of its own: this is null and `groups` carries each metric's ranking.",
+    )
+    pick: PickOut | None
+    runner_up: StandingOut | None
+    scope: AppBranchesSchemasScopeOut
+    truncated: bool = Field(
+        ...,
+        description='The scope was cut at 2,000 experiments or its link bound.',
+        title='Truncated',
+    )
+    values_withheld: bool = Field(
+        ...,
+        description='The plan could not be read, so no value is served (retry shortly).',
+        title='Values Withheld',
+    )
 
 
 class RunCodeCompareOut(BaseModel):

@@ -1,22 +1,26 @@
 import ast
 import multiprocessing as mp
 import os
+import sys
 import threading
 import time
 import weakref
 from abc import ABC, abstractmethod
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
-from dataclasses import dataclass, field
+from concurrent.futures import ProcessPoolExecutor
+from dataclasses import dataclass, field, replace
+from multiprocessing.connection import Connection, wait
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
+    Callable,
     Dict,
     List,
     Mapping,
     Optional,
     Set,
     Tuple,
+    Union,
     final,
 )
 
@@ -54,16 +58,23 @@ from robotcode.core.utils.path import (
 from ..__version__ import __version__
 from ..utils import RF_VERSION
 from ..utils.robot_path import find_file_ex
-from ..utils.variables import contains_variable
+from ..utils.stubs import Languages
+from ..utils.variables import contains_variable, environment_value_hash
 from .data_cache import CACHE_DIR_NAME, CacheSection, build_cache_dir
 from .data_cache import SqliteDataCache as DefaultDataCache
 from .entities import (
     CommandLineVariableDefinition,
+    Import,
+    LibraryImport,
+    ResourceImport,
     VariableDefinition,
+    VariablesImport,
 )
+from .errors import Error as DiagnosticError
 from .library_doc import (
     ROBOT_LIBRARY_PACKAGE,
     CompleteResult,
+    Error,
     LibraryDoc,
     ModuleSpec,
     ResourceDoc,
@@ -95,12 +106,49 @@ RESOURCE_EXTENSIONS = (
     if RF_VERSION >= (6, 1)
     else {".resource", ".robot", ".txt", ".tsv", ".rst", ".rest"}
 )
+if RF_VERSION >= (7, 5):
+    RESOURCE_EXTENSIONS |= {".md", ".markdown"}
 REST_EXTENSIONS = (".rst", ".rest")
 
 
 DEFAULT_LOAD_LIBRARY_TIMEOUT: int = 10
 ENV_LOAD_LIBRARY_TIMEOUT_VAR = "ROBOTCODE_LOAD_LIBRARY_TIMEOUT"
 COMPLETE_LIBRARY_IMPORT_TIMEOUT = COMPLETE_RESOURCE_IMPORT_TIMEOUT = COMPLETE_VARIABLES_IMPORT_TIMEOUT = 5
+# waiting on a pipe takes the timeout in milliseconds as a C int on POSIX
+MAX_LOAD_WAIT_SECONDS = 2_000_000
+
+
+class LoadTimeoutError(RuntimeError):
+    """Loading a library or variable file took longer than the load library timeout."""
+
+
+class LoadExitError(RuntimeError):
+    """The import of a library or variable file ended before it finished, e.g. through sys.exit()."""
+
+
+def _run_import_worker(connection: Connection, func: Callable[..., Any], func_args: Tuple[Any, ...]) -> None:
+    """Process target of `ImportsManager._run_in_subprocess`: sends `(ok, value)` back to the parent."""
+    try:
+        result: Tuple[bool, Any] = (True, func(*func_args))
+    except Exception as e:
+        # a SystemExit ends only the worker, the parent reports its exit code
+        result = (False, e)
+
+    connection.send(result)
+    connection.close()
+
+
+def _end_process(process: mp.process.BaseProcess) -> None:
+    if process.pid is None:
+        return
+
+    if process.is_alive():
+        process.terminate()
+        process.join(1)
+        if process.is_alive():
+            process.kill()
+
+    process.join()
 
 
 @dataclass(frozen=True, slots=True)
@@ -500,7 +548,7 @@ class _VariablesEntry(_ImportEntry):
             self.resolve_command_line_vars,
         )
 
-        if self._lib_doc is not None:
+        if self._lib_doc is not None and self._lib_doc.source:
             self.file_watchers.append(
                 self.parent.file_watcher_manager.add_file_watchers(
                     self.parent.did_change_watched_files,
@@ -562,6 +610,10 @@ class LibraryMetaData:
 
         raise ValueError("Cannot determine cache key.")
 
+    def cache_key_for_args(self, args: Tuple[Any, ...]) -> str:
+        # the documentation can depend on the import arguments, so each argument set gets its own entry
+        return f"{self.cache_key}\n{args!r}" if args else self.cache_key
+
     @property
     def trusted(self) -> bool:
         return self.file_infos is None or all(info.trusted for info in self.file_infos.values())
@@ -617,6 +669,8 @@ def _matches_any_pattern(
 class RobotFileMeta:
     source: str
     info: DiskInfo
+    # the language settings the file was parsed with; only the cached docs of files carry them
+    languages: Any = None
 
     @property
     def trusted(self) -> bool:
@@ -635,6 +689,26 @@ class RobotFileMeta:
         return cls(str(normalized_path(document.uri.to_path())), info)
 
 
+def _languages_fingerprint(languages: Optional[Languages]) -> Any:
+    """What the parsing of a Robot Framework file takes from the language settings, comparable and picklable."""
+    if languages is None:
+        return None
+    return (
+        tuple(sorted(languages.bdd_prefixes)),
+        tuple(sorted(languages.headers.items())),
+        tuple(sorted(languages.settings.items())),
+        tuple(sorted(languages.true_strings)),
+        tuple(sorted(languages.false_strings)),
+    )
+
+
+def _has_cache_key(meta: LibraryMetaData, cache_key: str) -> bool:
+    try:
+        return meta.cache_key == cache_key
+    except ValueError:
+        return False
+
+
 @dataclass(slots=True)
 class NamespaceMetaData:
     """Lightweight metadata for fast cache freshness checks.
@@ -648,10 +722,17 @@ class NamespaceMetaData:
     config_fingerprint: Any
     dependency_fingerprints: Dict[str, Any] = field(default_factory=dict)
     semantic_model_enabled: bool = False
+    # the environment variables the analysis read: whether each one checked without a default value was set, and the
+    # hash of each one whose value it used (see environment_value_hash)
+    environment_set: Dict[str, bool] = field(default_factory=dict)
+    environment_values: Dict[str, Optional[str]] = field(default_factory=dict)
 
 
 class ImportsManager:
     _logger = LoggingDescriptor()
+
+    # Seconds that changes of resource documents are gathered before their importers are analyzed again.
+    _resource_document_changed_timer_interval: float = 1
 
     def __init__(
         self,
@@ -724,24 +805,15 @@ class ImportsManager:
         if environment:
             self._environment.update(environment)
 
-        workspace_langs = self.document_cache_helper.get_languages_for_document(Uri.from_path(self.root_folder))
-        if workspace_langs is not None:
-            languages_fingerprint: Any = (
-                tuple(sorted(workspace_langs.bdd_prefixes)),
-                tuple(sorted(workspace_langs.headers.items())),
-                tuple(sorted(workspace_langs.settings.items())),
-                tuple(sorted(workspace_langs.true_strings)),
-                tuple(sorted(workspace_langs.false_strings)),
-            )
-        else:
-            languages_fingerprint = None
+        self._languages_fingerprint = _languages_fingerprint(
+            self.document_cache_helper.get_languages_for_document(Uri.from_path(self.root_folder))
+        )
 
         self._config_fingerprint: Any = (
             tuple(sorted(self.cmd_variables.items())),
             tuple(self.cmd_variable_files),
-            tuple(sorted((k, v) for k, v in self._environment.items() if k not in os.environ)),
             tuple(self.global_library_search_order),
-            languages_fingerprint,
+            self._languages_fingerprint,
         )
 
         self._library_files_cache = SimpleLRUCache(2048)
@@ -756,12 +828,14 @@ class ImportsManager:
             default_timeout=120, name="ImportsManager._resource_document_changed_timer_lock"
         )
         self._resource_document_changed_timer: Optional[threading.Timer] = None
-        self._resource_document_changed_timer_interval = 1
         self._resource_document_changed_documents: Set[TextDocument] = set()
 
         self._resource_libdoc_cache: "weakref.WeakKeyDictionary[ast.AST, Dict[str, ResourceDoc]]" = (
             weakref.WeakKeyDictionary()
         )
+        # the doc of each file with the disk state it was read at: while the file keeps that state, analyzing it
+        # again gets the same doc instead of a new copy from the disk cache
+        self._model_docs_by_source: Dict[str, Tuple[RobotFileMeta, ResourceDoc]] = {}
 
         self._diagnostics: List[Diagnostic] = []
 
@@ -824,8 +898,9 @@ class ImportsManager:
         """Cached configuration snapshot.
 
         Computed once at init from cmd_variables, cmd_variable_files,
-        environment, and global_library_search_order. Changes are
-        detected via direct ``==`` comparison.
+        global_library_search_order and the language settings. Changes are
+        detected via direct ``==`` comparison. Environment variables are
+        not part of it: each namespace keeps the ones its analysis read.
         """
         return self._config_fingerprint
 
@@ -852,8 +927,16 @@ class ImportsManager:
         or untrusted — such a namespace must not be persisted, because its
         fingerprints could describe newer file states than the analyzed
         content and would validate as fresh forever.
+
+        A namespace with failed imports is not persisted either: the validation
+        cannot tell that a missing file appeared since, or that a library that
+        failed to load would load now, and the cached diagnostics would keep
+        reporting the old error.
         """
         if not disk_info.trusted:
+            return None
+
+        if namespace.failed_imports:
             return None
 
         dependency_metas = namespace.dependency_metas
@@ -870,13 +953,15 @@ class ImportsManager:
             config_fingerprint=self.config_fingerprint,
             dependency_fingerprints=dict(dependency_metas),
             semantic_model_enabled=semantic_model_enabled,
+            environment_set=dict(namespace.environment_set),
+            environment_values=dict(namespace.environment_values),
         )
 
     def validate_namespace_meta(self, meta: NamespaceMetaData, source_disk_info: Optional[DiskInfo]) -> bool:
         """Check whether a cached NamespaceMetaData is fresh for the given content.
 
         Performs a 2-level validation:
-        Level 1 (fast): source_disk_info, config_fingerprint
+        Level 1 (fast): source_disk_info, config_fingerprint, the environment variables the analysis read
         Level 2 (dependency check): each dependency fingerprint
 
         Validation is against the *effective* content: the source is compared
@@ -911,15 +996,34 @@ class ImportsManager:
             )
             return False
 
+        # the analysis reads os.environ itself, so it does not matter where a variable was set
+        for env_name, was_set in meta.environment_set.items():
+            if (os.environ.get(env_name) is not None) != was_set:
+                name = env_name
+                self._logger.debug(
+                    lambda: f"Cache miss for {source}: environment variable {name!r} was set or unset",
+                    context_name="cache",
+                )
+                return False
+
+        for env_name, value_hash in meta.environment_values.items():
+            if environment_value_hash(os.environ.get(env_name)) != value_hash:
+                name = env_name
+                self._logger.debug(
+                    lambda: f"Cache miss for {source}: environment variable {name!r} changed",
+                    context_name="cache",
+                )
+                return False
+
         # Level 2: dependency checks — direct comparison, no hashing
-        base_dir = os.path.dirname(source)
         for key, saved_value in meta.dependency_fingerprints.items():
             if key.startswith("lib:"):
+                # the cache key of the library's meta: its file, or its module name
                 lib_name = key[4:]
                 try:
-                    lib_meta = self.get_cached_library_meta(lib_name, args=None)
+                    lib_meta = self.get_cached_library_meta(lib_name)
                     if lib_meta is None:
-                        lib_meta, _, _ = self.get_library_meta(lib_name, base_dir=base_dir)
+                        lib_meta, _, _ = self.get_library_meta(lib_name)
                     if lib_meta is None or lib_meta != saved_value:
                         self._logger.debug(
                             lambda: (
@@ -946,7 +1050,7 @@ class ImportsManager:
                     # must fail validation so dependents are rebuilt against
                     # the buffer instead of being served from cached disk
                     # state. Only unopened resources are probed on disk.
-                    res_document = self.documents_manager.get(Uri.from_path(res_source))
+                    res_document = self.documents_manager.get(Uri.from_path(res_source).normalized())
                     if res_document is not None:
                         res_meta = RobotFileMeta.from_document(res_document)
                     else:
@@ -970,11 +1074,12 @@ class ImportsManager:
                     )
                     return False
             elif key.startswith("var:"):
+                # the cache key of the variable file's meta: its file, or its module name
                 var_name = key[4:]
                 try:
-                    var_meta = self.get_cached_variables_meta(var_name, args=None)
+                    var_meta = self.get_cached_variables_meta(var_name)
                     if var_meta is None:
-                        var_meta, _ = self.get_variables_meta(var_name, base_dir=base_dir)
+                        var_meta, _ = self.get_variables_meta(var_name)
                     if var_meta is None or var_meta != saved_value:
                         self._logger.debug(
                             lambda: (
@@ -1022,8 +1127,18 @@ class ImportsManager:
         return self.get_libdoc_from_model(model, source, meta)
 
     def clear_cache(self) -> None:
+        self._model_docs_by_source.clear()
         count = self.data_cache.clear_all()
         self._logger.debug(lambda: f"Cleared {count} cache entries from {self.cache_path}")
+
+    def remove_cached_resource_docs(self, sources: List[str]) -> None:
+        """Remove the docs of deleted files from the analysis cache and from memory.
+
+        ``sources`` are normalized paths, as the entries of the cache name them.
+        """
+        for source in sources:
+            self._model_docs_by_source.pop(source, None)
+        self.data_cache.remove_entries(CacheSection.RESOURCE, sources)
 
     @_logger.call
     def get_command_line_variables(self) -> List[VariableDefinition]:
@@ -1213,6 +1328,23 @@ class ImportsManager:
 
         if resource_changed:
             self.resources_changed(self, resource_changed)
+
+    def changed_import_files(self) -> List[str]:
+        """The files of the loaded libraries and variable files that changed since they were loaded."""
+        with self._libaries_lock:
+            entries: List[Union[_LibrariesEntry, _VariablesEntry]] = list(self._libaries.values())
+        with self._variables_lock:
+            entries.extend(self._variables.values())
+
+        result: List[str] = []
+        for entry in entries:
+            meta = entry.meta
+            if meta is None or not meta.file_infos:
+                continue
+            for path, info in meta.file_infos.items():
+                if path not in result and probe_disk_info(path) != info:
+                    result.append(path)
+        return result
 
     @_logger.call
     def did_change_watched_files(self, sender: Any, changes: List[FileEvent]) -> None:
@@ -1464,46 +1596,28 @@ class ImportsManager:
 
         return None, name
 
-    def get_cached_library_meta(
-        self, import_name: str, args: Optional[Tuple[Any, ...]] = ()
-    ) -> Optional[LibraryMetaData]:
-        """Return already-computed LibraryMetaData from the internal cache, or None.
+    def get_cached_library_meta(self, cache_key: str) -> Optional[LibraryMetaData]:
+        """Return the meta of a loaded library whose meta has the cache key `cache_key`, or None.
 
-        Matches by import name and args to find the correct entry, since the
-        same library with different args may produce different keywords.
-        ``args=None`` matches by name only — the metadata describes the
-        library's module files and is the same regardless of the arguments.
+        The cache key names the library's file (or module), so a library with
+        the same import name from another folder is not found.
         """
         with self._libaries_lock:
-            for entry in self._libaries.values():
-                if entry.name != import_name:
-                    continue
-                if args is not None:
-                    if entry.args == args:
-                        return entry.meta
-                elif entry.meta is not None:
-                    return entry.meta
-        return None
+            return next(
+                (e.meta for e in self._libaries.values() if e.meta is not None and _has_cache_key(e.meta, cache_key)),
+                None,
+            )
 
-    def get_cached_variables_meta(
-        self, import_name: str, args: Optional[Tuple[Any, ...]] = ()
-    ) -> Optional[LibraryMetaData]:
-        """Return already-computed LibraryMetaData for a variables import, or None.
+    def get_cached_variables_meta(self, cache_key: str) -> Optional[LibraryMetaData]:
+        """Return the meta of a loaded variable file whose meta has the cache key `cache_key`, or None.
 
-        Matches by import name and args, since variable files can return
-        different content depending on the arguments. ``args=None`` matches by
-        name only (see ``get_cached_library_meta``).
+        See ``get_cached_library_meta``.
         """
         with self._variables_lock:
-            for entry in self._variables.values():
-                if entry.name != import_name:
-                    continue
-                if args is not None:
-                    if entry.args == args:
-                        return entry.meta
-                elif entry.meta is not None:
-                    return entry.meta
-        return None
+            return next(
+                (e.meta for e in self._variables.values() if e.meta is not None and _has_cache_key(e.meta, cache_key)),
+                None,
+            )
 
     def find_library(
         self,
@@ -1627,6 +1741,41 @@ class ImportsManager:
 
         return name
 
+    def find_import_source(
+        self, imp: Import, base_dir: str, variables: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
+        """The file an import refers to, or `None` when its file or module is not found. Nothing is loaded."""
+        if imp.name is None:
+            return None
+
+        try:
+            if isinstance(imp, ResourceImport):
+                return self.find_resource(imp.name, base_dir, variables=variables)
+
+            if isinstance(imp, LibraryImport):
+                name = self.find_library(imp.name, base_dir, variables)
+                by_path = is_library_by_path(name)
+            elif isinstance(imp, VariablesImport):
+                name = self.find_variables(imp.name, base_dir, variables)
+                by_path = is_variables_by_path(name)
+            else:
+                return None
+
+            # a file imported by path is looked up with its name, and the lookup fails when it is missing
+            if by_path:
+                return name
+
+            module_spec = self._get_module_spec_cached(name)
+            if module_spec is None:
+                return None
+            if module_spec.origin is not None:
+                return module_spec.origin
+            return module_spec.submodule_search_locations[0] if module_spec.submodule_search_locations else None
+        except (SystemExit, KeyboardInterrupt):
+            raise
+        except BaseException:
+            return None
+
     @property
     def executor(self) -> ProcessPoolExecutor:
         with self._executor_lock:
@@ -1642,26 +1791,61 @@ class ImportsManager:
         A fresh process per import is intentional: libraries and variable files
         can pollute the interpreter (e.g. via sys.modules, global state, native
         extensions) and cannot be safely re-imported after on-disk changes.
+
+        The process is ended when the load library timeout expires, so a library
+        that blocks cannot hold up the caller beyond the timeout.
         """
-        executor = ProcessPoolExecutor(max_workers=1, mp_context=mp.get_context("spawn"))
+        context = mp.get_context("spawn")
+        receiver, sender = context.Pipe(duplex=False)
+        process = context.Process(target=_run_import_worker, args=(sender, func, func_args))
         try:
             try:
-                return executor.submit(func, *func_args).result(self.load_library_timeout)
-            except TimeoutError as e:
-                raise RuntimeError(
+                process.start()
+            finally:
+                # the worker keeps the sending end (on Windows once it has unpickled its arguments)
+                sender.close()
+
+            # the sentinel also reports a worker that ends before it has taken over the sending end
+            if not wait([receiver, process.sentinel], min(self.load_library_timeout, MAX_LOAD_WAIT_SECONDS)):
+                raise LoadTimeoutError(
                     f"{timeout_msg} "
-                    f"timed out after {self.load_library_timeout} seconds. "
+                    f"timed out after {self.load_library_timeout} "
+                    f"{'second' if self.load_library_timeout == 1 else 'seconds'}. "
                     "The import may be slow or blocked. "
                     "If required, increase the timeout by setting the ROBOTCODE_LOAD_LIBRARY_TIMEOUT "
                     "environment variable."
+                )
+
+            try:
+                if not receiver.poll(0):
+                    # only the sentinel is ready: the worker ended before it took over the sending end
+                    raise EOFError
+                ok, value = receiver.recv()
+            except (EOFError, BrokenPipeError) as e:
+                process.join(1)
+                raise LoadExitError(
+                    f"{timeout_msg} failed: the import ended with exit code {process.exitcode} before it finished, "
+                    "for example through sys.exit() or a crash in the imported code."
                 ) from e
+
+            # give the worker the chance to end on its own, the finally block ends it otherwise
+            process.join(1)
+
+            if not ok:
+                raise value
+
+            return value
         except (SystemExit, KeyboardInterrupt):
+            raise
+        except (LoadTimeoutError, LoadExitError):
+            # the caller reports a timeout or an import that ended early as a diagnostic, so no traceback
             raise
         except BaseException as e:
             self._logger.exception(e)
             raise
         finally:
-            executor.shutdown(wait=True)
+            receiver.close()
+            _end_process(process)
 
     def _save_import_cache(
         self,
@@ -1672,7 +1856,7 @@ class ImportsManager:
         name: str,
         args: Tuple[Any, ...],
     ) -> None:
-        """Save an import result to the disk cache, or log skip if no meta."""
+        """Save an import result to the disk cache under its argument set, or log skip if no meta."""
         try:
             if meta is not None and not meta.trusted:
                 self._logger.debug(
@@ -1681,7 +1865,7 @@ class ImportsManager:
                 )
             elif meta is not None:
                 try:
-                    self.data_cache.save_entry(section, meta.cache_key, meta, result)
+                    self.data_cache.save_entry(section, meta.cache_key_for_args(args), meta, result)
                 except (SystemExit, KeyboardInterrupt):
                     raise
                 except BaseException as e:
@@ -1701,11 +1885,18 @@ class ImportsManager:
         base_dir: str,
         variables: Optional[Dict[str, Any]] = None,
     ) -> Tuple[LibraryDoc, Optional[LibraryMetaData]]:
-        meta, _source, ignore_arguments = self.get_library_meta(name, base_dir, variables)
+        meta, import_name, ignore_arguments = self.get_library_meta(name, base_dir, variables)
+        cache_args = (
+            ()
+            if ignore_arguments
+            else resolve_args(args, working_dir, base_dir, self.get_resolvable_command_line_variables(), variables)
+        )
 
         if meta is not None and not meta.has_errors:
             try:
-                entry = self.data_cache.read_entry(CacheSection.LIBRARY, meta.cache_key, LibraryMetaData, LibraryDoc)
+                entry = self.data_cache.read_entry(
+                    CacheSection.LIBRARY, meta.cache_key_for_args(cache_args), LibraryMetaData, LibraryDoc
+                )
                 if entry is not None and entry.meta is not None:
                     if entry.meta.has_errors:
                         self._logger.debug(
@@ -1722,23 +1913,47 @@ class ImportsManager:
 
         self._logger.debug(lambda: f"Load library in process {name}{args!r}", context_name="import")
 
-        result = self._run_in_subprocess(
-            get_library_doc,
-            (
-                name,
-                args if not ignore_arguments else (),
-                working_dir,
-                base_dir,
-                self.get_resolvable_command_line_variables(),
-                variables,
-            ),
-            f"Loading library {name!r} with args {args!r} (working_dir={working_dir!r}, base_dir={base_dir!r})",
-        )
+        try:
+            result = self._run_in_subprocess(
+                get_library_doc,
+                (
+                    name,
+                    args if not ignore_arguments else (),
+                    working_dir,
+                    base_dir,
+                    self.get_resolvable_command_line_variables(),
+                    variables,
+                ),
+                f"Loading library {name!r} with args {args!r}",
+            )
+        except (LoadTimeoutError, LoadExitError) as e:
+            # kept by the import entry until a file changes, but neither written to the disk cache
+            # nor usable as a namespace dependency
+            return (
+                LibraryDoc(
+                    name=name,
+                    source=(
+                        meta.origin if meta is not None else import_name if is_library_by_path(import_name) else None
+                    ),
+                    errors=[
+                        Error(
+                            message=str(e),
+                            type_name=(
+                                DiagnosticError.LIBRARY_TIMEOUT_ERROR
+                                if isinstance(e, LoadTimeoutError)
+                                else DiagnosticError.LIBRARY_EXIT_ERROR
+                            ),
+                        )
+                    ],
+                    python_path=list(sys.path),
+                ),
+                None,
+            )
 
         if meta is not None:
             meta.has_errors = bool(result.errors)
 
-        self._save_import_cache(CacheSection.LIBRARY, meta, result, "library", name, args)
+        self._save_import_cache(CacheSection.LIBRARY, meta, result, "library", name, cache_args)
 
         return result, meta
 
@@ -1779,7 +1994,7 @@ class ImportsManager:
 
                 if not entry.ignore_reference and sentinel is not None and sentinel not in entry.references:
                     fin = weakref.finalize(sentinel, self.__remove_library_entry, entry_key, entry)
-                    fin.atexit = False  # type: ignore[misc]
+                    fin.atexit = False
                     entry.references.add(sentinel)
 
             return entry.get_libdoc_with_meta()
@@ -1839,9 +2054,15 @@ class ImportsManager:
         return RobotFileMeta(normalized, info)
 
     def _get_model_doc_cached(self, source: str, meta: RobotFileMeta) -> Optional[ResourceDoc]:
+        known = self._model_docs_by_source.get(meta.source)
+        if known is not None and known[0] == meta:
+            return known[1]
+
         try:
             entry = self.data_cache.read_entry(CacheSection.RESOURCE, meta.source, RobotFileMeta, ResourceDoc)
-            if entry is not None and entry.meta == meta:
+            # a doc read with other language settings would hold what the file defines under those settings
+            if entry is not None and entry.meta == replace(meta, languages=self._languages_fingerprint):
+                self._model_docs_by_source[meta.source] = (meta, entry.data)
                 return entry.data
         except (SystemExit, KeyboardInterrupt):
             raise
@@ -1855,9 +2076,12 @@ class ImportsManager:
         return None
 
     def _save_model_doc_cache(self, source: str, result: ResourceDoc, meta: "RobotFileMeta") -> None:
+        self._model_docs_by_source[meta.source] = (meta, result)
 
         try:
-            self.data_cache.save_entry(CacheSection.RESOURCE, meta.source, meta, result)
+            self.data_cache.save_entry(
+                CacheSection.RESOURCE, meta.source, replace(meta, languages=self._languages_fingerprint), result
+            )
         except (SystemExit, KeyboardInterrupt):
             raise
         except BaseException as e:
@@ -1877,7 +2101,7 @@ class ImportsManager:
         resolve_variables: bool = True,
         resolve_command_line_vars: bool = True,
     ) -> Tuple[VariablesDoc, Optional[LibraryMetaData]]:
-        meta, _source = self.get_variables_meta(
+        meta, import_name = self.get_variables_meta(
             name,
             base_dir,
             variables,
@@ -1888,7 +2112,7 @@ class ImportsManager:
         if meta is not None:
             try:
                 entry = self.data_cache.read_entry(
-                    CacheSection.VARIABLES, meta.cache_key, LibraryMetaData, VariablesDoc
+                    CacheSection.VARIABLES, meta.cache_key_for_args(args), LibraryMetaData, VariablesDoc
                 )
                 if entry is not None and entry.meta == meta:
                     return entry.data, meta
@@ -1897,18 +2121,40 @@ class ImportsManager:
             except BaseException as e:
                 self._logger.exception(e)
 
-        result = self._run_in_subprocess(
-            get_variables_doc,
-            (
-                name,
-                args,
-                working_dir,
-                base_dir,
-                self.get_resolvable_command_line_variables() if resolve_command_line_vars else None,
-                variables,
-            ),
-            f"Loading variables {name!r} with args {args!r} (working_dir={working_dir!r}, base_dir={base_dir!r})",
-        )
+        try:
+            result = self._run_in_subprocess(
+                get_variables_doc,
+                (
+                    name,
+                    args,
+                    working_dir,
+                    base_dir,
+                    self.get_resolvable_command_line_variables() if resolve_command_line_vars else None,
+                    variables,
+                ),
+                f"Loading variables {name!r} with args {args!r}",
+            )
+        except (LoadTimeoutError, LoadExitError) as e:
+            # see _get_library_libdoc
+            return (
+                VariablesDoc(
+                    name=name,
+                    source=(
+                        meta.origin if meta is not None else import_name if is_variables_by_path(import_name) else None
+                    ),
+                    errors=[
+                        Error(
+                            message=str(e),
+                            type_name=(
+                                DiagnosticError.VARIABLES_TIMEOUT_ERROR
+                                if isinstance(e, LoadTimeoutError)
+                                else DiagnosticError.VARIABLES_EXIT_ERROR
+                            ),
+                        )
+                    ],
+                ),
+                None,
+            )
 
         self._save_import_cache(CacheSection.VARIABLES, meta, result, "variables", name, args)
 
@@ -1959,7 +2205,7 @@ class ImportsManager:
                 if sentinel is not None and sentinel not in entry.references:
                     entry.references.add(sentinel)
                     fin = weakref.finalize(sentinel, self.__remove_variables_entry, entry_key, entry)
-                    fin.atexit = False  # type: ignore[misc]
+                    fin.atexit = False
 
             return entry.get_libdoc_with_meta()
 
@@ -1990,10 +2236,8 @@ class ImportsManager:
         base_dir: str,
         sentinel: Any = None,
         variables: Optional[Dict[str, Any]] = None,
-        *,
-        source: Optional[str] = None,
     ) -> _ResourcesEntry:
-        source = source or self.find_resource(name, base_dir, variables=variables)
+        source = self.find_resource(name, base_dir, variables=variables)
         normalized_source = os.path.normpath(os.path.abspath(source))
 
         entry_key = _ResourcesEntryKey(normalized_source)
@@ -2007,7 +2251,7 @@ class ImportsManager:
             if sentinel is not None and sentinel not in entry.references:
                 entry.references.add(sentinel)
                 fin = weakref.finalize(sentinel, self.__remove_resource_entry, entry_key, entry)
-                fin.atexit = False  # type: ignore[misc]
+                fin.atexit = False
 
         return entry
 
@@ -2017,12 +2261,10 @@ class ImportsManager:
         base_dir: str,
         sentinel: Any = None,
         variables: Optional[Dict[str, Any]] = None,
-        *,
-        source: Optional[str] = None,
     ) -> Tuple["Namespace", LibraryDoc]:
         with self._logger.measure_time(lambda: f"getting namespace and libdoc for {name}", context_name="import"):
             with self._logger.measure_time(lambda: f"getting resource entry {name}", context_name="import"):
-                entry = self._get_entry_for_resource_import(name, base_dir, sentinel, variables, source=source)
+                entry = self._get_entry_for_resource_import(name, base_dir, sentinel, variables)
 
             with self._logger.measure_time(lambda: f"getting namespace {name}", context_name="import"):
                 namespace = entry.get_namespace()
@@ -2037,11 +2279,9 @@ class ImportsManager:
         base_dir: str,
         sentinel: Any = None,
         variables: Optional[Dict[str, Any]] = None,
-        *,
-        source: Optional[str] = None,
     ) -> Tuple[ResourceDoc, Optional[RobotFileMeta]]:
         with self._logger.measure_time(lambda: f"getting resource doc for {name}", context_name="import"):
-            entry = self._get_entry_for_resource_import(name, base_dir, sentinel, variables, source=source)
+            entry = self._get_entry_for_resource_import(name, base_dir, sentinel, variables)
 
             return entry.get_resource_doc_with_meta()
 
@@ -2051,12 +2291,8 @@ class ImportsManager:
         base_dir: str,
         sentinel: Any = None,
         variables: Optional[Dict[str, Any]] = None,
-        *,
-        source: Optional[str] = None,
     ) -> ResourceDoc:
-        return self.get_resource_doc_for_resource_import_with_meta(name, base_dir, sentinel, variables, source=source)[
-            0
-        ]
+        return self.get_resource_doc_for_resource_import_with_meta(name, base_dir, sentinel, variables)[0]
 
     def complete_library_import(
         self,

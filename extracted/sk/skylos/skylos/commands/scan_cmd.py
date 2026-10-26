@@ -76,6 +76,96 @@ def _check_managed_gitlab_delivery(response: dict) -> None:
         raise SystemExit(2)
 
 
+def _closing_summary(result: dict, uncertainty_count) -> str | None:
+    checks = (result.get("analysis_summary") or {}).get("grade_categories")
+    if not isinstance(checks, (list, tuple)) or all(
+        check == "dead_code" for check in checks
+    ):
+        return None
+    from skylos.reporting.assessment_display import closing_summary
+
+    return closing_summary(result, uncertainty_count=uncertainty_count)
+
+
+def _ci_workflow_exists(project_root) -> bool:
+    return (project_root / ".github" / "workflows" / "skylos.yml").exists()
+
+
+def _print_local_next_steps(console, project_root) -> None:
+    from skylos.cloud.cloud_receipt import local_next_steps
+
+    steps = local_next_steps(ci_configured=_ci_workflow_exists(project_root))
+    width = max(len(command) for command, _ in steps)
+    label = "Next:"
+    console.print()
+    for command, purpose in steps:
+        console.print(
+            f"[bold]{label:<5}[/bold] [brand]{escape(command.ljust(width))}[/brand]"
+            f"  [muted]{escape(purpose)}[/muted]",
+            soft_wrap=True,
+        )
+        label = ""
+
+
+def _print_cloud_upload_start(console) -> None:
+    from skylos.api import _print_pending_upload_reminder
+
+    _print_pending_upload_reminder()
+    console.print("[muted]Uploading findings to Skylos Cloud…[/muted]")
+
+
+def _print_cloud_gate_exit(console, args) -> None:
+    flag = "--gate"
+    if getattr(args, "strict", False):
+        flag = "--strict"
+    console.print(
+        "\n[bad]Exiting with code 1 because the Skylos Cloud quality gate "
+        f"failed ({flag}).[/bad]"
+    )
+
+
+def _print_cloud_receipt(
+    console, project_root, destination, upload_resp, *, in_ci: bool
+) -> None:
+    from skylos.api import BASE_URL
+    from skylos.cloud.cloud_receipt import cloud_receipt_lines
+
+    lines = cloud_receipt_lines(
+        destination,
+        upload_resp,
+        BASE_URL,
+        ci_configured=in_ci or _ci_workflow_exists(project_root),
+    )
+    for line in lines:
+        console.print(escape(line), soft_wrap=True)
+
+
+def _print_failed_gate_exit_note(console, args, passed) -> None:
+    if passed is not False:
+        return
+    flag = None
+    if getattr(args, "strict", False):
+        flag = "--strict"
+    if getattr(args, "gate", False):
+        flag = "--gate"
+    if flag and not getattr(args, "force", False):
+        console.print(
+            "\n[bad]Exiting with code 1 because the Skylos Cloud quality gate "
+            f"failed ({flag}).[/bad]"
+        )
+        return
+    if flag:
+        console.print(
+            "\n[warn]⚠️ --force: the failed quality gate does not change this "
+            "command's exit code.[/warn]"
+        )
+        return
+    console.print(
+        "\n[warn]⚠️ The failed quality gate does not change this command's exit "
+        "code; add --gate to make it fail.[/warn]"
+    )
+
+
 def _public_upload_receipt(response: dict) -> dict:
     """Keep a small public outcome beside the scan, never transport credentials."""
     from copy import deepcopy
@@ -105,6 +195,10 @@ def _public_upload_receipt(response: dict) -> dict:
         receipt["quality_gate"] = public_gate
     if response.get("quality_gate_reported") is False:
         receipt["quality_gate_status"] = "not_reported"
+    if response.get("success") and "previous_gate" in response:
+        from skylos.cloud.gate_status import clean_previous_gate
+
+        receipt["previous_gate"] = clean_previous_gate(response["previous_gate"])
     if isinstance(response.get("gitlab_delivery"), dict):
         receipt["delivery"] = {
             key: deepcopy(response["gitlab_delivery"][key])
@@ -271,7 +365,13 @@ def _exit_on_missing_scan_paths(args, *, cli_module) -> None:
     raise SystemExit(2)
 
 
-def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
+def run_scan_command(
+    argv: Sequence[str],
+    *,
+    cli_module: ModuleType,
+    cloud: bool = False,
+    cloud_gate: bool = False,
+) -> None:
     """Keep compared gates and impact scans on one immutable policy."""
     import os
 
@@ -279,6 +379,8 @@ def run_scan_command(argv: Sequence[str], *, cli_module: ModuleType) -> None:
 
     parser = cli_module._build_main_parser()
     args = cli_module._parse_main_cli_args(parser, argv)
+    args._cloud_command = cloud
+    args._cloud_gate = cloud_gate
     _exit_on_missing_scan_paths(args, cli_module=cli_module)
     base = (
         (getattr(args, "diff_base", None) or getattr(args, "diff", None))
@@ -322,7 +424,6 @@ def _run_scan_command(
     Called from: skylos/cli.py _run_scan_command.
     """
     INTERACTIVE_AVAILABLE = cli_module.INTERACTIVE_AVAILABLE
-    Panel = cli_module.Panel
     Progress = cli_module.Progress
     Rule = cli_module.Rule
     SpinnerColumn = cli_module.SpinnerColumn
@@ -345,8 +446,10 @@ def _run_scan_command(
     )
     _print_main_scan_banner = cli_module._print_main_scan_banner
     _print_main_upload_manifest = cli_module._print_main_upload_manifest
-    _print_upload_cta = cli_module._print_upload_cta
     _print_upload_destination = cli_module._print_upload_destination
+    _print_upload_receipt = cli_module._print_upload_receipt
+    _refuse_mismatched_upload = cli_module._refuse_mismatched_upload
+    _resolve_upload_destination = cli_module._resolve_upload_destination
     _render_upload_failure = cli_module._render_upload_failure
     _run_pre_analysis_steps = cli_module._run_pre_analysis_steps
     _selected_rule_prerequisite_ids = cli_module._selected_rule_prerequisite_ids
@@ -1095,6 +1198,12 @@ def _run_scan_command(
                 if not defer_exit:
                     raise SystemExit(2)
                 return receipt, 2
+            formatted_destination = _resolve_upload_destination(project_root)
+            if _refuse_mismatched_upload(None, formatted_destination):
+                receipt = {"status": "skipped", "reason": "project_repository_mismatch"}
+                if not defer_exit:
+                    raise SystemExit(1)
+                return receipt, 1
             _attach_upload_project_context(result, project_root)
             if done_receipt is not None:
                 result["done_receipt"] = done_receipt
@@ -1122,6 +1231,31 @@ def _run_scan_command(
                     "error": "Cloud upload returned no usable receipt",
                 }
             receipt = _public_upload_receipt(upload_resp)
+            if receipt["status"] == "uploaded" and receipt.get("url"):
+                # Keep formatted stdout parseable and leave the exact saved
+                # scan reachable even when the Cloud gate exits below.
+                from skylos.api import BASE_URL as _cloud_base_url
+                from skylos.cloud.gate_status import formatted_gate_line
+
+                link_line = formatted_gate_line(upload_resp, _cloud_base_url)
+                if link_line is None:
+                    link_line = f"View Cloud gate and results: {receipt['url']}"
+                print(link_line, file=sys.stderr)
+                if formatted_destination is not None:
+                    from skylos.cloud.upload_destination import (
+                        branch_label,
+                        project_label,
+                        with_cloud_destination,
+                    )
+
+                    reported_destination = with_cloud_destination(
+                        formatted_destination, upload_resp
+                    )
+                    print(
+                        f"Skylos Cloud project: {project_label(reported_destination)}; "
+                        f"branch: {branch_label(reported_destination)}",
+                        file=sys.stderr,
+                    )
             delivery_exit = upload_resp.get("gitlab_delivery_exit_code", 0)
             if "gitlab_delivery_exit_code" in upload_resp:
                 print(upload_resp.get("gitlab_delivery_message", ""), file=sys.stderr)
@@ -1491,8 +1625,17 @@ def _run_scan_command(
             getattr(args, "no_upload", False)
         )
 
+        gate_destination = None
+        if should_upload_gate:
+            gate_destination = _resolve_upload_destination(project_root)
+            refusal_console = console
+            if args.json:
+                refusal_console = None
+            if _refuse_mismatched_upload(refusal_console, gate_destination):
+                raise SystemExit(1)
+
         if should_upload_gate and not args.json:
-            _print_upload_destination(console, project_root)
+            _print_upload_destination(console, project_root, gate_destination)
             _print_main_upload_manifest(console, args, result)
 
         if should_upload_gate:
@@ -1505,6 +1648,7 @@ def _run_scan_command(
                 strict=False,
                 analyzer_owned=True,
                 gitlab_full_scan=gitlab_full_scan,
+                failed_gate_note=bool(args.force),
             )
             if not upload_resp.get("success"):
                 _check_managed_gitlab_delivery(upload_resp)
@@ -1513,6 +1657,8 @@ def _run_scan_command(
                     raise SystemExit(1)
             else:
                 _check_managed_gitlab_delivery(upload_resp)
+                if not args.json:
+                    _print_upload_receipt(console, gate_destination, upload_resp)
                 cloud_gate_passed = upload_resp.get("quality_gate_passed")
                 if cloud_gate_passed is None:
                     cloud_gate_passed = (upload_resp.get("quality_gate") or {}).get(
@@ -1659,7 +1805,7 @@ def _run_scan_command(
         from skylos.ui.tui import run_tui
 
         run_tui(output_result, root_path=project_root)
-    elif not args.upload:
+    elif not args.upload or getattr(args, "_cloud_command", False):
         display_result = output_result
         _cli_limit = getattr(args, "limit", None)
         advice_options = {}
@@ -1723,6 +1869,7 @@ def _run_scan_command(
         and not getattr(args, "diff", None)
         and changed_files is None
     ):
+        uncertainty_count = dead_code_uncertainty_summary(result)["count"]
         print_badge(
             unused_total,
             logging.getLogger("skylos"),
@@ -1732,7 +1879,8 @@ def _run_scan_command(
             reliability_count=reliability_count,
             quality_enabled=bool(quality_count),
             quality_count=quality_count,
-            uncertainty_count=dead_code_uncertainty_summary(result)["count"],
+            uncertainty_count=uncertainty_count,
+            summary=_closing_summary(result, uncertainty_count),
             # The grade panel above already offered the Skylos grade badge.
             show_badge=not (
                 output_result.get("assessment")
@@ -1826,26 +1974,7 @@ def _run_scan_command(
             total_findings += len(result.get(k, []) or [])
 
         if total_findings > 0:
-            workflow_path = project_root / ".github" / "workflows" / "skylos.yml"
-            if not workflow_path.exists():
-                console.print()
-                console.print(
-                    Panel.fit(
-                        "[bold cyan]💡 Tip:[/bold cyan] Catch these issues automatically on every PR\n\n"
-                        "[dim]Run:[/dim] [bold]skylos cicd init[/bold]\n"
-                        "[dim]Then:[/dim] [bold]git add .github/workflows/skylos.yml && git push[/bold]\n\n"
-                        "[muted]30-second setup for automated code analysis in CI/CD[/muted]",
-                        title="[cyan]Set up CI/CD[/cyan]",
-                        border_style="cyan",
-                    )
-                )
-
-            from skylos.ui.nudge import pick_nudge
-
-            nudge = pick_nudge(result, args, project_root)
-            if nudge:
-                console.print(f"\n  {nudge}")
-            _print_upload_cta(console, project_root)
+            _print_local_next_steps(console, project_root)
         elif not getattr(args, "diff", None) and changed_files is None:
             console.print()
             console.print("[good]No findings reported at current settings.[/good]")
@@ -1881,7 +2010,10 @@ def _run_scan_command(
     if args.upload and not args.json:
         from skylos.api import get_project_token as _check_token
 
-        has_link, using_env = _print_upload_destination(console, project_root)
+        upload_destination = _resolve_upload_destination(project_root)
+        has_link, using_env = _print_upload_destination(
+            console, project_root, upload_destination
+        )
 
         if (not has_link) and (not using_env) and (not _check_token()):
             if _is_tty() and not _is_ci():
@@ -1897,12 +2029,12 @@ def _run_scan_command(
                     raise SystemExit(0)
             elif _is_ci():
                 console.print(
-                    "[warn]No CI identity token or SKYLOS_TOKEN, so nothing was uploaded.[/warn]"
+                    "[warn]No GitHub Actions or GitLab CI identity and no SKYLOS_TOKEN, so nothing was uploaded.[/warn]"
                 )
                 console.print(
                     "  On GitHub Actions: give the job `permissions: id-token: write` and "
                     "upload from a push to the default branch (pull_request uploads are "
-                    "not accepted). Otherwise set SKYLOS_TOKEN to a project API key."
+                    "not accepted). Otherwise set SKYLOS_TOKEN to a CI project token."
                 )
                 console.print(
                     "  See: https://github.com/duriantaco/skylos/blob/main/docs/first-gated-pr.md"
@@ -1914,24 +2046,45 @@ def _run_scan_command(
                 login_result = manual_token_fallback(console=console)
                 if login_result is None:
                     raise SystemExit(1)
+            upload_destination = _resolve_upload_destination(project_root)
+            _print_upload_destination(console, project_root, upload_destination)
+
+        if _refuse_mismatched_upload(console, upload_destination):
+            raise SystemExit(1)
 
         # Uploads never cost credits, so the CLI never checks the balance first.
-        _print_main_upload_manifest(console, args, result)
+        if not getattr(args, "_cloud_command", False):
+            _print_main_upload_manifest(console, args, result)
         _attach_upload_project_context(result, project_root)
         if done_receipt is not None:
             result["done_receipt"] = done_receipt
+        cloud_command = getattr(args, "_cloud_command", False)
+        if cloud_command:
+            _print_cloud_upload_start(console)
         upload_resp = upload_report(
             result,
             is_forced=args.force,
+            quiet=cloud_command,
             strict=False,
             analyzer_owned=True,
             gitlab_full_scan=gitlab_full_scan,
+            failed_gate_note=False,
         )
 
         if not upload_resp.get("success"):
             _check_managed_gitlab_delivery(upload_resp)
             _render_upload_failure(console, upload_resp)
             if getattr(args, "_explicit_upload_requested", False):
+                raise SystemExit(1)
+        elif cloud_command:
+            _check_managed_gitlab_delivery(upload_resp)
+            _print_cloud_receipt(
+                console, project_root, upload_destination, upload_resp, in_ci=_is_ci()
+            )
+            cloud_passed = upload_resp.get("quality_gate_passed")
+            cloud_gate = getattr(args, "_cloud_gate", False)
+            if cloud_passed is False and (args.strict or cloud_gate) and not args.force:
+                _print_cloud_gate_exit(console, args)
                 raise SystemExit(1)
         else:
             _check_managed_gitlab_delivery(upload_resp)
@@ -1942,9 +2095,12 @@ def _run_scan_command(
             qg = upload_resp.get("quality_gate") or {}
             new_v = qg.get("new_violations", 0)
             if new_v > 0:
-                console.print(
-                    f"[bold red]  {new_v} new violation{'s' if new_v != 1 else ''}[/bold red]"
-                )
+                from skylos.cloud.gate_status import new_issues_text
+
+                text = new_issues_text(new_v, upload_resp.get("new_issue_baseline"))
+                console.print(f"[bold red]  {escape(text)}[/bold red]")
+            _print_failed_gate_exit_note(console, args, passed)
+            _print_upload_receipt(console, upload_destination, upload_resp)
 
             if passed is False and (args.strict or args.gate) and not args.force:
                 raise SystemExit(1)

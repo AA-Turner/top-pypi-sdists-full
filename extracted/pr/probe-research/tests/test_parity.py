@@ -258,6 +258,8 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     ): "retiring with the experiment routes; the client reads it at the project address",
     ("POST", "/v1/sessions/{}/anchors"): "explicit dashboard session association; historical backfill keeps sessions standalone",
     ("GET", "/v1/sessions/{}/artifacts/tree"): "dashboard lazy browsing of session artifacts",
+    # G7: the session page's message box (what was sent, is a daemon listening).
+    ("GET", "/v1/sessions/{}/messages/sent"): "dashboard session page's message box status",
     # The workspace canvas (dashboard home page): a drawing's worth of boxes,
     # cards and arrows, shaped for one screen. The SDK, CLI and MCP read the
     # same facts per entity (`/v1/projects/{}/lineage`, `/v1/runs/{}/edges`).
@@ -632,6 +634,16 @@ NOT_CLIENT_SURFACE: dict[Op, str] = {
     # The founders page (app/ops/router.py): staff signed in through the dashboard.
     ("GET", "/v1/staff/cluster-health"): "staff founders page; dashboard session only",
     ("GET", "/v1/staff/usage"): "staff founders page; dashboard session only",
+    # Remote "update now" (app/client_version/update_requests.py): staff ask one
+    # device to update; the device learns it from a response header, never a call.
+    **{
+        (verb, "/v1/staff/teams/{}/devices/{}/update-request"): "staff founders page; dashboard session only"
+        for verb in ("GET", "POST", "DELETE")
+    },
+    (
+        "POST",
+        "/v1/hints",
+    ): "Probe service hint lane, reached by probe.service.hints' own kept connection (urllib)",
     ("GET", "/public/v1/projects/{}/overview"): "anonymous public share page (dashboard)",
     ("GET", "/public/v1/projects/{}/projects"): "anonymous public share page (dashboard)",
     ("POST", "/public/v1/series/latest"): "anonymous public share page charts (dashboard)",
@@ -1205,12 +1217,6 @@ CLIENT_AHEAD: dict[Op, str] = {
     ("DELETE", "/v1/workspaces/{}/files/multipart/{}"): "retired workspace multipart: 410 (anchor retirement)",
     ("POST", "/v1/workspace-files/{}/share"): "retired loose-file move: 410 client_too_old (files freeze)",
     ("POST", "/v1/shared/files/{}/unshare"): "retired loose-file move: 410 client_too_old (files freeze)",
-    # AHEAD: diagnostic reports and debug logs (daemon crash logs plan, PR 2a).
-    # The server half is PR #3325; until the schema regen after it, an old
-    # server answers 404, which `probe.core.report` treats as final (no retry).
-    ("POST", "/v1/diagnostics/reports"): "diagnostic reports: server PR #3325; a 404 is final",
-    ("POST", "/v1/diagnostics/bundles"): "debug log upload slot: server PR #3325; a 404 is final",
-    ("POST", "/v1/diagnostics/bundles/{}/complete"): "debug log complete: server PR #3325",
 }
 
 _ALLOWED: dict[Op, str] = {**NOT_CLIENT_SURFACE, **PENDING}

@@ -1098,6 +1098,7 @@ def test_browse_annotates_nodes_with_ref_and_available_views(app, client):
     assert envelope["data"]["available_views"] == {
         "project": [
             "artifacts",
+            "branches",
             "card",
             "code",
             "lineage",

@@ -406,5 +406,48 @@ class TestPackageManager(unittest.TestCase):
             self.assertIn("Failed to create virtual environment", str(context.exception))
             mock_venv_create.assert_called_once_with(venv_path, with_pip=True)
 
+    @patch('pipmaster.convenience._default_pm')
+    def test_convenience_install_if_missing_logs_caller_on_failure(self, mock_pm):
+        """Ensure caller path is logged at ERROR level when install_if_missing fails."""
+        import pipmaster.convenience as convenience
+        mock_pm.install_if_missing.return_value = False  # Simulate failure
+
+        with self.assertLogs(convenience.logger, level='ERROR') as cm:
+            convenience.install_if_missing("requests")
+
+        self.assertTrue(any(__file__ in m and "requests" in m and "Install failed" in m for m in cm.output))
+
+    @patch('pipmaster.convenience._default_pm')
+    def test_convenience_install_if_missing_no_log_on_success(self, mock_pm):
+        """Ensure no caller path is logged when install_if_missing succeeds."""
+        import pipmaster.convenience as convenience
+        mock_pm.install_if_missing.return_value = True  # Simulate success
+
+        with self.assertRaises(AssertionError):  # assertLogs should find nothing
+            with self.assertLogs(convenience.logger, level='ERROR'):
+                convenience.install_if_missing("requests")
+
+    @patch('pipmaster.convenience._default_pm')
+    def test_convenience_ensure_packages_logs_caller_on_failure(self, mock_pm):
+        """Ensure caller path is logged at ERROR level when ensure_packages fails."""
+        import pipmaster.convenience as convenience
+        mock_pm.ensure_packages.return_value = False  # Simulate failure
+        reqs = ["numpy", "pandas"]
+
+        with self.assertLogs(convenience.logger, level='ERROR') as cm:
+            convenience.ensure_packages(reqs)
+
+        self.assertTrue(any(__file__ in m and str(reqs) in m and "Failed to ensure packages" in m for m in cm.output))
+
+    @patch('pipmaster.convenience._default_pm')
+    def test_convenience_ensure_packages_no_log_on_success(self, mock_pm):
+        """Ensure no caller path is logged when ensure_packages succeeds."""
+        import pipmaster.convenience as convenience
+        mock_pm.ensure_packages.return_value = True  # Simulate success
+
+        with self.assertRaises(AssertionError):  # assertLogs should find nothing
+            with self.assertLogs(convenience.logger, level='ERROR'):
+                convenience.ensure_packages(["numpy", "pandas"])
+
     if __name__ == '__main__':
         unittest.main()

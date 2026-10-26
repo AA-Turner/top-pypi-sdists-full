@@ -948,6 +948,7 @@ while True:
 """
 
 
+@pytest.mark.heavy
 def test_a_sigterm_close_survives_local_finalizers_that_use_their_whole_budget(app, tmp_path):
     """Regression test for the read/write capture flake (dry run 36471965949,
     test_a_sigterm_close_still_sends_what_the_run_read_and_wrote): lineage

@@ -1,9 +1,4 @@
-"""Tests for the dynamic-metadata path through ``nab_project._build``.
-
-The unit tests use a hand-rolled in-tree backend (an
-``nab_test_backend.py`` file plus
-``[build-system].backend-path = ["."]``). ``[build-system].requires`` is empty.
-The venv install step is a no-op, and the unit tests stay offline.
+"""Tests for metadata hooks and isolated build environments.
 
 The end-to-end test against a real source distribution is marked
 ``network`` and is deselected by default; run with
@@ -28,8 +23,7 @@ import tempfile
 import threading
 import zipfile
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import AbstractContextManager, contextmanager
-from dataclasses import replace
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from datetime import datetime, timezone
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -48,6 +42,7 @@ from installer.utils import SCHEME_NAMES, Scheme
 from nab_index.client import SdistFile, WheelFile
 from nab_index.httpx2_async_transport import Httpx2AsyncTransport
 from nab_index.httpx_async_transport import HttpxAsyncTransport
+from nab_index.local_index import LocalIndexClient
 from nab_index.multi_index import IndexConfig
 from nab_index.transport import AsyncHttpTransport, HttpResponse
 from nab_index.urllib3_async_transport import Urllib3AsyncTransport
@@ -70,6 +65,7 @@ from nab_project._build.runner import (
     build_wheel_for_install,
     run_build_backend,
 )
+from nab_project._testing.coordinator_fake import FakeFetchPort, make_coordinator
 from nab_project.build_backend import extract_metadata
 from nab_project.download import DownloadError, DownloadResult, iter_artifacts
 from nab_project.inputs import ResolveInputs
@@ -98,7 +94,8 @@ from nab_provider.provider import (
 from nab_provider.tags import PlatformSpec, TagSet
 from nab_provider.target import ResolveTarget
 from nab_provider.testing import pkg_override
-from nab_resolver.errors import ResolutionError
+from nab_provider.value import replace
+from nab_resolver.errors import ResolutionError, ResolutionLimitError
 
 requires_int_limit = pytest.mark.skipif(
     get_int_max_str_digits() == 0, reason="requires an enabled integer conversion limit"
@@ -240,6 +237,7 @@ def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
         escaped + "/__init__.py": b"",
         distinfo + "/METADATA": (
             "Metadata-Version: 2.1\\nName: " + NAME + "\\nVersion: " + VERSION + "\\n"
+            + {requires_python}
         ).encode(),
         distinfo + "/WHEEL": (
             b"Wheel-Version: 1.0\\nGenerator: nab-test\\n"
@@ -274,6 +272,10 @@ def _make_installable_wheel(
     version: str,
     data_files: dict[str, bytes] | None = None,
     package_files: dict[str, bytes] | None = None,
+    *,
+    requires_dist: tuple[str, ...] = (),
+    requires_python: str | None = None,
+    tags: tuple[str, ...] = ("py3-none-any",),
 ) -> None:
     """Write a minimal but installer-valid pure-Python wheel.
 
@@ -282,15 +284,18 @@ def _make_installable_wheel(
     ``package_files`` are placed inside the ``<name>/`` package.
     """
     dist = f"{name}-{version}"
+    metadata = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+    if requires_python is not None:
+        metadata += f"Requires-Python: {requires_python}\n"
+    metadata += "".join(f"Requires-Dist: {req}\n" for req in requires_dist)
+
     files = {
         f"{name}/__init__.py": b"",
-        f"{dist}.dist-info/METADATA": (
-            f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n".encode()
-        ),
+        f"{dist}.dist-info/METADATA": metadata.encode(),
         f"{dist}.dist-info/WHEEL": (
-            b"Wheel-Version: 1.0\nGenerator: nab-test\n"
-            b"Root-Is-Purelib: true\nTag: py3-none-any\n"
-        ),
+            "Wheel-Version: 1.0\nGenerator: nab-test\nRoot-Is-Purelib: true\n"
+            + "".join(f"Tag: {tag}\n" for tag in tags)
+        ).encode(),
     }
     for module, data in (package_files or {}).items():
         files[f"{name}/{module}"] = data
@@ -316,28 +321,32 @@ def _make_pep643_sdist(path: Path, name: str, version: str) -> None:
 
 
 def _make_buildable_sdist(
-    path: Path, name: str, version: str, requires: tuple[str, ...] = ()
+    path: Path,
+    name: str,
+    version: str,
+    requires: tuple[str, ...] = (),
+    *,
+    requires_python: str | None = None,
 ) -> None:
-    """Write an sdist that builds into an installable wheel.
-
-    Static PKG-INFO so the inner resolve can read it without a build,
-    and an in-tree backend reached through ``backend-path`` so the
-    build needs nothing from an index beyond ``requires``.  Passing a
-    non-empty ``requires`` is how a fixture reaches a second level of
-    nesting.
-    """
+    """Write an sdist with an in-tree backend and optional dynamic Requires-Python."""
     escaped = name.replace("-", "_")
     root = f"{name}-{version}"
     requires_block = ", ".join(f'"{req}"' for req in requires)
+    python_header = f"Requires-Python: {requires_python}\n" if requires_python else ""
     members = {
-        "PKG-INFO": f"Metadata-Version: 2.2\nName: {name}\nVersion: {version}\n",
+        "PKG-INFO": (
+            f"Metadata-Version: 2.2\nName: {name}\nVersion: {version}\n"
+            + ("Dynamic: Requires-Python\n" if requires_python is not None else "")
+        ),
         "pyproject.toml": (
             "[build-system]\n"
             f"requires = [{requires_block}]\n"
             f'build-backend = "{escaped}_backend"\n'
             'backend-path = ["."]\n'
         ),
-        f"{escaped}_backend.py": _SDIST_BACKEND_SRC.format(name=name, version=version),
+        f"{escaped}_backend.py": _SDIST_BACKEND_SRC.format(
+            name=name, version=version, requires_python=repr(python_header)
+        ),
     }
     with tarfile.open(path, "w:gz") as tf:
         for member, text in members.items():
@@ -459,14 +468,19 @@ def _run_requirement_hook(
 
 
 @pytest.fixture
-def wheel_hook_requirements(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Callable[[list[object]], None]:
-    """Configure wheel-hook results for a real builder in a stubbed build environment."""
+def _stub_build_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub interpreter provisioning and scheme queries for a real build environment."""
     monkeypatch.setattr("venv.EnvBuilder", _StubEnvBuilder)
     monkeypatch.setattr(
         env_mod, "_venv_scheme_paths", lambda _python: {"purelib": str(tmp_path)}
     )
+
+
+@pytest.fixture
+def wheel_hook_requirements(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, _stub_build_env: None
+) -> Callable[[list[object]], None]:
+    """Configure wheel-hook results for a real builder in a stubbed build environment."""
     (tmp_path / "pyproject.toml").write_text(
         '[build-system]\nrequires = []\nbuild-backend = "setuptools.build_meta"\n',
         encoding="utf-8",
@@ -1458,13 +1472,37 @@ def _unreadable_metadata_wheel(kind: str) -> bytes:
     return _relabel_compression(_wheel_zip(zipfile.ZIP_STORED), 9)
 
 
+def _run_corrupt_wheel_hook(
+    cmd: Sequence[str],
+    _cwd: str | None = None,
+    _extra_environ: Mapping[str, str] | None = None,
+    *,
+    wheel_name: str,
+    data: bytes,
+) -> None:
+    """Answer hook subprocesses for a wheel-only backend emitting the supplied bytes."""
+    hook, control_dir = cmd[-2:]
+    control = Path(control_dir)
+    response: dict[str, object]
+    if hook == "get_requires_for_build_wheel":
+        response = {"return_val": []}
+    elif hook == "build_wheel":
+        arguments = json.loads((control / "input.json").read_text(encoding="utf-8"))
+        output_dir = Path(arguments["kwargs"]["wheel_directory"])
+        (output_dir / wheel_name).write_bytes(data)
+        response = {"return_val": wheel_name}
+    elif hook in {"prepare_metadata_for_build_wheel", "build_sdist"}:
+        response = {"hook_missing": True}
+    else:
+        msg = f"unexpected build hook: {hook}"
+        raise AssertionError(msg)
+
+    (control / "output.json").write_text(json.dumps(response), encoding="utf-8")
+
+
+@pytest.mark.usefixtures("_stub_build_env")
 class TestRunBuildBackendCorruptBuiltWheel:
-    """A ``build_wheel`` hook that succeeds but emits an unreadable wheel must
-    normalize to ``BuildBackendError``, whether the wheel is not a zip, its name
-    will not parse, or its dist-info member cannot be decompressed. The read-back
-    sits outside the hook-error wrapper on both the no-prepare-hook fallback and
-    the runner's own skip path.
-    """
+    """Corrupt built wheels raise ``BuildBackendError`` on both metadata routes."""
 
     def _pyproject(self, tmp_path: Path) -> None:
         (tmp_path / "pyproject.toml").write_text(
@@ -1475,41 +1513,19 @@ class TestRunBuildBackendCorruptBuiltWheel:
             encoding="utf-8",
         )
 
-    def _mock_env(self) -> MagicMock:
-        env = MagicMock()
-        env.__enter__ = MagicMock(return_value=env)
-        env.__exit__ = MagicMock(return_value=None)
-        return env
-
-    def _corrupt_building_project(
-        self, wheel_name: str, data: bytes = b"not a zip"
-    ) -> MagicMock:
-        """A project whose ``build_wheel`` writes ``data`` and returns
-        ``wheel_name``. ``prepare`` returns None, so the runner falls back to
-        building a wheel, whose read-back hits the real ``parse_wheel_filename``
-        and ``zipfile.ZipFile``.
-        """
-        project = MagicMock()
-        project.get_requires_for_build.return_value = []
-        project.prepare.return_value = None
-
-        def fake_build(_dist: str, outdir: str, *_a: object, **_k: object) -> str:
-            path = Path(outdir) / wheel_name
-            path.write_bytes(data)
-            return str(path)
-
-        project.build.side_effect = fake_build
-        return project
-
-    def _run(self, tmp_path: Path, config: ResolveInputs, project: MagicMock) -> None:
+    def _run(
+        self,
+        tmp_path: Path,
+        config: ResolveInputs,
+        wheel_name: str,
+        data: bytes = b"not a zip",
+    ) -> None:
+        """Assert that the backend's wheel is reported as unreadable."""
         with (
-            patch(
-                "nab_project._build.runner.NabBuildEnv",
-                return_value=self._mock_env(),
-            ),
-            patch(
-                "nab_project._build.runner.build.ProjectBuilder.from_isolated_env",
-                return_value=project,
+            patch.object(
+                pyproject_hooks,
+                "quiet_subprocess_runner",
+                partial(_run_corrupt_wheel_hook, wheel_name=wheel_name, data=data),
             ),
             pytest.raises(BuildBackendError, match="unreadable wheel"),
         ):
@@ -1518,23 +1534,15 @@ class TestRunBuildBackendCorruptBuiltWheel:
     def test_default_path_corrupt_wheel_wrapped(
         self, tmp_path: Path, config: ResolveInputs
     ) -> None:
-        """The backend has no prepare hook, so the runner builds a wheel and
-        reads it with ``zipfile.ZipFile`` after the hook wrapper; a corrupt
-        wheel raises ``BadZipFile`` there, which the runner normalizes.
-        """
+        """An absent prepare hook falls back to building and reading a wheel."""
         self._pyproject(tmp_path)
-        self._run(
-            tmp_path, config, self._corrupt_building_project("foo-1.0-py3-none-any.whl")
-        )
+        self._run(tmp_path, config, "foo-1.0-py3-none-any.whl")
 
     def test_invalid_wheel_name_wrapped(
         self, tmp_path: Path, config: ResolveInputs
     ) -> None:
-        """``parse_wheel_filename`` raises a bare ``ValueError`` when the built
-        wheel's name does not parse; the runner normalizes it.
-        """
         self._pyproject(tmp_path)
-        self._run(tmp_path, config, self._corrupt_building_project("garbage.whl"))
+        self._run(tmp_path, config, "garbage.whl")
 
     def test_skip_prepare_corrupt_wheel_wrapped(
         self,
@@ -1542,14 +1550,9 @@ class TestRunBuildBackendCorruptBuiltWheel:
         config: ResolveInputs,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """On the skip-prepare path the runner's own ``_build_wheel_and_extract``
-        reads the built wheel; a corrupt wheel there normalizes as well.
-        """
         self._pyproject(tmp_path)
         monkeypatch.setattr(runner_mod, "_should_skip_prepare", lambda *_a: True)
-        self._run(
-            tmp_path, config, self._corrupt_building_project("foo-1.0-py3-none-any.whl")
-        )
+        self._run(tmp_path, config, "foo-1.0-py3-none-any.whl")
 
     def test_skip_prepare_invalid_wheel_name_wrapped(
         self,
@@ -1557,17 +1560,14 @@ class TestRunBuildBackendCorruptBuiltWheel:
         config: ResolveInputs,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """The skip-prepare path parses the wheel filename too, so a readable
-        zip under a name that does not parse is refused there as well.
-        """
+        """A readable archive still needs a valid wheel filename."""
         self._pyproject(tmp_path)
         monkeypatch.setattr(runner_mod, "_should_skip_prepare", lambda *_a: True)
         self._run(
             tmp_path,
             config,
-            self._corrupt_building_project(
-                "garbage.whl", _wheel_zip(zipfile.ZIP_DEFLATED)
-            ),
+            "garbage.whl",
+            _wheel_zip(zipfile.ZIP_DEFLATED),
         )
 
     @pytest.mark.parametrize("skip_prepare", [False, True])
@@ -1595,9 +1595,8 @@ class TestRunBuildBackendCorruptBuiltWheel:
         self._run(
             tmp_path,
             config,
-            self._corrupt_building_project(
-                "foo-1.0-py3-none-any.whl", _unreadable_metadata_wheel(kind)
-            ),
+            "foo-1.0-py3-none-any.whl",
+            _unreadable_metadata_wheel(kind),
         )
 
 
@@ -2714,7 +2713,9 @@ class TestResolveAndDownloadSiblingWheels:
             written = []
             for entry in iter_artifacts(lock_input):
                 requested.append(entry.filename)
-                written.append(output_dir / entry.filename)
+                wheel = output_dir / entry.filename
+                _make_installable_wheel(wheel, "demo", "1.0")
+                written.append(wheel)
             return DownloadResult(written=tuple(written), skipped=())
 
         monkeypatch.setattr("nab_project._build.env.download_lock", _fake_download)
@@ -2857,6 +2858,147 @@ class TestBuildEnvInstallsOnePreferredWheel:
 
         assert installed == ["MARK = 'specific'\n"]
         assert len(dist_infos) == 1
+
+
+class TestDownloadedBuildWheelPython:
+    """Check the selected wheel when resolution reads a sibling's sidecar."""
+
+    @staticmethod
+    def _index(root: Path, requires_python: str | None, *, reverse: bool) -> Path:
+        """Publish tied wheels with a compatible sidecar on only one sibling."""
+        index = root / "index"
+        package = index / "demo"
+        package.mkdir(parents=True)
+        links = []
+        for tag, mark, wheel_requires_python in (
+            ("py2.py3-none-any", "plain", requires_python),
+            ("py3-none-any", "sidecar", ">=3"),
+        ):
+            wheel = package / f"demo-1.0-{tag}.whl"
+            _make_installable_wheel(
+                wheel,
+                "demo",
+                "1.0",
+                package_files={"__init__.py": f"MARK = {mark!r}\n".encode()},
+                requires_python=wheel_requires_python,
+                tags=("py2-none-any", "py3-none-any")
+                if mark == "plain"
+                else ("py3-none-any",),
+            )
+            sidecar = ""
+            if mark == "sidecar":
+                with zipfile.ZipFile(wheel) as archive:
+                    wheel.with_suffix(".whl.metadata").write_bytes(
+                        archive.read("demo-1.0.dist-info/METADATA")
+                    )
+                sidecar = ' data-core-metadata="true"'
+            digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+            links.append(
+                f'<a href="{wheel.name}#sha256={digest}"{sidecar}>{wheel.name}</a>'
+            )
+        if reverse:
+            links.reverse()
+        (package / "index.html").write_text("\n".join(links), encoding="utf-8")
+        return index
+
+    @pytest.mark.parametrize(
+        ("requires_python", "reverse", "overrides", "expected"),
+        [
+            (">=999", False, (), "requires Python >=999"),
+            ("not-a-specifier", False, (), "invalid Requires-Python"),
+            (">=999", True, (), "sidecar"),
+            (">=3", False, (), "plain"),
+            (None, False, (), "plain"),
+            (
+                ">=999",
+                False,
+                (pkg_override("demo==1.0", requires_python=">=3"),),
+                "plain",
+            ),
+            (">=999", False, (pkg_override("demo", requires_python=""),), "plain"),
+            (
+                ">=999",
+                False,
+                (pkg_override("other", requires_python=""),),
+                "requires Python >=999",
+            ),
+            (
+                ">=999",
+                False,
+                (pkg_override("demo>=2", requires_python=""),),
+                "requires Python >=999",
+            ),
+        ],
+        ids=[
+            "incompatible",
+            "invalid",
+            "compatible-sibling",
+            "compatible",
+            "unspecified",
+            "override",
+            "empty-override",
+            "other-package",
+            "other-version",
+        ],
+    )
+    def test_actual_wheel_python_requirement(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        requires_python: str | None,
+        reverse: bool,
+        overrides: tuple[PackageOverride, ...],
+        expected: str,
+    ) -> None:
+        index = self._index(tmp_path, requires_python, reverse=reverse)
+        client = LocalIndexClient(index.as_uri())
+        records = asyncio.run(client.get_files("demo"))
+        metadata = {
+            record.metadata_url: asyncio.run(
+                client.get_metadata_text("demo", "1.0", record.metadata_url)
+            )
+            for record in records
+            if record.metadata_url is not None
+        }
+
+        resolutions = []
+
+        def coordinator(
+            _transport: AsyncHttpTransport,
+            *,
+            build_config: ResolveInputs,
+            **_kwargs: object,
+        ) -> AbstractContextManager[FakeFetchPort]:
+            """Serve local records and sidecars without background fetch workers."""
+            resolutions.append(build_config)
+            return nullcontext(
+                make_coordinator(
+                    records,
+                    package="demo",
+                    metadata_by_url=metadata,
+                    build_config=build_config,
+                )
+            )
+
+        monkeypatch.setattr("nab_project.resolve.FetchCoordinator", coordinator)
+        config = ResolveInputs(
+            indexes=(IndexConfig("local", index.as_uri()),), package_overrides=overrides
+        )
+        env = NabBuildEnv(requires=["demo"], config=config)
+
+        if expected not in {"plain", "sidecar"}:
+            with pytest.raises(BuildEnvError, match=expected), env:
+                pytest.fail("build environment accepted the wheel")
+            assert env._installed_files == []
+        else:
+            with env:
+                output = subprocess.check_output(  # noqa: S603 - interpreter created by this test
+                    [env.python_executable, "-c", "import demo; print(demo.MARK)"],
+                    text=True,
+                )
+                assert output.strip() == expected
+
+        assert len(resolutions) == 1
 
 
 class TestInstallPickIsNotTheMetadataPick:
@@ -3141,7 +3283,7 @@ class TestRefusalNamesTheDistPolicyThatBarsTheWheels:
             },
         )
 
-        assert "demo 1.0 publishes no wheel this build host can install" in message
+        assert "demo 1.0 has no admissible wheel for this build host" in message
         assert "dist-policy" not in message
 
     def test_an_index_override_on_another_index_is_not_named(self) -> None:
@@ -3156,7 +3298,7 @@ class TestRefusalNamesTheDistPolicyThatBarsTheWheels:
             },
         )
 
-        assert "demo 1.0 publishes no wheel this build host can install" in message
+        assert "demo 1.0 has no admissible wheel for this build host" in message
         assert "dist-policy" not in message
 
     @pytest.mark.parametrize(
@@ -3174,7 +3316,7 @@ class TestRefusalNamesTheDistPolicyThatBarsTheWheels:
         """The name, the range, and the policy value all have to match."""
         message = self._refusal(package_overrides=(override,))
 
-        assert "demo 1.0 publishes no wheel this build host can install" in message
+        assert "demo 1.0 has no admissible wheel for this build host" in message
         assert "dist-policy" not in message
 
 
@@ -3251,6 +3393,90 @@ class TestDistPolicyExcludesAWheelTheHostCanInstall:
         message = str(excinfo.value)
         assert f"{self.NAME} {self.VERSION} has dist-policy 'sdist-only'" in message
         assert "publishes no wheel" not in message
+
+
+def test_build_wheel_cutoff_refusal_does_not_claim_nonpublication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A filtered wheel is refused; removing only the cutoff installs it."""
+    index = tmp_path / "index"
+    _make_local_index(index, "buildstub", "1.0")
+    artifacts = index / "buildstub"
+    wheel = "buildstub-1.0-py3-none-any.whl"
+    sdist = "buildstub-1.0.tar.gz"
+    payloads = {name: (artifacts / name).read_bytes() for name in (wheel, sdist)}
+    listing = {
+        "meta": {"api-version": "1.0"},
+        "name": "buildstub",
+        "files": [
+            {
+                "filename": filename,
+                "url": f"https://index.example/{filename}",
+                "hashes": {"sha256": hashlib.sha256(payloads[filename]).hexdigest()},
+                "core-metadata": filename == wheel,
+                "upload-time": uploaded,
+            }
+            for filename, uploaded in [
+                (wheel, "2024-02-01T00:00:00Z"),
+                (sdist, "2024-01-01T00:00:00Z"),
+            ]
+        ],
+    }
+    with zipfile.ZipFile(artifacts / wheel) as archive:
+        metadata = archive.read("buildstub-1.0.dist-info/METADATA")
+    requests: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        requests.append(request.url.path)
+        if request.url.path == "/simple/buildstub/":
+            return httpx.Response(
+                200,
+                stream=httpx.ByteStream(json.dumps(listing).encode()),
+                headers={"content-type": "application/vnd.pypi.simple.v1+json"},
+            )
+        if request.url.path == f"/{wheel}.metadata":
+            return httpx.Response(200, stream=httpx.ByteStream(metadata))
+        assert request.url.path in {f"/{wheel}", f"/{sdist}"}
+        return httpx.Response(
+            200,
+            stream=httpx.ByteStream(payloads[request.url.path[1:]]),
+        )
+
+    mock_client = partial(httpx.AsyncClient, transport=httpx.MockTransport(respond))
+    monkeypatch.setattr(httpx, "AsyncClient", mock_client)
+
+    source = tmp_path / "source"
+    source.mkdir()
+    _write_fake_backend_project(source)
+    project = source / "pyproject.toml"
+    project.write_text(
+        project.read_text().replace("requires = []", 'requires = ["buildstub==1.0"]')
+    )
+    backend = source / "nab_test_backend.py"
+    backend.write_text("import buildstub\n" + backend.read_text())
+
+    config = ResolveInputs(
+        indexes=(IndexConfig("fixture", "https://index.example/simple/"),),
+        uploaded_prior_to=datetime(2024, 1, 15, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(BuildBackendError) as excinfo:
+        extract_metadata(source, config=config, transport_factory=HttpxAsyncTransport)
+
+    message = str(excinfo.value)
+    assert "buildstub 1.0 has no admissible wheel for this build host" in message
+    assert "build-requires-depth is 0" in message
+    assert f"/{wheel}" not in requests
+
+    requests.clear()
+    result = extract_metadata(
+        source,
+        config=config.replace(uploaded_prior_to=None),
+        transport_factory=HttpxAsyncTransport,
+    )
+
+    assert (result.name, str(result.version)) == ("fake-pkg", "1.2.3")
+    assert f"/{wheel}" in requests
 
 
 class TestDistPolicyOverAPackageThatPublishesNoWheel:
@@ -3385,6 +3611,303 @@ class TestBuildRequirementNeedingItsOwnBuild:
             pass
 
         assert chains == [(), (f"{self.NAME} {self.VERSION}",)]
+
+
+class TestBuildRequirementPythonFallback:
+    """Re-resolve build requirements when wheel metadata excludes the host."""
+
+    @staticmethod
+    def _buildstub_sdists(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> tuple[list[SdistFile], dict[str, str]]:
+        """Create sdists whose backends read Requires-Python from the environment."""
+        backend = _SDIST_BACKEND_SRC.replace(
+            "+ {requires_python}",
+            "+ 'Requires-Python: ' + os.environ['NAB_TEST_PYTHON_' + VERSION] + '\\n'",
+        ).replace(
+            "    escaped = NAME.replace",
+            '    with open(os.environ["NAB_TEST_BUILD_TRACE"], "a") as trace:\n'
+            '        trace.write(VERSION + "\\n")\n'
+            "    escaped = NAME.replace",
+        )
+        monkeypatch.setattr(sys.modules[__name__], "_SDIST_BACKEND_SRC", backend)
+        monkeypatch.setattr(env_mod, "extract_sdist_archive", _unpack_fixture_sdist)
+        monkeypatch.setenv("NAB_TEST_BUILD_TRACE", str(tmp_path / "builds.txt"))
+        sdists = []
+        metadata = {}
+        for version in ("1.0", "2.0", "3.0"):
+            archive = tmp_path / f"buildstub-{version}.tar.gz"
+            _make_buildable_sdist(archive, "buildstub", version, requires_python=">=3")
+            digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+            sdists.append(
+                SdistFile(
+                    filename=archive.name,
+                    url=archive.as_uri(),
+                    version=version,
+                    requires_python=None,
+                    upload_time=None,
+                    hashes=(("sha256", digest),),
+                    local_path=archive,
+                )
+            )
+            metadata[version] = (
+                f"Metadata-Version: 2.2\nName: buildstub\nVersion: {version}\n"
+                "Dynamic: Requires-Python\n"
+            )
+            monkeypatch.setenv(f"NAB_TEST_PYTHON_{version}", ">=3")
+
+        return sdists, metadata
+
+    @staticmethod
+    def _parent_wheels(
+        tmp_path: Path, dependencies: Mapping[str, str]
+    ) -> tuple[list[WheelFile], dict[str, str]]:
+        """Write parent wheels and return their listings and sidecar metadata."""
+        parent_wheels = []
+        metadata = {}
+        for version, dependency in dependencies.items():
+            wheel = tmp_path / f"parent-{version}-py3-none-any.whl"
+            _make_installable_wheel(
+                wheel, "parent", version, requires_dist=(dependency,)
+            )
+            digest = hashlib.sha256(wheel.read_bytes()).hexdigest()
+            parent_wheels.append(
+                WheelFile(
+                    filename=wheel.name,
+                    url=wheel.as_uri(),
+                    version=version,
+                    requires_python=None,
+                    has_metadata=True,
+                    upload_time=None,
+                    hashes=(("sha256", digest),),
+                    local_path=wheel,
+                )
+            )
+            with zipfile.ZipFile(wheel) as archive:
+                metadata[wheel.as_uri() + ".metadata"] = archive.read(
+                    f"parent-{version}.dist-info/METADATA"
+                ).decode()
+        return parent_wheels, metadata
+
+    @classmethod
+    def _environment(
+        cls,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        *,
+        requires: list[str] | None = None,
+        overrides: tuple[PackageOverride, ...] = (),
+        parent_dependencies: Mapping[str, str] | None = None,
+    ) -> tuple[NabBuildEnv, _BuildTransportFactory]:
+        """Connect an isolated build environment to the local fixture catalogue."""
+        buildstub_sdists, sdist_metadata = cls._buildstub_sdists(tmp_path, monkeypatch)
+        parent_wheels, wheel_metadata = cls._parent_wheels(
+            tmp_path, parent_dependencies or {}
+        )
+        listings: dict[str, list[SdistFile | WheelFile]] = {
+            "buildstub": list(buildstub_sdists),
+            "parent": list(parent_wheels),
+        }
+
+        def coordinator(
+            _transport: AsyncHttpTransport,
+            *,
+            build_config: ResolveInputs,
+            **_kwargs: object,
+        ) -> AbstractContextManager[FakeFetchPort]:
+            return nullcontext(
+                make_coordinator(
+                    listings=listings,
+                    metadata_by_url=wheel_metadata,
+                    sdist_pkg_info_by_version=sdist_metadata,
+                    build_config=build_config,
+                )
+            )
+
+        monkeypatch.setattr("nab_project.resolve.FetchCoordinator", coordinator)
+        factory = _BuildTransportFactory(Urllib3AsyncTransport)
+        config = ResolveInputs(build_requires_depth=1, package_overrides=overrides)
+        return (
+            NabBuildEnv(
+                requires=["buildstub"] if requires is None else requires,
+                config=config,
+                transport_factory=factory,
+            ),
+            factory,
+        )
+
+    @staticmethod
+    def _installed_distributions(env: NabBuildEnv) -> list[tuple[str, str]]:
+        """Read the distributions actually installed in the isolated interpreter."""
+        output = subprocess.check_output(  # noqa: S603 - interpreter created by this test
+            [
+                env.python_executable,
+                "-c",
+                (
+                    "import importlib.metadata as m, json; "
+                    "print(json.dumps(sorted((d.metadata['Name'], d.version) for d in m.distributions())))"
+                ),
+            ],
+            text=True,
+        )
+        return [tuple(item) for item in json.loads(output)]
+
+    @pytest.mark.parametrize(
+        (
+            "newest_requires_python",
+            "overrides",
+            "expected_version",
+            "expected_builds",
+        ),
+        [
+            (">=999", (), "1.0", ["3.0", "2.0", "1.0"]),
+            (">=3", (), "3.0", ["3.0"]),
+            (
+                ">=999",
+                (pkg_override("buildstub", requires_python=">=3"),),
+                "3.0",
+                ["3.0"],
+            ),
+        ],
+        ids=["repeated-fallback", "compatible-newest", "metadata-override"],
+    )
+    def test_reconsiders_incompatible_built_releases(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        newest_requires_python: str,
+        overrides: tuple[PackageOverride, ...],
+        expected_version: str,
+        expected_builds: list[str],
+    ) -> None:
+        env, factory = self._environment(tmp_path, monkeypatch, overrides=overrides)
+        monkeypatch.setenv("NAB_TEST_PYTHON_3.0", newest_requires_python)
+        monkeypatch.setenv("NAB_TEST_PYTHON_2.0", ">=999")
+
+        with env:
+            assert self._installed_distributions(env) == [
+                ("buildstub", expected_version)
+            ]
+
+        assert (tmp_path / "builds.txt").read_text().splitlines() == expected_builds
+        assert all(client.closed for client in factory.clients)
+
+    def test_reconsiders_parent_before_installing_wheels(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        env, factory = self._environment(
+            tmp_path,
+            monkeypatch,
+            requires=["parent"],
+            parent_dependencies={"1.0": "buildstub==1", "2.0": "buildstub>=2"},
+        )
+        for version in ("2.0", "3.0"):
+            monkeypatch.setenv(f"NAB_TEST_PYTHON_{version}", ">=999")
+
+        with env:
+            assert self._installed_distributions(env) == [
+                ("buildstub", "1.0"),
+                ("parent", "1.0"),
+            ]
+
+        assert (tmp_path / "builds.txt").read_text().splitlines() == [
+            "3.0",
+            "2.0",
+            "1.0",
+        ]
+        assert all(client.closed for client in factory.clients)
+
+    @pytest.mark.parametrize(
+        ("root_requirement", "expected_builds"),
+        [
+            ("buildstub", ["3.0", "2.0", "1.0"]),
+            ("buildstub>=2", ["3.0", "2.0"]),
+        ],
+        ids=["all-incompatible", "root-bound"],
+    )
+    def test_exhaustion_preserves_the_python_rejection(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        root_requirement: str,
+        expected_builds: list[str],
+    ) -> None:
+        env, factory = self._environment(
+            tmp_path, monkeypatch, requires=[root_requirement]
+        )
+        for version in ("1.0", "2.0", "3.0"):
+            monkeypatch.setenv(f"NAB_TEST_PYTHON_{version}", ">=999")
+
+        with (
+            pytest.raises(BuildEnvError, match="requires Python >=999.*host") as exc,
+            env,
+        ):
+            pytest.fail("an incompatible build requirement was installed")
+
+        assert isinstance(exc.value.__cause__, ResolutionError)
+        assert (tmp_path / "builds.txt").read_text().splitlines() == expected_builds
+        assert all(client.closed for client in factory.clients)
+
+    @pytest.mark.parametrize("completed_solves", [0, 1], ids=["initial", "retry"])
+    def test_resolution_limits_are_preserved(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        completed_solves: int,
+    ) -> None:
+        env, factory = self._environment(tmp_path, monkeypatch)
+        monkeypatch.setenv("NAB_TEST_PYTHON_3.0", ">=999")
+        real_resolve = env._resolve_requirements
+        failure = ResolutionLimitError("resolution work budget exhausted")
+        calls = 0
+
+        def limited_resolve(synthetic: Path, inputs: ResolveInputs) -> LockInput:
+            nonlocal calls
+            if calls == completed_solves:
+                raise failure
+            calls += 1
+            return real_resolve(synthetic, inputs)
+
+        monkeypatch.setattr(env, "_resolve_requirements", limited_resolve)
+        with pytest.raises(ResolutionLimitError) as caught, env:
+            pytest.fail("a terminated resolve was treated as a solution")
+
+        assert caught.value is failure
+        assert calls == completed_solves
+        assert all(client.closed for client in factory.clients)
+
+    def test_malformed_metadata_is_not_retried(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        env, factory = self._environment(tmp_path, monkeypatch)
+        monkeypatch.setenv("NAB_TEST_PYTHON_3.0", "not-a-specifier")
+
+        with pytest.raises(BuildEnvError, match="invalid Requires-Python"), env:
+            pytest.fail("malformed metadata was accepted")
+
+        assert (tmp_path / "builds.txt").read_text().splitlines() == ["3.0"]
+        assert all(client.closed for client in factory.clients)
+
+    def test_follow_up_install_reconsiders_with_its_own_requirements(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        env, factory = self._environment(tmp_path, monkeypatch)
+        for version in ("2.0", "3.0"):
+            monkeypatch.setenv(f"NAB_TEST_PYTHON_{version}", ">=999")
+
+        with env:
+            assert self._installed_distributions(env) == [("buildstub", "1.0")]
+            monkeypatch.setenv("NAB_TEST_PYTHON_3.0", ">=3")
+            env.install(["buildstub>=2"])
+            assert self._installed_distributions(env) == [("buildstub", "3.0")]
+
+        assert (tmp_path / "builds.txt").read_text().splitlines() == [
+            "3.0",
+            "2.0",
+            "1.0",
+            "3.0",
+        ]
+        assert all(client.closed for client in factory.clients)
 
 
 class TestBuildRequirementTwoLevelsDown:
@@ -3529,6 +4052,7 @@ class TestBuildRequirementBuildFailures:
     ) -> None:
         (tmp_path / self.PENDING.sdist.filename).write_bytes(b"sdist")
         wheel = tmp_path / "demo-1.0-py3-none-any.whl"
+        _make_installable_wheel(wheel, "demo", "1.0")
 
         monkeypatch.setattr(
             env_mod.tempfile,
@@ -3579,12 +4103,8 @@ class TestBuildRequirementBuildFailures:
             )
 
 
-class TestBuiltWheelIdentity:
-    """``_build_requirement`` refuses a wheel naming another release.
-
-    The backend picks the name and version it emits, and the env's
-    other wheels were resolved for the release the pin names.
-    """
+class TestBuiltWheelValidation:
+    """Built wheels must match the pinned release and support the host."""
 
     PENDING = _PendingBuild(
         name="build-stub",
@@ -3603,13 +4123,10 @@ class TestBuiltWheelIdentity:
         filename: str,
         pending: _PendingBuild | None = None,
     ) -> Path:
-        """Run ``_build_requirement`` over a build emitting ``filename``.
-
-        ``pending`` defaults to :attr:`PENDING`, whose name is already
-        canonical.
-        """
+        """Run ``_build_requirement`` with a stubbed wheel output."""
         pending = pending or self.PENDING
         (tmp_path / pending.sdist.filename).write_bytes(b"sdist")
+        _make_installable_wheel(tmp_path / filename, "build_stub", "1.0")
 
         monkeypatch.setattr(
             env_mod, "extract_sdist_archive", lambda _data, target: target
@@ -3645,15 +4162,140 @@ class TestBuiltWheelIdentity:
             self._built(monkeypatch, tmp_path, "dist.zip")
 
     @pytest.mark.parametrize(
+        "tag", ["py2-none-any", "py3-cp20-any", "py3-none-unsupported_platform"]
+    )
+    def test_host_incompatible_wheel_is_refused(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tag: str
+    ) -> None:
+        filename = f"build_stub-1.0-{tag}.whl"
+        with pytest.raises(BuildEnvError, match="not compatible with the host") as exc:
+            self._built(monkeypatch, tmp_path, filename)
+
+        assert self.PENDING.label in str(exc.value)
+        assert filename in str(exc.value)
+
+    def test_real_backend_with_incompatible_tags_is_refused(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "_SDIST_BACKEND_SRC",
+            _SDIST_BACKEND_SRC.replace("py3-none-any", "py2-none-any"),
+        )
+        _make_buildable_sdist(
+            tmp_path / self.PENDING.sdist.filename,
+            self.PENDING.name,
+            self.PENDING.version,
+        )
+        monkeypatch.setattr(env_mod, "extract_sdist_archive", _unpack_fixture_sdist)
+        env = NabBuildEnv(requires=[], config=ResolveInputs(build_requires_depth=1))
+
+        with pytest.raises(BuildEnvError, match=r"build-stub 1\.0.*py2-none-any.*host"):
+            env._build_requirement(self.PENDING, tmp_path)
+
+    @pytest.mark.parametrize(
+        ("requires_python", "overrides", "expected_error"),
+        [
+            (None, (), None),
+            (">=3", (), None),
+            (f"=={sys.version_info.major}.{sys.version_info.minor}.999", (), None),
+            ("not-a-specifier", (), "invalid Requires-Python"),
+            (">=999", (), "requires Python >=999.*host"),
+            (">=999", (pkg_override("Build.Stub==1.0", requires_python=">=3"),), None),
+            (">=999", (pkg_override("build-stub", requires_python=""),), None),
+            (
+                ">=3",
+                (pkg_override("build-stub", requires_python=">=999"),),
+                "requires Python >=999.*host",
+            ),
+            (
+                ">=999",
+                (pkg_override("other", requires_python=""),),
+                "requires Python >=999.*host",
+            ),
+            (
+                ">=999",
+                (pkg_override("build-stub>=2", requires_python=""),),
+                "requires Python >=999.*host",
+            ),
+            (
+                ">=3",
+                (
+                    pkg_override("build-stub", dependencies=()),
+                    pkg_override("build-stub", requires_python=">=999"),
+                ),
+                "requires Python >=999.*host",
+            ),
+        ],
+        ids=[
+            "absent",
+            "compatible",
+            "language-minor",
+            "invalid",
+            "incompatible",
+            "matching-override",
+            "empty-override",
+            "restrictive-override",
+            "other-package",
+            "other-version",
+            "independent-fields",
+        ],
+    )
+    def test_computed_requires_python(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        requires_python: str | None,
+        overrides: tuple[PackageOverride, ...],
+        expected_error: str | None,
+    ) -> None:
+        _make_buildable_sdist(
+            tmp_path / self.PENDING.sdist.filename,
+            self.PENDING.name,
+            self.PENDING.version,
+            requires_python=requires_python,
+        )
+        monkeypatch.setattr(env_mod, "extract_sdist_archive", _unpack_fixture_sdist)
+        config = ResolveInputs(build_requires_depth=1, package_overrides=overrides)
+        env = NabBuildEnv(requires=[], config=config)
+
+        if expected_error is None:
+            wheel = env._build_requirement(self.PENDING, tmp_path)
+            assert wheel.name == "build_stub-1.0-py3-none-any.whl"
+            assert wheel.is_file()
+        else:
+            with pytest.raises(BuildEnvError, match=expected_error) as exc:
+                env._build_requirement(self.PENDING, tmp_path)
+
+            assert self.PENDING.label in str(exc.value)
+
+    @pytest.mark.parametrize("kind", ["corrupt", "missing", "other-project"])
+    def test_unreadable_built_metadata_is_refused(
+        self, tmp_path: Path, kind: str
+    ) -> None:
+        wheel = tmp_path / "build_stub-1.0-py3-none-any.whl"
+        if kind == "corrupt":
+            wheel.write_bytes(b"not a zip file")
+        elif kind == "other-project":
+            _make_installable_wheel(wheel, "other", "1.0")
+
+        with pytest.raises(
+            BuildEnvError, match="(unreadable|no readable) wheel"
+        ) as exc:
+            env_mod._check_built_requires_python(self.PENDING, wheel, ())
+        assert self.PENDING.label in str(exc.value)
+
+    @pytest.mark.parametrize(
         ("pinned", "filename"),
         [
             ("build-stub", "build_stub-1.0-py3-none-any.whl"),
             ("Build.Stub", "build_stub-1.0-py3-none-any.whl"),
             ("build-stub", "build_stub-1.0.0-py3-none-any.whl"),
+            ("build-stub", "build_stub-1.0-py2.py3-none-any.whl"),
         ],
-        ids=["as-pinned", "spelled-differently", "same-release"],
+        ids=["as-pinned", "spelled-differently", "same-release", "compressed-tags"],
     )
-    def test_the_pinned_release_is_installed(
+    def test_compatible_pinned_wheel_is_returned(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -4217,6 +4859,63 @@ class TestBuildEnvFollowUpInstall:
             "probefoo-1.0.dist-info",
         ]
         assert sorted(p.name for p in (site / "probefoo").iterdir()) == ["__init__.py"]
+
+    def test_replacement_ignores_an_external_bytecode_cache(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        env, scheme, site = self._env(tmp_path, monkeypatch)
+        env._scripts_dir = site.parent / "bin"  # type: ignore[attr-defined]
+        external_cache = tmp_path / "external-cache"
+
+        def import_value() -> str:
+            """Import the installed value in a fresh subprocess."""
+            code = (
+                f"import sys; sys.path.insert(0, {str(site)!r}); "
+                "import probefoo; print(probefoo.VALUE)"
+            )
+
+            environ = dict(os.environ)
+            environ.pop("PYTHONDONTWRITEBYTECODE", None)
+            environ["PYTHONPYCACHEPREFIX"] = str(external_cache)
+            environ.update(env.make_extra_environ())
+
+            result = subprocess.run(  # noqa: S603 - controlled interpreter and script
+                [sys.executable, "-c", code],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=environ,
+            )
+            return result.stdout.strip()
+
+        first = tmp_path / "probefoo-2.0-py3-none-any.whl"
+        _make_installable_wheel(
+            first,
+            "probefoo",
+            "2.0",
+            package_files={"__init__.py": b'VALUE = "v2"\n'},
+        )
+        env._install_wheels([first], scheme)
+        source = site / "probefoo" / "__init__.py"
+        source.touch()
+        first_mtime = source.stat().st_mtime_ns
+        assert import_value() == "v2"
+
+        second = tmp_path / "probefoo-1.0-py3-none-any.whl"
+        _make_installable_wheel(
+            second,
+            "probefoo",
+            "1.0",
+            package_files={"__init__.py": b'VALUE = "v1"\n'},
+        )
+        monkeypatch.setattr(env, "_resolve_and_download", lambda *_a, **_k: [second])
+
+        env.install(["probefoo<2"])
+
+        # Equal source size and mtime let stale bytecode pass validation.
+        os.utime(source, ns=(first_mtime, first_mtime))
+
+        assert import_value() == "v1"
 
     def test_package_dropped_by_the_new_resolve_is_removed(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

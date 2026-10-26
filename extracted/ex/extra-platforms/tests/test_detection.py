@@ -21,7 +21,8 @@ import os
 import re
 import subprocess
 import sys
-from itertools import chain
+from itertools import chain, pairwise
+from operator import attrgetter
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -56,7 +57,9 @@ from extra_platforms.pytest import skip_windows, unless_windows
 
 
 @pytest.mark.parametrize(
-    "obj", list(chain(ALL_TRAITS, ALL_GROUPS)), ids=lambda obj: obj.id
+    "obj",
+    sorted(chain(ALL_TRAITS, ALL_GROUPS), key=attrgetter("id")),
+    ids=attrgetter("id"),
 )
 def test_detection_trait_functions(obj: Trait | Group):
     # All traits must implement a real function in the detection module.
@@ -88,110 +91,53 @@ def test_detection_trait_functions(obj: Trait | Group):
     )
 
 
+DETECTION_SECTIONS = (
+    "Architecture detection heuristics",
+    "Platform detection heuristics",
+    "Shell detection heuristics",
+    "Terminal detection heuristics",
+    "CI/CD detection heuristics",
+    "Agent detection heuristics",
+)
+"""Comment headers splitting `detection.py`, in trait category order."""
+
+
 def test_detection_heuristics_sorting():
-    """Detection heuristics must be sorted within each section."""
+    """Each section sorts its heuristics by ID, then closes on its generic one."""
     detection_path = Path(inspect.getfile(detection_module))
-    tree = ast.parse(detection_path.read_bytes())
     source_lines = detection_path.read_text(encoding="utf-8").splitlines()
 
-    # Find section boundaries by looking for comment markers.
-    arch_section_start = None
-    platform_section_start = None
-    shell_section_start = None
-    terminal_section_start = None
-    ci_section_start = None
-    agent_section_start = None
+    starts = []
+    for header in DETECTION_SECTIONS:
+        found = [i for i, line in enumerate(source_lines, start=1) if header in line]
+        assert len(found) == 1, f"{header!r} heads {len(found)} sections"
+        starts.append(found[0])
+    assert starts == sorted(starts), "Sections are out of the trait category order"
 
-    for i, line in enumerate(source_lines, start=1):
-        if "Architecture detection heuristics" in line:
-            arch_section_start = i
-        elif "Platform detection heuristics" in line:
-            platform_section_start = i
-        elif "Shell detection heuristics" in line:
-            shell_section_start = i
-        elif "Terminal detection heuristics" in line:
-            terminal_section_start = i
-        elif "CI/CD detection heuristics" in line:
-            ci_section_start = i
-        elif "Agent detection heuristics" in line:
-            agent_section_start = i
+    heuristics = [
+        node
+        for node in ast.parse(detection_path.read_bytes()).body
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("is_")
+    ]
+    # Every trait, unknown ones included, has exactly one heuristic.
+    assert sorted(node.name for node in heuristics) == sorted(
+        trait.detection_func_id for trait in ALL_TRAITS
+    )
 
-    assert arch_section_start is not None, "Architecture section not found"
-    assert platform_section_start is not None, "Platform section not found"
-    assert shell_section_start is not None, "Shell section not found"
-    assert terminal_section_start is not None, "Terminal section not found"
-    assert ci_section_start is not None, "CI/CD section not found"
-    assert agent_section_start is not None, "Agent section not found"
-
-    assert arch_section_start < platform_section_start
-    assert platform_section_start < shell_section_start
-    assert shell_section_start < terminal_section_start
-    assert terminal_section_start < ci_section_start
-    assert ci_section_start < agent_section_start
-
-    # Collect heuristic functions by section.
-    all_heuristic_ids = []
-    arch_heuristics = []
-    platform_heuristics = []
-    shell_heuristics = []
-    terminal_heuristics = []
-    ci_heuristics = []
-    agent_heuristics = []
-
-    for node in tree.body:
-        if isinstance(node, ast.FunctionDef) and node.name.startswith("is_"):
-            func_id = node.name
-            assert func_id.islower()
-            all_heuristic_ids.append(func_id)
-
-            line_no = node.lineno
-            if line_no >= arch_section_start and line_no < platform_section_start:
-                arch_heuristics.append(func_id)
-            elif line_no >= platform_section_start and line_no < shell_section_start:
-                platform_heuristics.append(func_id)
-            elif line_no >= shell_section_start and line_no < terminal_section_start:
-                shell_heuristics.append(func_id)
-            elif line_no >= terminal_section_start and line_no < ci_section_start:
-                terminal_heuristics.append(func_id)
-            elif line_no >= ci_section_start and line_no < agent_section_start:
-                ci_heuristics.append(func_id)
-            elif line_no >= agent_section_start:
-                agent_heuristics.append(func_id)
-
-    # Check there is no extra "is_" function.
-    # All traits, including UNKNOWN traits, must have detection functions.
-    assert {f"is_{p.id}" for p in ALL_TRAITS} == set(all_heuristic_ids)
-
-    # We only allow one generic "is_unknown*()" detection heuristics per category.
-    for heuristics in [
-        arch_heuristics,
-        platform_heuristics,
-        shell_heuristics,
-        terminal_heuristics,
-        ci_heuristics,
-        agent_heuristics,
-    ]:
-        non_generic_func_ids = [
-            func_id for func_id in heuristics if func_id.startswith("is_unknown")
+    for start, end in pairwise([*starts, len(source_lines) + 1]):
+        *specific, generic = [
+            node.name for node in heuristics if start <= node.lineno < end
         ]
-
-        assert len(non_generic_func_ids) <= 1, (
-            f"More than 1 is_unknown*() detection heuristics defined in {heuristics!r}"
+        assert generic.startswith("is_unknown_"), (
+            f"Section at line {start} does not end on its is_unknown_*() heuristic"
         )
-
-        if len(non_generic_func_ids):
-            assert non_generic_func_ids[-1].startswith("is_unknown")
-
-        # Verify each category is sorted alphabetically within itself.
-        assert non_generic_func_ids == sorted(non_generic_func_ids), (
-            f"Heuristics are not sorted: {non_generic_func_ids!r}"
-        )
+        assert specific == sorted(specific), f"Heuristics are not sorted: {specific}"
+        assert not any(name.startswith("is_unknown_") for name in specific)
 
 
-def test_is_arm_depends_on_arm_variants(monkeypatch):
+def test_is_arm_depends_on_arm_variants(monkeypatch, fresh_caches):
     """Test that is_arm() is a fallback excluded by specific ARM variants."""
     # A machine claimed by a specific variant is not generic ARM.
-    invalidate_caches()
     monkeypatch.setattr("platform.machine", lambda: "armv7l")
     assert is_armv7l()
     assert not is_arm()
@@ -201,9 +147,6 @@ def test_is_arm_depends_on_arm_variants(monkeypatch):
     monkeypatch.setattr("platform.machine", lambda: "armv4tl")
     assert not is_armv7l()
     assert is_arm()
-
-    # Clear cached results computed from the mocked machine value.
-    invalidate_caches()
 
 
 @pytest.mark.parametrize(
@@ -217,28 +160,20 @@ def test_is_arm_depends_on_arm_variants(monkeypatch):
         "opensuse-tumbleweed",
     ),
 )
-def test_opensuse_channel_folding(monkeypatch, distro_id):
+def test_opensuse_channel_folding(monkeypatch, distro_id, fresh_caches):
     """Any openSUSE release channel is detected as the OPENSUSE platform."""
-    invalidate_caches()
     monkeypatch.setattr("extra_platforms.detection.os_release_id", lambda: distro_id)
     assert is_opensuse()
 
-    # Clear cached results computed from the mocked distribution ID.
-    invalidate_caches()
 
-
-def test_oracle_raw_id_detection(monkeypatch):
+def test_oracle_raw_id_detection(monkeypatch, fresh_caches):
     """Oracle Linux is detected from its raw ``ol`` os-release ID."""
-    invalidate_caches()
     monkeypatch.setattr("extra_platforms.detection.os_release_id", lambda: "ol")
     assert is_oracle()
 
-    # Clear cached results computed from the mocked distribution ID.
-    invalidate_caches()
-
 
 @pytest.mark.parametrize("machine", ("x86_64", "AMD64", "amd64", "i86pc"))
-def test_x86_64_machine_aliases(monkeypatch, machine):
+def test_x86_64_machine_aliases(monkeypatch, machine, fresh_caches):
     """Every string reported for 64-bit x86 resolves to X86_64.
 
     Solaris and illumos answer ``i86pc``, which names the machine family and not
@@ -246,12 +181,8 @@ def test_x86_64_machine_aliases(monkeypatch, machine):
     :func:`~extra_platforms.is_sparc64` already accepts. Captured on
     OpenIndiana Hipster 2026.04.
     """
-    invalidate_caches()
     monkeypatch.setattr(detection_module.platform, "machine", lambda: machine)
     assert is_x86_64()
-
-    # Clear cached results computed from the mocked machine string.
-    invalidate_caches()
 
 
 PLATFORM_HOST_SIGNALS = frozenset((
@@ -279,7 +210,9 @@ def _platform_heuristic_signals() -> frozenset[str]:
     reads: an attribute of an imported module (``sys.platform``), or an imported
     object (``os_release_id``). Names bound inside the function are skipped, and
     so are calls to sibling ``is_*()`` heuristics, which this walk covers on
-    their own.
+    their own. Upper-case names are skipped too: they name module-level
+    constants (``_CHROMEOS_IDS``), which hold fixed data and read nothing from
+    the host.
     """
     heuristic_ids = {f"is_{plat.id}" for plat in ALL_PLATFORMS}
     signals = set()
@@ -310,7 +243,11 @@ def _platform_heuristic_signals() -> frozenset[str]:
                 ):
                     signals.add(f"{module_id}.{sub.attr}")
             elif isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Load):
-                if sub.id in bound or sub.id.startswith("is_"):
+                if (
+                    sub.id in bound
+                    or sub.id.startswith("is_")
+                    or sub.id.lstrip("_").isupper()
+                ):
                     continue
                 imported = getattr(detection_module, sub.id, None)
                 if imported is not None and not inspect.ismodule(imported):
@@ -379,7 +316,7 @@ def mock_platform_host(
     monkeypatch.setattr(detection_module.Path, "is_file", lambda self: False)
 
 
-def test_illumos_excludes_solaris(monkeypatch):
+def test_illumos_excludes_solaris(monkeypatch, fresh_caches):
     """An illumos distribution matches ILLUMOS alone, never SOLARIS as well.
 
     illumos inherits the SunOS 5.11 release string from OpenSolaris, so
@@ -387,7 +324,6 @@ def test_illumos_excludes_solaris(monkeypatch):
     used to match at once, which made :func:`~extra_platforms.current_platform`
     raise on every illumos host. Values captured on OpenIndiana Hipster 2026.04.
     """
-    invalidate_caches()
     mock_platform_host(
         monkeypatch,
         sys_platform="sunos5",
@@ -406,15 +342,9 @@ def test_illumos_excludes_solaris(monkeypatch):
     assert not is_solaris()
     assert current_platform() is ILLUMOS
 
-    # Clear cached results computed from the mocked host.
-    invalidate_caches()
 
-
-def test_detection_functions_cached():
+def test_detection_functions_cached(fresh_caches):
     """Test that detection functions are cached with @cache decorator."""
-    # Clear caches first.
-    invalidate_caches()
-
     # Call each function twice.
     _ = is_aarch64()
     _ = is_aarch64()
@@ -428,13 +358,9 @@ def test_detection_functions_cached():
     assert is_windows.cache_info().hits >= 1
     assert is_x86_64.cache_info().hits >= 1
 
-    invalidate_caches()
 
-
-def test_environment_variable_ci_detection(monkeypatch):
+def test_environment_variable_ci_detection(monkeypatch, fresh_caches):
     """Test CI detection based on environment variables."""
-    invalidate_caches()
-
     # Mock GitHub CI environment variable.
     monkeypatch.setenv("GITHUB_ACTIONS", "true")
     invalidate_caches()
@@ -446,22 +372,13 @@ def test_environment_variable_ci_detection(monkeypatch):
     invalidate_caches()
     assert is_gitlab_ci() is True
 
-    # Clean up.
-    monkeypatch.delenv("GITLAB_CI", raising=False)
-    invalidate_caches()
 
-
-def test_detection_no_circular_dependencies():
+def test_detection_no_circular_dependencies(fresh_caches):
     """Test that detection functions can all be called without circular dependency issues."""
-    invalidate_caches()
-
     # Call all trait detection functions.
     for trait in ALL_TRAITS:
         # Access the current property, which calls the detection function.
         _ = trait.current
-
-    # If no exception was raised, there are no circular dependencies.
-    invalidate_caches()
 
 
 @pytest.mark.parametrize(
@@ -515,55 +432,74 @@ def test_parse_proc_ppid(record, expected):
     assert detection_module._parse_proc_ppid(record) == expected
 
 
-def test_tree_from_ps(monkeypatch):
-    """The ps-based walk (macOS/BSD) climbs from the current process to root."""
-    # pid ppid command: argv[0] is a path, except a login shell's "-zsh".
-    table = (
-        "  100     1 /sbin/launchd\n"
-        "  200   100 -zsh\n"
-        "  300   200 /usr/bin/python3 -m pytest\n"
-    )
+def _mock_ps(monkeypatch, table: str, links: dict[int, str] | None = None) -> None:
+    """Serve ``table`` as the output of ``ps``, seen from process 300.
+
+    ``links`` stands in for the System V procfs link to the binary of each PID.
+    Every process gets one, empty by default, so the real procfs of an illumos
+    host stays out of these made-up processes.
+    """
     monkeypatch.setattr(
         subprocess,
         "run",
         lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout=table),
     )
     monkeypatch.setattr(os, "getpid", lambda: 300)
-    # Keep the real procfs of an illumos host out of these made-up processes.
-    monkeypatch.setattr(detection_module, "_system_v_executable", lambda pid: "")
-    # Ordered nearest-first. The login shell's argv[0] (-zsh) yields no path, and
-    # "-m pytest" must not be mistaken for an interpreter-hosted shell.
-    assert detection_module._tree_from_ps() == (
-        ("python3", "/usr/bin/python3"),
-        ("zsh", ""),
-        ("launchd", "/sbin/launchd"),
+    monkeypatch.setattr(
+        detection_module, "_system_v_executable", lambda pid: (links or {}).get(pid, "")
     )
 
 
-def test_tree_from_ps_reads_system_v_executable(monkeypatch):
-    """System V procfs names the binary a bare ``argv[0]`` hides, as on illumos."""
-    table = (
-        "  100     1 /usr/lib/ssh/sshd\n"
-        "  200   100 sh probe.sh\n"
-        "  300   200 /usr/bin/python3.14 report.py\n"
-    )
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout=table),
-    )
-    monkeypatch.setattr(os, "getpid", lambda: 300)
-    links = {200: "/usr/bin/i86/ksh93", 300: "/usr/bin/python3.14"}
-    monkeypatch.setattr(
-        detection_module, "_system_v_executable", lambda pid: links.get(pid, "")
-    )
-    assert detection_module._tree_from_ps() == (
-        ("python3", "/usr/bin/python3.14"),
-        ("python3", "/usr/bin/python3.14"),
-        ("ksh93", "/usr/bin/i86/ksh93"),
-        ("sh", ""),
-        ("sshd", "/usr/lib/ssh/sshd"),
-    )
+@pytest.mark.parametrize(
+    ("table", "links", "expected"),
+    (
+        pytest.param(
+            # pid ppid command: argv[0] is a path, except a login shell's "-zsh".
+            "  100     1 /sbin/launchd\n"
+            "  200   100 -zsh\n"
+            "  300   200 /usr/bin/python3 -m pytest\n",
+            None,
+            # The login shell's argv[0] yields no path, and "-m pytest" must not
+            # be mistaken for an interpreter-hosted shell.
+            (
+                ("python3", "/usr/bin/python3"),
+                ("zsh", ""),
+                ("launchd", "/sbin/launchd"),
+            ),
+            id="login_shell",
+        ),
+        pytest.param(
+            # System V procfs names the binary a bare argv[0] hides, as on illumos.
+            "  100     1 /usr/lib/ssh/sshd\n"
+            "  200   100 sh probe.sh\n"
+            "  300   200 /usr/bin/python3.14 report.py\n",
+            {200: "/usr/bin/i86/ksh93", 300: "/usr/bin/python3.14"},
+            (
+                ("python3", "/usr/bin/python3.14"),
+                ("python3", "/usr/bin/python3.14"),
+                ("ksh93", "/usr/bin/i86/ksh93"),
+                ("sh", ""),
+                ("sshd", "/usr/lib/ssh/sshd"),
+            ),
+            id="system_v_executable",
+        ),
+        pytest.param(
+            # An emulated shell is seen as the real one, and its qemu wrapper is
+            # no process of its own.
+            "  300   200 qemu-aarch64 /bin/bash\n  200     1 /sbin/launchd\n",
+            None,
+            (("bash", "/bin/bash"), ("launchd", "/sbin/launchd")),
+            id="emulated_shell",
+        ),
+    ),
+)
+def test_tree_from_ps(table, links, expected, monkeypatch):
+    """The ps-based walk (macOS/BSD) climbs from the current process to root.
+
+    The pairs come nearest-first.
+    """
+    _mock_ps(monkeypatch, table, links)
+    assert detection_module._tree_from_ps() == expected
 
 
 def test_tree_from_ps_tolerates_mocked_run(monkeypatch):
@@ -626,17 +562,16 @@ def test_interpreter_shell(tmp_path):
 def test_tree_from_ps_detects_interpreter_shell(tmp_path, monkeypatch):
     """The ps walk surfaces xonsh when python runs its launcher script."""
     launcher = tmp_path / "xonsh"
-    launcher.write_text("")
-    table = f"  300   200 /usr/bin/python3 {launcher}\n  200     1 /sbin/launchd\n"
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout=table),
+    launcher.write_text("", encoding="UTF-8")
+    _mock_ps(
+        monkeypatch,
+        f"  300   200 /usr/bin/python3 {launcher}\n  200     1 /sbin/launchd\n",
     )
-    monkeypatch.setattr(os, "getpid", lambda: 300)
-    pairs = detection_module._tree_from_ps()
-    assert ("python3", "/usr/bin/python3") in pairs
-    assert ("xonsh", str(launcher)) in pairs
+    assert detection_module._tree_from_ps() == (
+        ("python3", "/usr/bin/python3"),
+        ("xonsh", str(launcher)),
+        ("launchd", "/sbin/launchd"),
+    )
 
 
 def test_tree_from_ps_uses_portable_flags(monkeypatch):
@@ -653,6 +588,32 @@ def test_tree_from_ps_uses_portable_flags(monkeypatch):
     # by the System V ps on Solaris and AIX). One `-o` per field: FreeBSD reads
     # `-o pid=,ppid=,args=` as a single `pid` column with a `,ppid=,args=` header.
     assert captured["args"] == ("ps", "-A", "-o", "pid=", "-o", "ppid=", "-o", "args=")
+
+
+@skip_windows
+def test_tree_from_ps_replaces_undecodable_bytes(tmp_path, monkeypatch):
+    """A byte that is no UTF-8, in the arguments of another process, is replaced.
+
+    The fake `ps` lists the current process, and a second one whose argument is
+    a Latin-1 `piña`.
+    """
+    ps = tmp_path / "ps"
+    # A Python shebang, not /bin/sh, as for write_fake_executable(). -S skips the
+    # site module and the coverage hook it loads: their start-up can outlast the
+    # timeout of the `ps` call on a busy runner.
+    ps.write_text(
+        f"#!{sys.executable} -S\n"
+        "import sys\n"
+        "sys.stdout.buffer.write(\n"
+        "    b'  300     1 /bin/zsh\\n  400     1 /usr/bin/python3 pi\\xf1a\\n'\n"
+        ")\n",
+        encoding="UTF-8",
+    )
+    ps.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path), prepend=os.pathsep)
+    monkeypatch.setattr(os, "getpid", lambda: 300)
+    monkeypatch.setattr(detection_module, "_system_v_executable", lambda pid: "")
+    assert detection_module._tree_from_ps() == (("zsh", "/bin/zsh"),)
 
 
 @pytest.mark.parametrize(
@@ -702,21 +663,6 @@ def test_pairs_from_process_busybox(executable, argv, expected):
     assert detection_module._pairs_from_process(executable, argv) == expected
 
 
-def test_tree_from_ps_unwraps_emulator(monkeypatch):
-    """An emulated shell (qemu-aarch64 /bin/bash) is seen as the real shell."""
-    table = "  300   200 qemu-aarch64 /bin/bash\n  200     1 /sbin/launchd\n"
-    monkeypatch.setattr(
-        subprocess,
-        "run",
-        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout=table),
-    )
-    monkeypatch.setattr(os, "getpid", lambda: 300)
-    pairs = detection_module._tree_from_ps()
-    assert ("bash", "/bin/bash") in pairs
-    # The qemu wrapper itself is not reported as a shell.
-    assert not any(name.startswith("qemu") for name, _ in pairs)
-
-
 def test_ppid_from_proc_tolerates_binary_status(monkeypatch):
     """System V /proc/<pid>/status is a binary pstatus_t; reading must not raise."""
     monkeypatch.setattr(
@@ -756,7 +702,9 @@ def test_ppid_from_proc_netbsd_status_fallback(monkeypatch):
 
 
 @skip_windows
-def test_parent_process_tree_falls_back_to_ps_when_proc_empty(monkeypatch):
+def test_parent_process_tree_falls_back_to_ps_when_proc_empty(
+    monkeypatch, fresh_caches
+):
     """System V /proc (illumos, Solaris) yields nothing, so fall back to ps."""
     monkeypatch.setattr(detection_module, "_tree_from_proc", lambda: ())
     sentinel = (("zsh", "/usr/bin/zsh"),)
@@ -765,18 +713,15 @@ def test_parent_process_tree_falls_back_to_ps_when_proc_empty(monkeypatch):
     monkeypatch.setattr(detection_module.Path, "is_dir", lambda self: True)
     invalidate_caches()
     assert detection_module._parent_process_tree() == sentinel
-    invalidate_caches()
 
 
-def test_parent_process_exe_names():
+def test_parent_process_exe_names(fresh_caches):
     """The dispatcher returns a clean frozenset on every platform."""
-    invalidate_caches()
     names = detection_module._parent_process_exe_names()
     assert isinstance(names, frozenset)
     # Whatever is discovered must be non-empty, lowercased stems. The set itself
     # may be empty on sandboxed builders with neither /proc, ps, nor Win32.
     assert all(name and name == name.lower() for name in names)
-    invalidate_caches()
 
 
 def test_walk_process_map():
@@ -882,7 +827,7 @@ def unset_shell_startup_vars(monkeypatch) -> None:
 )
 @pytest.mark.parametrize("source", ["SHELL", "process tree"])
 def test_shell_detected_by_every_executable_name(
-    monkeypatch, shell, executable, source
+    monkeypatch, shell, executable, source, fresh_caches
 ):
     """Each file name a shell's binary goes by detects it, as its ID does."""
     path = f"/nonexistent/bin/{executable}"
@@ -897,10 +842,11 @@ def test_shell_detected_by_every_executable_name(
         monkeypatch.delenv("SHELL", raising=False)
     invalidate_caches()
     assert shell.current
-    invalidate_caches()
 
 
-def test_current_shell_prefers_a_running_pwsh_over_configured_shell(monkeypatch):
+def test_current_shell_prefers_a_running_pwsh_over_configured_shell(
+    monkeypatch, fresh_caches
+):
     """A ``pwsh`` parent process names PowerShell, whose ID is not its binary name."""
     from extra_platforms import POWERSHELL, current_shell
 
@@ -913,7 +859,6 @@ def test_current_shell_prefers_a_running_pwsh_over_configured_shell(monkeypatch)
     unset_shell_startup_vars(monkeypatch)
     invalidate_caches()
     assert current_shell() is POWERSHELL
-    invalidate_caches()
 
 
 @pytest.mark.parametrize(
@@ -968,7 +913,7 @@ def test_shell_from_path_resolves_multicall_binary(tmp_path, target, link, expec
     assert shell_from_path(tmp_path / link).id == expected_id
 
 
-def test_current_shell_path(monkeypatch):
+def test_current_shell_path(monkeypatch, fresh_caches):
     """current_shell_path() prefers the running binary, then falls back to SHELL."""
     from extra_platforms import ZSH, current_shell_path
 
@@ -998,10 +943,8 @@ def test_current_shell_path(monkeypatch):
     invalidate_caches()
     assert current_shell_path() is None
 
-    invalidate_caches()
 
-
-def test_shell_info_path_ignores_another_login_shell(monkeypatch):
+def test_shell_info_path_ignores_another_login_shell(monkeypatch, fresh_caches):
     """``Shell.info()`` reports no path rather than the path of another shell."""
     from extra_platforms import SH
 
@@ -1015,10 +958,11 @@ def test_shell_info_path_ignores_another_login_shell(monkeypatch):
     monkeypatch.setenv("SHELL", "/nonexistent/bin/sh")
     invalidate_caches()
     assert SH.info()["path"] == "/nonexistent/bin/sh"
-    invalidate_caches()
 
 
-def test_current_shell_prefers_running_shell_over_configured_shell(monkeypatch):
+def test_current_shell_prefers_running_shell_over_configured_shell(
+    monkeypatch, fresh_caches
+):
     """A running shell (process tree) wins over a different configured ``SHELL``.
 
     Regression guard for the macOS Terminal.app case where the app launches a
@@ -1039,10 +983,9 @@ def test_current_shell_prefers_running_shell_over_configured_shell(monkeypatch):
     unset_shell_startup_vars(monkeypatch)
     invalidate_caches()
     assert current_shell() is FISH
-    invalidate_caches()
 
 
-def test_nested_ancestor_shells_all_detected(monkeypatch):
+def test_nested_ancestor_shells_all_detected(monkeypatch, fresh_caches):
     """A session shell above the running shell chain is detected in parallel.
 
     Regression guard for openSUSE OBS chroot builds run from a fish terminal:
@@ -1073,7 +1016,6 @@ def test_nested_ancestor_shells_all_detected(monkeypatch):
     assert is_bash()
     assert is_fish()
     assert current_shell() is BASH
-    invalidate_caches()
 
 
 @pytest.mark.parametrize(
@@ -1114,7 +1056,7 @@ def test_nested_ancestor_shells_all_detected(monkeypatch):
     ],
 )
 def test_current_shell_prefers_nearest_running_shell(
-    monkeypatch, tree, login_shell, expected_id
+    monkeypatch, tree, login_shell, expected_id, fresh_caches
 ):
     """When shells nest, the nearest one wins over the login shell above it."""
     from extra_platforms import current_shell
@@ -1124,4 +1066,3 @@ def test_current_shell_prefers_nearest_running_shell(
     unset_shell_startup_vars(monkeypatch)
     invalidate_caches()
     assert current_shell().id == expected_id
-    invalidate_caches()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: budoux
-Version: 0.10.0
+Version: 0.10.1
 Summary: BudouX is the successor of Budou
 Author-email: Shuhei Iitsuka <tushuhei@google.com>
 License-Expression: Apache-2.0
@@ -17,15 +17,11 @@ License-File: LICENSE
 Provides-Extra: jaxcpu
 Requires-Dist: jax>=0.9.0; python_version >= "3.12" and extra == "jaxcpu"
 Provides-Extra: dev
-Requires-Dist: build; extra == "dev"
 Requires-Dist: google-genai; extra == "dev"
 Requires-Dist: pydantic; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: regex; extra == "dev"
-Requires-Dist: toml; extra == "dev"
-Requires-Dist: twine; extra == "dev"
 Requires-Dist: types-regex; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
 Requires-Dist: jax>=0.9.0; python_version >= "3.12" and extra == "dev"
 Requires-Dist: pyrefly>=1.2.0; extra == "dev"
 Requires-Dist: ruff>=0.16.2; extra == "dev"

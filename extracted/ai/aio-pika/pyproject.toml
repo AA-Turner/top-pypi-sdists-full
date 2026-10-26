@@ -1,6 +1,6 @@
 [project]
 name = "aio-pika"
-version = "10.2.0"
+version = "10.2.1"
 description = "Wrapper around the aiormq for asyncio and humans"
 requires-python = ">=3.11,<4"
 readme = "README.md"

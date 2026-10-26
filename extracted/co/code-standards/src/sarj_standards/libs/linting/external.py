@@ -560,7 +560,7 @@ def analyze_external(
                     runner=execute_eslint,
                     parser=parse_eslint,
                     validator=partial(_validate_eslint_coverage, selected_files=_eslint_selected_files(command)),
-                    invocation_id=invocation_id,
+                    invocation_id=InvocationId(invocation_id),
                     file_count=_argv_file_count(command.argv),
                 )
             )
@@ -682,7 +682,7 @@ def _security_reports(
                     runner=partial(_security_runner, runner, name="zizmor"),
                     parser=security_tools.parse_zizmor,
                     version=security_tools.VERSIONS["zizmor"],
-                    invocation_id=f"batch-{start // _ESLINT_BATCH_SIZE + 1}",
+                    invocation_id=InvocationId(f"batch-{start // _ESLINT_BATCH_SIZE + 1}"),
                     file_count=len(batch),
                 )
             )
@@ -729,7 +729,7 @@ def _checkov_reports(
                     runner=partial(_security_runner, runner, name="checkov"),
                     parser=security_tools.parse_checkov,
                     version=security_tools.VERSIONS["checkov"],
-                    invocation_id=f"{framework}:batch-{start // _ESLINT_BATCH_SIZE + 1}",
+                    invocation_id=InvocationId(f"{framework}:batch-{start // _ESLINT_BATCH_SIZE + 1}"),
                     file_count=len(batch),
                 )
             )
@@ -1370,7 +1370,7 @@ def _invoke_react_doctor(
         root=root,
         runner=execution_runner,
         parser=parser,
-        invocation_id=project.relative_to(root).as_posix() or None,
+        invocation_id=InvocationId(project.relative_to(root).as_posix()) or None,
         file_count=file_count,
     )
 
@@ -1891,7 +1891,7 @@ def _invoke_python_projects(
     reports: list[ToolReport] = []
     for project, scoped_files in projects:
         argv = _basedpyright_argv(project, scoped_files, project_mode=project_mode)
-        project_id = project.relative_to(root).as_posix() or None
+        project_id = InvocationId(project.relative_to(root).as_posix()) or None
         report = _invoke(
             name,
             argv,
@@ -1944,8 +1944,8 @@ def _invoke_ruff_projects(
     runner: ProcessRunner,
 ) -> tuple[ToolReport, ...]:
     reports: list[ToolReport] = []
-    for project, config, scoped_files in _group_ruff_projects(files, root):
-        project_id = None if project == root else project.relative_to(root).as_posix()
+    for project, config, scoped_files in ruff_project_groups(files, root):
+        project_id = None if project == root else InvocationId(project.relative_to(root).as_posix())
         report = _invoke(
             "ruff",
             _ruff_argv(scoped_files, config=config),
@@ -2221,11 +2221,15 @@ def _shellcheck_reports(
         return tuple(reports)
     for batch_number, start in enumerate(range(0, len(grouped.shellcheck), _SHELLCHECK_BATCH_SIZE), start=1):
         batch = tuple(sorted(grouped.shellcheck[start : start + _SHELLCHECK_BATCH_SIZE]))
-        reports.append(_invoke_shellcheck(batch, root=root, runner=runner, invocation_id=str(batch_number)))
+        reports.append(
+            _invoke_shellcheck(batch, root=root, runner=runner, invocation_id=InvocationId(str(batch_number)))
+        )
     return tuple(reports)
 
 
-def _invoke_shellcheck(files: Sequence[str], *, root: Path, runner: ProcessRunner, invocation_id: str) -> ToolReport:
+def _invoke_shellcheck(
+    files: Sequence[str], *, root: Path, runner: ProcessRunner, invocation_id: InvocationId
+) -> ToolReport:
     report = _invoke(
         "shellcheck",
         (
@@ -2283,7 +2287,9 @@ def _project_analyzer(project: Path, name: str) -> str:
 
 def _group_python_projects(files: Sequence[str], root: Path) -> tuple[tuple[Path, tuple[str, ...]], ...]:
     fallback = _adopted_python_project(root)
-    nearest = cache(partial(_nearest_analyzer_project, root=root, fallback=fallback))
+    nearest = cache(
+        partial(_nearest_analyzer_project, root=root, fallback=fallback, has_tool=cache(_pyproject_has_tool))
+    )
     grouped: dict[Path, list[str]] = {}
     for raw_file in files:
         path = Path(raw_file).resolve()
@@ -2295,8 +2301,14 @@ def _group_python_projects(files: Sequence[str], root: Path) -> tuple[tuple[Path
     )
 
 
-def _nearest_analyzer_project(start: Path, root: Path, *, fallback: Path | None = None) -> Path:
-    configured = _nearest_configured_python_project(start, root, names=("pyright", "basedpyright"))
+def _nearest_analyzer_project(
+    start: Path,
+    root: Path,
+    *,
+    fallback: Path | None = None,
+    has_tool: Callable[[Path, Sequence[str]], bool] | None = None,
+) -> Path:
+    configured = _nearest_configured_python_project(start, root, names=("pyright", "basedpyright"), has_tool=has_tool)
     if configured is not None:
         return configured
     current = start
@@ -2315,9 +2327,9 @@ def _nearest_analyzer_project(start: Path, root: Path, *, fallback: Path | None 
     return fallback or _nearest_project(start, root, ("pyproject.toml",))
 
 
-def _group_ruff_projects(files: Sequence[str], root: Path) -> tuple[tuple[Path, Path | None, tuple[str, ...]], ...]:
+def ruff_project_groups(files: Sequence[str], root: Path) -> tuple[tuple[Path, Path | None, tuple[str, ...]], ...]:
     fallback = _adopted_python_config(root)
-    nearest = cache(partial(_nearest_ruff_config, root=root))
+    nearest = cache(partial(_nearest_ruff_config, root=root, has_tool=cache(_pyproject_has_tool)))
     grouped: dict[tuple[Path, Path | None], list[str]] = {}
     for raw_file in files:
         path = Path(raw_file).resolve()
@@ -2331,7 +2343,9 @@ def _group_ruff_projects(files: Sequence[str], root: Path) -> tuple[tuple[Path, 
 
 
 def _group_deptry_projects(files: Sequence[str], root: Path) -> tuple[tuple[Path, tuple[str, ...]], ...]:
-    nearest = cache(partial(_nearest_deptry_project, root=root))
+    nearest = cache(
+        partial(_nearest_deptry_project, root=root, has_specification=cache(_has_deptry_dependency_specification))
+    )
     grouped: dict[Path, list[str]] = {}
     for raw_file in files:
         path = Path(raw_file).resolve()
@@ -2345,10 +2359,10 @@ def _group_deptry_projects(files: Sequence[str], root: Path) -> tuple[tuple[Path
     )
 
 
-def _nearest_deptry_project(start: Path, root: Path) -> Path | None:
+def _nearest_deptry_project(start: Path, root: Path, *, has_specification: Callable[[Path], bool]) -> Path | None:
     current = start
     while current.is_relative_to(root):
-        if _has_deptry_dependency_specification(current):
+        if has_specification(current):
             return current
         if current == root:
             break
@@ -2374,7 +2388,10 @@ def _has_deptry_dependency_specification(project: Path) -> bool:
     return isinstance(poetry.get("dependencies"), dict)
 
 
-def _nearest_ruff_config(start: Path, root: Path) -> Path | None:
+def _nearest_ruff_config(
+    start: Path, root: Path, *, has_tool: Callable[[Path, Sequence[str]], bool] | None = None
+) -> Path | None:
+    probe = _pyproject_has_tool if has_tool is None else has_tool
     current = start
     while current.is_relative_to(root):
         for name in (".ruff.toml", "ruff.toml"):
@@ -2382,7 +2399,7 @@ def _nearest_ruff_config(start: Path, root: Path) -> Path | None:
             if candidate.is_file():
                 return candidate
         pyproject = current / "pyproject.toml"
-        if pyproject.is_file() and _pyproject_has_tool(pyproject, ("ruff",)):
+        if pyproject.is_file() and probe(pyproject, ("ruff",)):
             return pyproject
         if current == root:
             break
@@ -2406,13 +2423,20 @@ def _adopted_python_project(root: Path) -> Path | None:
     return project if project.is_dir() else None
 
 
-def _nearest_configured_python_project(start: Path, root: Path, *, names: Sequence[str]) -> Path | None:
+def _nearest_configured_python_project(
+    start: Path,
+    root: Path,
+    *,
+    names: Sequence[str],
+    has_tool: Callable[[Path, Sequence[str]], bool] | None = None,
+) -> Path | None:
+    probe = _pyproject_has_tool if has_tool is None else has_tool
     current = start
     while current.is_relative_to(root):
         if (current / "pyrightconfig.json").is_file() or (current / "pyrightconfig.jsonc").is_file():
             return current
         pyproject = current / "pyproject.toml"
-        if pyproject.is_file() and _pyproject_has_tool(pyproject, names):
+        if pyproject.is_file() and probe(pyproject, names):
             return current
         if current == root:
             break
@@ -2705,7 +2729,7 @@ def _invoke(
     runner: ProcessRunner,
     parser: ProtocolParser,
     validator: ProtocolValidator | None = None,
-    invocation_id: str | None = None,
+    invocation_id: InvocationId | None = None,
     file_count: int,
     version: str | None = None,
 ) -> ToolReport:
@@ -3352,8 +3376,11 @@ def _react_doctor_location(
 
 
 def _ruff_argv(files: Sequence[str], *, config: Path | None = None) -> tuple[str, ...]:
-    config_args = () if config is None else ("--config", str(config))
-    return ("ruff", "check", "--output-format", "json", *config_args, "--", *files)
+    return ("ruff", "check", "--output-format", "json", *ruff_config_arguments(config), "--", *files)
+
+
+def ruff_config_arguments(config: Path | None) -> tuple[str, ...]:
+    return () if config is None else ("--config", str(config))
 
 
 def _ruff_required_argv(files: Sequence[str]) -> tuple[str, ...]:

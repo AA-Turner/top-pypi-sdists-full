@@ -411,6 +411,38 @@ def test_text_plain_boolean_and_null_use_json_spelling(ctx, value, expected):
     )
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (True, b"true"),
+        (False, b"false"),
+        (None, b"null"),
+        ({"a": None}, b'{"a": null}'),
+        # Not JSON-encodable, so sent as before
+        ([b"x"], b"[b'x']"),
+    ],
+    ids=["true", "false", "null", "object", "bytes-in-list"],
+)
+def test_octet_stream_non_bytes_use_json_spelling(ctx, value, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /test",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+
+    case = operation.Case(body=value, media_type="application/octet-stream")
+
+    assert [transport.serialize_case(case)["data"] for transport in (REQUESTS_TRANSPORT, WSGI_TRANSPORT)] == [
+        expected,
+        expected,
+    ]
+
+
 def multipart_echo_app(ctx):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -631,6 +663,9 @@ def test_multipart_non_object_body_is_sent_as_text(ctx, app_runner, body, transp
     }
 
 
+FILE_LIST_SCHEMA = {"type": "array", "items": {"type": "string", "format": "binary"}}
+
+
 def _received_part(part):
     name = part.get_param("name", header="content-disposition")
     if part.is_multipart():
@@ -680,6 +715,14 @@ def _received_part(part):
             {"x": "1"},
             [["f", "application/xml", "<item><x>1</x></item>"]],
         ),
+        ("model/stl", FILE_LIST_SCHEMA, 0, [["f", "model/stl", "0"]]),
+        ("model/stl", FILE_LIST_SCHEMA, 0.5, [["f", "model/stl", "0.5"]]),
+        ("model/stl", FILE_LIST_SCHEMA, True, [["f", "model/stl", "true"]]),
+        ("model/stl", FILE_LIST_SCHEMA, None, [["f", "model/stl", "null"]]),
+        ("model/stl", FILE_LIST_SCHEMA, {}, [["f", "model/stl", "{}"]]),
+        ("model/stl", {**FILE_LIST_SCHEMA, "type": ["array", "null"]}, 0, [["f", "model/stl", "0"]]),
+        ("model/stl", {}, 0, [["f", "model/stl", "0"]]),
+        ("application/octet-stream", FILE_LIST_SCHEMA, True, [["f", "application/octet-stream", "true"]]),
     ],
     ids=[
         "nested-multipart",
@@ -690,6 +733,14 @@ def _received_part(part):
         "xml-name",
         "xml-property-name",
         "xml-ref",
+        "file-list-integer",
+        "file-list-number",
+        "file-list-boolean",
+        "file-list-null",
+        "file-list-object",
+        "nullable-file-list-integer",
+        "untyped-integer",
+        "octet-stream-file-list-boolean",
     ],
 )
 def test_multipart_part_encoded_with_its_content_type(
@@ -727,6 +778,29 @@ def test_multipart_part_encoded_with_its_content_type(
         loaded = schemathesis.openapi.from_url(app_runner.openapi_url(app))
     case = loaded["/upload"]["POST"].Case(body={"f": value}, media_type="multipart/form-data")
     assert case.call().json() == expected
+
+
+def test_multipart_array_part_items_need_a_serializer(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {"f": {"type": "array", "items": {"type": "integer"}}},
+                        },
+                        "encoding": {"f": {"contentType": "model/stl"}},
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(body={"f": [1]}, media_type="multipart/form-data")
+    with pytest.raises(SerializationNotPossible, match="model/stl"):
+        case.as_transport_kwargs(base_url="http://h")
 
 
 @pytest.mark.parametrize(
@@ -939,6 +1013,90 @@ def test_multipart_ref_to_scalar_is_not_json_encoded(ctx, case_factory):
     )
     serialized = REQUESTS_TRANSPORT.serialize_case(case)
     assert _multipart_payload(serialized, "part") == "raw"
+
+
+@pytest.mark.parametrize(
+    "properties, encoding, body, expected",
+    [
+        (
+            {"file": {"type": "string", "format": "binary"}},
+            {},
+            {"file": b"abc", "kind": "a"},
+            [("file", ("file", b"abc")), ("kind", (None, "a"))],
+        ),
+        (
+            {"files": {"type": "array", "items": {"type": "string", "format": "binary"}}},
+            {},
+            {"files": [b"a", b"b"], "kind": "a"},
+            [("files", ("files", b"a")), ("files", ("files", b"b")), ("kind", (None, "a"))],
+        ),
+        (
+            {"meta": {"type": "object", "properties": {"x": {"type": "integer"}}}},
+            {},
+            {"meta": {"x": 1}, "kind": "a"},
+            [("meta", (None, b'{"x": 1}', "application/json")), ("kind", (None, "a"))],
+        ),
+        (
+            {"doc": {"type": "object", "xml": {"name": "item"}}},
+            {"doc": {"contentType": "application/xml"}},
+            {"doc": {"x": "1"}, "kind": "a"},
+            [("doc", (None, b"<item><x>1</x></item>", "application/xml")), ("kind", (None, "a"))],
+        ),
+    ],
+    ids=["file", "file-array", "object", "xml"],
+)
+@pytest.mark.parametrize("declared", ["inline", "ref"])
+def test_multipart_parts_of_body_behind_ref(ctx, declared, properties, encoding, body, expected):
+    # The `kind` reference keeps a referenced body bundled with a `$ref` at its root
+    upload = {"type": "object", "properties": {**properties, "kind": {"$ref": "#/components/schemas/Kind"}}}
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/form-data": {
+                        "schema": upload if declared == "inline" else {"$ref": "#/components/schemas/Upload"},
+                        "encoding": encoding,
+                    }
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        components={"schemas": {"Upload": upload, "Kind": {"type": "string", "enum": ["a"]}}},
+    )
+    case = operation.Case(body=body, media_type="multipart/form-data")
+    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == expected
+
+
+@pytest.mark.parametrize("declared", ["inline", "ref"])
+def test_multipart_swagger2_body_parameter_behind_ref(ctx, declared):
+    # The `kind` reference keeps a referenced body bundled with a `$ref` at its root
+    upload = {
+        "type": "object",
+        "properties": {"file": {"type": "string", "format": "binary"}, "kind": {"$ref": "#/definitions/Kind"}},
+    }
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "consumes": ["multipart/form-data"],
+            "parameters": [
+                {
+                    "in": "body",
+                    "name": "body",
+                    "schema": upload if declared == "inline" else {"$ref": "#/definitions/Upload"},
+                }
+            ],
+            "responses": {"200": {"description": "OK"}},
+        },
+        version="2.0",
+        definitions={"Upload": upload, "Kind": {"type": "string"}},
+    )
+    case = operation.Case(body={"file": b"abc", "kind": "a"}, media_type="multipart/form-data")
+    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [
+        ("file", ("file", b"abc")),
+        ("kind", (None, "a")),
+    ]
 
 
 def test_multipart_nullable_object_property_serializes_as_json(ctx, case_factory):
@@ -1296,7 +1454,7 @@ def test_unknown_multipart_fields_openapi3(ctx):
 @pytest.mark.parametrize(
     "encoding,expected_filename",
     [
-        # No encoding: field name is used as filename for binary parts
+        # No encoding: field name is used as filename for binary parts and list items
         (None, "attachment"),
         # encoding.headers.Content-Disposition.schema.example provides filename
         (
@@ -1330,13 +1488,16 @@ def test_unknown_multipart_fields_openapi3(ctx):
     ],
     ids=["field-name-fallback", "schema-example", "header-example"],
 )
-def test_multipart_binary_field_filename(ctx, encoding, expected_filename):
-    content: dict = {
-        "schema": {
-            "type": "object",
-            "properties": {"attachment": {"type": "string", "format": "binary"}},
-        }
-    }
+@pytest.mark.parametrize(
+    "property_schema, value, sent",
+    [
+        ({"type": "string", "format": "binary"}, b"\x92\x42", [b"\x92B"]),
+        ({"type": "array", "items": {"type": "string", "format": "binary"}}, [b"\x01", b"\x02"], [b"\x01", b"\x02"]),
+    ],
+    ids=["single", "list"],
+)
+def test_multipart_binary_part_filename(ctx, encoding, expected_filename, property_schema, value, sent):
+    content: dict = {"schema": {"type": "object", "properties": {"attachment": property_schema}}}
     if encoding is not None:
         content["encoding"] = encoding
     operation = ctx.openapi.load_operation(
@@ -1349,9 +1510,10 @@ def test_multipart_binary_field_filename(ctx, encoding, expected_filename):
             "responses": {"200": {"description": "OK"}},
         },
     )
-    case = operation.Case(body={"attachment": b"\x92\x42"}, media_type="multipart/form-data")
-    serialized = REQUESTS_TRANSPORT.serialize_case(case)
-    assert serialized["files"] == [("attachment", (expected_filename, b"\x92B"))]
+    case = operation.Case(body={"attachment": value}, media_type="multipart/form-data")
+    assert REQUESTS_TRANSPORT.serialize_case(case)["files"] == [
+        ("attachment", (expected_filename, part)) for part in sent
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1383,67 +1545,49 @@ def test_multipart_binary_field_filename_extension(ctx, value, expected_filename
 
 
 @pytest.mark.parametrize(
-    "encoding,expected_filename",
+    "property_schema, value, expected",
     [
-        # No encoding: field name is used as filename for binary list items
-        (None, "files"),
-        # encoding.headers.Content-Disposition.schema.example provides filename
+        ({"type": "string", "format": "binary"}, b"abc", [("file", ("file", b"abc"))]),
+        ({"$ref": "#/components/schemas/File"}, b"abc", [("file", ("file", b"abc"))]),
         (
-            {
-                "files": {
-                    "headers": {
-                        "Content-Disposition": {
-                            "schema": {
-                                "type": "string",
-                                "example": 'form-data; name="files"; filename="upload.bin"',
-                            }
-                        }
-                    }
-                }
-            },
-            "upload.bin",
+            {"type": "array", "items": {"$ref": "#/components/schemas/File"}},
+            [b"a", b"b"],
+            [("file", ("file", b"a")), ("file", ("file", b"b"))],
         ),
-        # encoding.headers.Content-Disposition.example (no schema wrapping)
         (
-            {
-                "files": {
-                    "headers": {
-                        "Content-Disposition": {
-                            "example": 'form-data; name="files"; filename="data.bin"',
-                        }
-                    }
-                }
-            },
-            "data.bin",
+            {"$ref": "#/components/schemas/Files"},
+            [b"a", b"b"],
+            [("file", ("file", b"a")), ("file", ("file", b"b"))],
         ),
     ],
-    ids=["field-name-fallback", "schema-example", "header-example"],
+    ids=["inline", "ref", "ref-items", "ref-array"],
 )
-def test_multipart_binary_list_filename(ctx, encoding, expected_filename):
-    content: dict = {
-        "schema": {
-            "type": "object",
-            "properties": {"files": {"type": "array", "items": {"type": "string", "format": "binary"}}},
-        }
-    }
-    if encoding is not None:
-        content["encoding"] = encoding
+@pytest.mark.parametrize("body_is_ref", [False, True], ids=["inline-body", "ref-body"])
+def test_multipart_binary_property_filename_behind_ref(ctx, body_is_ref, property_schema, value, expected):
+    upload = {"type": "object", "properties": {"file": property_schema}}
     operation = ctx.openapi.load_operation(
-        "POST /test",
+        "POST /upload",
         {
             "requestBody": {
                 "required": True,
-                "content": {"multipart/form-data": content},
+                "content": {
+                    "multipart/form-data": {
+                        "schema": {"$ref": "#/components/schemas/Upload"} if body_is_ref else upload
+                    }
+                },
             },
             "responses": {"200": {"description": "OK"}},
         },
+        components={
+            "schemas": {
+                "Upload": upload,
+                "File": {"type": "string", "format": "binary"},
+                "Files": {"type": "array", "items": {"$ref": "#/components/schemas/File"}},
+            }
+        },
     )
-    case = operation.Case(body={"files": [b"\x01", b"\x02"]}, media_type="multipart/form-data")
-    serialized = REQUESTS_TRANSPORT.serialize_case(case)
-    assert serialized["files"] == [
-        ("files", (expected_filename, b"\x01")),
-        ("files", (expected_filename, b"\x02")),
-    ]
+    case = operation.Case(body={"file": value}, media_type="multipart/form-data")
+    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == expected
 
 
 @pytest.mark.parametrize("transport", ["wsgi", "http"])
@@ -2495,3 +2639,26 @@ def test_wsgi_swagger_multipart_mixed_form_field_reaches_the_app(ctx):
         "multipart/mixed",
         True,
     )
+
+
+def test_multipart_parts_follow_body_for_case_media_type(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /upload",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "multipart/mixed": {
+                        "schema": {"type": "object", "properties": {"file": {"type": "object"}}},
+                        "encoding": {"file": {"contentType": "application/xml"}},
+                    },
+                    "multipart/form-data": {
+                        "schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}}
+                    },
+                },
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    case = operation.Case(body={"file": b"data"}, media_type="multipart/form-data")
+    assert case.as_transport_kwargs(base_url="http://127.0.0.1")["files"] == [("file", ("file", b"data"))]

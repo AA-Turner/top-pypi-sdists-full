@@ -356,6 +356,14 @@ class HookHosts:
             self._reap()
             return [{"root": root, "pid": proc.pid} for root, (proc, _) in self.hosts.items()]
 
+    def pids(self) -> set:
+        """The pids of the warm hosts this service runs and has not reaped: the
+        events forked from them are Probe's hooks, run for a dispatcher that
+        held the host's key (#3355), so they may take a session's messages
+        (`mailbox.claim`, #3361)."""
+        with self._lock:
+            return {proc.pid for proc, _ in self.hosts.values() if proc.returncode is None}
+
 
 def runnable(request: dict) -> dict | None:
     """`hooks.run`'s folder check, as `hooks.host`'s: None when `request`'s root

@@ -5,6 +5,8 @@ import json
 
 import pytest
 
+from backfill_plan_agent import filing
+
 from probe.cli import backfill as bf, backfill_import as imp, backfill_run as runner
 from probe.cli import import_jobs_ui, tui
 from tests import test_backfill_background as fixtures
@@ -85,7 +87,7 @@ def test_returning_to_scanned_plan_reuses_analysis_but_still_requires_approval(
         reviews.append(title)
         return tui.BACK if len(reviews) == 1 else "import"
 
-    monkeypatch.setattr(bf, "launch_agent", launch)
+    monkeypatch.setattr(bf, "launch_agent", filing(launch))
     monkeypatch.setattr(bf, "git_context", lambda *a: None)
     monkeypatch.setattr(tui, "review", review)
     monkeypatch.setattr(import_jobs_ui, "show_started_import", lambda job: job)

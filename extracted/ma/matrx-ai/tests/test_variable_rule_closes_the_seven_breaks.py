@@ -74,7 +74,7 @@ def test_speech_script_part_runs_the_escape_and_sections_even_with_no_values() -
     assert part.turns[0]["text"] == "Say {{x}} X"
     bare = SpeechScriptContent(turns=[{"speaker": "Host", "text": "Say {{!name}} {{!todo}}"}])
     bare.replace_variables({"name": ""})
-    assert bare.turns[0]["text"] == "Say {{name}} {{!todo}}"
+    assert bare.turns[0]["text"] == "Say {{name}} {{todo}}"
 
 
 # 3. Every authored field of a structured system instruction is filled.
@@ -95,7 +95,8 @@ def test_the_escape_is_only_a_name() -> None:
     t = "{{! a comment }} and {{!-- x --}} and {{!}}"
     assert substitute_authored(t, t, {}, str, unescape=True) == t
     t2 = "{{!name}} {{!#a}}{{!/a}} {{!^b}} {{!<blk>}}"
-    assert substitute_authored(t2, t2, {}, str, unescape=True) == t2
+    # Any name, declared or not (Arman, 2026-10-25).
+    assert substitute_authored(t2, t2, {}, str, unescape=True) == "{{name}} {{#a}}{{/a}} {{^b}} {{<blk>}}"
     declared = {"name": "", "a": "", "b": ""}
     out = substitute_authored(t2, t2, declared, str, unescape=True, blocks={"blk": ""})
     assert out == "{{name}} {{#a}}{{/a}} {{^b}} {{<blk>}}"

@@ -5,7 +5,8 @@ own children lack what the user's profile exports: a proxy, a CA bundle, a
 package mirror (`UV_INDEX*`), where the agents keep their files, and the PATH
 that finds an agent installed with nvm or volta. A scheduled update run with
 that clean environment fails behind a corporate proxy and misses those agents'
-plugins. So, once per update cycle and once per action, the service asks the
+plugins. So, once per update cycle, once per action, and when it lifts an
+outbox pause (the drainer it starts), the service asks the
 login shell -- `$SHELL -ilc`, as the desktop app does (prbe-ai/desktop
 `src-tauri/src/wizard.rs`, `login_shell_command`) -- for PATH and the
 `protocol.CONTEXT_ENV` variables, and hands them to that one child.

@@ -6,6 +6,13 @@ deferred until after parsing.
 
 from __future__ import annotations
 
+__lazy_modules__ = (
+    "nab",
+    "os.path",
+    "pathlib",
+)
+
+from os.path import basename
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -23,6 +30,12 @@ _USAGE_STATUS = 2
 
 # What a command that ended with a message rather than a status exits with.
 _FAILED_STATUS = 1
+
+_FILE_DESTS = {
+    "config": ("path",),
+    "lock": ("path", "output"),
+    "download": ("path",),
+}
 
 
 def _nothing() -> None:
@@ -56,10 +69,25 @@ def dispatch(
     command = getattr(module, function_name)
 
     values = dict(parsed.values)
+    file_dests = _FILE_DESTS.get(parsed.command, ())
     for dest in path_dests.get(parsed.command, ()):
         value = values[dest]
         if isinstance(value, str):
-            values[dest] = Path(value)
+            # Path discards trailing separators and "." components.
+            if dest in file_dests and basename(value) in ("", "."):  # noqa: PTH119
+                return _FAILED_STATUS, (
+                    f"error: expected a file path, got a directory path: {value}"
+                )
+            path = Path(value)
+            if (
+                parsed.command == "lock"
+                and dest == "output"
+                and value != "-"
+                and path == Path("-")
+            ):
+                # Path strips the explicit ./ prefix; only bare - selects stdout.
+                path = path.absolute()
+            values[dest] = path
 
     try:
         command(**values)

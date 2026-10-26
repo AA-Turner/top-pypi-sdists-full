@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "extra-platforms"
-version = "13.12.0"
+version = "13.13.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -26,6 +26,7 @@ keywords = [
     "ARMv6 (little-endian)",
     "ARMv7 (little-endian)",
     "ARMv8 (32-bit, little-endian)",
+    "Artix Linux",
     "AT&T System Five",
     "Azure Pipelines",
     "Bamboo",
@@ -261,7 +262,7 @@ pytest = ["pytest>=8.2.1"]
 [project.urls]
 Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 Documentation = "https://kdeldycke.github.io/extra-platforms"
-Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.12.0"
+Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.13.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/extra-platforms"
 Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -275,9 +276,8 @@ extra-platforms = "extra_platforms.pytest"
 
 [dependency-groups]
 test = [
-    "coverage[toml]>=7.11",
+    "coverage[toml]>=7.13",
     "pytest",
-    "pytest-cov>=7",
     "pytest-github-actions-annotate-failures>=0.3",
     "pytest-randomly>=4",
     "pytest-xdist[psutil]>=3.7",
@@ -285,7 +285,7 @@ test = [
     "tomli>=2.3; python_version<'3.11'",
 ]
 docs = [
-    "click-extra[sphinx]>=8.7",
+    "click-extra[sphinx]>=9.4",
     "furo>=2025.9.25",
     "myst-parser>=5.1",
     "pytest>=8.2.1",
@@ -303,6 +303,9 @@ exclude-newer = "1 week"
 
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.12"
+
+[tool.uv.exclude-newer-package]
+certifi = "2026-10-25T00:00:00Z"
 
 [tool.uv.build-backend]
 module-root = ""
@@ -335,6 +338,7 @@ docstring-code-format = true
 [tool.ruff.lint]
 extend-select = ["PLW1514"]
 ignore = [
+    "D301",
     "D400",
     "ERA001",
     "LOG015",
@@ -350,7 +354,6 @@ extend-ignore-identifiers-re = [
     "Tru64",
     "PASE",
     "Sur",
-    "certifi",
 ]
 
 [tool.typos.default.extend-identifiers]
@@ -365,6 +368,7 @@ Typescript = "TypeScript"
 
 [tool.typos.default.extend-words]
 astroid = "astroid"
+certifi = "certifi"
 oject = "oject"
 sur = "sur"
 
@@ -392,6 +396,11 @@ warn_unused_configs = true
 module = "click_extra.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["sphinx.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
 [tool.pytest]
 addopts = [
     "--durations=10",
@@ -407,14 +416,17 @@ xfail_strict = true
 
 [tool.coverage.run]
 source = ["extra_platforms"]
+omit = ["*/extra_platforms/_types.py"]
 branch = true
+parallel = true
+patch = ["subprocess"]
 
 [tool.coverage.report]
-fail_under = 30
+fail_under = 85
 precision = 2
 
 [tool.bumpversion]
-current_version = "13.12.0"
+current_version = "13.13.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -483,6 +495,7 @@ exclude = [
     '^https://www\.npmjs\.com/package/.*$',
     '^https://star-history\.com/.*$',
     'githubstatus\.com',
+    '^https://claude\.ai/.*$',
 ]
 
 [tool.repomatic]
@@ -490,6 +503,13 @@ abandoned-versions = ["1.0.1"]
 
 [tool.repomatic.docs]
 update-script = ""
+
+[tool.repomatic.lint-repo.declined.pytest.addopts]
+"--cov-report=term" = "The tests workflow runs pytest under coverage run, which also counts the lines the pytest11 plugin imports before pytest-cov could start."
+"--numprocesses=auto" = "The tests workflow passes all xdist flags, so a from-source build runs plain pytest without pytest-xdist."
+
+[tool.repomatic.lint-repo.declined.pytest.markers]
+"once: Tests that only need to run once, not across the full CI matrix." = "No test here is matrix-insensitive yet: nearly every test checks platform-specific behavior on each cell."
 
 [tool.repomatic.nuitka]
 enabled = false

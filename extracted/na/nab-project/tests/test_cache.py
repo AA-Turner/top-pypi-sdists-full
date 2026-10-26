@@ -11,7 +11,6 @@ import subprocess
 import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
-from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
@@ -38,6 +37,7 @@ from nab_index.cache import (
 )
 from nab_index.vcs import VcsRequest, prepare_clone
 from nab_provider.serialization import SimpleSerialization
+from nab_provider.value import replace
 
 # Derived so a bucket-version bump does not need every path updated.
 SIMPLE_BUCKET = f"simple-{CACHE_VERSION_SIMPLE}"
@@ -1148,13 +1148,16 @@ class TestSourceBuckets:
         assert not clone.exists()
         assert not (root / "vcs").exists()
 
-    def test_clear_removes_the_legacy_archive_tree(self, tmp_path: Path) -> None:
+    @pytest.mark.parametrize("bucket", ["archive", "archive-v1"])
+    def test_clear_removes_the_legacy_archive_tree(
+        self, tmp_path: Path, bucket: str
+    ) -> None:
         root = tmp_path / "cache"
         cache = _populate(root)
-        tree = self._extract_into(root / "archive")
-        assert "archive" in cache.clear_cache()
+        tree = self._extract_into(root / bucket)
+        assert bucket in cache.clear_cache()
         assert not tree.exists()
-        assert not (root / "archive").exists()
+        assert not (root / bucket).exists()
 
     def test_clear_removes_current_source_buckets(self, tmp_path: Path) -> None:
         root = tmp_path / "cache"

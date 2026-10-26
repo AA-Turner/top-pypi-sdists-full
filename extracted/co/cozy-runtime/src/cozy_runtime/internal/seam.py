@@ -13,7 +13,8 @@ Three properties are structural rather than reviewed:
   is counted. Output bytes never cross this seam — they land in the attempt spool the worker
   brokered, which keeps the executor's writable storage to exactly that spool (§3.1).
 * **Machine credentials stay outside it.** `send` refuses keys from `SECRET_KEYS`; Load,
-  Invoke and `bearer` may carry a signer's supplied bearer at `tensorfs.token`.
+  Invoke and `capability` may carry a signer's run capability at `tensorfs.token`, never an
+  account's sign-in.
 * **A torn frame is typed.** EOF or a peer reset exactly at a frame boundary is the
   disposable executor's normal end (`None`); EOF inside a header or body is
   `seam_eof_mid_frame`, never a silent short read.
@@ -36,7 +37,7 @@ import tempfile
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any, NoReturn
 
@@ -49,11 +50,6 @@ if sys.platform == "win32":
     from cozy_runtime.internal import winpipe
 else:
     import fcntl
-
-#: Worker/executor command-and-reply compatibility, independent of SDK package
-#: version or source build. Compatible additive fields keep this revision; only
-#: an incompatible change to required commands/semantics raises it.
-EXECUTOR_PROTOCOL_REVISION = 1
 
 #: Not a size rule: the most one length prefix may make a reader allocate (the documents'
 #: guard, shared with TensorD's `protocol::MAX_FRAME`). It refuses only a corrupt or hostile
@@ -86,8 +82,8 @@ class SeamError(Exception):
         self.detail = detail
 
 
-#: The commands that may carry a signer's supplied bearer, at `tensorfs.token` only.
-SUPPLYING = frozenset({"load", "invoke", "bearer"})
+#: The commands that may carry a signer's run capability, at `tensorfs.token` only.
+SUPPLYING = frozenset({"load", "invoke", "capability"})
 
 
 def _scan(value: Any, path: str = "", *, supplied: bool = False) -> None:
@@ -424,8 +420,8 @@ class _Asked:
 class Mux:
     """One seam shared by every thread of the process. Whoever needs a frame reads the next
     one and routes it: an answer to the request waiting on its `seq`, a `cancel` to its call's
-    mark and to `cancelled`, a frame that may carry a bearer (`SUPPLYING`) to `bearer` as it is
-    read (a `bearer` frame goes nowhere else), anything else to the commands, in order. No
+    mark and to `cancelled`, a frame that may carry a capability (`SUPPLYING`) to `bearer` as it
+    is read (a `capability` frame goes nowhere else), anything else to the commands, in order. No
     reader thread exists, so a process that has served no call stays single-threaded and
     forkable (`zygote`)."""
 
@@ -441,6 +437,7 @@ class Mux:
         self._asked: dict[int, _Asked] = {}
         self._commands: deque[Frame] = deque()
         self._cancels: dict[str, None] = {}
+        self._wakes: dict[str, list[Callable[[], None]]] = {}
         self._reading = False
         self._ended: SeamError | None = None
         self._changed = threading.Condition()
@@ -490,12 +487,30 @@ class Mux:
             self._cancels[request_id] = None
             while len(self._cancels) > CANCELS_KEPT:
                 del self._cancels[next(iter(self._cancels))]
+            for wake in self._wakes.get(request_id, ()):
+                wake()
             self._changed.notify_all()
 
-    def cancelled(self, request_id: str, wait: float = 0.0) -> bool:
-        """Whether `request_id` is cancelled, waiting up to `wait` seconds for it."""
+    def cancelled(self, request_id: str) -> bool:
         with self._changed:
-            return self._changed.wait_for(lambda: request_id in self._cancels, wait)
+            return request_id in self._cancels
+
+    @contextlib.contextmanager
+    def watch(self, request_id: str, wake: Callable[[], None]) -> Iterator[None]:
+        """While it lasts, `wake` is called when a cancel names `request_id`, at once if one
+        already has."""
+        with self._changed:
+            self._wakes.setdefault(request_id, []).append(wake)
+            if request_id in self._cancels:
+                wake()
+        try:
+            yield
+        finally:
+            with self._changed:
+                wakes = self._wakes[request_id]
+                wakes.remove(wake)
+                if not wakes:
+                    del self._wakes[request_id]
 
     def forget(self, request_id: str) -> None:
         with self._changed:
@@ -543,7 +558,7 @@ class Mux:
         elif frame.get("cmd") == "cancel":
             self.cancel(str(frame.get("request_id", "")))
             self._cancelled(str(frame.get("request_id", "")))
-        elif frame.get("cmd") == "bearer":
+        elif frame.get("cmd") == "capability":
             self._bearer(frame)
         else:
             if frame.get("cmd") in SUPPLYING:

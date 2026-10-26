@@ -1052,12 +1052,12 @@ def register_generated_tools(mcp, _get_client):
         a video picker in your own UI.
 
         Not every field applies to every platform: `reactionCount` is Facebook and LinkedIn,
-        `shareCount` is platform dependent, `cid` is the Bluesky content id needed to reply, and
-        `subreddit` is Reddit only. Absent fields are omitted from the response.
+        `shareCount` is platform dependent, `cid` is the Bluesky content id needed to reply,
+        `subreddit` is Reddit only, and `title`, `description`, `link`, `boardId` and
+        `boardOwnerUsername` are Pinterest only (the native Pin values; `message` keeps title and
+        description joined). Absent fields are omitted from the response.
 
-        The account's token is refreshed before the call when it has expired. When the refresh
-        cannot recover it, the response is a 401 with code `TOKEN_EXPIRED` and the account has to
-        be reconnected.
+        The account's token is refreshed before the call when it has expired. When ...
 
         Platforms: facebook, instagram, twitter, bluesky, threads, youtube, linkedin, reddit, tiktok, pinterest
 
@@ -7606,7 +7606,7 @@ def register_generated_tools(mcp, _get_client):
         rule set and must be sent WITHOUT `valueRuleSetId`; the combination returns
         400. `true` is optional when attaching, since attachment is driven by
         `valueRuleSetId`, and requires it to be present.
-                platform_specific_data: Platform-specific post-launch delivery settings. The platform is implied by the `platform` body param. Meta only; other platforms return 400. Unknown keys are rejected. Object with keys: optimizationGoal (string) - Meta ad-set optimization_goal (e.g. OFFSITE_CONVERSIONS, LANDING_PAGE_VIEWS).; billingEvent (string) - Meta ad-set billing_event (e.g. IMPRESSIONS, LINK_CLICKS, THRUPLAY).; startDate (string) - Ad set start_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; endDate (string) - Ad set end_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; dailyMinSpendTarget (number) - Meta `daily_min_spend_target`: the least this ad set should spend per day, in whole currency units of the ad account. It reserves a share of a CAMPAIGN budget ...; lifetimeMinSpendTarget (number) - Meta `lifetime_min_spend_target`: the lifetime-budget flavour of `dailyMinSpendTarget`, in whole currency units. Send this one when the campaign budget is a ...; customerLifecycle (object with keys strategy, existingCustomerAudienceIds, engagedAudienceIds); promotedObject (object with keys pixelId, customEventType, customEventStr, pageId, applicationId, objectStoreUrl, customConversionId, productCatalogId, productSetId, offlineConversionDataSetId, whatsappPhoneNumber) - Meta ad-set promoted_object, forwarded verbatim (same shape as /v1/ads/create). Unknown keys are rejected with 400."""
+                platform_specific_data: Platform-specific post-launch delivery settings. The platform is implied by the `platform` body param. Meta only; other platforms return 400. Unknown keys are rejected. Object with keys: optimizationGoal (string) - Meta ad-set optimization_goal (e.g. OFFSITE_CONVERSIONS, LANDING_PAGE_VIEWS).; billingEvent (string) - Meta ad-set billing_event (e.g. IMPRESSIONS, LINK_CLICKS, THRUPLAY).; startDate (string) - Ad set start_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; endDate (string) - Ad set end_time (ISO 8601). A value without an offset (`YYYY-MM-DD`, `YYYY-MM-DD HH:MM:SS` or `YYYY-MM-DDTHH:MM:SS`) is read in the ad account timezone.; dailyMinSpendTarget (number) - Meta `daily_min_spend_target`: the least this ad set should spend per day, in whole currency units of the ad account. It reserves a share of a CAMPAIGN budget ...; lifetimeMinSpendTarget (number) - Meta `lifetime_min_spend_target`: the lifetime-budget flavour of `dailyMinSpendTarget`, in whole currency units. Send this one when the campaign budget is a ...; customerLifecycle (object with keys strategy, existingCustomerAudienceIds, engagedAudienceIds); promotedObject (object with keys pixelId, customEventType, customEventStr, pageId, applicationId, objectStoreUrl, customConversionId, productCatalogId, productSetId, offlineConversionDataSetId, whatsappPhoneNumber) - Meta ad-set promoted_object (same shape as /v1/ads/create). Meta makes promoted_object immutable once the ad set exists, so only `pixelId`, `customEventType`, ..."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_set(
@@ -8525,6 +8525,7 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         ad_account_id: str,
         include_deleted: bool = False,
+        max_age_seconds: int = 3600,
         page: int = 1,
         page_size: int = 500,
     ) -> str:
@@ -8532,7 +8533,9 @@ def register_generated_tools(mcp, _get_client):
 
         Returns the review verdict of every Upgraded Smart+ ad of one TikTok advertiser, with each creative's verdict, in one paginated read. Use it to refresh reviews periodically: one call (plus its pages) per advertiser per refresh, instead of `GET /v1/ads/{adId}/tiktok-smart-plus-review` per ad.
 
-        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`; the listing is cached for 10 minutes) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another. A full refresh of N Smart+ ads with C creatives in total costs about `ceil(N / 100)` listing calls and `ceil(C / 50)` review calls on TikTok. When TikTok still refuses a call for its creative count, Zernio lowers the creative cap for that advertiser and reads the same ads again in smaller calls, never resending the refused size. ...
+        Zernio lists the advertiser's Smart+ ads with `/smart_plus/ad/get/` (deleted ones only with `includeDeleted=true`) and reads `/smart_plus/ad/review_info/` for Smart+ ads holding up to 50 creatives in total per call (TikTok refuses more; a Smart+ ad with more than 50 creatives is read alone), across ad groups, one call after another. A full refresh of N Smart+ ads with C creatives in total costs about `ceil(N / 100)` listing calls and `ceil(C / 50)` review calls on TikTok. When TikTok still refuses a call for its creative count, Zernio lowers the creative cap for that advertiser and reads the same ads again in smaller calls, never resending the refused size.
+
+        Stale while refreshing: every review ...
 
         Platforms: tiktok
 
@@ -8540,6 +8543,7 @@ def register_generated_tools(mcp, _get_client):
             account_id: A tiktok or tiktokads account ID (required)
             ad_account_id: TikTok advertiser ID (required)
             include_deleted: Also return Smart+ ads deleted on TikTok (listed with `primary_status: STATUS_ALL`).
+            max_age_seconds: Freshness window in seconds. Reviews, refusals and the listing read within it are served without calling TikTok; older ones are still returned but read again, oldest first.
             page
             page_size"""
         client = _get_client()
@@ -8548,6 +8552,7 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 ad_account_id=ad_account_id,
                 include_deleted=include_deleted,
+                max_age_seconds=max_age_seconds,
                 page=page,
                 page_size=page_size,
             )
@@ -8742,6 +8747,7 @@ def register_generated_tools(mcp, _get_client):
         bodies: list[str] | None = None,
         smart_targeting: dict[str, Any] | None = None,
         optimization_goal: str | None = None,
+        meta_objective: Literal["OUTCOME_ENGAGEMENT"] | None = None,
     ) -> str:
         """Boost post as ad
 
@@ -8928,7 +8934,18 @@ def register_generated_tools(mcp, _get_client):
         "engagement"` to objective `OUTCOME_AWARENESS`, which accepts
         `REACH`, `IMPRESSIONS`, `AD_RECALL_LIFT`, or THRUPLAY-class values, and
         rejects `POST_ENGAGEMENT` (that value is only valid under
-        `OUTCOME_ENGAGEMENT`, which create uses for the same goal name)."""
+        `OUTCOME_ENGAGEMENT`, which create uses for the same goal name, and
+        which `metaObjective` selects on a boost).
+                meta_objective: Meta only, with `goal: engagement` and without `adSetId` (400 otherwise).
+        `OUTCOME_ENGAGEMENT` creates the campaign with objective `OUTCOME_ENGAGEMENT`
+        and the ad set with `optimization_goal` `POST_ENGAGEMENT` (unless
+        `optimizationGoal` is set) and `destination_type` `ON_POST` (unless
+        `destinationType` is set), the shape Ads Manager uses to boost an existing
+        post. When omitted, an engagement boost keeps `OUTCOME_AWARENESS` with
+        `REACH`. Returns 400 with `leadGenFormId` or with a `callToAction` whose objective
+        is not `OUTCOME_ENGAGEMENT` (`CALL_NOW`); messaging CTAs keep their own
+        `CONVERSATIONS` ad set. Verified against Meta on Facebook posts; Instagram posts
+        are accepted but not yet verified."""
         client = _get_client()
         try:
             response = client.ad_campaigns.boost_post(
@@ -8988,6 +9005,7 @@ def register_generated_tools(mcp, _get_client):
                 bodies=bodies,
                 smart_targeting=smart_targeting,
                 optimization_goal=optimization_goal,
+                meta_objective=meta_objective,
             )
             return _format_response(response)
         except Exception as e:
@@ -9530,7 +9548,7 @@ def register_generated_tools(mcp, _get_client):
                 campaign_name: Meta and Reddit. Exact campaign name. Overrides the default `<name> - Campaign`.
                 ad_set_name: Meta and Reddit (the ad group). Exact ad set name. Overrides the default `<name> - Ad Set`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry.)
                 ad_name: Meta only. Exact ad name (the single-creative ad object's name). Overrides the default, which is `name`. (For per-ad names on the multi-creative shape, set `name` on each `creatives[]` entry instead.)
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Every ad created there carries `zrn=<platform ad id>` on its landing URL so orders and events tied to the landing ...
                 goal: Required on legacy and multi-creative shapes; the attach shape inherits it from the ad set. Available goals vary by platform.
 
         **Meta**
@@ -11711,6 +11729,261 @@ def register_generated_tools(mcp, _get_client):
                 fields=fields,
                 limit=limit,
                 after=after,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # AD_RULES
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List ad rules",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_rules_list_ad_rules(
+        account_id: str | None = None,
+        ad_account_id: str | None = None,
+        limit: int = 50,
+        skip: int = 0,
+    ) -> str:
+        """List ad rules
+
+        Lists the ad rules on the profiles your key can reach, newest first.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            account_id: Only rules on this ads connection.
+            ad_account_id: Only rules watching this platform ad account.
+            limit
+            skip"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.list_ad_rules(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                limit=limit,
+                skip=skip,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create an ad rule",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_rules_create_ad_rule(
+        name: str,
+        account_id: str,
+        ad_account_id: str,
+        level: Literal["campaign", "adset"],
+        conditions: dict[str, Any] | None,
+        actions: list[dict[str, Any]] | None,
+        campaign_ids: list[str] | None = None,
+        schedule: dict[str, Any] | None = None,
+        cooldown_minutes: int = 1440,
+        enabled: bool = True,
+    ) -> str:
+        """Create an ad rule
+
+        Creates a rule that checks the campaigns or ad sets of one ad account on a schedule and acts on
+        each one that meets every condition.
+
+        Rules support Meta, Google, TikTok, LinkedIn, Pinterest, X and Reddit ads connections. Each
+        campaign or ad set is evaluated on its own, over the ad account's calendar days, from the
+        metrics Zernio syncs. A rule can notify (the `ad_rule.triggered` webhook), and take at most one of
+        `pause`, `activate` and `adjust_budget`. After acting on an object, the rule leaves that object
+        alone for `cooldownMinutes`; a rule that pauses, activates or adjusts budgets needs a cooldown at
+        least as long as its schedule.
+
+        `activate` only reactivates objects a rule paused, never ones you paused yourself, and only once
+        the cooldown has passed since that pause. If you reactivate and pause such an object yourself
+        between two runs of a rule, Zernio cannot tell your pause from the rule's, and an `activate` rule
+        may reactivate it.
+
+        Use `POST /v1/ads/rules/{ruleId}/preview` to see ...
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            name: (required)
+            account_id: The ads connection (account ID from `GET /v1/accounts`). (required)
+            ad_account_id: Platform ad account ID, from `GET /v1/ads/accounts`. (required)
+            level: (required)
+            campaign_ids: Only check these platform campaign IDs (or their ad sets). Leave out to check the whole ad account.
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, required) (required)
+            actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook. (required)
+            schedule: Leave it out to run every 60 minutes. Object with keys: everyMinutes (one of: 60, 180, 360, 720, 1440; required) - How often the rule runs, in minutes.
+            cooldown_minutes: How long the rule leaves an object alone after acting on it.
+            enabled"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.create_ad_rule(
+                name=name,
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                level=level,
+                campaign_ids=campaign_ids,
+                conditions=conditions,
+                actions=actions,
+                schedule=schedule,
+                cooldown_minutes=cooldown_minutes,
+                enabled=enabled,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get an ad rule",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_rules_get_ad_rule() -> str:
+        """Get an ad rule
+
+        Returns one ad rule.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.get_ad_rule()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update an ad rule",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_rules_update_ad_rule(
+        name: str | None = None,
+        level: Literal["campaign", "adset"] | None = None,
+        campaign_ids: str | None = None,
+        conditions: dict[str, Any] | None = None,
+        actions: list[dict[str, Any]] | None = None,
+        schedule: dict[str, Any] | None = None,
+        cooldown_minutes: int | None = None,
+        enabled: bool | None = None,
+    ) -> str:
+        """Update an ad rule
+
+        Changes any field of a rule except its connection and ad account. Send `campaignIds: null` to
+        check the whole ad account again. Changing the schedule, or enabling a disabled rule, moves the
+        next run; re-sending `enabled: true` on an enabled rule does not.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            name
+            level
+            campaign_ids
+            conditions: Object with keys: all (list of objects with keys metric, window, op, value, required)
+            actions: Each item is an object with keys: type (one of: notify; required) - Send the `ad_rule.triggered` webhook.
+            schedule: Object with keys: everyMinutes (one of: 60, 180, 360, 720, 1440; required) - How often the rule runs, in minutes.
+            cooldown_minutes
+            enabled"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.update_ad_rule(
+                name=name,
+                level=level,
+                campaign_ids=campaign_ids,
+                conditions=conditions,
+                actions=actions,
+                schedule=schedule,
+                cooldown_minutes=cooldown_minutes,
+                enabled=enabled,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete an ad rule",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_rules_delete_ad_rule() -> str:
+        """Delete an ad rule
+
+        Deletes a rule and its run history. Changes the rule already made on the platform stay.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.delete_ad_rule()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Preview an ad rule",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_rules_preview_ad_rule(rule_id: str) -> str:
+        """Preview an ad rule
+
+        Evaluates a rule against current metrics and returns what it would match right now, without
+        acting on anything, sending a webhook or starting a cooldown. Works on disabled rules.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            rule_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.preview_ad_rule(rule_id=rule_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List an ad rule's runs",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_rules_list_ad_rule_runs(rule_id: str, limit: int = 20, skip: int = 0) -> str:
+        """List an ad rule's runs
+
+        Lists a rule's scheduled runs, newest first: what each run evaluated, matched and did.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            rule_id: (required)
+            limit
+            skip"""
+        client = _get_client()
+        try:
+            response = client.ad_rules.list_ad_rule_runs(
+                rule_id=rule_id, limit=limit, skip=skip
             )
             return _format_response(response)
         except Exception as e:
@@ -24081,6 +24354,140 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Send events to every destination",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_send_events(
+        profile_id: str,
+        events: list[dict[str, Any]] | None,
+        destinations: list[dict[str, Any]] | None = None,
+        consent: dict[str, Any] | None = None,
+        test_code: str | None = None,
+    ) -> str:
+        """Send events to every destination
+
+        Sends conversion events once and forwards them to every ad platform destination saved for the
+        profile (see `POST /v1/events/destinations`), or to the `destinations` given in the request.
+        Each destination receives the events exactly as `POST /v1/ads/conversions` would send them, so the
+        per-platform notes there (hashing, batching, `eventName` semantics, dedup on `eventId`) apply here too.
+        A destination saved with `eventNames` only receives events with those names.
+
+        Zernio also stores each event for the profile's reporting. Email, phone and `externalId` are stored
+        only as SHA-256 hashes, and `sourceUrl` keeps only its origin, path and attribution parameters
+        (`utm_*`, `gclid`, `fbclid`, `ttclid`, `li_fat_id`, `epik`, `rdt_cid`, `gbraid`, `wbraid`).
+        Events sent with `testCode` are forwarded but not stored.
+
+        One destination failing never blocks the others: each one reports its own result. Requires the Ads add-on.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, reddit
+
+        Args:
+            profile_id: Profile the events belong to. Its saved destinations receive the events. (required)
+            events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. The same eventId must be used on pixel + CAPI to prevent double-counting. Mapped to event_id on Meta, transactionId on Google, eventId on ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
+            destinations: Send to these destinations instead of the saved ones (every event goes to each). Each item is an object with keys: accountId (string, required) - Connected ads account ID (metaads, googleads, linkedinads, tiktokads, openaiads, pinterestads or redditads).; destinationId (string, required) - Platform destination, as listed by GET /v1/accounts/{accountId}/conversion-destinations.
+            consent: Batch-level user consent, forwarded to every destination (see POST /v1/ads/conversions). Object with keys: adUserData (one of: GRANTED, DENIED); adPersonalization (one of: GRANTED, DENIED)
+            test_code: Forwarded as each platform test code (see POST /v1/ads/conversions). Test events are not stored."""
+        client = _get_client()
+        try:
+            response = client.conversions.send_events(
+                profile_id=profile_id,
+                events=events,
+                destinations=destinations,
+                consent=consent,
+                test_code=test_code,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List event destinations",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def conversions_list_event_destinations(profile_id: str | None = None) -> str:
+        """List event destinations
+
+        Lists the ad platform destinations that receive events sent to `POST /v1/events`, for one profile or every profile you can access.
+
+        Args:
+            profile_id"""
+        client = _get_client()
+        try:
+            response = client.conversions.list_event_destinations(profile_id=profile_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add an event destination",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_create_event_destination(
+        profile_id: str,
+        account_id: str,
+        destination_id: str,
+        event_names: list[str] | None = None,
+    ) -> str:
+        """Add an event destination
+
+        Saves an ad platform destination for a profile, so events sent to `POST /v1/events` for that profile are forwarded
+        to it. Pick `destinationId` from `GET /v1/accounts/{accountId}/conversion-destinations`. Set `eventNames` to forward
+        only those events (for example only `Purchase`); leave it out to forward every event.
+
+        Args:
+            profile_id: (required)
+            account_id: Connected ads account ID that owns the destination. (required)
+            destination_id: (required)
+            event_names"""
+        client = _get_client()
+        try:
+            response = client.conversions.create_event_destination(
+                profile_id=profile_id,
+                account_id=account_id,
+                destination_id=destination_id,
+                event_names=event_names,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Remove an event destination",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def conversions_delete_event_destination(destination_id: str) -> str:
+        """Remove an event destination
+
+        Stops forwarding events to this destination. `destinationId` is the event destination `id`, not the platform destination.
+
+        Args:
+            destination_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.conversions.delete_event_destination(
+                destination_id=destination_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List conversion destinations",
             readOnlyHint=True,
             destructiveHint=False,
@@ -29145,7 +29552,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Every ad created there carries `zrn=<platform ad id>` on its landing URL so orders and events tied to the landing ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -29573,7 +29980,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Every ad created there carries `zrn=<platform ad id>` on its landing URL so orders and events tied to the landing ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -29994,7 +30401,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 creative_features: Meta enhancement settings for single or attached ads, and defaults for creatives[]. An item replaces the entire map, including with an empty object.
-                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...
+                tracking: Object with keys: pixelId (string) - Meta Pixel ID to attach for offsite-conversion measurement, or the Reddit pixel of the new ad group.; urlTags (list of objects with keys key, value) - Click-URL params. Meta: stored on the creative as `url_tags` and returned by GET /v1/ads/{adId}/tracking-tags. App-promotion linkUrl stays byte-identical to ...; zernioTag (boolean) - POST /v1/ads/create on Meta and Google only. Every ad created there carries `zrn=<platform ad id>` on its landing URL so orders and events tied to the landing ...
                 account_id: Facebook or Instagram SocialAccount ID. (required)
                 ad_account_id: Meta ad account ID, e.g. `act_123456789`. (required)
                 name: Ad display name. Used to derive campaign / ad set names.
@@ -37939,6 +38346,7 @@ def register_generated_tools(mcp, _get_client):
                 "campaign.budget.depleted",
                 "ad_account.status_changed",
                 "ad.video.processed",
+                "ad_rule.triggered",
                 "whatsapp.template.status_updated",
                 "whatsapp.template.category_updated",
                 "whatsapp.account.name_status_updated",
@@ -38111,6 +38519,7 @@ def register_generated_tools(mcp, _get_client):
                 "campaign.budget.depleted",
                 "ad_account.status_changed",
                 "ad.video.processed",
+                "ad_rule.triggered",
                 "whatsapp.template.status_updated",
                 "whatsapp.template.category_updated",
                 "whatsapp.account.name_status_updated",
@@ -38401,6 +38810,7 @@ def register_generated_tools(mcp, _get_client):
             "campaign.budget.depleted",
             "ad_account.status_changed",
             "ad.video.processed",
+            "ad_rule.triggered",
             "lead.received",
             "whatsapp.template.status_updated",
             "whatsapp.template.category_updated",
@@ -39205,7 +39615,7 @@ def register_generated_tools(mcp, _get_client):
             description: Full business description (max 512 characters)
             email: Business email
             websites: Business websites (max 2)
-            vertical: Business category (e.g., RETAIL, ENTERTAINMENT, etc.)
+            vertical: Business category, one of Meta's keys (e.g. AUTO, ENTERTAIN, RETAIL, PROF_SERVICES, OTHER)
             profile_picture_handle: Handle from resumable upload for profile picture"""
         client = _get_client()
         try:

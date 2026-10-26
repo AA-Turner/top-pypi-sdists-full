@@ -681,6 +681,14 @@ class CompletedRequest:
                 )
                 if served_via is not None:
                     row.setdefault("metadata", {})["served_via"] = dict(served_via)
+                # An ESTIMATED usage (a provider that reports none) says so on the row.
+                estimated = next(
+                    (item.metadata["usage_estimated"] for item in iteration_usages
+                     if item.metadata.get("usage_estimated")),
+                    None,
+                )
+                if estimated:
+                    row.setdefault("metadata", {})["usage_estimated"] = estimated
                 attempt_costs = [item.calculate_cost() for item in iteration_usages]
                 if all(cost is not None for cost in attempt_costs):
                     row["cost"] = round(

@@ -1228,7 +1228,26 @@ def sweep(app: Path, home: Path, *, runner=run_helper, lister=processes, keep_ol
 
 
 def _writable(path: Path) -> bool:
-    return os.access(path, os.W_OK, effective_ids=os.access in os.supports_effective_ids)
+    """Can this user write `path`, read from its owner, group and mode bits?
+    Never `os.access(W_OK)`: on macOS that asks App Management about a
+    protected app bundle, and a background caller's ask is logged as a refused
+    approval request (seen on a real Mac, 2026-10-25). Reading the mode asks
+    nothing. ACLs are not read: an ACL-only grant reads as not writable, which
+    skips (the app's own updater installs at its launch), never prompts."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return False
+    if not hasattr(os, "geteuid"):
+        return os.access(path, os.W_OK)  # Windows: no App Management to ask
+    uid = os.geteuid()
+    if uid == 0:
+        return True
+    if st.st_uid == uid:
+        return bool(st.st_mode & stat.S_IWUSR)
+    if st.st_gid == os.getegid() or st.st_gid in os.getgroups():
+        return bool(st.st_mode & stat.S_IWGRP)
+    return bool(st.st_mode & stat.S_IWOTH)
 
 
 def check_links(root: Path) -> None:

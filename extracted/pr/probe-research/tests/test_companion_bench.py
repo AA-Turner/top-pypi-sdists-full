@@ -257,6 +257,41 @@ def test_an_experiments_children_are_served_on_the_experiment_api():
     assert not fake.unmapped
 
 
+def test_a_metric_and_a_best_pick_are_served_in_the_servers_shapes():
+    """`probe project set P --metric/--best` (PR4a) against app/metrics/router.py:
+    an experiment inherits its project's metric, a pick names its experiment and
+    reason, an agent's pick needs a reason, and a clear leaves no pick."""
+    fake = _fake(T0 + 3600)
+    put = _call(fake, "PUT", f"/v1/projects/{PROJECT}/metric", {"key": "test/acc", "goal": "max"})
+    assert put.status == 200, put.body
+    assert put.body["anchor"] == {"type": "project", "id": PROJECT} and put.body["cleared_here"] is False
+    assert {k: put.body["metric"][k] for k in ("key", "goal", "reduce", "inherited", "source")} == {
+        "key": "test/acc", "goal": "max", "reduce": "final", "inherited": False, "source": "agent"}
+    inherited = _call(fake, "GET", f"/v1/projects/{PROJECT}/experiments/{SVM}/metric").body
+    assert inherited["metric"]["declared_on"] == {"type": "project", "id": PROJECT} and inherited["metric"]["inherited"]
+    detail = _call(fake, "GET", f"/v1/projects/{PROJECT}/experiments/{SVM}").body  # `probe experiment get`
+    assert detail["metric"] == inherited["metric"] and detail["is_pick"] is False
+    assert _call(fake, "PUT", f"/v1/projects/{PROJECT}/metric", {"key": "acc"}).status == 422  # goal is never inferred
+    assert _call(fake, "PUT", f"/v1/projects/{PROJECT}/metric", {"key": "_step", "goal": "max"}).status == 422
+    assert _call(fake, "PUT", "/v1/projects/digits/metric", {"key": "acc", "goal": "max"}).status == 422  # uuids only
+    assert _call(fake, "PUT", f"/v1/projects/{SVM}/metric", {"key": "acc", "goal": "max"}).status == 404
+    assert _call(fake, "POST", f"/v1/projects/{PROJECT}/best", {"experiment_id": SVM}).status == 422  # no reason
+    picked = _call(fake, "POST", f"/v1/projects/{PROJECT}/best", {"experiment_id": SVM, "reason": "C=10 wins."})
+    assert picked.status == 200, picked.body
+    assert picked.body["pick"]["experiment"]["slug"] == "svm-vs-logreg" and picked.body["history"] == []
+    assert picked.body["pick"]["event"] == "set" and picked.body["pick"]["reason"] == "C=10 wins."
+    assert _call(fake, "GET", f"/v1/projects/{PROJECT}/experiments/{SVM}").body["is_pick"] is True
+    assert _call(fake, "POST", f"/v1/projects/{PROJECT}/best", {"experiment_id": PCA_EXP, "reason": "r"}).status == 404
+    cleared = _call(fake, "DELETE", f"/v1/projects/{PROJECT}/best", query="reason=redo")
+    assert cleared.status == 200 and cleared.body["pick"] is None
+    read = _call(fake, "GET", f"/v1/projects/{PROJECT}/best").body
+    assert [e["event"] for e in read["history"]] == ["clear", "set"]
+    state = fake.final_state()
+    assert state["metrics"][PROJECT]["key"] == "test/acc"
+    assert [e["event"] for e in state["best_picks"][PROJECT]] == ["set", "clear"]
+    assert not fake.unmapped
+
+
 def test_unmapped_routes_answer_501_and_are_listed_never_404():
     fake = _fake(T0 + 3600)
     answer = _call(fake, "GET", f"/v1/runs/{CHOSEN}/lineage")
@@ -301,6 +336,7 @@ def _cli(tmp_path: Path, server, *args: str) -> subprocess.CompletedProcess:
                           env=env, capture_output=True, text=True, timeout=120, cwd=str(layout.home))
 
 
+@pytest.mark.heavy
 def test_the_real_cli_writes_through_the_fake_unmodified(tmp_path, served):
     fake, server = served
     out = _cli(tmp_path, server, "notes", "checkout", "--experiment", "svm-vs-logreg")
@@ -317,6 +353,19 @@ def test_the_real_cli_writes_through_the_fake_unmodified(tmp_path, served):
     assert "abandoned" in state["entities"][CHOSEN]["tags"]
     assert [(e["source_id"], e["relation"], e["target_id"]) for e in state["edges"]] == [(PCA_RUN, "derived_from",
                                                                                          CHOSEN)]
+    assert fake.unmapped == []
+
+
+@pytest.mark.heavy
+def test_the_real_cli_sets_a_metric_and_a_pick_through_the_fake(tmp_path, served):
+    """What the track-work lines name, run by the real CLI: no 501 (a bench gap)."""
+    fake, server = served
+    metric = _cli(tmp_path, server, "project", "set", "digits", "--metric", "test/acc", "--goal", "max")
+    assert metric.returncode == 0, metric.stderr
+    assert json.loads(metric.stdout)["metric"]["key"] == "test/acc"
+    pick = _cli(tmp_path, server, "project", "set", "digits", "--best", "svm-vs-logreg", "--reason", "C=10 wins.")
+    assert pick.returncode == 0, pick.stderr
+    assert json.loads(pick.stdout)["pick"]["experiment"]["id"] == SVM
     assert fake.unmapped == []
 
 

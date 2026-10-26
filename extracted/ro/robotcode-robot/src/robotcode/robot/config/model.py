@@ -297,7 +297,8 @@ class BaseOptions(ValidateMixin):
         type_hints = get_type_hints(type(self))
         base_field_names = [f.name for f in dataclasses.fields(self)]
 
-        for f in dataclasses.fields(config):
+        # A setting replaces the value before it and its `extend-` setting adds to it, so the settings come first.
+        for f in sorted(dataclasses.fields(config), key=lambda f: f.name.startswith(EXTEND_PREFIX)):
             if f.name.startswith(EXTEND_PREFIX):
                 if f.name not in base_field_names:
                     continue
@@ -311,7 +312,13 @@ class BaseOptions(ValidateMixin):
                 if new is None:
                     continue
 
-                old_field_name = f.name if combine_extends else f.name[EXTEND_PREFIX_LEN:]
+                # In a profile from `extend-profiles`, an `extend-` setting adds to the setting of the profile it
+                # extends; only if that profile has none does it stay an `extend-` setting of the profile.
+                old_field_name = (
+                    f.name
+                    if combine_extends and getattr(self, f.name[EXTEND_PREFIX_LEN:], None) is None
+                    else f.name[EXTEND_PREFIX_LEN:]
+                )
 
                 old = getattr(self, old_field_name)
                 if old is None:
@@ -331,7 +338,10 @@ class BaseOptions(ValidateMixin):
                     elif isinstance(old, tuple):
                         setattr(self, old_field_name, (*old, *new))
                     elif isinstance(old, BaseOptions):
-                        old.add_options(new)
+                        # The tables of `rebot`, `libdoc` and `testdoc` keep an `extend-` setting that they don't set
+                        # themselves, because the command adds the table to the settings outside of it. The tables of
+                        # the analysis are read as they are, so there it becomes the setting.
+                        old.add_options(new, isinstance(old, (RebotProfile, LibDocProfile, TestDocProfile)))
                     else:
                         setattr(self, old_field_name, new)
                 continue
@@ -342,9 +352,6 @@ class BaseOptions(ValidateMixin):
             if combine_extends:
                 if EXTEND_PREFIX + f.name in base_field_names and getattr(config, f.name, None) is not None:
                     setattr(self, EXTEND_PREFIX + f.name, None)
-
-            if getattr(config, f"{EXTEND_PREFIX}_{f.name}", None) is not None and not combine_extends:
-                continue
 
             new = self._verified_value(f.name, getattr(config, f.name), type_hints[f.name], config)
             if new is not None:
@@ -577,7 +584,7 @@ class CommonOptions(RobotBaseOptions):
 
             ```toml
             # tests with both "foo" and "bar*" tags
-            includes = ["fooANDbar*"]
+            includes = ["foo AND bar*"]
             ```
 
             corresponds to the `-i --include tag *` option of _robot_
@@ -828,7 +835,7 @@ class CommonOptions(RobotBaseOptions):
 
             ```toml
             # match by tag pattern (same rules as --include)
-            remove-keywords = ["foo", "fooANDbar*"]
+            remove-keywords = ["foo", "foo AND bar*"]
             ```
 
             corresponds to the `--removekeywords all|passed|for|wuks|name:<pattern>|tag:<pattern> *` option of _robot_
@@ -1024,7 +1031,7 @@ class CommonOptions(RobotBaseOptions):
             Examples:
 
             ```toml
-            tag-stat-combine = ["requirement-*", { "tag1ANDtag2" = "My_name" }]
+            tag-stat-combine = ["requirement-*", { "tag1 AND tag2" = "My_name" }]
             ```
 
             corresponds to the `--tagstatcombine tags:name *` option of _robot_
@@ -1264,7 +1271,7 @@ class CommonExtendOptions(RobotBaseOptions):
 
             ```toml
             # tests with both "foo" and "bar*" tags
-            extend-includes = ["fooANDbar*"]
+            extend-includes = ["foo AND bar*"]
             ```
 
             corresponds to the `-i --include tag *` option of _robot_
@@ -1400,7 +1407,7 @@ class CommonExtendOptions(RobotBaseOptions):
 
             ```toml
             # match by tag pattern (same rules as --include)
-            extend-remove-keywords = ["foo", "fooANDbar*"]
+            extend-remove-keywords = ["foo", "foo AND bar*"]
             ```
 
             corresponds to the `--removekeywords all|passed|for|wuks|name:<pattern>|tag:<pattern> *` option of _robot_
@@ -1480,7 +1487,7 @@ class CommonExtendOptions(RobotBaseOptions):
             Examples:
 
             ```toml
-            extend-tag-stat-combine = ["requirement-*", { "tag1ANDtag2" = "My_name" }]
+            extend-tag-stat-combine = ["requirement-*", { "tag1 AND tag2" = "My_name" }]
             ```
 
             corresponds to the `--tagstatcombine tags:name *` option of _robot_
@@ -1588,18 +1595,22 @@ class CommonExtendOptions(RobotBaseOptions):
 class RobotOptions(RobotBaseOptions):
     """Options for _robot_ command."""
 
-    console: Optional[Literal["verbose", "dotted", "skipped", "quiet", "none"]] = field(
+    console: Optional[Union[str, Literal["verbose", "dotted", "quiet", "none"]]] = field(
         description="""\
             How to report execution on the console.
+            Built-in consoles:
 
             **verbose:** report every suite and test (default)
 
-            **dotted:** only show `.` for passed test, `s` for
-            skipped tests, and `F` for failed tests
+            **dotted:** only show `.` for passed test, `s`
+            for skipped and `F` for failed tests
 
-            **quiet:** no output except for errors and warnings
+            **quiet:** no output except for errors/warnings
 
             **none:** no output whatsoever
+            Other values are interpreted as a custom
+            console class or module. Argument format is
+            the same as with --listener.
 
             Examples:
 
@@ -1607,7 +1618,12 @@ class RobotOptions(RobotBaseOptions):
             console = "dotted"
             ```
 
-            corresponds to the `--console type` option of _robot_
+            ```toml
+            # custom console logger class or module (Robot Framework 7.5 or newer)
+            console = "path/to/MyConsole.py:arg"
+            ```
+
+            corresponds to the `--console console` option of _robot_
             """,
         robot_name="console",
         robot_priority=500,
@@ -2142,7 +2158,7 @@ class RobotExtendOptions(RobotBaseOptions):
             extend-languages = ["German", "Finnish"]
             ```
 
-            corresponds to the `--language lang *` option of _rebot_
+            corresponds to the `--language lang *` option of _robot_
             """,
         alias="extend-languages",
     )
@@ -2163,7 +2179,7 @@ class RobotExtendOptions(RobotBaseOptions):
             "path/to/Listener.py" = ["arg1", "arg2"]
             ```
 
-            corresponds to the `--listener listener *` option of _rebot_
+            corresponds to the `--listener listener *` option of _robot_
             """,
         alias="extend-listeners",
     )
@@ -2182,7 +2198,7 @@ class RobotExtendOptions(RobotBaseOptions):
             "path/to/MyParser.py" = ["arg1", "arg2"]
             ```
 
-            corresponds to the `--parser parser *` option of _rebot_
+            corresponds to the `--parser parser *` option of _robot_
             """,
         alias="extend-parsers",
     )
@@ -2202,7 +2218,7 @@ class RobotExtendOptions(RobotBaseOptions):
             "path/to/Modifier.py" = ["arg1"]
             ```
 
-            corresponds to the `--prerunmodifier modifier *` option of _rebot_
+            corresponds to the `--prerunmodifier modifier *` option of _robot_
             """,
         alias="extend-pre-run-modifiers",
     )
@@ -2219,7 +2235,7 @@ class RobotExtendOptions(RobotBaseOptions):
             extend-skip = ["bug-*", "wip"]
             ```
 
-            corresponds to the `--skip tag *` option of _rebot_
+            corresponds to the `--skip tag *` option of _robot_
             """,
         alias="extend-skip",
     )
@@ -2236,7 +2252,7 @@ class RobotExtendOptions(RobotBaseOptions):
             extend-skip-on-failure = ["unstable"]
             ```
 
-            corresponds to the `--skiponfailure tag *` option of _rebot_
+            corresponds to the `--skiponfailure tag *` option of _robot_
             """,
         alias="extend-skip-on-failure",
     )
@@ -2257,7 +2273,7 @@ class RobotExtendOptions(RobotBaseOptions):
             name = "Robot"
             ```
 
-            corresponds to the `-v --variable name:value *` option of _rebot_
+            corresponds to the `-v --variable name:value *` option of _robot_
             """,
         alias="extend-variables",
     )
@@ -2275,7 +2291,7 @@ class RobotExtendOptions(RobotBaseOptions):
             extend-variable-files = ["path/vars.yaml", "environment.py:testing"]
             ```
 
-            corresponds to the `-V --variablefile path *` option of _rebot_
+            corresponds to the `-V --variablefile path *` option of _robot_
             """,
         alias="extend-variable-files",
     )
@@ -2285,6 +2301,36 @@ class RobotExtendOptions(RobotBaseOptions):
 class RebotOptions(RobotBaseOptions):
     """Options for _rebot_ command."""
 
+    console: Optional[Union[str, Literal["verbose", "quiet", "none"]]] = field(
+        description="""\
+            How to report on the console.
+            Built-in consoles:
+
+            **verbose:** show output file paths (default)
+
+            **quiet:** no output except for errors/warnings
+
+            **none:** no output whatsoever
+            Other values are interpreted as a custom
+            console class or module. Argument format is
+            the same as with --listener.
+
+            Examples:
+
+            ```toml
+            console = "quiet"
+            ```
+
+            ```toml
+            # custom console logger class or module
+            console = "path/to/Console.py:arg"
+            ```
+
+            corresponds to the `--console console` option of _rebot_
+            """,
+        robot_name="console",
+        robot_priority=500,
+    )
     end_time: Optional[Union[str, StringExpression]] = field(
         description="""\
             Same as --starttime but for end time. If both options
@@ -2388,6 +2434,22 @@ class RebotOptions(RobotBaseOptions):
         robot_is_flag=True,
         alias="process-empty-suite",
     )
+    quiet: Union[bool, Flag, None] = field(
+        description="""\
+            Shortcut for `--console quiet`.
+
+            Examples:
+
+            ```toml
+            quiet = true
+            ```
+
+            corresponds to the `--quiet` option of _rebot_
+            """,
+        robot_name="quiet",
+        robot_priority=500,
+        robot_is_flag=True,
+    )
     start_time: Optional[Union[str, StringExpression]] = field(
         description="""\
             Set execution start time. Timestamp must be given in
@@ -2417,13 +2479,14 @@ class RebotOptions(RobotBaseOptions):
 class LibDocOptions(RobotBaseOptions):
     """Options for _libdoc_ command."""
 
-    doc_format: Optional[Literal["ROBOT", "HTML", "TEXT", "REST"]] = field(
+    doc_format: Optional[Literal["ROBOT", "MARKDOWN", "HTML", "TEXT", "REST"]] = field(
         description="""\
             Specifies the source documentation format. Possible
             values are Robot Framework's documentation format,
-            HTML, plain text, and reStructuredText. The default
-            value can be specified in library source code and
-            the initial default value is ROBOT.
+            Markdown, HTML, plain text and reStructuredText.
+            The default value can be specified in library source
+            code and the initial default value is ROBOT. Markdown
+            support is new in RF 7.5.
 
             Examples:
 
@@ -2431,20 +2494,21 @@ class LibDocOptions(RobotBaseOptions):
             doc-format = "REST"
             ```
 
-            corresponds to the `-F --docformat ROBOT|HTML|TEXT|REST` option of _libdoc_
+            corresponds to the `-F --docformat ROBOT|MARKDOWN|HTML|TEXT|REST` option of _libdoc_
             """,
         robot_name="docformat",
         robot_priority=500,
         robot_short_name="F",
         alias="doc-format",
     )
-    format: Optional[Literal["HTML", "XML", "JSON", "LIBSPEC"]] = field(
+    format: Optional[Literal["HTML", "XML", "JSON", "LIBSPEC", "MARKDOWN"]] = field(
         description="""\
             Specifies whether to generate an HTML output for
-            humans or a machine readable spec file in XML or JSON
-            format. The LIBSPEC format means XML spec with
-            documentations converted to HTML. The default format
-            is got from the output file extension.
+            humans, a machine readable spec file in XML or JSON
+            format, or a Markdown file. The LIBSPEC format means
+            XML spec with documentations converted to HTML. The
+            default format is got from the output file
+            extension. MARKDOWN is new in RF 7.5.
 
             Examples:
 
@@ -2452,7 +2516,7 @@ class LibDocOptions(RobotBaseOptions):
             format = "HTML"
             ```
 
-            corresponds to the `-f --format HTML|XML|JSON|LIBSPEC` option of _libdoc_
+            corresponds to the `-f --format HTML|XML|JSON|LIBSPEC|MARKDOWN` option of _libdoc_
             """,
         robot_name="format",
         robot_priority=500,
@@ -2516,7 +2580,8 @@ class LibDocOptions(RobotBaseOptions):
             documentation format and HTML means converting
             documentation to HTML. The default is RAW with XML
             spec files and HTML with JSON specs and when using
-            the special LIBSPEC format.
+            the special LIBSPEC format. Not applicable with HTML
+            or MARKDOWN outputs.
 
             Examples:
 
@@ -2627,7 +2692,7 @@ class TestDocOptions(RobotBaseOptions):
 
             ```toml
             # tests with both "foo" and "bar*" tags
-            includes = ["fooANDbar*"]
+            includes = ["foo AND bar*"]
             ```
 
             corresponds to the `-i --include tag *` option of _testdoc_
@@ -2776,7 +2841,7 @@ class TestDocExtendOptions(RobotBaseOptions):
 
             ```toml
             # tests with both "foo" and "bar*" tags
-            extend-includes = ["fooANDbar*"]
+            extend-includes = ["foo AND bar*"]
             ```
 
             corresponds to the `-i --include tag *` option of _testdoc_
@@ -2931,20 +2996,29 @@ class RobotBaseProfile(CommonOptions, CommonExtendOptions, RobotOptions, RobotEx
 
     rebot: Optional[RebotProfile] = field(
         description="""\
-            Options to be passed to _rebot_.
+            Options to be passed to _rebot_. They win over the settings outside
+            of this table. Of those, _rebot_ gets the ones that Robot Framework
+            itself passes from _robot_ to _rebot_ after a run, so not
+            `includes`, `excludes`, `tests`, `suites`, `parse-include`, `name`,
+            `doc`, `metadata`, `set-tag`, `output`, `log-level`,
+            `timestamp-outputs`, `console` and `quiet`; `run-empty-suite`
+            becomes `process-empty-suite`.
             """
     )
 
     libdoc: Optional[LibDocProfile] = field(
         description="""\
-            Options to be passed to _libdoc_.
-        """
+            Options to be passed to _libdoc_. Of the settings outside of this
+            table, _libdoc_ gets only `python-path`, and this table wins over it.
+            """
     )
 
     testdoc: Optional[TestDocProfile] = field(
         description="""\
-            Options to be passed to _testdoc_.
-        """
+            Options to be passed to _testdoc_. They win over the settings outside
+            of this table that _testdoc_ shares with _robot_, such as `name`,
+            `metadata` or `includes`.
+            """
     )
 
     def save(self, path: "os.PathLike[str]") -> None:
@@ -3008,6 +3082,51 @@ class RobotExtendBaseProfile(RobotBaseProfile):
         alias="extend-wrapper",
     )
 
+    extend_rebot: Optional[RebotProfile] = field(
+        description="""\
+            Changes the `[rebot]` options that come before it, from an earlier
+            configuration file or before a profile: a setting given here
+            replaces the one of `[rebot]`, and an `extend-` setting adds to it.
+
+            Examples:
+            ```toml
+            [extend-rebot]
+            report-title = "My run"
+            ```
+            """,
+        alias="extend-rebot",
+    )
+
+    extend_libdoc: Optional[LibDocProfile] = field(
+        description="""\
+            Changes the `[libdoc]` options that come before it, from an earlier
+            configuration file or before a profile: a setting given here
+            replaces the one of `[libdoc]`, and an `extend-` setting adds to it.
+
+            Examples:
+            ```toml
+            [extend-libdoc]
+            theme = "DARK"
+            ```
+            """,
+        alias="extend-libdoc",
+    )
+
+    extend_testdoc: Optional[TestDocProfile] = field(
+        description="""\
+            Changes the `[testdoc]` options that come before it, from an earlier
+            configuration file or before a profile: a setting given here
+            replaces the one of `[testdoc]`, and an `extend-` setting adds to it.
+
+            Examples:
+            ```toml
+            [extend-testdoc]
+            title = "My tests"
+            ```
+            """,
+        alias="extend-testdoc",
+    )
+
     extend_paths: Union[str, List[str], None] = field(
         description="""\
             Append extra entries to the paths argument.
@@ -3032,15 +3151,23 @@ class RobotProfile(RobotExtendBaseProfile):
 
     detached: Optional[bool] = field(
         description="""\
-            The profile should be detached.
-            Detached means it is not inherited from the main profile.
+            Starts the profile from scratch: the settings outside of profiles,
+            from all configuration files, and the profiles applied before it
+            are not used.
+
+            Examples:
+            ```toml
+            [profiles.clean]
+            detached = true
+            paths = ["tests"]
+            ```
             """
     )
 
     enabled: Union[bool, Condition, None] = field(
         description="""\
-            If enabled the profile is used. You can also use and `if` condition
-            to calculate the enabled state.
+            Whether the profile is used when it is selected; a disabled profile
+            is skipped. An `if` condition computes the value.
 
             Examples:
             ```toml
@@ -3049,7 +3176,7 @@ class RobotProfile(RobotExtendBaseProfile):
             ```
 
             ```toml
-            # enabled if TEST_VAR is set
+            # enabled if the environment variable CI is "true"
             enabled = { if = 'environ.get("CI") == "true"' }
             ```
             """
@@ -3060,8 +3187,9 @@ class RobotProfile(RobotExtendBaseProfile):
 
     hidden: Union[bool, Condition, None] = field(
         description="""\
-            The profile should be hidden.
-            Hidden means it is not shown in the list of available profiles.
+            Hides the profile from `robotcode profiles list` and from the
+            profile lists of the editors; it can still be selected by name.
+            Profiles whose names start with `_` are hidden too.
 
             Examples:
             ```toml
@@ -3076,13 +3204,15 @@ class RobotProfile(RobotExtendBaseProfile):
 
     precedence: Optional[int] = field(
         description="""\
-        Precedence of the profile. Lower values are executed first. If not set the order is undefined.
+        Precedence of the profile. Lower values are executed first. A profile without a precedence counts as 0;
+        profiles with the same precedence are applied in the order they are selected, for example on the command line.
         """
     )
 
     inherits: Union[str, StringExpression, List[Union[str, StringExpression]], None] = field(
         description="""\
-            Profiles to inherit from.
+            Profiles to inherit from. Selecting this profile selects them too;
+            they are applied before it unless they have a higher `precedence`.
 
             Examples:
             ```toml
@@ -3092,13 +3222,50 @@ class RobotProfile(RobotExtendBaseProfile):
     )
 
 
+@dataclass(frozen=True)
+class UnknownProfile:
+    """A profile name or pattern that selects no profile, and where it comes from."""
+
+    name: str
+    # the profile whose `inherits` names it; None for a name of the selection or of `default-profiles`
+    inherited_by: Optional[str] = None
+    # whether it comes from `default-profiles`
+    default: bool = False
+
+    @property
+    def selected(self) -> bool:
+        """Whether the name comes from the selection: `-p`, `ROBOTCODE_PROFILES` or an editor."""
+        return self.inherited_by is None and not self.default
+
+    @property
+    def message(self) -> str:
+        return f"No profile matches '{self.name}'."
+
+
+class ProfileNotFoundError(ValueError):
+    """A profile name or pattern that selects no profile."""
+
+    def __init__(self, unknown: UnknownProfile) -> None:
+        super().__init__(unknown.message)
+        self.unknown = unknown
+
+
+class ProfileInheritanceError(ValueError):
+    """A profile that inherits itself, directly or through other profiles."""
+
+    def __init__(self, path: Tuple[str, ...]) -> None:
+        super().__init__(f"The profile '{path[0]}' inherits itself: {' -> '.join(path)}.")
+        self.path = path
+
+
 @dataclass
 class RobotConfig(RobotExtendBaseProfile):
     """Robot Framework configuration."""
 
     default_profiles: Union[str, List[str], None] = field(
         description="""\
-            Selects the Default profile if no profile is given at command line.
+            The profiles to use when no profile is selected, for example with
+            `-p` on the command line or in the editor.
 
             Examples:
             ```toml
@@ -3111,24 +3278,59 @@ class RobotConfig(RobotExtendBaseProfile):
             """,
         alias="default-profiles",
     )
-    profiles: Optional[Dict[str, RobotProfile]] = field(description="Execution profiles.")
+    profiles: Optional[Dict[str, RobotProfile]] = field(
+        description="""\
+            Execution profiles: named sets of settings that are applied on top
+            of the other settings when the profile is selected, for example
+            with `robotcode -p ci`. In a later configuration file, such as
+            `.robot.toml`, `profiles` replaces all profiles of the earlier
+            files; `extend-profiles` adds to them.
 
-    extend_profiles: Optional[Dict[str, RobotProfile]] = field(
-        description="Extra execution profiles.", alias="extend-profiles"
+            Examples:
+            ```toml
+            [profiles.ci]
+            description = "CI server"
+            output-dir = "results/ci"
+            ```
+            """
     )
 
-    tool: Optional[Dict[str, Any]] = field(description="Tool configurations.")
+    extend_profiles: Optional[Dict[str, RobotProfile]] = field(
+        description="""\
+            Adds profiles to those of the earlier configuration files, for
+            example in `.robot.toml` to those of `robot.toml`. For a profile
+            that exists already, a setting given here replaces the one of the
+            profile, and an `extend-` setting adds to it.
+
+            Examples:
+            ```toml
+            [extend-profiles.local]
+            description = "My local settings"
+            extend-variables = { BROWSER = "firefox" }
+            ```
+            """,
+        alias="extend-profiles",
+    )
+
+    tool: Optional[Dict[str, Any]] = field(
+        description="""\
+            Settings of other tools, for example `[tool.robotcode-analyze]`
+            for RobotCode's analysis.
+            """
+    )
 
     def _select_profiles(
         self,
         *names: str,
         verbose_callback: Optional[Callable[[Union[str, Callable[[], Any]]], None]] = None,
         error_callback: Optional[Callable[[Union[str, Callable[[], Any]]], None]] = None,
+        unknown_profile_callback: Optional[Callable[[UnknownProfile], None]] = None,
     ) -> Dict[str, Tuple[RobotProfile, Optional[Set[Tuple[str, RobotProfile]]]]]:
         result: Dict[str, Tuple[RobotProfile, Optional[Set[Tuple[str, RobotProfile]]]]] = {}
 
         profiles = self.profiles or {}
 
+        from_default_profiles = not names
         if not names:
             if verbose_callback:
                 verbose_callback("No profiles given, try to check if there are default profiles specified.")
@@ -3142,40 +3344,65 @@ class RobotConfig(RobotExtendBaseProfile):
 
             names = (*(default_profile or ()),)
 
-        def select(name: str, parent_profiles: Optional[Set[Tuple[str, RobotProfile]]] = None) -> None:
+        # each name that selects no profile is reported once for each place it comes from
+        reported: Set[UnknownProfile] = set()
+
+        def report(unknown: UnknownProfile) -> None:
+            if unknown in reported:
+                return
+            reported.add(unknown)
+
+            # a name that selects no profile is an error of the configuration; only callers that must go on, such as
+            # the language server, take it and go on without it
+            if unknown_profile_callback is not None:
+                unknown_profile_callback(unknown)
+            # a name of `default-profiles` is only reported: the `default-profiles` of the user configuration can name
+            # a profile of that file, which the `[profiles]` of a project replace
+            elif unknown.default and error_callback is not None:
+                error_callback(unknown.message)
+            else:
+                raise ProfileNotFoundError(unknown)
+
+        # `path` holds the profiles whose `inherits` lead to the name; the last one names it
+        def select(name: str, path: Tuple[str, ...] = ()) -> None:
             if not name:
                 return
 
             nonlocal result
 
+            parent = path[-1] if path else None
+
             if verbose_callback:
-                if parent_profiles is not None:
-                    verbose_callback(
-                        f"Selecting profiles matching '{name}'"
-                        f" for parent profile '{next(f for f in parent_profiles)[0]}'."
-                    )
+                if parent is not None:
+                    verbose_callback(f"Selecting profiles matching '{name}' for parent profile '{parent}'.")
                 else:
                     verbose_callback(f"Selecting profiles matching '{name}'.")
 
-            profile_names = [p for p in profiles.keys() if fnmatch.fnmatchcase(p, name)]
+            if name in profiles:
+                # an exact name selects its profile, also when it contains `*`, `?` or `[`
+                profile_names = [name]
+            else:
+                # a pattern in `inherits` does not match the profile that has it
+                profile_names = [p for p in profiles.keys() if p != parent and fnmatch.fnmatchcase(p, name)]
 
             if not profile_names:
-                message = f"Can't find any configuration profiles matching the pattern '{name}'."
-                if error_callback is None:
-                    raise ValueError(message)
-
-                error_callback(message)
+                report(UnknownProfile(name, inherited_by=parent, default=from_default_profiles and parent is None))
                 return
 
+            parent_profiles = {(parent, profiles[parent])} if parent is not None else None
+
             for v in profile_names:
+                if v in path:
+                    raise ProfileInheritanceError((*path[path.index(v) :], v))
+
                 p = profiles[v]
 
                 if p.inherits:
                     if isinstance(p.inherits, list):
                         for i in p.inherits:
-                            select(str(i), {(v, p)})
+                            select(str(i), (*path, v))
                     else:
-                        select(str(p.inherits), {(v, p)})
+                        select(str(p.inherits), (*path, v))
 
                 if v in result:
                     if parent_profiles is None:
@@ -3198,14 +3425,21 @@ class RobotConfig(RobotExtendBaseProfile):
         *names: str,
         verbose_callback: Optional[Callable[[Union[str, Callable[[], Any]]], None]] = None,
         error_callback: Optional[Callable[[Union[str, Callable[[], Any]]], None]] = None,
+        unknown_profile_callback: Optional[Callable[[UnknownProfile], None]] = None,
     ) -> RobotBaseProfile:
-        return self.combine_profiles_ex(*names, verbose_callback=verbose_callback, error_callback=error_callback)[0]
+        return self.combine_profiles_ex(
+            *names,
+            verbose_callback=verbose_callback,
+            error_callback=error_callback,
+            unknown_profile_callback=unknown_profile_callback,
+        )[0]
 
     def combine_profiles_ex(
         self,
         *names: str,
         verbose_callback: Optional[Callable[[Union[str, Callable[[], Any]]], None]] = None,
         error_callback: Optional[Callable[[Union[str, Callable[[], Any]]], None]] = None,
+        unknown_profile_callback: Optional[Callable[[UnknownProfile], None]] = None,
     ) -> Tuple[RobotBaseProfile, Dict[str, RobotProfile], List[str]]:
         enabled_profiles = []
         type_hints = get_type_hints(RobotBaseProfile)
@@ -3226,7 +3460,10 @@ class RobotConfig(RobotExtendBaseProfile):
         )
 
         selected_profiles = self._select_profiles(
-            *names, verbose_callback=verbose_callback, error_callback=error_callback
+            *names,
+            verbose_callback=verbose_callback,
+            error_callback=error_callback,
+            unknown_profile_callback=unknown_profile_callback,
         )
         if verbose_callback:
             if selected_profiles:
@@ -3234,47 +3471,54 @@ class RobotConfig(RobotExtendBaseProfile):
             else:
                 verbose_callback("No profiles selected.")
 
+        # whether a selected profile is enabled; None when its condition has an error, which is reported only once
+        enabled_states: Dict[str, Optional[bool]] = {}
+
+        def is_enabled(name: str) -> Optional[bool]:
+            if name not in enabled_states:
+                try:
+                    enabled_states[name] = selected_profiles[name][0].is_enabled()
+                except EvaluationError as e:
+                    message = f"Error evaluating 'enabled' condition for profile '{name}': {e}"
+
+                    if error_callback is None:
+                        raise ValueError(message) from e
+
+                    error_callback(message)
+                    enabled_states[name] = None
+            return enabled_states[name]
+
+        # a profile is used when it is enabled and selected itself, or when one of the profiles that inherit it is
+        # used, so that a disabled profile brings none of the profiles it inherits from along, at any depth
+        used_states: Dict[str, bool] = {}
+
+        def is_used(name: str) -> bool:
+            if name not in used_states:
+                parents = selected_profiles[name][1]
+                used_states[name] = bool(is_enabled(name)) and (
+                    parents is None or any(is_used(parent_name) for parent_name, _ in parents)
+                )
+            return used_states[name]
+
         for profile_name, (profile, parent_profiles) in sorted(
             selected_profiles.items(), key=lambda x: x[1][0].precedence or 0
         ):
-            try:
-                if not profile.is_enabled():
-                    if verbose_callback:
-                        verbose_callback(f'Skipping profile "{profile_name}" because it\'s disabled.')
-                    continue
-            except EvaluationError as e:
-                message = f"Error evaluating 'enabled' condition for profile '{profile_name}': {e}"
-
-                if error_callback is None:
-                    raise ValueError(message) from e
-
-                error_callback(message)
+            profile_enabled = is_enabled(profile_name)
+            if profile_enabled is None:
                 continue
 
-            if parent_profiles is not None:
-                disabled_profiles = []
-                skip = False
-                for parent_profile in parent_profiles:
-                    try:
-                        if not parent_profile[1].is_enabled():
-                            disabled_profiles.append(parent_profile[0])
-                    except EvaluationError as e:
-                        message = f"Error evaluating 'enabled' condition for profile '{parent_profile[0]}': {e}"
+            if not profile_enabled:
+                if verbose_callback:
+                    verbose_callback(f'Skipping profile "{profile_name}" because it\'s disabled.')
+                continue
 
-                        if error_callback is None:
-                            raise ValueError(message) from e
-
-                        error_callback(message)
-                        skip = True
-                        break
-
-                if skip or len(disabled_profiles) == len(parent_profiles):
-                    if verbose_callback:
-                        verbose_callback(
-                            f"Skipping profile inherited '{profile_name}' because no parent is enabled."
-                            f" Disabled profiles: {', '.join(disabled_profiles)}."
-                        )
-                    continue
+            if not is_used(profile_name):
+                if verbose_callback:
+                    verbose_callback(
+                        f"Skipping inherited profile '{profile_name}' because none of the profiles that inherit it"
+                        f" is used: {', '.join(sorted(name for name, _ in parent_profiles or ()))}."
+                    )
+                continue
 
             if verbose_callback:
                 verbose_callback(f'Using profile "{profile_name}".')
@@ -3290,7 +3534,8 @@ class RobotConfig(RobotExtendBaseProfile):
             if profile.detached:
                 result = RobotBaseProfile()
 
-            for f in dataclasses.fields(profile):
+            # A setting replaces the value before it and its `extend-` setting adds to it, so the settings come first.
+            for f in sorted(dataclasses.fields(profile), key=lambda f: f.name.startswith(EXTEND_PREFIX)):
                 if f.name.startswith(EXTEND_PREFIX):
                     new = self._verified_value(
                         f.name,
@@ -3315,14 +3560,17 @@ class RobotConfig(RobotExtendBaseProfile):
                             setattr(result, f.name[EXTEND_PREFIX_LEN:], [*old, *new])
                         elif isinstance(old, tuple):
                             setattr(result, f.name[EXTEND_PREFIX_LEN:], (*old, *new))
+                        elif isinstance(old, BaseOptions):
+                            # a table such as `[rebot]`, changed on a copy because `old` may be the configuration's own;
+                            # it keeps the `extend-` settings it doesn't set itself, see `add_options`
+                            changed = dataclasses.replace(old)
+                            changed.add_options(new, True)
+                            setattr(result, f.name[EXTEND_PREFIX_LEN:], changed)
                         else:
                             setattr(result, f.name[EXTEND_PREFIX_LEN:], new)
                     continue
 
                 if f.name not in base_field_names:
-                    continue
-
-                if getattr(profile, f"{EXTEND_PREFIX}_{f.name}", None) is not None:
                     continue
 
                 new = self._verified_value(

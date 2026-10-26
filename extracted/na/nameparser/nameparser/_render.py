@@ -78,7 +78,7 @@ _UNJOINED_MARKS = frozenset({UNJOINED_TAG, UNJOINED_CONJUNCTION_TAG})
 # layering forbids the import. The divergence is reachable only for a
 # caller-added CJK conjunction spliced into a field, since no shipped
 # vocabulary carries one, and it costs nothing there: CJK is caseless,
-# so the carve-out's lower() and the fall-through's capitalize() return
+# so the carve-out's lower() and the fall-through's title case return
 # the same string. Since #528 this pattern is read by more than case
 # repair: through _reads_as_conjunction below, whose callers are case
 # repair's spliced field and the v1 facade's initials view, the latter
@@ -127,7 +127,7 @@ def _reads_as_conjunction(word: str, lex: Lexicon) -> bool:
     from the word alone, the initial carve-out included ('E.' assigned
     to middle is an initial, not the Italian conjunction). What it
     cannot give is an answer the parse reached by looking at the whole
-    NAME -- rules/P3's one-case fork is the live example -- which
+    NAME -- rules/P8's one-case fork is the live example -- which
     is why it is the fallback and the tags are the rule.
     """
     # the shape on the composed spelling, as _normalize composes the
@@ -228,8 +228,8 @@ def initials(name: ParsedName, spec: str, delimiter: str, separator: str) -> str
     This view takes NO lexicon, so it has none to fall back to for
     that text: `replace(family='de la vega')` initials every word of
     that field where the same name parsed gives 'j. v.'
-    (rules/R3's Accepted
-    clause, and decisions/R4 for why the fallback was tried
+    (rules/R3's Accepted bullet "This rule reads a part the parser read",
+    the limit this view keeps; decisions/R4 for why the fallback was tried
     and dropped -- #464 is the crossing that would make it
     answerable). Valid spec keys: given, middle, family."""
     if not isinstance(delimiter, str):
@@ -358,8 +358,10 @@ def _cap_word(word: str, role: Role, tags: frozenset[str],
               lex: Lexicon) -> str:
     # Clause order: the particle/connective arm, then the exceptions
     # map as a mask, then the acronym clause (listed or by shape),
-    # then the numeral clause, then Mac/Mc, then str.capitalize. v1's
-    # cap_word had the first, second, fifth and sixth in this order;
+    # then the numeral clause, then Mac/Mc and title case per
+    # full-stop chunk (_title_chunks; v1's was str.capitalize() on the
+    # whole word). v1's cap_word had the first, second, fifth and a
+    # plainer sixth in this order;
     # the mask ahead of the acronym clause is what gives bsc 'BSc'
     # though bsc is a listed acronym too.
     normalized = _normalize(word)
@@ -506,19 +508,48 @@ def _cap_word(word: str, role: Role, tags: frozenset[str],
     # through ('Carod i' forced -> 'Carod I').
     if role is Role.SUFFIX and _ROMAN.match(normalized):
         return word.upper()
-    # Decided on the composed spelling, so a word typed decomposed
-    # (NFD) is read as its composed twin is: 'mac' + 'e' + U+0301 +
-    # 'e' fails the regex's \w{2,} at the mark (#542). The name run
-    # after the prefix is then capitalized on the word as written,
-    # running on through its marks the way _sub_words does.
-    mac = _MAC.match(unicodedata.normalize("NFC", word))
-    if mac:
-        cut = end = len(mac.group(1))
-        while run := _NAME_RUN.match(word, end):
-            end = _past_marks(word, run.end())
-        return (word[:cut].capitalize() + word[cut:end].capitalize()
-                + word[end:])
-    return word.capitalize()
+    return _title_chunks(word)
+
+
+# rules/R4: "Each run of letters a full stop divides is written as a
+# word of its own" and "A word that opens with a modifier letter that
+# has no case" "takes its capital on the letter after that mark"; "A
+# digit is not passed over that way". This is the fall-through: the
+# Mac/Mc convention and title case, for a word no clause above
+# claimed, asked of each chunk. decisions/R4 (#838).
+def _title_chunks(word: str) -> str:
+    """`word` repaired chunk by chunk between its full stops, so a
+    chunk after one gets what a whole word gets ('j.mcdonald' is
+    'J.McDonald')."""
+    return ".".join(_title_chunk(chunk) for chunk in word.split("."))
+
+
+def _title_chunk(chunk: str) -> str:
+    """`chunk` title-cased from its first character that is not a
+    modifier letter (category Lm), which also holds the apostrophe
+    'ŉ' upper-cases into, so 'ʼNa' is a fixpoint of repair. The Mac/Mc
+    prefix is decided on the composed spelling, so a chunk typed
+    decomposed (NFD) is read as its composed twin is: 'mac' + 'e' +
+    U+0301 + 'e' fails the regex's \\w{2,} at the mark (#542). The
+    name run after the prefix is then capitalized as written, running
+    on through its marks the way _sub_words does."""
+    lead = _past_modifiers(chunk, 0)
+    mac = _MAC.match(unicodedata.normalize("NFC", chunk[lead:]))
+    if not mac:
+        return chunk[:lead] + chunk[lead:].capitalize()
+    cut = end = lead + len(mac.group(1))
+    while run := _NAME_RUN.match(chunk, end):
+        end = _past_marks(chunk, run.end())
+    at = _past_modifiers(chunk, cut)
+    return (chunk[:lead] + chunk[lead:cut].capitalize() + chunk[cut:at]
+            + chunk[at:end].capitalize() + chunk[end:])
+
+
+def _past_modifiers(text: str, at: int) -> int:
+    """`at` moved past the modifier letters (category Lm) at it."""
+    while at < len(text) and unicodedata.category(text[at]) == "Lm":
+        at += 1
+    return at
 
 
 def _past_marks(text: str, end: int) -> int:
@@ -536,8 +567,9 @@ def _sub_words(cap: Callable[[str], str], text: str) -> str:
     'garci' + U+0301 + 'a' -- would otherwise be two words, and the
     'a' capitalized alone is 'A'. A mark heads no word of its own: one
     with no word before it stays outside every word, since a word
-    starting with it would keep its letters lowercase under
-    str.capitalize()."""
+    starting with it would keep its letters lowercase under the
+    fall-through, which passes over a modifier letter (Lm) and not a
+    mark (M)."""
     spans: list[list[int]] = []
     for match in _WORD.finditer(text):
         start, end = match.start(), _past_marks(text, match.end())
@@ -551,6 +583,27 @@ def _sub_words(cap: Callable[[str], str], text: str) -> str:
         out += (text[at:start], cap(text[start:end]))
         at = end
     return "".join(out) + text[at:]
+
+
+def _joined_whole(text: str, role: Role, lex: Lexicon) -> str | None:
+    """`text` repaired as ONE word where it holds a hyphen or slash and
+    the vocabulary records it whole: by its recorded casing (a mask, in
+    any role, as _cap_word applies it), else in capitals as a listed
+    acronym credential in the suffix role ('pa-c', 'otr/l'). None where
+    neither holds and the per-word walk takes the token (#808)."""
+    if "-" not in text and "/" not in text:
+        return None
+    normalized = _normalize(text)
+    undotted = normalized.replace(".", "")
+    for key in (normalized, undotted):
+        mask = lex.capitalization_exceptions_map.get(key)
+        if mask is not None:
+            masked = _apply_mask(text, mask)
+            if masked is not None:
+                return masked
+    if role is Role.SUFFIX and undotted in lex.suffix_acronyms:
+        return text.upper()
+    return None
 
 
 def _cap_text(text: str, role: Role, tags: frozenset[str],
@@ -578,6 +631,14 @@ def _cap_text(text: str, role: Role, tags: frozenset[str],
             and _lowers_as_particle(_normalize(text), text, role, tags,
                                     lex)):
         return text.lower()
+    # rules/R4: "A credential acronym the exceptions map does not carry
+    # is an initialism" -- written whole when a hyphen or slash joins
+    # it, since the per-word walk below would capitalize 'otr/l' as the
+    # two name words 'Otr/L'; and a recorded casing is laid over the
+    # whole token for the same reason. decisions/R4 (#808).
+    if not text.isalpha() and (
+            whole := _joined_whole(text, role, lex)) is not None:
+        return whole
     if "-" not in text:
         return _sub_words(cap, text)
     parts = text.split("-")
@@ -649,25 +710,23 @@ def capitalized(name: ParsedName, lexicon: Lexicon | None, *,
     'de la' where the same words parsed give 'De La'; one set to
     'de y' keeps the 'y' lowercase, as the parse does and as 1.4.0
     did. Parser.revise() is the edit that classifies the value, and
-    gives 'De La' (rules/R4's Accepted boundary).
+    gives 'De La': the boundary of
+    rules/R4's Accepted bullet "The all-particle clause reaches a part"
+    (decisions/R4).
     Idempotent: every _cap_word rule, and the hyphen rule in
     _cap_text, is a fixpoint on its own output, so a repaired name
     comes back unchanged whether or not the gate admits it again
     (a name whose non-suffix words are caseless, 'Kim Minjun' in
     hangul with a 'phd', is admitted every time) -- except where a
-    LETTER'S OWN CASE MAPPING changes its length
-    (decisions/R4's Unicode boundary; 'ß' recasing to 'SS' through
-    a mask is one example, not the only one). Lengthening: a mask's
-    own per-character casing fallback can turn one letter into a
-    different LETTER SEQUENCE ('ß' upper is 'SS', not one recased
-    letter), so the repaired word's own folded spelling ('a.ss') no
-    longer matches the exceptions map's key ('a.ß'), and a second
-    forced pass over that output cannot find the entry the first
-    pass did. The same lengthening reaches plain title-casing with no
-    mask involved: 'ŉ' (a single letter) upper-cases to the two
-    CASED characters 'ʼN', so str.capitalize() on 'ŉa' gives 'ʼNa'
-    but on THAT output gives 'ʼna' -- the 'N' is no longer the
-    word's first character, so the second pass lower-cases it.
+    mask's own per-character casing fallback lengthens a letter
+    (decisions/R4's Unicode boundary): 'ß' upper is 'SS', a different
+    LETTER SEQUENCE rather than one recased letter, so the repaired
+    word's own folded spelling ('a.ss') no longer matches the
+    exceptions map's key ('a.ß'), and a second forced pass over that
+    output cannot find the entry the first pass did. Plain title case
+    does not lengthen that way: 'ŉ' (a single letter) upper-cases to
+    'ʼN', whose apostrophe is a modifier letter the fall-through passes
+    over, so 'ʼNa' comes back as 'ʼNa'.
     A letter that upper-cases to a base letter plus a COMBINING MARK
     ('ǰ' to 'J' + a combining caron) is not such a case since #542:
     a word runs on through its marks (_sub_words), so 'J̌o' is one

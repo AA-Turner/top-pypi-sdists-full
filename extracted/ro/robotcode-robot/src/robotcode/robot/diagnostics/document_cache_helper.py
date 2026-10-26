@@ -8,6 +8,7 @@ from logging import CRITICAL
 from pathlib import Path
 from typing import (
     Any,
+    Dict,
     Iterable,
     Iterator,
     List,
@@ -24,7 +25,7 @@ from robotcode.core.filewatcher import FileWatcherManagerBase
 from robotcode.core.text_document import TextDocument
 from robotcode.core.uri import Uri
 from robotcode.core.utils.logging import LoggingDescriptor
-from robotcode.core.utils.path import DiskInfo
+from robotcode.core.utils.path import DiskInfo, normalized_path
 from robotcode.core.workspace import Workspace, WorkspaceFolder
 from robotcode.robot.diagnostics.diagnostics_modifier import (
     DiagnosticModifiersConfig,
@@ -66,9 +67,14 @@ def _namespace_cache_key(source: str, document_type: Optional[DocumentType]) -> 
     a suite (GENERAL) and as an imported resource (RESOURCE) — the results
     must not overwrite each other. "\\n" as separator is impossible in Windows
     paths and never appears in real-world POSIX paths (where it is technically
-    legal); the key is an opaque entry name and is never parsed back.
+    legal); the key is parsed back only to tell the source of an entry.
     """
     return f"{source}\n{document_type.value if document_type is not None else ''}"
+
+
+def _namespace_cache_source(entry_name: str) -> str:
+    """The source of a namespace entry in the disk cache, see `_namespace_cache_key`."""
+    return entry_name.split("\n", 1)[0]
 
 
 class _CacheEntry:
@@ -121,14 +127,29 @@ class DocumentsCacheHelper:
 
         with self._project_indexes_lock:
             if folder not in self._project_indexes:
-                self._project_indexes[folder] = ProjectIndex()
+                self._project_indexes[folder] = self._create_project_index()
             return self._project_indexes[folder]
 
     def default_project_index(self) -> ProjectIndex:
         with self._project_indexes_lock:
             if self._default_project_index is None:
-                self._default_project_index = ProjectIndex()
+                self._default_project_index = self._create_project_index()
             return self._default_project_index
+
+    def _create_project_index(self) -> ProjectIndex:
+        documents_manager = self.documents_manager
+        # converting a path is most of the cost of a lookup, and the URI of a file does not change
+        uris: Dict[str, Uri] = {}
+
+        # only the files the documents manager still holds count; the check refers to the documents manager and
+        # not to this helper, which would make the helper and its indexes a reference cycle
+        def is_known_source(source: str) -> bool:
+            uri = uris.get(source)
+            if uri is None:
+                uri = uris[source] = Uri.from_path(source).normalized()
+            return documents_manager.get(uri) is not None
+
+        return ProjectIndex(is_known_source)
 
     def get_languages_for_document(self, document_or_uri: Union[TextDocument, Uri, str]) -> Optional[Languages]:
         if RF_VERSION < (6, 0):
@@ -418,9 +439,7 @@ class DocumentsCacheHelper:
     def namespace_invalidated(sender, namespace: Namespace) -> None: ...
 
     def _invalidate_namespace(self, sender: Namespace) -> None:
-        if sender.document is not None:
-            self.get_project_index(sender.document).remove_file(sender.source)
-
+        # the file's references stay in the index until its next analysis replaces them
         document = sender.document
         if document is not None:
             document.remove_cache_entry(self.__get_general_namespace)
@@ -621,6 +640,16 @@ class DocumentsCacheHelper:
             )
             return None
 
+        # from_data resolved the imports again with the current Python path and environment variables. A namespace
+        # with a failed import is never stored and the dependency keys name the files found, so a failed import or
+        # other keys mean that an import finds another file or none now.
+        if result.failed_imports or set(result.dependency_metas or {}) != set(meta.dependency_fingerprints):
+            self._logger.debug(
+                lambda: f"Cache miss for {source}: the imports find other files now, re-analyzing",
+                context_name="cache",
+            )
+            return None
+
         self._logger.debug(
             lambda: f"Loaded namespace from disk cache for {source}",
             context_name="import",
@@ -633,6 +662,53 @@ class DocumentsCacheHelper:
         self.__namespace_initialized(result)
 
         return result
+
+    def remove_cached_analysis(self, path: Path) -> None:
+        """Remove the entries of a Robot Framework file from the analysis cache, as for a file that was deleted."""
+        uri = Uri.from_path(path).normalized()
+        source = str(uri.to_path())
+        try:
+            imports_manager = self.get_imports_manager_for_uri(uri)
+            imports_manager.data_cache.remove_entries(
+                CacheSection.NAMESPACE, [_namespace_cache_key(source, document_type) for document_type in DocumentType]
+            )
+            imports_manager.remove_cached_resource_docs([str(normalized_path(source))])
+        except (SystemExit, KeyboardInterrupt):
+            raise
+        except BaseException as e:
+            ex = e
+            self._logger.debug(
+                lambda: f"Failed to remove the analysis cache entries of {source}: {ex}",
+                context_name="cache",
+            )
+
+    def remove_cached_analyses_of_missing_files(self, folder: WorkspaceFolder) -> None:
+        """Remove the entries of the files that do not exist from the analysis cache of a workspace folder."""
+        imports_manager = self.get_imports_manager_for_workspace_folder(folder)
+        data_cache = imports_manager.data_cache
+        try:
+            for section, source_of in (
+                (CacheSection.NAMESPACE, _namespace_cache_source),
+                (CacheSection.RESOURCE, str),
+            ):
+                missing = [
+                    entry.entry_name
+                    for entry in data_cache.list_entries(section)
+                    if not Path(source_of(entry.entry_name)).exists()
+                ]
+                if not missing:
+                    continue
+                if section == CacheSection.RESOURCE:
+                    imports_manager.remove_cached_resource_docs(missing)
+                else:
+                    data_cache.remove_entries(section, missing)
+        except (SystemExit, KeyboardInterrupt):
+            raise
+        except BaseException as e:
+            ex = e
+            self._logger.debug(
+                lambda: f"Failed to remove the cache entries of missing files: {ex}", context_name="cache"
+            )
 
     def _save_namespace_to_cache(
         self,
@@ -780,7 +856,9 @@ class DocumentsCacheHelper:
     def calc_cache_path(self, folder_uri: Uri) -> Path:
         from .data_cache import resolve_cache_base_path
 
-        return resolve_cache_base_path(folder_uri.to_path())
+        folder = folder_uri.to_path()
+        cache_dir = self.analysis_config.cache_dir
+        return resolve_cache_base_path(folder / cache_dir if cache_dir else folder)
 
     def get_diagnostic_modifier(self, document: TextDocument) -> DiagnosticsModifier:
         return document.get_cache(self.__get_diagnostic_modifier)

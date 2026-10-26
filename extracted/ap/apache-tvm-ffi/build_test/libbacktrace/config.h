@@ -52,7 +52,7 @@
 /* #undef HAVE_KERN_PROC_ARGS */
 
 /* Define if -llzma is available. */
-/* #undef HAVE_LIBLZMA */
+#define HAVE_LIBLZMA 1
 
 /* Define to 1 if you have the <link.h> header file. */
 #define HAVE_LINK_H 1

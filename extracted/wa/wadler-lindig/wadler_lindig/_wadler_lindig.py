@@ -15,7 +15,7 @@ References:
 Inspired by JAX's use of the same references above, but re-implemented from scratch.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ._ansi import ansi_strip
 
@@ -37,21 +37,32 @@ class AbstractDoc:
         """
         return NestDoc(self, indent=indent)
 
-    def group(self) -> "GroupDoc":
-        """`doc.group()` offers a convenient shorthand for `GroupDoc(doc)`."""
-        return GroupDoc(self)
+    def group(self, *, force_vertical: bool = False) -> "GroupDoc":
+        """`doc.group()` offers a convenient shorthand for `GroupDoc(doc)`.
+
+        Pass `force_vertical=True` to always lay out this group vertically.
+        """
+        return GroupDoc(self, force_vertical=force_vertical)
 
 
 @dataclass(frozen=True)
 class TextDoc(AbstractDoc):
-    """Represents an unbroken piece of text to display. May include newlines."""
+    """Represents an unbroken piece of text to display. May include newlines.
+
+    If `width=False` then the text is emitted but does not count towards the line
+    width. Escaping any markup inside the text is the caller's responsibility.
+    """
 
     text: str
+    width: bool = field(default=True, kw_only=True)
 
 
 TextDoc.__init__.__doc__ = """**Arguments:**
 
 - `text`: the string of text.
+- `width`: whether this text counts towards the line width. Use `False` for markup
+    that is emitted but takes no space in the layout, for example HTML tags like
+    `<div>`. Defaults to `True`.
 """
 
 
@@ -152,14 +163,19 @@ class GroupDoc(AbstractDoc):
     ```
     then `foo`, `bar` and `[baz, qux]` are laid out vertically, but the sub-group
     `[baz, qux]` is judged to have enough space, and so is laid out horizontally.
+
+    Set `force_vertical=True` to always lay out this group vertically.
     """
 
     child: AbstractDoc
+    force_vertical: bool = field(default=False, kw_only=True)
 
 
 GroupDoc.__init__.__doc__ = """**Arguments:**
 
 - `child`: the child document to display.
+- `force_vertical`: if `True`, always lay out this group vertically. Defaults to
+    `False`.
 """
 
 
@@ -169,15 +185,16 @@ def _vertical(doc: AbstractDoc, width: int) -> bool:
     todo: list[AbstractDoc] = [doc]
     while len(todo) > 0 and width >= 0:
         match todo.pop():
-            case TextDoc(text):
-                width -= max(map(len, ansi_strip(text).splitlines()), default=0)
+            case TextDoc(text, width=counts):
+                if counts:
+                    width -= max(map(len, ansi_strip(text).splitlines()), default=0)
             case BreakDoc(text):
                 width -= len(ansi_strip(text))
             case ConcatDoc(children):
                 todo.extend(reversed(children))
             case NestDoc(child, _):
                 todo.append(child)
-            case GroupDoc(child):
+            case GroupDoc(child, force_vertical=_):
                 todo.append(child)
             case x:
                 assert False, str(x)
@@ -216,9 +233,10 @@ def pformat_doc(doc: AbstractDoc, width: int) -> str:
                 vertical = vertical2
             case int(indent2):
                 indent = indent2
-            case TextDoc(text):
+            case TextDoc(text, width=counts):
                 outs.append(text.replace("\n", "\n" + " " * width_so_far))
-                width_so_far += len(ansi_strip(text.rsplit("\n", 1)[-1]))
+                if counts:
+                    width_so_far += len(ansi_strip(text.rsplit("\n", 1)[-1]))
             case BreakDoc(text):
                 if vertical:
                     outs.append("\n" + " " * indent)
@@ -232,8 +250,12 @@ def pformat_doc(doc: AbstractDoc, width: int) -> str:
                 todo.append(indent)
                 todo.append(child)
                 indent += extra_indent
-            case GroupDoc(child):
-                if vertical and not _vertical(child, width - width_so_far):
+            case GroupDoc(child, force_vertical=force_vertical):
+                if force_vertical:
+                    todo.append(vertical)
+                    todo.append(child)
+                    vertical = True
+                elif vertical and not _vertical(child, width - width_so_far):
                     # If we are currently in vertical mode but do not need to remain
                     # so, then switch to horizontal mode.
                     todo.append(True)

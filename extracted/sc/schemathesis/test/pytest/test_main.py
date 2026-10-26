@@ -491,7 +491,16 @@ def test_(case):
     result.stdout.re_match_lines([r".*Impossible to generate negative test cases.*"])
 
 
-def test_skip_impossible_to_negate(testdir):
+@pytest.mark.parametrize(
+    "content",
+    [
+        {"application/json": {"schema": {}}},
+        # Any bytes are a valid binary body
+        {"application/octet-stream": {"schema": {"type": "string", "format": "binary"}}},
+    ],
+    ids=["any-json", "binary"],
+)
+def test_skip_impossible_to_negate(testdir, content):
     # See GH-1463
     # When endpoint's body schema can't be negated
     testdir.make_test(
@@ -509,14 +518,7 @@ def test_(case):
         paths={
             "/pets": {
                 "post": {
-                    "requestBody": {
-                        "content": {
-                            "application/json": {
-                                "schema": {},
-                            }
-                        },
-                        "required": True,
-                    },
+                    "requestBody": {"content": content, "required": True},
                     "responses": {"200": {"description": "OK"}},
                 }
             }
@@ -1145,7 +1147,7 @@ def test(case):
                     ],
                     "requestBody": {
                         "content": {
-                            "image/jpeg": {
+                            "video/mp4": {
                                 "schema": {"format": "base64", "type": "string"},
                             }
                         }
@@ -1159,7 +1161,7 @@ def test(case):
     result = testdir.runpytest()
     # The body is unreachable, but the query parameter is still exercised without one.
     result.assert_outcomes(passed=1, warnings=1)
-    assert "Skipped test cases with unsupported payload media types: image/jpeg" in result.stdout.str()
+    assert "Skipped test cases with unsupported payload media types: video/mp4" in result.stdout.str()
 
 
 def test_override(ctx, testdir):

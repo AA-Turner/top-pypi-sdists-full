@@ -1255,6 +1255,23 @@ def test_experiment_tag_flags_are_refused_and_write_nothing(wired, capsys):
     assert experiment["tags"] == ["sweep"]
 
 
+def test_experiment_description_is_a_usage_error_not_a_crash(wired, capsys):
+    """Tokenless, 2026-10-26: the folder import's prompt asked for `experiment
+    create --description`, the SDK raised a bare ValueError, and the CLI crashed
+    14 times in one import. The question is the description (0231): the flag is
+    refused before anything is sent, the same way on create and on set."""
+    before = len(wired.experiments)
+    for argv in (
+        ["experiment", "create", "e2", "--question", "q?", "--project", "p", "--description", "d"],
+        ["experiment", "set", "e", "--description", "d"],
+    ):
+        assert cli.main(argv) == 2
+        err = capsys.readouterr().err
+        assert "replaced by its QUESTION" in err and "Traceback" not in err
+    assert len(wired.experiments) == before
+    assert _patches(wired) == []
+
+
 def test_a_refused_set_with_tags_writes_neither_half(wired, monkeypatch, capsys):
     project = _project(wired)
     project["tags"] = ["a"]

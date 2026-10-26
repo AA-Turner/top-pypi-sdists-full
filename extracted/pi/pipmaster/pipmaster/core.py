@@ -62,7 +62,7 @@ class PackageManager:
         self._version_cache: Dict[str, Optional[str]] = {}
 
         if self.venv_path:
-            venv_path_obj = Path(self.venv_path) / "pyvenv.cfg"
+            venv_path_obj = Path(self.venv_path)
 
             if not venv_path_obj.exists() and create_if_not_exist:
                 logger.info(f"{EMOJI['gear']} Virtual environment not found at '{self.venv_path}'. Creating it...")
@@ -104,8 +104,9 @@ class PackageManager:
             logger.info(f"{EMOJI['gear']} Executing: {command_str}")
 
         try:
-            stderr_pipe = subprocess.PIPE if capture_output or verbose else subprocess.DEVNULL
-            stdout_pipe = subprocess.PIPE if capture_output else (None if verbose else subprocess.DEVNULL)
+            # We capture output always if not verbose so we can show it on failure
+            stdout_pipe = None if verbose else subprocess.PIPE
+            stderr_pipe = None if verbose else subprocess.PIPE
 
             # Sanitize environment to prevent VS Code/debugger variables from leaking
             # into the target venv's pip process, which causes hangs or import errors.
@@ -137,11 +138,30 @@ class PackageManager:
                 return True, output
             else:
                 error_message = f"{EMOJI['cross']} Command failed (exit {result.returncode}): {command_str}"
-                stderr_content = result.stderr if result.stderr else "No stderr captured."
-                if capture_output:
-                    error_message += f"\n--- stderr ---\n{stderr_content}"
                 logger.error(error_message)
-                return False, error_message
+                
+                # Diagnostic output
+                stdout_content = (result.stdout or "").strip()
+                stderr_content = (result.stderr or "").strip()
+                
+                max_len = 4000
+                if stdout_content:
+                    truncated = "..." if len(stdout_content) > max_len else ""
+                    logger.error(f"{EMOJI['info']} --- STDOUT ---\n{truncated}{stdout_content[-max_len:]}")
+                if stderr_content:
+                    truncated = "..." if len(stderr_content) > max_len else ""
+                    logger.error(f"{EMOJI['warning']} --- STDERR ---\n{truncated}{stderr_content[-max_len:]}")
+                
+                if not stdout_content and not stderr_content:
+                    logger.error(f"{EMOJI['info']} No output captured from the failed process.")
+                    
+                parts = [error_message]
+                if stdout_content:
+                    parts.append(f"--- stdout ---\n{stdout_content}")
+                if stderr_content:
+                    parts.append(f"--- stderr ---\n{stderr_content}")
+                full_err = "\n".join(parts)
+                return False, full_err
 
         except FileNotFoundError:
             error_msg = f"{EMOJI['cross']} Error: '{self.pip_command_base[0]}' not found. Is it installed and in PATH?"

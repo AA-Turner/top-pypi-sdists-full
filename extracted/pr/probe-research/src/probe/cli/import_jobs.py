@@ -66,6 +66,15 @@ class RetryableJobError(JobError):
     """A known temporary connection failure while replaying approved work."""
 
 
+class UnitRetryJobError(RetryableJobError):
+    """Approved batches whose agent stopped before finishing, with tries left.
+
+    Replayed by the same loop as a lost connection (agents stopped first,
+    cancellation honoured), and bounded by the batches' own attempt limit
+    (`backfill_ledger.MAX_UNIT_ATTEMPTS`): an exhausted batch is final.
+    """
+
+
 def is_retryable_error(exc: BaseException) -> bool:
     """Recognize transport failures without guessing from exception messages.
 
@@ -115,6 +124,10 @@ _SECRET_KEYS = {
     "authorization", "credential", "credentials", "env", "environment",
 }
 _active_job: Path | None = None  # One worker per process; launch threads share it.
+#: The running attempt's agent meter (`import_agent_settings.Meter`), beside
+#: `_active_job` and for the same reason: one worker per process. `_dispatch`
+#: hands it to the folder lane; `run_worker` reports it on `import_job.finished`.
+_attempt_meter = None
 
 
 def prepared_approval_digest() -> str | None:
@@ -1114,10 +1127,35 @@ def _dispatch(kind: str, payload: dict, progress):
     from .backfill_coverage import CoverageError
     from .backfill_import import run_background_job
 
+    # Only when there is one: a source tree without the meter's module has a
+    # folder lane that takes no meter either.
+    metered = {"meter": _attempt_meter} if _attempt_meter is not None else {}
     try:
-        return run_background_job(payload, progress=progress)
+        return run_background_job(payload, progress=progress, **metered)
     except CoverageError as exc:
         raise JobError(str(exc)) from exc
+
+
+def _agent_meter():
+    """A meter for this attempt's coding agents (`import_agent_settings`), or
+    None when this process cannot build one. Same rule as `_telemetry`: its
+    absence costs the measurement, never the import."""
+    try:
+        from .import_agent_settings import Meter
+
+        return Meter()
+    except Exception:
+        return None
+
+
+def _agent_props(meter) -> dict:
+    """What this attempt's agents ran at and cost, for `import_job.finished`:
+    per-lane settings, launches, refusals, cache hits and token sums
+    (`Meter.properties`). Metadata only. Never raises."""
+    try:
+        return meter.properties() if meter is not None else {}
+    except Exception:
+        return {}
 
 
 @contextmanager
@@ -1153,7 +1191,7 @@ def _serial_lane(job: dict, folder: Path):
 
 def run_worker(job_id: str, *, directory: Path | None = None) -> int:
     """Run one approved request under a process-lifetime ownership lock."""
-    global _active_job
+    global _active_job, _attempt_meter
 
     folder = _directory(job_id, directory)
     with ExitStack() as ownership:
@@ -1191,6 +1229,9 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
 
         estimate = _ProgressEstimate(start_on_advance=job["kind"] == Kind.FOLDER)
         progress_lock = threading.Lock()
+        # One per ATTEMPT, across its connection and unit retries: the attempt
+        # is what `import_job.finished` reports, failures included.
+        meter = _agent_meter()
 
         def progress(message: str, **fields):
             if _read(folder).get("cancel_requested"):
@@ -1220,6 +1261,7 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
             raise _Interrupted
 
         previous_job, _active_job = _active_job, folder
+        previous_meter, _attempt_meter = _attempt_meter, meter
         previous = {}
         if threading.current_thread() is threading.main_thread():
             for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
@@ -1234,6 +1276,7 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
                         with _serial_lane(job, folder):
                             retry_delay = 2
                             retries = 0
+                            unit_retries = 0
                             waited = 0.0
                             # A disconnected laptop retries forever, so the
                             # stall is a LEVEL and not an edge. Report the
@@ -1255,6 +1298,16 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
 
                                     backfill.stop_all()
                                     _reclaim_children(folder)
+                                    if isinstance(exc, UnitRetryJobError):
+                                        # Bounded by the batches' attempt limit,
+                                        # and not a stall: no connection wait.
+                                        unit_retries += 1
+                                        progress(
+                                            f"{_clean(exc)} Retrying in {retry_delay}s.",
+                                            retry_in=retry_delay, unit_retries=unit_retries,
+                                        )
+                                        time.sleep(retry_delay)
+                                        continue
                                     retries += 1
                                     progress(
                                         f"Waiting for connection. Retrying in {retry_delay}s. {_clean(exc)}",
@@ -1284,6 +1337,7 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
                         )
                         _emit_finished(
                             done, "succeeded", tel=tel, network_retries=retries or None,
+                            unit_retries=unit_retries or None, **_agent_props(meter),
                         )
                         return 0
                     except (_Interrupted, KeyboardInterrupt):
@@ -1296,7 +1350,7 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
                             # `_cancel_locked` owns that event and knows it was
                             # deliberate. Two terminal events for one job would
                             # be one import counted twice, as both.
-                            _emit_finished(stopped, "interrupted", tel=tel)
+                            _emit_finished(stopped, "interrupted", tel=tel, **_agent_props(meter))
                         return 130
                     except Exception as exc:
                         # HTTP exception strings can carry signed URLs or auth
@@ -1313,7 +1367,7 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
                         _emit_finished(
                             broken, "failed", tel=tel,
                             failure_kind="refused" if isinstance(exc, JobError) else type(exc).__name__,
-                            network_retries=retries or None,
+                            network_retries=retries or None, **_agent_props(meter),
                         )
                         _report_failure(
                             folder, broken,
@@ -1330,11 +1384,12 @@ def run_worker(job_id: str, *, directory: Path | None = None) -> int:
                 broken = _update(
                     folder, state=State.FAILED, pid=None, error=_clean(exc), finished_at=now_iso(),
                 )
-                _emit_finished(broken, "failed", tel=tel, failure_kind="cleanup")
+                _emit_finished(broken, "failed", tel=tel, failure_kind="cleanup", **_agent_props(meter))
                 _report_failure(folder, broken, failure_kind="cleanup")
                 raise
             finally:
                 _active_job = previous_job
+                _attempt_meter = previous_meter
                 for number, handler in previous.items():
                     signal.signal(number, handler)
 

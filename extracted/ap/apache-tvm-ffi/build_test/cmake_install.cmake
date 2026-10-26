@@ -88,7 +88,7 @@ if(CMAKE_INSTALL_COMPONENT STREQUAL "tvm_ffi" OR NOT CMAKE_INSTALL_COMPONENT)
      NOT IS_SYMLINK "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/libtvm_ffi_testing.so")
     file(RPATH_CHECK
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/libtvm_ffi_testing.so"
-         RPATH "\$ORIGIN")
+         RPATH [[$ORIGIN]])
   endif()
   file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" TYPE SHARED_LIBRARY OPTIONAL FILES "/home/runner/work/tvm-ffi/tvm-ffi/build_test/lib/libtvm_ffi_testing.so")
   if(EXISTS "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/libtvm_ffi_testing.so" AND
@@ -96,7 +96,7 @@ if(CMAKE_INSTALL_COMPONENT STREQUAL "tvm_ffi" OR NOT CMAKE_INSTALL_COMPONENT)
     file(RPATH_CHANGE
          FILE "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/libtvm_ffi_testing.so"
          OLD_RPATH "/home/runner/work/tvm-ffi/tvm-ffi/build_test/lib:"
-         NEW_RPATH "\$ORIGIN")
+         NEW_RPATH [[$ORIGIN]])
     if(CMAKE_INSTALL_DO_STRIP)
       execute_process(COMMAND "/usr/bin/strip" "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/lib/libtvm_ffi_testing.so")
     endif()

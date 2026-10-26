@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from probe.daemon import toolset
+from probe.daemon import runctx
 from probe.daemon.store import scrub
 
 log = logging.getLogger("probe.daemon.tools")
@@ -220,6 +221,9 @@ async def _draft_edit(deps: Any, args: list[str], here: Path, stdin: str | None)
 #: The Probe MCP's instructions per MCP address and agent (`mcp_guide`):
 #: (text, when asked, whether the answer came).
 _GUIDE: dict[str, tuple[str, float, bool]] = {}
+#: Each run's own in the daemon host (`runctx.Shared`): another session's key may
+#: see another server's instructions.
+_guide = runctx.Shared(globals(), "_GUIDE", dict)
 #: A failed fetch is asked again after this many seconds.
 GUIDE_RETRY_S = 600.0
 
@@ -281,30 +285,31 @@ async def mcp_guide(deps: Any) -> str:
         log.warning("no Probe MCP instructions: %s", exc)
         return ""
     cache = f"{where.url} {deps.reader}"
-    hit = _GUIDE.get(cache)
+    guide = _guide.get()
+    hit = guide.get(cache)
     now = _clock()
     if hit is None or (not hit[2] and now - hit[1] >= GUIDE_RETRY_S):
         # Asked once, and again only GUIDE_RETRY_S after a failure: a down MCP costs
         # one wait per retry period (not up to TOTAL_TIMEOUT_S every model round), and
         # the instructions change at most once a period (each change rewrites the
         # cached prompt prefix). While a fetch is under way, others see none.
-        _GUIDE[cache] = ("", now, False)
+        guide[cache] = ("", now, False)
         try:
             with anyio.fail_after(mcp_bridge.TOTAL_TIMEOUT_S):
                 async with mcp_bridge._session(where) as (_session, init):
-                    _GUIDE[cache] = ((init.instructions or "").strip(), now, True)
+                    guide[cache] = ((init.instructions or "").strip(), now, True)
         except BaseException as exc:  # noqa: BLE001 -- task groups wrap the cause
             if _stops(exc):
                 # The run was cut short (a cancel, also inside a task group's
                 # exception group), not the MCP: ask again next time.
                 if hit is None:
-                    del _GUIDE[cache]
+                    del guide[cache]
                 else:
-                    _GUIDE[cache] = hit
+                    guide[cache] = hit
                 raise
             log.warning("no Probe MCP instructions: %s", mcp_bridge._describe(exc))
             return ""
-    text = _GUIDE[cache][0]
+    text = guide[cache][0]
     return f"{GUIDE_HEADING}\n\n{text}" if text else ""
 
 

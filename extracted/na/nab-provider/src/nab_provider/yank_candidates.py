@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
-from typing import TYPE_CHECKING
+__lazy_modules__ = (
+    "nab_provider._provider.extras",
+    "nab_provider._provider.metadata_resolver",
+    "nab_provider._vendor.packaging.utils",
+    "nab_provider.errors",
+    "nab_provider._provider.listing_diagnosis",
+    "nab_provider.extra_keys",
+    "nab_provider.metadata",
+    "nab_provider.policy",
+    "nab_provider.records",
+)
+
+from typing import TYPE_CHECKING, ClassVar, Final
 
 from ._provider.extras import version_provides_extra
+from ._provider.listing_diagnosis import MetadataBlock
 from ._provider.metadata_resolver import classify_requirement, dists_at_version
 from ._vendor.packaging.utils import canonicalize_name
 from .errors import MetadataError, MissingExtraError
@@ -13,6 +25,7 @@ from .extra_keys import split_extra
 from .metadata import intern_version
 from .policy import DistPolicy, ExtrasMode
 from .records import SdistFile, WheelFile
+from .value import HashableRecord, Record, field_names
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -23,18 +36,32 @@ if TYPE_CHECKING:
     from .provider import DistFile, Provider, ProviderStats
 
 
-@dataclass(frozen=True, slots=True)
-class Candidate:
+class Candidate(HashableRecord):
     """A package version restricted to its yanked or non-yanked files."""
 
-    package: str
-    version: Version
-    withdrawn: bool
-    label: str = field(init=False)
+    __record_fields__: ClassVar[tuple[str, ...] | None]
 
-    def __post_init__(self) -> None:
-        """Keep the version text for arbitrary equality comparisons."""
-        object.__setattr__(self, "label", str(self.version))
+    __slots__ = __record_fields__ = ("package", "version", "withdrawn", "label")
+
+    __record_init_fields__: ClassVar[tuple[str, ...] | None] = (
+        "package",
+        "version",
+        "withdrawn",
+    )
+
+    __match_args__ = ("package", "version", "withdrawn")
+
+    package: Final[str]
+    version: Final[Version]
+    withdrawn: Final[bool]
+    label: Final[str]
+
+    def __init__(self, package: str, version: Version, *, withdrawn: bool) -> None:
+        """Select a version's withdrawn or non-withdrawn files."""
+        self.package = package
+        self.version = version
+        self.withdrawn = withdrawn
+        self.label = str(version)
 
     @property
     def base(self) -> str:
@@ -42,13 +69,25 @@ class Candidate:
         return split_extra(self.package)[0]
 
 
-@dataclass(slots=True)
-class CandidateData:
+class CandidateData(Record):
     """Dependencies and the provider selecting the candidate's files."""
+
+    __slots__ = __match_args__ = ("provider", "dependencies", "pins")
 
     provider: Provider
     dependencies: dict[str, VersionRange]
     pins: tuple[Requirement, ...]
+
+    def __init__(
+        self,
+        provider: Provider,
+        dependencies: dict[str, VersionRange],
+        pins: tuple[Requirement, ...],
+    ) -> None:
+        """Retain candidate dependencies and independent selected pins."""
+        self.provider = provider
+        self.dependencies = dependencies
+        self.pins = pins
 
 
 class UnavailableMetadataError(Exception):
@@ -89,7 +128,7 @@ class YankCandidates:
         self.unavailable: set[Candidate] = set()
         self.missing_listings: set[str] = set()
         self.unavailable_reason = "required metadata is unavailable"
-        self.rejections: list[str] = []
+        self.rejections: dict[Candidate, MetadataBlock] = {}
         self.child_stats: ProviderStats = type(provider.stats)()
 
     def choices(self, package: str) -> tuple[Candidate, ...]:
@@ -110,7 +149,9 @@ class YankCandidates:
             self.candidates[package] = ()
             return ()
         result = dict.fromkeys(
-            Candidate(package, intern_version(file.version), bool(file.yanked))
+            Candidate(
+                package, intern_version(file.version), withdrawn=bool(file.yanked)
+            )
             for _version, file in versions
         )
         cached = tuple(
@@ -213,7 +254,7 @@ class YankCandidates:
                         f"metadata for {base}=={version} is missing offline"
                     )
                     raise UnavailableMetadataError(msg) from exc
-            self.rejections.append(str(exc))
+            self.rejections[candidate] = MetadataBlock.from_error(exc)
             return None
         metadata = provider.metadata_cache[(base, candidate.version)]
         extra = split_extra(candidate.package)[1]
@@ -325,6 +366,5 @@ def candidate_dependencies(
 
 def merge_stats(target: ProviderStats, source: ProviderStats) -> None:
     """Accumulate counters from a candidate's preparation provider."""
-    for counter in fields(source):
-        name = counter.name
+    for name in field_names(source):
         setattr(target, name, getattr(target, name) + getattr(source, name))

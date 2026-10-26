@@ -14,16 +14,18 @@
 //! that contains an omitted cell is refused.
 use crate::IoError;
 #[cfg(feature = "xlsx-recalc")]
-use crate::cache_recalculate::{SheetPlan, XlsxRecalculateOptions, package};
-use crate::xlsx_cache_options::{CacheOptions, checkpoint, unsupported};
-use crate::xlsx_xml as xml;
+use crate::cache_recalculate::XlsxRecalculateOptions;
+use crate::xlsx::options::{CacheOptions, checkpoint, unsupported};
+#[cfg(feature = "xlsx-recalc")]
+use crate::xlsx::recalculate::{SheetPlan, package};
+use crate::xlsx::xml;
 use formualizer_common::{ExcelError, ExcelErrorKind, LiteralValue};
 use formualizer_parse::parser::{ASTNode, ASTNodeType, ExternalRefKind, ReferenceType};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::Arc;
 mod ordinary;
 pub use ordinary::CachedExternalLinkValues;
-pub(crate) use ordinary::{has_links, load};
+pub(crate) use ordinary::load;
 
 /// Workbook relationship type of an external link part.
 pub(crate) const LINK_RELATIONSHIP: &str =
@@ -282,10 +284,14 @@ fn parse_part(
                     sheet = Some(id);
                 } else if at(path, &["sheetDataSet", "sheetData", "row", "cell"]) {
                     let r = node.required("r")?;
-                    let coord = crate::xlsx_xml::plain_coord(r).ok_or_else(|| malformed(part))?;
+                    let coord = crate::xlsx::xml::plain_coord(r).ok_or_else(|| malformed(part))?;
                     *counted += 1;
                     if *counted > options.limits.max_cells {
-                        return Err(unsupported("external link cache cell limit", part));
+                        return Err(crate::xlsx::options::resource(
+                            options,
+                            "external link cache cell limit",
+                            part,
+                        ));
                     }
                     cell = Some((
                         coord,
@@ -495,7 +501,11 @@ impl Links {
                         .max_cells
                         .saturating_mul(EXTERNAL_AREA_FACTOR)
                 {
-                    return Err(unsupported("external range cell limit", context));
+                    return Err(crate::xlsx::options::resource(
+                        options,
+                        "external range cell limit",
+                        context,
+                    ));
                 }
                 let mut cells = HashMap::new();
                 for (i, (&(row, col), raw)) in sheet.cells.iter().enumerate() {
@@ -746,7 +756,7 @@ fn formula_texts<'p>(
     plan: &'p SheetPlan,
 ) -> Result<
     Vec<(
-        &'p crate::cache_recalculate::sheet::Cell,
+        &'p crate::xlsx::recalculate::sheet::FormulaMark,
         std::borrow::Cow<'p, str>,
     )>,
     IoError,
@@ -775,12 +785,12 @@ fn formula_texts<'p>(
             ));
             continue;
         }
-        let expanded = calamine::expand_shared_formula(
+        let expanded = crate::xlsx::types::expand_shared_formula(
             &anchor.formula_text,
             (anchor.row - 1, anchor.col - 1),
             (cell.row - 1, cell.col - 1),
         )
-        .map_err(|_| unsupported("shared formula expansion", cell.address.clone()))?;
+        .map_err(|_| unsupported("shared formula expansion", cell.address().into_owned()))?;
         out.push((cell, std::borrow::Cow::Owned(expanded)));
     }
     Ok(out)
@@ -868,7 +878,7 @@ pub(crate) fn plan(
             if !lower.contains('[') && !lower.contains("indirect") && !names_hit {
                 continue;
             }
-            let context = format!("{}!{}", sheet.name, cell.address);
+            let context = format!("{}!{}", sheet.name, cell.address());
             let Some(ast) = parse_formula(&text) else {
                 // An unparseable formula is refused by ingestion.
                 continue;

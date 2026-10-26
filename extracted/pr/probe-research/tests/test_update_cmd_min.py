@@ -139,3 +139,23 @@ def test_the_version_check_refetches_within_the_quarter_hour(tmp_path, monkeypat
     assert run(5 * 60) is False, "a fresh cache must not hit the network"
     assert run(14 * 60) is False
     assert run(16 * 60) is True, "past the TTL it must refetch"
+
+
+def test_probe_update_names_the_agent_it_runs_in(tmp_path, monkeypatch):
+    """Review of Kimi parity: `probe update` ended with "Restart Claude Code"
+    whatever agent ran it; a Kimi Code session is told to /reload Kimi Code."""
+    from types import SimpleNamespace
+
+    from typer.testing import CliRunner
+
+    from probe.cli import upgrading
+    from probe.cli.main import app
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PROBE_AGENT", "kimi_code")
+    outcome = SimpleNamespace(lines=["Probe: updated"], ok=True, restart_needed=True, plugins_moved=False)
+    monkeypatch.setattr(upgrading, "perform_update", lambda **kwargs: outcome)
+    result = CliRunner().invoke(app, ["update", "--yes"])
+    assert result.exit_code == 0, result.output + repr(result.exception)
+    assert "Run /reload in Kimi Code (or restart it) to apply the plugin update." in result.output
+    assert "Claude Code" not in result.output

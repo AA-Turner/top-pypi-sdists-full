@@ -356,3 +356,24 @@ def test_a_partial_last_line_is_not_behind(tmp_path):
     with path.open("a") as handle:
         handle.write('nd": 9}\n')
     assert shipper._behind(path.parent)
+
+
+def test_an_orphan_another_run_of_this_process_drains_is_skipped_by_the_others():
+    """The daemon host runs several sessions in one process, each draining the
+    orphans: a folder one run drains right now is skipped by the others (tried
+    again later), and its claim is given back when that drain ends. (A resumed
+    session's own run shipping it meanwhile is the race worker processes already
+    had: the lock is looked at before each folder, not each batch.)"""
+    _trace(session=OTHER)
+    server = Server()
+    folder = trace_mod.session_dir(OTHER)
+    assert ship._claim_drain(folder)
+    try:
+        sent, complete = asyncio.run(_shipper(server).drain_others())
+    finally:
+        ship._release_drain(folder)
+    assert (sent, complete, server.bodies) == (0, False, [])
+    sent, complete = asyncio.run(_shipper(server).drain_others())
+    assert sent > 0 and complete is True
+    assert ship._claim_drain(folder)  # given back after the drain
+    ship._release_drain(folder)

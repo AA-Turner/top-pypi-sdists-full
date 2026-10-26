@@ -512,8 +512,9 @@ const std::map<std::string, std::string> &refused_by_name() {
 
 int min_fields(const std::string &mnemonic) {
     // `_MIN_FIELDS`: a short card reads its missing trailing fields as 0, as
-    // the NEC-5 engine does (momwire 0.79.2); GE and GW keep their floors
-    static const std::map<std::string, int> table = {{"GE", 1}, {"GW", 9}};
+    // the NEC-5 engine does (momwire 0.79.2); GW keeps its floor, and a bare
+    // GE reads as GE 0 (momwire#1698's batch)
+    static const std::map<std::string, int> table = {{"GW", 9}};
     auto it = table.find(mnemonic);
     return it == table.end() ? -1 : it->second;
 }
@@ -694,7 +695,8 @@ struct Parser {
     bool has_ce = false;
     std::string ce_text;  // UTF-8
     std::vector<Wire> wires;
-    std::map<Int, std::size_t> by_tag;
+    std::map<Int, std::size_t> by_tag;  // the FIRST wire carrying each tag (momwire#1695)
+    std::vector<Int> repeated_tags;      // tags more than one GW carries, in order
     std::vector<Card> geometry_cards;
     bool has_gx = false;  // the last GX's plane code and block (momwire#1669)
     long long gx_code = 0;
@@ -807,11 +809,11 @@ struct Parser {
     void gw(const Card &card) {
         Int tag = card.i(0);
         geometry_cards.push_back(card);
-        if (find(tag))
-            deck_error("GW declares tag " + S(tag) +
-                       " a second time; this engine's nec5 dialect gives each wire its own "
-                       "tag, because a node address names one wire's segment boundary and a "
-                       "tag group has no single wire to count along");
+        // a repeated tag is served as the licensed NEC-5 reads it: an address
+        // names the first wire carrying it (`_nec5._Nec5Parser._gw`, momwire#1695)
+        if (find(tag) &&
+            std::find(repeated_tags.begin(), repeated_tags.end(), tag) == repeated_tags.end())
+            repeated_tags.push_back(tag);
         Int segments = card.i(1);
         if (segments < Int(1))
             deck_error("GW tag " + S(tag) + " asks for " + S(segments) +
@@ -825,7 +827,7 @@ struct Parser {
         }
         w.radius = card.f(8);
         wires.push_back(w);
-        by_tag[tag] = wires.size() - 1;
+        by_tag.emplace(tag, wires.size() - 1);
     }
 
     // -- the geometry cards 4nec2 writes (`_nec5._Nec5Parser`, momwire#1669) --
@@ -947,7 +949,35 @@ struct Parser {
 
     void reindex() {
         by_tag.clear();
-        for (std::size_t k = 0; k < wires.size(); ++k) by_tag[wires[k].tag] = k;
+        for (std::size_t k = 0; k < wires.size(); ++k) by_tag.emplace(wires[k].tag, k);
+    }
+
+    // `_nec5._Nec5Parser._repeated_tag_refusal`
+    std::string repeated_tag_refusal() const {
+        for (const Int &tag : repeated_tags) {
+            std::string why;
+            if (!lines.empty() || !networks.empty()) {
+                why = "a TL or NT card";
+            } else if (ground.kind != Ground::free_space) {
+                bool below = false;
+                for (const Wire &w : wires) {
+                    if (!(w.tag == tag)) continue;
+                    double lo = std::min(w.end1[2], w.end2[2]);
+                    for (const auto &p : w.path) lo = std::min(lo, p[2]);
+                    below = below || lo < 0.0;
+                }
+                if (!below) continue;
+                why = "a wire carrying tag " + S(tag) + " below the ground at z = 0";
+            } else {
+                continue;
+            }
+            return "GW declares tag " + S(tag) +
+                   " on more than one wire; this engine's nec5 dialect serves a repeated tag as "
+                   "the licensed NEC-5 reads it (an address on the tag names the first wire "
+                   "carrying it, a tag-wide load every one) in a deck with no TL or NT card and "
+                   "no such wire below a ground, and this deck has " + why;
+        }
+        return "";
     }
 
     // `_nec5._Nec5Parser._gm` and `deck._nec2_geometry.gm_transform`
@@ -1695,6 +1725,8 @@ struct Parser {
         if (!has_ge)
             deck_error("deck has no GE card; GE closes the geometry section and carries the "
                        "ground flag, and EZNEC writes one on every deck");
+        const std::string why = repeated_tag_refusal();
+        if (!why.empty()) deck_error(why);
         Deck d;
         d.comments = comments;
         d.ce_text = ce_text;
@@ -1939,12 +1971,13 @@ bool split_runs(const std::string &text, std::vector<std::string> &out) {
     for (std::size_t r = 1; r < kept.size(); ++r)
         for (const std::string &ln : kept[r]) {
             std::string card = card_of(ln);
-            if (!is_run_card(card))
+            // a later run may also carry PT (`_serve._LATER_RUN_CARDS`, momwire#1696)
+            if (!is_run_card(card) && card != "PT")
                 throw ParseError(
                     ErrorKind::serve_refusal,
                     "XQ block " + std::to_string(r + 1) + " carries " + card +
                         ": a multi-run deck is served when its later runs change only their "
-                        "sources and requests (EX, RP, NE, NH), which is what SimNEC writes. "
+                        "sources and requests (EX, RP, NE, NH, PQ, PT), which is what SimNEC writes. "
                         "Every run reuses the first block's structure, ground, loads and "
                         "frequency, so a block that changes one of those is refused rather than "
                         "silently ignored");
@@ -1952,9 +1985,21 @@ bool split_runs(const std::string &text, std::vector<std::string> &out) {
     std::vector<std::string> common;
     for (const std::string &ln : kept[0])
         if (!is_run_card(card_of(ln))) common.push_back(ln);
-    for (const auto &block : kept) {
+    // a later run's PT holds until another replaces it; the first run's stays
+    // among the common cards (`_serve.split_runs`, momwire#1696)
+    std::string pt;
+    bool have_pt = false;
+    for (std::size_t r = 0; r < kept.size(); ++r) {
+        const auto &block = kept[r];
+        if (r)
+            for (const std::string &ln : block)
+                if (card_of(ln) == "PT") {
+                    pt = ln;
+                    have_pt = true;
+                }
         std::vector<std::string> parts(lines.begin(), lines.begin() + ge + 1);
         parts.insert(parts.end(), common.begin(), common.end());
+        if (have_pt) parts.push_back(pt);
         std::string xq;
         bool has_xq = false;
         for (const std::string &ln : block) {
@@ -2071,7 +2116,8 @@ int sequence_read(const std::string &deck_text, std::string &why, std::vector<Ca
         for (std::size_t k : groups[g])
             if (cards[k].mnemonic == "FR") later_fr = true;
     if (!first_steps && !later_fr && !requests_alone) return 0;
-    static const char *kSeq[] = {"EX", "RP", "NE", "NH", "PQ", "XQ", "FR"};
+    // a later run may also carry PT (`_serve._LATER_SEQUENCE_CARDS`, momwire#1696)
+    static const char *kSeq[] = {"EX", "RP", "NE", "NH", "PQ", "XQ", "FR", "PT"};
     for (std::size_t g = 1; g < groups.size(); ++g)
         for (std::size_t k : groups[g]) {
             bool ok = false;
@@ -2079,7 +2125,7 @@ int sequence_read(const std::string &deck_text, std::string &why, std::vector<Ca
             if (!ok) {
                 why = "run " + std::to_string(g + 1) + " carries " + cards[k].mnemonic +
                       ": a deck whose later runs change their frequency, sources and requests "
-                      "(FR, EX, RP, NE, NH, PQ) is served, each run at the FR in force, as the "
+                      "(FR, EX, RP, NE, NH, PQ, PT) is served, each run at the FR in force, as the "
                       "licensed NEC-5 reads it; every run reuses the first run's structure, "
                       "ground and loads, so a run that changes one of those is refused rather "
                       "than silently ignored";
@@ -2116,15 +2162,21 @@ bool sequence_texts(const std::string &deck_text, const std::vector<Card> &cards
     std::vector<std::string> common;
     for (std::size_t k : groups[0])
         if (!in_seq(cards[k].mnemonic)) common.push_back(cards[k].raw);
-    bool have_fr = false;
-    std::string fr;
+    bool have_fr = false, have_pt = false;
+    std::string fr, pt;
     std::vector<std::string> in_force;
-    for (const std::vector<std::size_t> &group : groups) {
+    for (std::size_t g = 0; g < groups.size(); ++g) {
+        const std::vector<std::size_t> &group = groups[g];
         std::vector<std::string> exs, requests;
         bool group_fr = false;
         for (std::size_t k : group) {
             const std::string &m = cards[k].mnemonic;
-            if (m == "FR") {
+            if (m == "PT" && g) {
+                // a later run's PT holds until another replaces it; the first
+                // run's stays among the common cards (momwire#1696)
+                pt = cards[k].raw;
+                have_pt = true;
+            } else if (m == "FR") {
                 fr = cards[k].raw;
                 have_fr = group_fr = true;
             } else if (m == "EX") {
@@ -2141,6 +2193,7 @@ bool sequence_texts(const std::string &deck_text, const std::vector<Card> &cards
         };
         for (std::size_t i = 0; i <= ge; ++i) put(lines[i]);
         for (const std::string &line : common) put(line);
+        if (have_pt) put(pt);
         if (have_fr) put(fr);
         for (const std::string &line : in_force) put(line);
         for (const std::string &line : requests) put(line);

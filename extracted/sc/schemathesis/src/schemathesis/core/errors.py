@@ -135,6 +135,7 @@ class InvalidSchema(SchemathesisError):
         method: str | None,
         config: OutputConfig,
         location: SchemaLocation | None = None,
+        location_path: list[str | int] | None = None,
     ) -> InvalidSchema:
         # This default message contains the instance which we already printed
         if "is not valid under any of the schemas" in error.message:
@@ -143,7 +144,7 @@ class InvalidSchema(SchemathesisError):
             error_message = error.message
         return cls._from_raw_components(
             instance_path=error.instance_path,
-            location_path=error.instance_path,
+            location_path=error.instance_path if location_path is None else location_path,
             instance=error.instance,
             error_message=error_message,
             path=path,
@@ -441,6 +442,12 @@ class AuthenticationError(SchemathesisError):
 
 class NoLinksFound(IncorrectUsage):
     """Raised when no valid links are available for stateful testing."""
+
+    suggestion: str | None
+
+    def __init__(self, message: str, suggestion: str | None = None) -> None:
+        super().__init__(message)
+        self.suggestion = suggestion
 
 
 class NoProducers(IncorrectUsage):

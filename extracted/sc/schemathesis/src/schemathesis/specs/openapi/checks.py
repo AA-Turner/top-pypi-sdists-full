@@ -19,7 +19,7 @@ from schemathesis.core import NOT_SET, media_types, string_to_boolean
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.failures import AcceptedNegativeData, Failure
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, get_type, make_validator, resolve_bundled_ref
-from schemathesis.core.jsonschema.types import JsonSchema
+from schemathesis.core.jsonschema.types import JsonSchema, as_object_schema
 from schemathesis.core.mutations import Mutation, OperatorKind, render_mutations
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
 from schemathesis.core.transport import (
@@ -344,8 +344,7 @@ def _has_other_negated_location(case: Case, *locations: ParameterLocation) -> bo
     ):
         if other in locations:
             continue
-        component = meta.components.get(other)
-        if component is None or not component.mode.is_negative:
+        if not meta.is_negative_at(other):
             continue
         if other != ParameterLocation.BODY and _declared_parameters_are_valid(case, other):
             continue
@@ -368,8 +367,7 @@ def _body_negation_becomes_valid_after_serialization(response: Response, case: C
     if meta is None:
         return False
 
-    body_meta = meta.components.get(ParameterLocation.BODY)
-    if body_meta is None or not body_meta.mode.is_negative:
+    if not meta.is_negative_at(ParameterLocation.BODY):
         return False
 
     media_type = case.media_type
@@ -473,8 +471,7 @@ def _body_negation_is_only_forbidden_property(case: Case) -> bool:
     meta = case.meta
     assert meta is not None
 
-    body_meta = meta.components.get(ParameterLocation.BODY)
-    if body_meta is None or not body_meta.mode.is_negative:
+    if not meta.is_negative_at(ParameterLocation.BODY):
         return False
 
     # Another negative component carries its own expectation, so the check still applies.
@@ -526,8 +523,7 @@ def _single_element_array_becomes_valid_after_serialization(response: Response, 
         return False
 
     location = ParameterLocation.QUERY
-    component = meta.components.get(location)
-    if component is None or not component.mode.is_negative:
+    if not meta.is_negative_at(location):
         return False
     query: object = case.query
     if not isinstance(query, Mapping):
@@ -553,8 +549,8 @@ def _single_element_array_becomes_valid_after_serialization(response: Response, 
         if not elements and not sent_texts:
             continue
 
-        schema = param.definition.get("schema", {})
-        expected_types = parameter_types(param.validation_schema)
+        schema = param.validation_schema
+        expected_types = parameter_types(schema)
 
         if _declares_type(schema, "array"):
             continue
@@ -682,8 +678,7 @@ def _path_array_becomes_valid_after_serialization(case: Case) -> bool:
     if meta is None:
         return False
 
-    component = meta.components.get(ParameterLocation.PATH)
-    if component is None or not component.mode.is_negative:
+    if not meta.is_negative_at(ParameterLocation.PATH):
         return False
 
     # If other locations are also negative, the acceptance can't be attributed to the path round-trip.
@@ -698,11 +693,11 @@ def _path_array_becomes_valid_after_serialization(case: Case) -> bool:
         parameter = operation_container.get(param_name)
         if not isinstance(parameter, OpenApiParameter):
             continue
-        schema = parameter.definition.get("schema", {})
+        schema = as_object_schema(parameter.validation_schema)
         if "array" not in get_type(schema) or parameter.definition.get("style", "simple") != "simple":
             continue
         try:
-            validator = make_validator(schema, parameter.adapter.jsonschema_validator_cls)
+            validator = parameter.get_validator()
         except Exception:
             return True
         # `unquote` keeps `str` subclasses intact, and splitting an empty string keeps the input
@@ -785,8 +780,7 @@ def _non_body_negative_values_match_schema(response: Response, case: Case) -> bo
         return False
 
     # If body is also negative, this guard does not apply.
-    body_component = meta.components.get(ParameterLocation.BODY)
-    if body_component is not None and body_component.mode.is_negative:
+    if meta.is_negative_at(ParameterLocation.BODY):
         return False
 
     has_negative = False
@@ -797,8 +791,7 @@ def _non_body_negative_values_match_schema(response: Response, case: Case) -> bo
         ParameterLocation.HEADER,
         ParameterLocation.COOKIE,
     ):
-        component = meta.components.get(location)
-        if component is None or not component.mode.is_negative:
+        if not meta.is_negative_at(location):
             continue
 
         value = case.get_container(location)
@@ -1571,8 +1564,7 @@ def ignored_auth(ctx: CheckContext, response: Response, case: Case) -> bool | No
     if has_effective_optional_auth(operation, operation.schema.raw_schema):
         return True
     # An invalid path parameter can miss the operation's route entirely, so the response says nothing about its auth.
-    path_component = case.meta.components.get(ParameterLocation.PATH) if case.meta is not None else None
-    if path_component is not None and path_component.mode.is_negative:
+    if case.meta is not None and case.meta.is_negative_at(ParameterLocation.PATH):
         return None
     security_parameters = get_security_parameters(case.operation)
     # Authentication is required for this API operation and response is successful

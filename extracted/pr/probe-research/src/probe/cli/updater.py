@@ -21,11 +21,12 @@ import subprocess
 import sys
 import dataclasses
 from dataclasses import dataclass
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
 
-from probe._shared import installs
+from probe._shared import installs, kimi_live
 from probe.cli import claude_cli, plugin_cli, service_calls
 from probe.cli.capabilities import (
     DAEMON_PLUGIN_NAME,
@@ -1001,6 +1002,87 @@ def running_stale_note(result: PluginResult) -> str:
     )
 
 
+#: The sentence `running_stale_note` stores in an update record, as this
+#: release words it ("... move to X at the next prompt, no restart needed") and
+#: as every release before 0.304.0 did ("... restart them to switch to X"),
+#: with the agent `merged` put before it when the update ran for several.
+_STALE_NOTE = re.compile(
+    r"(?:(?P<agent>[A-Z][A-Za-z ]{0,30}): )?"
+    r"(?:1 session|\d+ sessions) started before the update still runs? tap "
+    r"[0-9][0-9A-Za-z.+-]*(?:, [0-9][0-9A-Za-z.+-]*)*; "
+    r"(?:restart (?:it|them) to switch to (?P<to>[0-9][0-9A-Za-z.+-]*[0-9A-Za-z+-])"
+    r"|(?:it|they) moves? to (?P<moved_to>[0-9][0-9A-Za-z.+-]*[0-9A-Za-z+-]) at the next prompt, no restart needed)"
+)
+
+
+def settle_stale_notes(detail: str, *, plugin_after: Callable[[str], str | None] | None = None) -> str:
+    """An update record's plugin detail with each "sessions started before the
+    update still run tap X; ..." sentence brought to what is true NOW. The
+    record keeps the sentence as the update wrote it; `probe doctor` prints it
+    as the state of the machine, and every release before 0.304.0 wrote
+    "restart them" whatever was true, so doctor told people to restart sessions
+    that move by themselves, long after they had.
+
+    For the agent the sentence names (`merged` puts it first when the update
+    ran for several), or, with no name (a record of one pass, whichever agent
+    it was), for every agent that captures:
+      * no live session runs a tap older than the one the sentence names
+        (`stale_tap_sessions`): the sentence is taken out;
+      * some still do, and every one of them moves by itself at its next
+        prompt (`follows_without_restart` for its agent, on the state now:
+        `plugin_after(agent)` is that agent's installed Probe plugin, None
+        when it has none): the sentence says so, counted afresh;
+      * otherwise, and whenever a look could not be made: the sentence stays
+        word for word.
+    Never raises: the detail as it was."""
+    if not detail or "started before the update" not in detail:
+        return detail
+    try:
+        harnesses = [h for h in get_registry().all() if getattr(h, "capture", None) is not None]
+        by_label = {h.label: h.id for h in harnesses if getattr(h, "label", None)}
+
+        def settle(match: re.Match) -> str:
+            target = match["to"] or match["moved_to"]
+            if match["agent"]:
+                source = by_label.get(match["agent"])
+                if source is None:
+                    return match[0]
+                candidates = [source]
+            else:
+                candidates = [h.id for h in harnesses]
+            stale: dict[str, tuple[str, ...]] = {}
+            for source in candidates:
+                found = stale_tap_sessions(source, target)
+                if found is None:
+                    return match[0]  # could not look: never "none left"
+                if found:
+                    stale[source] = found
+            if not stale:
+                return ""
+            follows = all(
+                follows_without_restart(source, PluginResult(
+                    True, True, False, None, plugin_after(source) if plugin_after else None, "",
+                    tap_after=target, tap_running_stale=found))
+                for source, found in stale.items()
+            )
+            if not follows:
+                return match[0]
+            versions = tuple(sorted((v for found in stale.values() for v in found),
+                                    key=lambda v: _triplet(v) or (0, 0, 0)))
+            note = running_stale_note(PluginResult(True, True, False, None, None, "", tap_after=target,
+                                                   tap_running_stale=versions, follows=True))
+            return f"{match['agent']}: {note}" if match["agent"] else note
+
+        settled = _STALE_NOTE.sub(settle, detail)
+        if settled == detail:
+            return detail
+        # The separators the taken sentences leave behind.
+        settled = re.sub(r"(?:;\s*){2,}", "; ", settled)
+        return re.sub(r"^\s*;\s*|\s*;\s*$", "", settled).strip()
+    except Exception:  # noqa: BLE001 - see docstring
+        return detail
+
+
 # -- live capture daemons ---------------------------------------------------
 #
 # An update moves the tap a coding agent INSTALLS; it cannot move the daemon a
@@ -1100,10 +1182,11 @@ def _daemon_version(session_id: str, root: str) -> str | None:
     return None
 
 
-def tap_daemons() -> list[TapDaemon]:
-    """Every live capture daemon this user runs, one per session and root."""
+def tap_daemons(commands: list[str] | None = None) -> list[TapDaemon]:
+    """Every live capture daemon this user runs, one per session and root
+    (from `commands`, a process listing already read, else `_process_commands`)."""
     found: dict[tuple[str, str], TapDaemon] = {}
-    for command in _process_commands():
+    for command in _process_commands() if commands is None else commands:
         match = _TAP_DAEMON.search(command)
         if match is None:
             continue
@@ -1141,18 +1224,36 @@ def stale_tap_daemons(source: str, installed: str | None) -> tuple[str, ...]:
     watch` (a daemon is `source`'s when it was started from a folder under
     that agent's home), and each session the Probe service records on the tap
     it loaded (`hosted_taps`), one per session. NEVER RAISES: an observation
-    for the report, never a reason an update fails."""
+    for the report, never a reason an update fails (what could not be looked
+    at counts as none here)."""
+    return _stale(source, installed, strict=False) or ()
+
+
+def stale_tap_sessions(source: str, installed: str | None) -> tuple[str, ...] | None:
+    """`stale_tap_daemons`, or None when this process could not look: no
+    process listing could be read (this process is always in one, so an empty
+    listing is an unreadable one: Windows, a sandbox without `ps` or `/proc`),
+    the agent's home is unknown, or the look failed. For a claim made to a
+    person (`settle_stale_notes`, doctor's warning), where "could not look"
+    must never read as "none left". Never raises."""
+    return _stale(source, installed, strict=True)
+
+
+def _stale(source: str, installed: str | None, *, strict: bool) -> tuple[str, ...] | None:
     if not installed:
         return ()
     try:
         harness = get_registry().get(source)
         home = harness.home_dir() if harness is not None else None
         if home is None:
-            return ()
+            return None if strict else ()
         home = home.resolve()
+        commands = _process_commands()
+        if strict and not commands:
+            return None
         running: dict[str, str] = {}
         stale = []
-        for daemon in tap_daemons():
+        for daemon in tap_daemons(commands):
             if daemon.version and Path(daemon.root).resolve().is_relative_to(home):
                 running.setdefault(daemon.session_id, daemon.version)
                 if is_newer(installed, daemon.version):
@@ -1160,6 +1261,8 @@ def stale_tap_daemons(source: str, installed: str | None) -> tuple[str, ...]:
         try:
             hosted = hosted_taps(source)
         except Exception:  # noqa: BLE001 - the daemons above are still worth reporting
+            if strict:
+                return None
             hosted = {}
         for sid, version in hosted.items():
             # A session whose own `tap watch` still holds it is counted above
@@ -1167,8 +1270,8 @@ def stale_tap_daemons(source: str, installed: str | None) -> tuple[str, ...]:
             if sid not in running and is_newer(installed, version):
                 stale.append(version)
         return tuple(sorted(stale, key=lambda v: _triplet(v) or (0, 0, 0)))
-    except Exception:  # noqa: BLE001 - see docstring
-        return ()
+    except Exception:  # noqa: BLE001 - see the docstrings
+        return None if strict else ()
 
 
 def tap_changed(result: PluginResult) -> bool:
@@ -1210,10 +1313,22 @@ def _windows() -> bool:
     return os.name == "nt"
 
 
-def follows_without_restart(source: str, result: PluginResult, tap_after: str | None = None) -> bool:
+def _recording_now() -> set:
+    """The sessions the running Probe service records now: its recorders whose
+    loop holds the session's claim (`service.status`). Empty when none answers."""
+    rows = service_calls.recorders()
+    return {r["sid"] for r in rows or [] if r.get("alive") is True and r.get("recording") is True and r.get("sid")}
+
+
+def follows_without_restart(
+    source: str, result: PluginResult, tap_after: str | None = None, *, predicting: bool = False
+) -> bool:
     """Do this agent's open sessions follow the update with no restart, so
     "no restart needed" is true? Only for an agent whose open sessions follow
-    updates (the registry's `follows_updates`: Claude Code, Codex), not on
+    updates (the registry's `follows_updates`: Claude Code, Codex, Kimi Code;
+    one that keeps its manifest from its start, `loaded_records`, only when every
+    live process's record proves it loaded what is installed now:
+    `kimi_live.sessions_follow`), not on
     Windows (the prompt hook leaves its sessions alone: no Git Bash pid can be
     proven there, `tap_handover.watchers_movable`), every install at user scope
     where the agent's ledger has scopes (`scoped_installs`: Claude Code's), a
@@ -1224,12 +1339,34 @@ def follows_without_restart(source: str, result: PluginResult, tap_after: str | 
     that hook ships in the Probe plugin (`result.after`), so a watcher from
     before the hand-back follows only where it is installed (a session the
     service records moves with the service). Anything else keeps the restart
-    line. Never raises."""
+    line. `predicting`: asked before the release is installed (the manual
+    update line); an agent whose proof reads what is installed now
+    (`loaded_records`, and pi's pins) then never follows. Never raises."""
     try:
-        from probe.harness.registry import CAPABILITY_FOLLOWS_UPDATES, CAPABILITY_SCOPED_INSTALLS
+        from probe.harness.registry import (
+            CAPABILITY_FOLLOWS_UPDATES,
+            CAPABILITY_LOADED_RECORDS,
+            CAPABILITY_SCOPED_INSTALLS,
+            FAMILY_EXTENSION,
+        )
 
         if not _harness_can(source, CAPABILITY_FOLLOWS_UPDATES) or _windows():
             return False
+        harness_row = get_registry().find(source)
+        if harness_row is not None and harness_row.family == FAMILY_EXTENSION:
+            # pi: its shim switches to the pinned version at a session's next
+            # turn; proven per live pi process from its shim's record.
+            from probe.cli import pi_pins
+
+            if predicting or not pi_pins.sessions_follow((harness_row.binary,)):
+                return False
+        if _harness_can(source, CAPABILITY_LOADED_RECORDS):
+            if predicting:
+                return False
+            harness = get_registry().find(source)
+            titles = (getattr(harness, "process_title", None), getattr(harness, "binary", None))
+            if harness is None or not kimi_live.sessions_follow(harness.id, titles, recorded=_recording_now()):
+                return False
         if _harness_can(source, CAPABILITY_SCOPED_INSTALLS) and not _ledger_user_scope(
             (tracking_plugin_id(source), TAP_PLUGIN_ID)
         ):

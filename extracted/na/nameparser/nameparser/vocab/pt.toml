@@ -1,0 +1,70 @@
+schema = 1
+
+[[word]]
+text = "senhor"
+salutation = { gender = "m", after_given = true }
+
+[[word]]
+text = "sr"
+salutation = { gender = "m", same_as = "senhor" }
+
+[[word]]
+text = "senhora"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "sra"
+salutation = { gender = "f", same_as = "senhora", after_given = true }
+
+[[word]]
+text = "senhorita"
+salutation = { gender = "f", after_given = true }
+
+[[word]]
+text = "dra"
+academic = { gender = "f", expands = "Doctora, Doutora" }
+
+[[word]]
+text = "júnior"
+[word.generation]
+same_as = "jr"
+issue = 843
+note = "the standard Portuguese spelling of Junior: tse-donors (2026-10-22) has 991 distinct filed names ending in it, 983 records ending in it where the tax registry's name ends JUNIOR. Its collisions are junior's: a given name (Wikidata 37+ as Júnior, 2026-10-23) where the suffix claim does not act, and 49+ Wikidata family bearers"
+
+[[word]]
+text = "da"
+preposition = { may_be_given = true, expands = "of the, fem. sg." }
+
+[[word]]
+text = "das"
+[word.preposition]
+may_be_given = false
+issue = 360
+expands = "of the, fem. pl."
+note = "Added #360: its own plural partner 'dos' was already here. \"Das\" IS a common Bengali surname, but a TRAILING one -- measured, \"Anjali Das\" and \"Bimal Das\" are untouched, while \"Maria das Neves\" gains the particle it loses today."
+
+[[word]]
+text = "de"
+preposition = { may_be_given = false, expands = "of" }
+
+[[word]]
+text = "do"
+[word.preposition]
+may_be_given = true
+expands = "of the, masc. sg."
+note = "Vietnamese Đỗ leads a great many surnames"
+
+[[word]]
+text = "dos"
+preposition = { may_be_given = false, expands = "of the, masc. pl." }
+
+[[word]]
+text = "santa"
+saint = { may_be_given = true, expands = "Saint, fem." }
+
+[[word]]
+text = "e"
+[word.conjunction]
+may_be_initial = true
+issue = [383, 479]
+note = "a bare E initial is common (Edward, Elizabeth) and an 'e' between two surnames is rare outside couple listings, so a name written wholly in one case reads it as an initial and reports the fork (decisions/P8)"

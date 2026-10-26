@@ -9,9 +9,13 @@ THIS IS HOW WE DO IT:
    braces, never reports them, never removes them.
 5. One pass: text a value brings in is never filled.
 6. The one escape: ``{{!name}}`` in the author's text becomes ``{{name}}``, in the same pass
-   (also ``{{!#name}}``, ``{{!^name}}``, ``{{!/name}}`` and ``{{!<name>}}``), only when ``name`` is
-   a DECLARED variable or block name (the same set the fill uses, verbatim). Every other
-   ``{{!...}}`` (``{{!todo}}``, ``{{! a comment }}``, ``{{!}}``) is left as written.
+   (also ``{{!#name}}``, ``{{!^name}}``, ``{{!/name}}`` and ``{{!<name>}}``), for ANY name — the
+   escape exists for names that are NOT variables (an example token in a prompt that teaches
+   prompts), so it never depends on what is declared (Arman, 2026-10-25). A name is one run of
+   characters with no space and no brace (a DECLARED name is also matched verbatim, spaces and all).
+   ``{{! a comment }}`` (a space after ``!``), ``{{!-- note --}}`` and ``{{!}}`` are not escapes and are
+   left as written. The model sees ``{{name}}`` either way: an undeclared
+   ``{{name}}`` is left as written (rule 4), so escaping it changes nothing the model reads.
 7. Sections (Mustache), authored text only, same pass, evaluated before the slots are filled:
    ``{{#name}}...{{/name}}`` stays only when declared ``name`` has a value that is not empty or
    whitespace-only; ``{{^name}}...{{/name}}`` stays only when it is empty. Empty is decided once,
@@ -82,13 +86,17 @@ def restart_point(part: Any, current: Any, label: str) -> None:
         raise VariableRefillError(label, "was changed after its variables were filled")
 
 
-def escape_pattern(declared: Any = ()) -> str | None:
+#: Any NAME for rule 6: one run with no whitespace, brace or angle bracket, not starting with a marker
+#: or ``-`` (so a Handlebars-style ``{{!-- note --}}`` is never read as an escape).
+_ANY_ESCAPE_NAME = r"[^\s{}<>!#^/\-][^\s{}<>]*"
+
+
+def escape_pattern(declared: Any = ()) -> str:
     """Rule 6, exactly: ``{{!`` + optional ``#``/``^``/``/`` + NAME + ``}}``, or ``{{!<`` + NAME +
-    ``>}}`` — where NAME is a ``declared`` name, verbatim. ``None`` when nothing is declared."""
+    ``>}}`` — NAME is any space-free name, or a ``declared`` name verbatim (a declared name may hold
+    a space: ``{{!first name}}``)."""
     names = sorted({str(n) for n in declared if str(n)}, key=len, reverse=True)
-    if not names:
-        return None
-    name = "(?:" + "|".join(re.escape(n) for n in names) + ")"
+    name = "(?:" + "|".join([*(re.escape(n) for n in names), _ANY_ESCAPE_NAME]) + ")"
     return r"\{\{!(?P<e>[#^/]?" + name + r"|<" + name + r">)\}\}"
 
 

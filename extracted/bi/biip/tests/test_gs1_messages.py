@@ -346,6 +346,46 @@ def test_from_element_strings(
                 ),
             ),
         ),
+        (
+            "(90)N.IGK(7241)28",
+            GS1Message(
+                value="90N.IGK\x1d724128",
+                element_strings=GS1ElementStrings(
+                    [
+                        GS1ElementString(
+                            ai=GS1ApplicationIdentifier.extract("90"),
+                            value="N.IGK",
+                            pattern_groups=["N.IGK"],
+                        ),
+                        GS1ElementString(
+                            ai=GS1ApplicationIdentifier.extract("7241"),
+                            value="28",
+                            pattern_groups=["28"],
+                        ),
+                    ]
+                ),
+            ),
+        ),
+        (
+            "(711)?ABC(10)123",
+            GS1Message(
+                value="711?ABC\x1d10123",
+                element_strings=GS1ElementStrings(
+                    [
+                        GS1ElementString(
+                            ai=GS1ApplicationIdentifier.extract("711"),
+                            value="?ABC",
+                            pattern_groups=["?ABC"],
+                        ),
+                        GS1ElementString(
+                            ai=GS1ApplicationIdentifier.extract("10"),
+                            value="123",
+                            pattern_groups=["123"],
+                        ),
+                    ]
+                ),
+            ),
+        ),
     ],
 )
 def test_parse_hri(value: str, expected: GS1Message) -> None:
@@ -365,10 +405,32 @@ def test_parse_hri_with_gtin_with_variable_weight() -> None:
     assert gtin.weight == Decimal("1.086")
 
 
-def test_parse_hri_strips_surrounding_whitespace() -> None:
-    message = GS1Message.parse_hri("  \t (17)221231 \n  ")
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("  \t (17)221231 \n  ", "17221231"),
+        ("(01) 07032069804988 (15) 210526", "010703206980498815210526"),
+        ("(10) ABC 123\t(17)221231", "10ABC123\x1d17221231"),
+    ],
+)
+def test_parse_hri_ignores_whitespace(value: str, expected: str) -> None:
+    message = GS1Message.parse_hri(value)
 
-    assert message.value == "17221231"
+    assert message.value == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "010703206980498815210526100329",
+        "90N.IGK\x1d724128",
+        "711?ABC\x1d10123",
+    ],
+)
+def test_parse_hri_roundtrip(value: str) -> None:
+    message = GS1Message.parse(value)
+
+    assert GS1Message.parse_hri(message.as_hri()) == message
 
 
 @pytest.mark.parametrize(
@@ -420,6 +482,30 @@ def test_parse_hri_fails_if_ai_is_unknown(value: str) -> None:
 
 
 @pytest.mark.parametrize(
+    ("value", "ai_code", "element_string"),
+    [
+        # Characters outside the GS1 AI encodable character set
+        ("(90)ABæøå(15)210526", "90", "90ABæøå"),
+        # Too long date
+        ("(01)07032069804988(15)21052612345", "15", "1521052612345"),
+        # Too long product number
+        ("(01)070320698049881", "01", "01070320698049881"),
+    ],
+)
+def test_parse_hri_fails_if_data_does_not_match_full_pattern(
+    value: str, ai_code: str, element_string: str
+) -> None:
+    ai = GS1ApplicationIdentifier.extract(ai_code)
+
+    with pytest.raises(ParseError) as exc_info:
+        GS1Message.parse_hri(value)
+
+    assert str(exc_info.value) == (
+        f"Failed to match {element_string!r} with GS1 AI {ai} pattern '{ai.pattern}'."
+    )
+
+
+@pytest.mark.parametrize(
     ("value", "expected"),
     [
         (
@@ -438,11 +524,28 @@ def test_as_hri(value: str, expected: str) -> None:
         (
             "010703206980498815210526100329",
             "https://id.gs1.org/01/07032069804988/10/0329?15=210526",
-        )
+        ),
+        (
+            "010952123454321310a/b%c",
+            "https://id.gs1.org/01/09521234543213/10/a%2Fb%25c",
+        ),
     ],
 )
 def test_as_gs1_digital_link_uri(value: str, expected: str) -> None:
     assert GS1Message.parse(value).as_gs1_digital_link_uri().value == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "010703206980498815210526100329",
+        '010952123454321310a/b%c\x1d21!"%&()*+,-./:;<=>?_x',
+    ],
+)
+def test_gs1_digital_link_uri_roundtrip(value: str) -> None:
+    message = GS1Message.parse(value)
+
+    assert message.as_gs1_digital_link_uri().as_gs1_message() == message
 
 
 @pytest.mark.parametrize(

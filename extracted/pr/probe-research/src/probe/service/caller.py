@@ -21,6 +21,13 @@ is refused here before it is journaled. A same-user process that both detaches
 and clears its environment still gets through; nothing stops a same-user
 process completely (the review's accepted residue).
 
+The registry those findings are read against is itself bound to processes
+(#3360): only the process that registered a session (or this service) may end
+it or name it another owner, and an owner once registered in daemon mode stays
+refused until it exits, whatever later registrations say
+(`registry.Registry.daemon_owners`). The pid the kernel names is not a claim
+the caller makes: it is the one fact here no request can forge.
+
 `known_endpoint` is D10: the stored token goes only where it was meant to.
 
 Stdlib only (the start path; plan S1). Linux and macOS; on Windows the
@@ -177,16 +184,105 @@ def landlock_possible(found: tuple) -> bool:
 def ancestry(pid: int) -> list[tuple[int, str]]:
     """`[(pid, start time), (its parent, ...), ...]` up to init, or as far as
     the platform can read. Empty when `pid` cannot be read at all."""
-    chain: list[tuple[int, str]] = []
+    return list(lineage(pid))
+
+
+def lineage(pid: int):
+    """`ancestry`, one `(pid, start time)` at a time: a caller that stops at
+    what it looks for reads no further (`ps` per process on macOS)."""
     seen: set[int] = set()
-    while pid > 1 and pid not in seen and len(chain) < MAX_ANCESTRY:
+    while pid > 1 and pid not in seen and len(seen) < MAX_ANCESTRY:
         seen.add(pid)
         info = procid.proc(pid)
         if info is None:
-            break
-        chain.append((pid, info.start))
+            return
+        yield pid, info.start
         pid = info.ppid
-    return chain
+
+
+#: What a coding agent's process is called (its kernel name or argv[0]), beside
+#: each harness's own binary and process title (`probe.harness`, `agent_names`):
+#: pi titles its RPC mode `pi-rpc`.
+AGENT_NAMES = frozenset({"claude", "codex", "pi", "pi-rpc", "kimi", "kimi-code"})  # harness-literal-ok: the fallback when the registry cannot be read
+#: Where an agent an interpreter runs keeps its code (`node .../cli.js`): pi
+#: under node keeps the interpreter's name.
+AGENT_PACKAGES = ("/pi-coding-agent/", "/@anthropic-ai/claude-code/", "/@openai/codex/")
+_agent_names: frozenset | None = None
+
+
+def agent_names() -> frozenset:
+    """`AGENT_NAMES` and every harness's `binary` and `process_title`, read once."""
+    global _agent_names
+    if _agent_names is None:
+        names = set(AGENT_NAMES)
+        try:
+            from probe.harness import get_registry
+
+            for harness in get_registry().all():
+                names.update(n for n in (harness.binary, harness.process_title) if n)
+        except Exception:  # noqa: BLE001 -- the fixed names still hold
+            pass
+        _agent_names = frozenset(names)
+    return _agent_names
+
+
+def _command_line(pid: int) -> str:
+    """`pid`'s command line as one string (Linux /proc, else `ps`); "" unknown."""
+    try:
+        return Path(f"/proc/{pid}/cmdline").read_bytes().replace(b"\0", b" ").decode("utf-8", "replace")
+    except OSError:
+        pass
+    if os.name == "nt":
+        return ""
+    import subprocess
+
+    try:
+        return subprocess.run(["ps", "-ww", "-o", "args=", "-p", str(pid)], capture_output=True, text=True,
+                              timeout=5, check=False).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def agent_like(pid: int) -> bool:
+    """Does the running process `pid` look like a coding agent: is it called
+    what an agent is called (`agent_names`, `.exe` and the like dropped), or
+    does an interpreter run an agent's package (`AGENT_PACKAGES`)? The service
+    remembers only such a process as running under the daemon (#3360): a fake
+    daemon registration can name any live process as its owner, and the
+    desktop app or `systemd --user` must never be refused for good."""
+    info = procid.proc(pid)
+    if info is None or info.zombie:
+        return False
+    names = agent_names()
+    if any(name in names or os.path.splitext(name)[0] in names for name in info.names):
+        return True
+    line = _command_line(pid)
+    return any(package in line for package in AGENT_PACKAGES)
+
+
+class Bound:
+    """Why a call was refused for the process that made it (#3360, #3361): the
+    session it changes, or the mailbox it posts to or takes from, is another
+    process's. Kept out of `protocol.RefusedReason`, which is byte-copied into
+    the tap (a value there is a tap change); every client reads a reason it
+    does not know as a plain refusal and does the step itself."""
+
+    #: `session.end`, or a `session.register` naming another owner, from a
+    #: process that is not the one that registered the session (nor this service).
+    NOT_REGISTRANT = "not_registrant"
+    #: `mailbox.post` from neither the session's daemon worker nor its
+    #: registrant; `mailbox.claim` from outside the session's agent and the
+    #: service's hook hosts.
+    NOT_SESSION = "not_session"
+
+
+def same_process(one: dict | None, other: dict | None) -> bool:
+    """Do two `{pid, start_time}` name one process? The pids must match, and
+    the start times too wherever both are known (macOS reads them lazily)."""
+    if not isinstance(one, dict) or not isinstance(other, dict) or one.get("pid") != other.get("pid"):
+        return False
+    a, b = one.get("start_time"), other.get("start_time")
+    return not a or not b or a == b
 
 
 def environ(pid: int, names: frozenset) -> dict:

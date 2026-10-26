@@ -17,8 +17,8 @@ use std::{
 };
 use windows_sys::Win32::{
     Foundation::{
-        CloseHandle, ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER, FILETIME, HANDLE,
-        HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, SetHandleInformation, WAIT_OBJECT_0,
+        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER,
+        FILETIME, HANDLE, HANDLE_FLAG_INHERIT, INVALID_HANDLE_VALUE, SetHandleInformation, WAIT_OBJECT_0,
         WAIT_TIMEOUT,
     },
     System::{
@@ -33,7 +33,7 @@ use windows_sys::Win32::{
         Threading::{
             CREATE_BREAKAWAY_FROM_JOB, CREATE_NEW_PROCESS_GROUP, CREATE_SUSPENDED, CreateProcessW,
             DETACHED_PROCESS, DeleteProcThreadAttributeList, EXTENDED_STARTUPINFO_PRESENT,
-            GetExitCodeProcess, GetProcessTimes, INFINITE, InitializeProcThreadAttributeList,
+            GetExitCodeProcess, GetProcessIoCounters, GetProcessTimes, INFINITE, IO_COUNTERS, InitializeProcThreadAttributeList,
             OpenProcess, OpenThread, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROCESS_INFORMATION,
             PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SYNCHRONIZE, PROCESS_TERMINATE,
             ResumeThread, STARTF_USESTDHANDLES, STARTUPINFOEXW, THREAD_SUSPEND_RESUME,
@@ -106,17 +106,46 @@ pub(super) fn set_name(_: &str) -> crate::Result<()> {
     Err(crate::Error::unsupported(crate::Seam::Process))
 }
 
-/// Groups and meters are read only on Linux so far: unreadable here, which decides nothing.
-pub(super) fn group_members(_: &Birth) -> Vec<Birth> {
-    Vec::new()
+/// Every live process descended from `leader`: Windows has no process groups, but every process
+/// names its parent, an orphan its exited one too. A child is born after its parent, and before
+/// any later process that took the parent's id once it exited.
+pub(super) fn group_members(leader: &Birth) -> Vec<Birth> {
+    let parents = parents();
+    let (mut members, mut frontier) = (Vec::<Birth>::new(), vec![leader.clone()]);
+    while let Some(parent) = frontier.pop() {
+        let reused = birth(parent.pid).ok().filter(|now| now.start_ticks != parent.start_ticks).map(|now| now.start_ticks);
+        for &(pid, _) in parents.iter().filter(|(pid, of)| *of == parent.pid && *pid != leader.pid) {
+            let Ok(child) = birth(pid) else { continue };
+            let ours = child.start_ticks >= parent.start_ticks && reused.is_none_or(|taken| child.start_ticks < taken);
+            if ours && !members.iter().any(|m| m.pid == pid) {
+                frontier.push(child.clone());
+                members.push(child);
+            }
+        }
+    }
+    members
 }
 
-pub(super) fn meter(_: u32) -> Option<(u64, u64)> {
-    None
+/// Kernel plus user time in nanoseconds, and every byte the process read, wrote or otherwise moved:
+/// Windows' I/O counters count files, sockets and devices alike (a download is progress).
+pub(super) fn meter(pid: u32) -> Option<(u64, u64)> {
+    let process = open_process(pid, PROCESS_QUERY_LIMITED_INFORMATION).ok()?;
+    let [_, _, kernel, user] = times(raw(&process)).ok()?;
+    let io = counters(&process)?;
+    let moved = io.ReadTransferCount.saturating_add(io.WriteTransferCount).saturating_add(io.OtherTransferCount);
+    Some((ticks(kernel).saturating_add(ticks(user)).saturating_mul(100), moved))
 }
 
-pub(super) fn written_bytes(_: u32) -> Option<u64> {
-    None
+/// Bytes written: files, sockets and devices.
+pub(super) fn written_bytes(pid: u32) -> Option<u64> {
+    let process = open_process(pid, PROCESS_QUERY_LIMITED_INFORMATION).ok()?;
+    Some(counters(&process)?.WriteTransferCount)
+}
+
+fn counters(process: &OwnedHandle) -> Option<IO_COUNTERS> {
+    let mut io = IO_COUNTERS::default();
+    // SAFETY: a live handle with query access and a record the call fills.
+    (unsafe { GetProcessIoCounters(raw(process), &mut io) } != 0).then_some(io)
 }
 
 pub(super) fn become_subreaper() -> crate::Result<()> {
@@ -212,10 +241,15 @@ impl Detached {
         }
         Ok(Some(ExitStatus::from_raw(code)))
     }
+
+    pub(super) fn wait(&mut self) -> io::Result<ExitStatus> {
+        signaled(&self.process, None)?;
+        self.try_wait()?.ok_or_else(|| io::Error::other("the process has not exited"))
+    }
 }
 
 /// std's spawn hands a child every inheritable handle this process holds, a pipe its caller reads
-/// to the end among them (`out=$(cozy up)`): a child that outlives this process would hold that
+/// to the end among them (`out=$(cozy status)`): a child that outlives this process would hold that
 /// end open forever. So CreateProcessW here, with a handle list of exactly the child's own.
 pub(super) fn detach(program: &Path, args: &[OsString], log: Option<File>) -> io::Result<Detached> {
     let null = File::options().read(true).write(true).open("NUL")?;
@@ -399,6 +433,10 @@ fn resume(pid: u32) -> io::Result<()> {
     }
 }
 
+pub(super) fn in_kernel(_pid: u32) -> Option<String> {
+    None
+}
+
 pub(super) fn usage(pid: u32) -> io::Result<super::Usage> {
     let process = open_process(pid, PROCESS_QUERY_LIMITED_INFORMATION)?;
     let [_, _, kernel, user] = times(raw(&process))?;
@@ -456,18 +494,22 @@ pub(super) fn hand_on(handle: &impl AsRawHandle) -> io::Result<u64> {
     Ok(handle.as_raw_handle() as usize as u64)
 }
 
-/// Takes a handle this process inherited, no longer inheritable: it goes no further.
-///
-/// # Safety
-/// `value` must name a handle this process inherited and nothing else owns.
-pub(super) unsafe fn handed(value: u64) -> io::Result<OwnedHandle> {
-    // SAFETY: the caller's promise.
-    let handle = unsafe { OwnedHandle::from_raw_handle(value as usize as _) };
-    // SAFETY: a live handle this process owns.
-    if unsafe { SetHandleInformation(handle.as_raw_handle(), HANDLE_FLAG_INHERIT, 0) } == 0 {
+/// A copy of a handle this process inherited; neither is inheritable, so it goes no further.
+/// The inherited handle is left open: a copy needs no promise that nothing else owns it.
+pub(super) fn take_handed(value: u64) -> io::Result<OwnedHandle> {
+    use windows_sys::Win32::System::Threading::GetCurrentProcess;
+    let inherited = value as usize as HANDLE;
+    // SAFETY: a flag change on a handle value; an invalid one fails.
+    if unsafe { SetHandleInformation(inherited, HANDLE_FLAG_INHERIT, 0) } == 0 {
         return Err(io::Error::last_os_error());
     }
-    Ok(handle)
+    let mut copy: HANDLE = ptr::null_mut();
+    // SAFETY: duplicates a live handle into `copy`, a new handle only this function holds.
+    if unsafe { DuplicateHandle(GetCurrentProcess(), inherited, GetCurrentProcess(), &mut copy, 0, 0, DUPLICATE_SAME_ACCESS) } == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    // SAFETY: DuplicateHandle made `copy` for this process alone.
+    Ok(unsafe { OwnedHandle::from_raw_handle(copy) })
 }
 
 pub(super) fn parent_of(pid: u32) -> io::Result<u32> {

@@ -14,6 +14,7 @@ from robot.parsing.lexer.tokens import Token
 from robot.parsing.model.blocks import File, Keyword, TestCase, VariableSection
 from robot.parsing.model.statements import (
     Arguments,
+    Documentation,
     Fixture,
     KeywordCall,
     KeywordName,
@@ -53,13 +54,14 @@ from ..utils.ast import (
     strip_variable_token,
     tokenize_variables,
 )
-from ..utils.match import normalize
+from ..utils.match import normalize, normalize_metadata_name
 from ..utils.stubs import Languages
 from ..utils.variables import (
     BUILTIN_VARIABLES,
     InvalidVariableError,
     VariableMatcher,
     contains_variable,
+    environment_value_hash,
     is_number_literal,
     replace_curdir_in_variable_values,
     search_variable,
@@ -68,6 +70,7 @@ from ..utils.variables import (
 )
 from ..utils.visitor import Visitor
 from .analyzer_result import AnalyzerResult
+from .diagnostic_rules import private_keyword_call_message, tags_row_without_empty_row
 from .entities import (
     ArgumentDefinition,
     BuiltInVariableDefinition,
@@ -128,6 +131,8 @@ class NamespaceAnalyzer(Visitor):
 
         self._current_testcase_or_keyword_name: Optional[str] = None
         self._current_keyword_doc: Optional[KeywordDoc] = None
+        self._in_keyword = False
+        self._in_testcase = False
         self._test_template: Optional[TestTemplate] = None
         self._template: Optional[Template] = None
         self._node_stack: List[ast.AST] = []
@@ -140,6 +145,9 @@ class NamespaceAnalyzer(Visitor):
         self._keyword_tag_references: Dict[str, Set[Location]] = defaultdict(set)
         self._testcase_tag_references: Dict[str, Set[Location]] = defaultdict(set)
         self._metadata_references: Dict[str, Set[Location]] = defaultdict(set)
+        self._testcase_metadata_references: Dict[str, Set[Location]] = defaultdict(set)
+        self._environment_set: Dict[str, bool] = {}
+        self._environment_values: Dict[str, Optional[str]] = {}
 
         # Phase 1+2 results (set by resolve())
         self._library_doc: ResourceDoc = cast(ResourceDoc, None)  # set by resolve()
@@ -238,7 +246,10 @@ class NamespaceAnalyzer(Visitor):
             self._keyword_tag_references,
             self._testcase_tag_references,
             self._metadata_references,
+            self._testcase_metadata_references,
             self._scope_builder.build(self._variable_scope),
+            environment_set=self._environment_set,
+            environment_values=self._environment_values,
         )
 
     def _visit_VariableSection(self, node: VariableSection) -> None:  # noqa: N802
@@ -667,7 +678,10 @@ class NamespaceAnalyzer(Visitor):
                 and cast(EnvironmentVariableDefinition, var).default_value is None
             ):
                 env_name = var.name[2:-1]
-                if os.environ.get(env_name, None) is None:
+                # the namespace cache compares every read of the environment when it restores the analysis
+                env_value = os.environ.get(env_name, None)
+                self._environment_set[env_name] = env_value is not None
+                if env_value is None:
                     self._append_diagnostics(
                         range=range_from_token(var_token),
                         message=(
@@ -904,15 +918,14 @@ class NamespaceAnalyzer(Visitor):
                         code=Error.RESERVED_KEYWORD,
                     )
 
-                if result.is_resource_keyword and result.is_private:
-                    if self._source != result.source:
-                        self._append_diagnostics(
-                            range=kw_range,
-                            message=f"Keyword '{result.longname}' is private and should only be called by"
-                            f" keywords in the same file.",
-                            severity=DiagnosticSeverity.WARNING,
-                            code=Error.PRIVATE_KEYWORD,
-                        )
+                private_message = private_keyword_call_message(result, self._source)
+                if private_message is not None:
+                    self._append_diagnostics(
+                        range=kw_range,
+                        message=private_message,
+                        severity=DiagnosticSeverity.WARNING,
+                        code=Error.PRIVATE_KEYWORD,
+                    )
 
                 if not isinstance(node, (Template, TestTemplate)):
                     try:
@@ -1228,6 +1241,7 @@ class NamespaceAnalyzer(Visitor):
             )
 
         self._current_testcase_or_keyword_name = node.name
+        self._in_testcase = True
         old_variables = self._variables
         self._variables = self._variables.copy()
         self._end_block_handlers = []
@@ -1243,6 +1257,7 @@ class NamespaceAnalyzer(Visitor):
             self._end_block_handlers = None
             self._variables = old_variables
             self._current_testcase_or_keyword_name = None
+            self._in_testcase = False
             self._template = None
 
     def visit_TestCaseName(self, node: TestCaseName) -> None:  # noqa: N802
@@ -1293,6 +1308,7 @@ class NamespaceAnalyzer(Visitor):
             )
 
         self._current_testcase_or_keyword_name = node.name
+        self._in_keyword = True
         old_variables = self._variables
         self._variables = self._variables.copy()
         self._end_block_handlers = []
@@ -1315,6 +1331,7 @@ class NamespaceAnalyzer(Visitor):
             self._variables = old_variables
             self._current_testcase_or_keyword_name = None
             self._current_keyword_doc = None
+            self._in_keyword = False
 
     EMBEDDED_ARGUMENTS_MATCHER = re.compile("([^:]+): ([^:]+)(:(.*))?")
 
@@ -1449,7 +1466,10 @@ class NamespaceAnalyzer(Visitor):
                     ignore_errors=True,
                 )
 
-                if not matcher.is_assign(allow_assign_mark=True, allow_nested=True) or matcher.name is None:
+                if (
+                    not matcher.is_assign(allow_assign_mark=True, allow_nested=True, allow_items=True)
+                    or matcher.name is None
+                ):
                     return
 
                 if RF_VERSION >= (7, 0) and contains_variable(matcher.base, "$@&%"):
@@ -1487,6 +1507,19 @@ class NamespaceAnalyzer(Visitor):
                 stripped_name_token = strip_variable_token(assign_token, matcher=matcher, parse_type=True)
 
                 if matcher.items:
+                    # Robot Framework resolves the variables in the index; the search without types keeps a type
+                    # in the base, so the index starts after it
+                    raw = search_variable(matcher.string, ignore_errors=True)
+                    items_start = raw.start + len(raw.identifier) + len(raw.base) + 2
+                    items_token = Token(
+                        Token.ARGUMENT,
+                        matcher.string[items_start : raw.end],
+                        assign_token.lineno,
+                        assign_token.col_offset + items_start,
+                    )
+                    for var_token, var in self._iter_variables_from_token(items_token):
+                        self._handle_find_variable_result(var_token, var)
+
                     existing_var = self._find_variable(name)
                     if existing_var is None:
                         self._handle_find_variable_result(
@@ -1602,18 +1635,21 @@ class NamespaceAnalyzer(Visitor):
                 if not matcher.is_scalar_assign():
                     return
 
-                if (
-                    next(
-                        (
-                            k
-                            for k, v in self._variables.items()
-                            if k == matcher
-                            and v.type in [VariableDefinitionType.ARGUMENT, VariableDefinitionType.LOCAL_VARIABLE]
-                        ),
-                        None,
+                existing_var = next(
+                    (
+                        v
+                        for k, v in self._variables.items()
+                        if k == matcher
+                        and v.type in [VariableDefinitionType.ARGUMENT, VariableDefinitionType.LOCAL_VARIABLE]
+                    ),
+                    None,
+                )
+                if existing_var is not None:
+                    # EXCEPT AS sets the existing variable again, like a FOR variable of that name
+                    self._variable_references[existing_var].add(
+                        Location(self._document_uri, range_from_token(strip_variable_token(variable_token)))
                     )
-                    is None
-                ):
+                else:
                     var_def = LocalVariableDefinition(
                         name=variable_token.value,
                         name_token=strip_variable_token(variable_token),
@@ -1746,7 +1782,25 @@ class NamespaceAnalyzer(Visitor):
         if hasattr(node, "name") and node.name:
             name_token = node.get_token(Token.NAME)
             if name_token is not None:
-                self._metadata_references[node.name].add(Location(self._document_uri, range_from_token(name_token)))
+                if self._in_testcase:
+                    refs = self._testcase_metadata_references
+                else:
+                    refs = self._metadata_references
+                # metadata names are case, space and underscore insensitive in Robot Framework
+                refs[normalize_metadata_name(node.name)].add(Location(self._document_uri, range_from_token(name_token)))
+
+        # Robot Framework 7.5 warns when a `Tags:` section of a keyword's documentation is not preceded by an empty row
+        if RF_VERSION >= (7, 5) and self._in_keyword and isinstance(node, Documentation):
+            tags_row = tags_row_without_empty_row(node)
+            if tags_row:
+                self._append_diagnostics(
+                    range=Range(start=range_from_token(tags_row[0]).start, end=range_from_token(tags_row[-1]).end),
+                    message=f"Invalid documentation in '{self._current_testcase_or_keyword_name}': "
+                    "Not having an empty row before 'Tags:' is deprecated.",
+                    severity=DiagnosticSeverity.WARNING,
+                    tags=[DiagnosticTag.DEPRECATED],
+                    code=Error.TAGS_WITHOUT_EMPTY_ROW,
+                )
 
     def visit_Timeout(self, node: Statement) -> None:  # noqa: N802
         self._visit_block_settings_statement(node)
@@ -1759,7 +1813,7 @@ class NamespaceAnalyzer(Visitor):
 
     def visit_Tags(self, node: Statement) -> None:  # noqa: N802
         self._visit_settings_statement(node, DiagnosticSeverity.HINT)
-        if any(isinstance(n, Keyword) for n in self._node_stack):
+        if self._in_keyword:
             self._collect_tag_references(node, self._keyword_tag_references)
         else:
             self._collect_tag_references(node, self._testcase_tag_references)
@@ -1855,7 +1909,12 @@ class NamespaceAnalyzer(Visitor):
             for v in entries.values():
                 if v.import_source == self._source and v.import_range == range_from_token(name_token):
                     for k in self._namespace_references:
-                        if type(k) is type(v) and k.library_doc.source_or_origin == v.library_doc.source_or_origin:
+                        # the same library imported again, also with other arguments; two classes of one module differ
+                        if (
+                            type(k) is type(v)
+                            and k.library_doc.source_or_origin == v.library_doc.source_or_origin
+                            and k.library_doc.name == v.library_doc.name
+                        ):
                             self._namespace_references[k].add(Location(self._document_uri, v.import_range))
                             break
                     else:
@@ -1893,7 +1952,7 @@ class NamespaceAnalyzer(Visitor):
 
     def _find_variable(self, name: str) -> Optional[VariableDefinition]:
         if name[:2] == "%{" and name[-1] == "}":
-            var_name, _, default_value = name[2:-1].partition("=")
+            var_name, sep, default_value = name[2:-1].partition("=")
             return EnvironmentVariableDefinition(
                 0,
                 0,
@@ -1902,7 +1961,7 @@ class NamespaceAnalyzer(Visitor):
                 "",
                 f"%{{{var_name}}}",
                 None,
-                default_value=default_value or None,
+                default_value=default_value if sep else None,
             )
 
         vars = (
@@ -1959,7 +2018,9 @@ class NamespaceAnalyzer(Visitor):
         - ``${scalar}`` → resolved value converted to string, multi-values joined with space
         - ``@{list}`` → ``str(list_value)`` e.g. ``"['a', 'b']"
         - ``&{dict}`` → ``str(dict_value)`` e.g. ``"{'a': '1'}"
-        - ``%{ENV}`` → environment variable value or default
+        - ``%{ENV}`` → environment variable value or default, ``False`` if a variable in its
+          name or in the default of an unset variable would have to be resolved (a default
+          without variables behind a name with a variable is still returned)
         - ``${{expr}}`` → cannot evaluate statically → ``False``
 
         Returns:
@@ -1979,11 +2040,22 @@ class NamespaceAnalyzer(Visitor):
         # Environment variable %{VAR} or %{VAR=default}
         if sub_id == "%":
             env_inner = var_ref[2:-1]
+            # A variable in the name means the environment variable RF looks up is not known here.
+            name, name_default = split_from_equals(env_inner)
+            if contains_variable(name, "$@&%"):
+                if name_default is not None and not contains_variable(name_default, "$@&%"):
+                    return name_default
+                return False
             env_name, sep, default = env_inner.partition("=")
+            # the namespace cache compares every read of the environment when it restores the analysis
             env_val = os.environ.get(env_name)
+            self._environment_values[env_name] = environment_value_hash(env_val)
             if env_val is not None:
                 return env_val
             if sep:
+                # A variable in the default is not resolved here.
+                if contains_variable(default, "$@&%"):
+                    return False
                 return default
             return None
 

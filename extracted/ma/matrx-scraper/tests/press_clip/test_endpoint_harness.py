@@ -46,7 +46,7 @@ def test_endpoint_runs_real_chromium_and_returns_printed_artifacts(monkeypatch: 
     with _fixture_server() as url:
         response = _client().post(
             "/press-clips/render",
-            json={"url": url, "client_name": "Birchwood Avenue Renovation"},
+            json={"url": url, "brand_name": "Birchwood Avenue Renovation"},
         )
     assert response.status_code == 200, response.text
     body = response.json()
@@ -64,6 +64,22 @@ def test_endpoint_runs_real_chromium_and_returns_printed_artifacts(monkeypatch: 
         doc.close()
     assert body["report"]["root_selector_used"] == "article#story.story"
     assert body["meta"]["headline"] == "Birchwood Avenue Renovation completes its kitchen"
+    assert body["report"]["brand_found_in_text"] is True
+    assert "client_found_in_text" not in body["report"]
+
+
+def test_endpoint_refuses_the_pre_rename_request_name(monkeypatch: pytest.MonkeyPatch):
+    """The request names the brand ``brand_name``; the pre-rename ``client_name`` is no field of it."""
+    async def allow_fixture(url: str) -> str:
+        return url
+    monkeypatch.setattr(url_guard, "validate_public_http_url", allow_fixture)
+    with _fixture_server() as url:
+        response = _client().post(
+            "/press-clips/render",
+            json={"url": url, "client_name": "Birchwood Avenue Renovation"},
+        )
+    assert response.status_code == 200, response.text
+    assert response.json()["report"]["brand_found_in_text"] is False
 
 
 def test_endpoint_rejects_non_public_target_before_browser(monkeypatch: pytest.MonkeyPatch):

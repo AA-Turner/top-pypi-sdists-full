@@ -451,7 +451,11 @@ class BaseSchema(Mapping):
         return None
 
     def prepare_multipart(
-        self, form_data: dict[str, Any], operation: APIOperation, selected_content_types: dict[str, str] | None = None
+        self,
+        form_data: dict[str, Any],
+        operation: APIOperation,
+        media_type: str,
+        selected_content_types: dict[str, str] | None = None,
     ) -> tuple[list | None, dict[str, Any] | None]:
         raise NotImplementedError
 
@@ -1031,10 +1035,9 @@ class APIOperation(Generic[P, R, S, SchemaT]):
         return next(self.get_bodies_for_media_type(media_type), None)
 
     def get_bodies_for_media_type(self, media_type: str) -> Iterator[P]:
-        main_target, sub_target = media_types.parse(media_type)
+        target = media_types.parse(media_type)
         for body in self.body:
-            main, sub = media_types.parse(body.media_type)
-            if main in ("*", main_target) and sub in ("*", sub_target):
+            if media_types.matches_parts(media_types.parse(body.media_type), target):
                 yield body
 
     def as_strategy(
@@ -1114,9 +1117,9 @@ class APIOperation(Generic[P, R, S, SchemaT]):
         return serializers
 
     def prepare_multipart(
-        self, form_data: dict[str, Any], selected_content_types: dict[str, str] | None = None
+        self, form_data: dict[str, Any], media_type: str, selected_content_types: dict[str, str] | None = None
     ) -> tuple[list | None, dict[str, Any] | None]:
-        return self.schema.prepare_multipart(form_data, self, selected_content_types=selected_content_types)
+        return self.schema.prepare_multipart(form_data, self, media_type, selected_content_types=selected_content_types)
 
     def get_request_payload_content_types(self) -> list[str]:
         return self.schema.get_request_payload_content_types(self)

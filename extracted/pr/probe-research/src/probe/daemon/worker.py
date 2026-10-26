@@ -85,6 +85,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import contextvars
 import dataclasses
 import hashlib
 import json
@@ -94,6 +95,7 @@ import os
 import signal
 import sqlite3
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -102,7 +104,7 @@ from probe._shared import telemetry
 from pathlib import Path
 from typing import Callable
 
-from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, tools, toolset
+from probe.daemon import adapters, approvals as appr, bite as bite_mod, folders, lease, mailbox, runctx, tools, toolset
 from probe.daemon import alerts
 from probe.daemon import scope
 from probe.daemon import requests as requests_mod
@@ -142,9 +144,12 @@ log = logging.getLogger("probe.daemon")
 
 POLL_S = 2.0
 DUE_AFTER_S = 120.0
-#: The two run triggers the writer's least gap may hold back (`Worker.deferrable`).
+#: The run triggers the writer's least gap may hold back (`Worker.deferrable`); a
+#: researcher's prompt behind other queued events only while
+#: `model.writer_prompt_waits` is on.
 TRIGGER_TURN_END = "turn end"
 TRIGGER_AGE = "age"
+TRIGGER_PROMPT = "prompt"
 #: A request from the main agent waits (`probe ask --writer`): never held back.
 TRIGGER_REQUEST = "request"
 #: A request starts a run at once, but at most one per this long (or per the
@@ -177,6 +182,9 @@ ENV_MODE = "PROBE_DAEMON_MODE"
 LEAN_WRITES_MARK = "lean_writes_mark"
 LEAN_WRITES_OWED = "lean_writes_owed"
 LEAN_WRITES_SHOWN = 120
+#: The server's pushed settings this session's last process heard
+#: (`model.pushed_snapshot`): a new process starts from them (review 10-25).
+PUSHED_SETTINGS = "pushed_settings"
 #: Lean history: {"conversation", "compactions"} the last lean run saw (a
 #: compaction since, in that conversation, breaks the cached prefix once: D13).
 LEAN_COMPACTIONS_SEEN = "lean_compactions_seen"
@@ -195,6 +203,13 @@ INDEX_AFTER_COMPACTION = "index_after_compaction"
 #: change (the header names the outline's digest), never a per-request tail.
 #: Conversation mode: after this many compactions the next bite starts fresh from disk.
 COMPACTIONS_BEFORE_FRESH = 8
+#: Conversation mode (daemon cost round 7, F2): a conversation idle longer than
+#: `model.writer_cold_fresh_s` resumes at the full price (the model's prompt cache
+#: lives ~30 minutes: 5-7% of calls 10-30 min after the last were cold, 96% at
+#: 30-60 min, strand-ai 20-23 Oct), so the next run starts fresh from disk instead
+#: -- unless its saved history is under this many estimated tokens, which a fresh
+#: start (median ~60K) would not undercut.
+FRESH_FLOOR_TOKENS = 80_000
 #: The state of the record (conversation mode) lists at most this many writes.
 STATE_FILED_LINES = 40
 FAILURES_BEFORE_BACK_OF_QUEUE = 3
@@ -251,6 +266,25 @@ HELD_INTERRUPTED = "yes: interrupted (the daemon stopped mid-way; it may not hav
 STALE_AFTER_S = trace_mod.KEEP_S
 #: A `.handover` marker older than this was left by a waiter that died.
 HANDOVER_FRESH_S = 10.0
+#: In the daemon host (plan M2): a run that has seen nothing new for IDLE_AFTER_S
+#: polls only every IDLE_POLL_S, and wakes at once when one of its files changes
+#: (`Worker.poke`, from the host's watcher). A worker process polls every POLL_S.
+IDLE_AFTER_S = 60.0
+IDLE_POLL_S = 10.0
+#: Test-only overrides of the two (read in the run's environment). Nothing in production sets them.
+IDLE_AFTER_ENV = "PROBE_DAEMON_IDLE_AFTER_S"
+IDLE_POLL_ENV = "PROBE_DAEMON_IDLE_POLL_S"
+
+
+def _idle_timings() -> tuple[float, float]:
+    def read(name: str, default: float) -> float:
+        try:
+            value = float(os.environ.get(name) or default)
+        except ValueError:
+            return default
+        return value if value > 0 else default
+
+    return read(IDLE_AFTER_ENV, IDLE_AFTER_S), read(IDLE_POLL_ENV, IDLE_POLL_S)
 LOCK_POLL_S = 1.0
 #: How long a new worker waits for the session lock before it leaves with
 #: EXIT_RESPAWN_LATER. The holder hands over only once it is stopping (after a
@@ -438,6 +472,10 @@ class Worker:
         self.next_attempt_at = 0.0
         #: When the last run started (`clock`): the writer's least gap counts from it.
         self.last_run_at = float("-inf")
+        model_mod.restore_pushed(self.store.fact(PUSHED_SETTINGS))
+        #: Why the next run starts a fresh conversation, for its trace (`fresh`): "cold"
+        #: when an idle conversation was ended (F2); None otherwise.
+        self._fresh_why: str | None = None
         #: When the last run a request started began (REQUEST_RUN_MIN_GAP_S counts from it).
         self.last_request_run_at = float("-inf")
         #: Why this worker released the lease; renewing waits until a model round answers again.
@@ -445,6 +483,18 @@ class Worker:
         #: The last release had no network at all (`probe._shared.offline`).
         self.released_offline = False
         self.parent_pid = os.getppid()
+        #: In the daemon host: has this run's owner gone (its connection closed)?
+        #: None per process, where the parent and the supervisor's identity tell.
+        self.supervisor_gone: Callable[[], bool] | None = None
+        #: In the daemon host: called once per poll (its heartbeat). None per process.
+        self.on_tick: Callable[[], None] | None = None
+        #: In the daemon host: an idle run waits for a poke (`pause`). False per process.
+        self.wakeable = False
+        #: When this run last saw something new (`clock`): idle after IDLE_AFTER_S.
+        self.changed_at = clock()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._wake: asyncio.Event | None = None
+        self._reader_wake: asyncio.Event | None = None
         #: The supervisor's identity (SUPERVISOR_PID_ENV), when it gave one.
         self.supervisor: tuple[int, str | None] | None = None
         self.folders_checked_at = float("-inf")
@@ -582,7 +632,7 @@ class Worker:
         if not lease.records(sid):
             return "the session's switch cannot be read"
         if _foreign_lease(sid):
-            return "another daemon process holds the session's write lease"
+            return lease.FOREIGN_HOLDER
         if self.released_reason in _RECOVERABLE:
             return None
         return lease.may_write(sid)
@@ -622,6 +672,8 @@ class Worker:
 
     def _parent_gone(self) -> bool:
         """Its supervisor (the service, or `tap watch`) exited: this worker is orphaned."""
+        if self.supervisor_gone is not None:
+            return self.supervisor_gone()
         return parent_gone(self.supervisor, self.parent_pid)
 
     # -- stopping -----------------------------------------------------------
@@ -638,6 +690,7 @@ class Worker:
                 self._stop_ends = self._end_offsets()
             except Exception:  # noqa: BLE001 -- in a signal handler: the next poll takes the snapshot
                 pass
+        self.poke()  # an idle run's wait (the daemon host) ends now, not at its next look
 
     def _take_input(self) -> None:
         """A poll's reading: the next chunk of every stream -- or, stopping, what was
@@ -1259,7 +1312,7 @@ class Worker:
         if self.store.has_pending_request() and self._request_may_start():
             return TRIGGER_REQUEST
         if any(ev.kind == Kind.PROMPT and ev.seq != pending[0].seq for ev in pending):
-            return "prompt"
+            return TRIGGER_PROMPT
         if any(ev.kind == Kind.TURN_END for ev in pending):
             return TRIGGER_TURN_END
         if self._over_size(pending):
@@ -1283,9 +1336,17 @@ class Worker:
     def deferrable(self, trigger: str | None, pending: list) -> bool:
         """Whether the writer's least gap (`model.writer_min_gap_s`, daemon cost
         round 4, E) may hold this run back: its only reasons are the agent's
-        turn end or the queue's age. A prompt, a full queue, the session ending
-        or a paused conversation run starts it at once, whichever label won."""
-        return (trigger in (TRIGGER_TURN_END, TRIGGER_AGE) and not self._over_size(pending)
+        turn end or the queue's age, and a researcher's prompt while
+        `model.writer_prompt_waits` (daemon cost round 7, F1, Richard T1=A:
+        machine-sent prompts woke 65% of one team's runs under 5 minutes after
+        the last, 83% of them to say nothing new; a record lands up to the gap
+        later). A main agent's request, a full queue, the session ending or a
+        paused conversation run starts it at once, whichever label won."""
+        from probe.daemon import model as model_mod
+
+        prompt_waits = trigger == TRIGGER_PROMPT and model_mod.writer_prompt_waits()
+        waits = (TRIGGER_TURN_END, TRIGGER_AGE, TRIGGER_PROMPT) if prompt_waits else (TRIGGER_TURN_END, TRIGGER_AGE)
+        return (trigger in waits and not self._over_size(pending)
                 and not self.stopping and not self._carrying_on())
 
     def _carrying_on(self) -> bool:
@@ -1411,9 +1472,11 @@ class Worker:
                 layout["cache_reset"] = reset
         if indexed is not None and history:
             layout.update(indexed.facts())
+        fresh, self._fresh_why = (self._fresh_why if history is None else None), None
         self.trace.start_run(bite_id, trigger=trigger, mode=str(self.mode), conversation=conversation,
                              history_messages=len(history or []), events=[built.first_seq, built.last_seq],
-                             deferrable=deferrable, layout=layout)
+                             deferrable=deferrable, layout=layout,
+                             **({"fresh": fresh} if fresh else {}))
         try:
             result = await self._until_finish_by(self._agent_run(built, deps, usage, state=state,
                                                                  history=history))
@@ -1456,6 +1519,7 @@ class Worker:
             if self.store.fact(CARRY_ON):
                 self.store.set_fact(CARRY_ON, None)
         self.publish_writer_messages()
+        self.store.set_fact(PUSHED_SETTINGS, model_mod.pushed_snapshot())
         if conversation is not None:
             self._maybe_start_fresh(conversation)
         self.failures = 0
@@ -1510,6 +1574,16 @@ class Worker:
                 self._end_resumed(live["id"], "its fingerprint no longer matches (the session, the job "
                                               "description, the model or the Pydantic AI version changed)")
             live = None
+        if live is not None and live["messages"]:
+            idle = self._cold_idle_s(live)
+            if idle is not None:
+                log.info("conversation %s: idle %d min, its cached prompt is gone: a fresh start from disk",
+                         live["id"], idle // 60)
+                with self.store.tx():
+                    self._end_resumed(live["id"], f"idle {idle // 60} min: the model's prompt cache is gone, so a "
+                                                  "fresh start from disk costs less than re-reading it")
+                self._fresh_why = "cold"
+                live = None
         if live is not None and live["messages"]:
             try:
                 history = ModelMessagesTypeAdapter.validate_json(live["messages"])
@@ -1640,6 +1714,25 @@ class Worker:
         lines = [f"- {r['status']}: {' '.join(json.loads(r['argv']))[:240]}" for r in rows[older:]]
         head = f"({older} older: `session` op=logbook)\n" if older else ""
         return (f"# Your writes since your last run\n{head}" + ("\n".join(lines) or "- none")), last
+
+    def _cold_idle_s(self, live) -> int | None:
+        """How long, in whole seconds, the live conversation `live` has sat idle when
+        that is past `model.writer_cold_fresh_s` and its saved history is at least
+        FRESH_FLOOR_TOKENS (estimated from its stored JSON, which overstates it a
+        little); else None (resume it)."""
+        from probe.daemon import model as model_mod
+
+        limit = model_mod.writer_cold_fresh_s()
+        if limit <= 0:
+            return None
+        last = live["updated"] if live["updated"] is not None else live["started"]
+        if last is None:
+            return None
+        idle = self.clock() - float(last)
+        size = (len(live["messages"] or "") + len(live["instructions"] or "")) // bite_mod.CHARS_PER_TOKEN
+        if idle <= limit or size < FRESH_FLOOR_TOKENS:
+            return None
+        return int(idle)
 
     def _maybe_start_fresh(self, conversation: int) -> None:
         """After COMPACTIONS_BEFORE_FRESH compactions a summary of summaries has
@@ -2500,7 +2593,50 @@ class Worker:
         # The waiter re-touches it every poll: an old one was left by a waiter that died.
         return age < HANDOVER_FRESH_S
 
+    def wake_paths(self) -> list[Path]:
+        """What the host's watcher looks at for this run (plan M2): every stream
+        it reads (`_end_offsets`: the chat log, its helper agents' logs and their
+        folder, the SDK inbox, the reader's claim log), its switch, its asks and
+        writer requests, the held questions' answers, its hand-over ask. Anything
+        else waits for the next poll. Asked again now and then (`Host.watch`): a
+        helper agent's log may start later."""
+        sid = self.session.session_id
+        files = self.adapter.session_files(self.session.transcript)
+        streams = [files.main, *files.subagents, inbox_path(sid), mailbox.claim_log_path(sid)]
+        folders_ = sorted({p.parent for p in files.subagents})
+        return [*streams, *folders_, lease.sessions_dir() / f"{sid}.state", mailbox.asks_dir(sid),
+                mailbox.requests_dir(sid), self.board.root / "answers", mailbox.handover_path(sid)]
+
+    def poke(self) -> None:
+        """Something of this run's changed (any thread): an idle wait ends now."""
+        loop = self._loop
+        if loop is None:
+            return
+        for event in (self._wake, self._reader_wake):
+            if event is not None:
+                with contextlib.suppress(RuntimeError):  # its loop has closed
+                    loop.call_soon_threadsafe(event.set)
+
+    async def pause(self, seconds: float, event: asyncio.Event | None) -> None:
+        """The wait between two polls: `seconds`; in the daemon host, once nothing
+        new has come for IDLE_AFTER_S, up to IDLE_POLL_S, ended by a poke."""
+        idle_after, idle_poll = _idle_timings()
+        if not self.wakeable or event is None or self.stopping or self.clock() - self.changed_at < idle_after:
+            await asyncio.sleep(seconds)
+            return
+        try:
+            await asyncio.wait_for(event.wait(), idle_poll)
+        except asyncio.TimeoutError:
+            return
+        # Consumed after the wait, never before it: a poke during the look that
+        # follows sets it again, so the next wait ends at once (none is lost). Idle
+        # until a look finds something new (`changed_at`), not because of a poke.
+        event.clear()
+
     async def loop(self) -> int:
+        self._loop = asyncio.get_running_loop()
+        if self.wakeable:
+            self._wake, self._reader_wake = asyncio.Event(), asyncio.Event()
         self._renew()
         await folders.baseline(self.store, self.session.cwd, self.session.home,
                                excluded=self.exclusions.path_excluded)
@@ -2538,10 +2674,15 @@ class Worker:
                 if self.stopping and self.audit is not None:
                     await self.audit.stop()  # cut short before its write: the note stays due
                     self.audit = None
+                if self.on_tick is not None:
+                    self.on_tick()
+                seq, ran = self.store.next_seq(), self.last_run_at
                 code = await self.tick()
                 if code is not None:
                     return code
-                await asyncio.sleep(POLL_S)
+                if self.store.next_seq() != seq or self.last_run_at != ran:
+                    self.changed_at = self.clock()
+                await self.pause(POLL_S, self._wake)
         finally:
             if self.reader is not None:
                 await self.reader.stop()
@@ -2686,12 +2827,13 @@ def _hook_mode(session_id: str) -> str | None:
 
 
 def _foreign_lease(session_id: str) -> bool:
-    """Does ANOTHER process hold a live lease on this session?"""
+    """Does ANOTHER process -- or, in the daemon host, another run -- hold a live
+    lease on this session?"""
     try:
         data = json.loads(lease.lease_path(session_id).read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    return (isinstance(data, dict) and data.get("pid") != os.getpid() and not data.get("reason")
+    return (isinstance(data, dict) and not lease.ours(data) and not data.get("reason")
             and float(data.get("expires_at") or 0) > time.time())
 
 
@@ -2883,18 +3025,21 @@ def uncached_tokens(usage) -> int:
     return max(0, fresh) + int(getattr(usage, "output_tokens", 0) or 0)
 
 
-#: Tokens a locked counter could not take yet, per lane: added to the next count.
+#: Tokens a locked counter could not take yet, per lane: added to the next count
+#: (each run's own in the daemon host, `runctx.Shared`).
 _UNCOUNTED: dict[str, int] = {}
+_uncounted = runctx.Shared(globals(), "_UNCOUNTED", dict)
 
 
 def _count_device_tokens(n: int, lane: str = LANE_WRITE) -> None:
     """Best-effort: a counter that cannot be updated is logged, never fails (or
     replays) the bite it counts; what it could not take is counted next time."""
-    n += _UNCOUNTED.pop(lane, 0)
+    uncounted = _uncounted.get()
+    n += uncounted.pop(lane, 0)
     try:
         add_device_tokens(n, lane)
     except Exception as exc:  # noqa: BLE001
-        _UNCOUNTED[lane] = n
+        uncounted[lane] = n
         log.warning("device token counter not updated (%s tokens): %s: %s", n, type(exc).__name__, exc)
 
 
@@ -3223,16 +3368,107 @@ def _last_touched(path: Path) -> float:
 # ---------------------------------------------------------------------------
 
 
-def main(argv: list[str] | None = None) -> int:
-    # Pydantic AI prints a welcome banner on its first run; it would land in the
-    # daemon's log on every start.
-    os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
+@dataclass
+class RunHooks:
+    """How a run of the worker meets what started it: its own process
+    (`main`, a per-process worker) or the daemon host (`probe.daemon.host`), which
+    runs every session's worker as a thread of one process. The steps, their
+    order and the exit codes are the same either way (`run_session`)."""
+
+    #: One line for the session's `<sid>.log` (the process's stderr, per process).
+    say: Callable[[str], None]
+    #: Has the run's supervisor gone (`parent_gone` per process; the owner's
+    #: connection, hosted)?
+    supervisor_gone: Callable[[], bool]
+    #: Called where the per-process worker configures logging (after the
+    #: barrier and inline checks, before the AI libraries load).
+    configure_logging: Callable[[], None] = lambda: None
+    #: Called where the per-process worker installs its signal handlers (just
+    #: before it takes the session lock).
+    ready: Callable[[], None] = lambda: None
+    #: Runs the worker's loop (`asyncio.run` per process; the host's own loop).
+    run: Callable[..., int] = asyncio.run
+    #: Per process: the worker's parent at start and its supervisor's identity
+    #: (`supervisor_identity`), kept on the Worker as before.
+    parent_pid: int | None = None
+    supervisor: tuple[int, str | None] | None = None
+    #: Hosted: the Worker reads `supervisor_gone` itself instead of its parent.
+    hosted: bool = False
+    #: Called with the Worker once it exists, before its loop starts (the host
+    #: sets its heartbeat and a moved run's finish deadline).
+    on_worker: Callable[[Worker], None] = lambda worker: None
+
+
+class Stopper:
+    """A stop asked of a run: SIGTERM or SIGINT per process (the handler runs on
+    the run's own thread), the host's `stop` hosted (from another thread: the
+    worker's `begin_stopping` is then called on its loop). A stop before the
+    worker exists begins as soon as it does (`bind`); one after its loop ended
+    has nothing left to begin and never raises."""
+
+    def __init__(self) -> None:
+        self.asked = False
+        self.worker: Worker | None = None
+        self.loop: asyncio.AbstractEventLoop | None = None
+        self._thread: int | None = None
+        #: The run's context as its loop started: a stop from another thread
+        #: begins inside it (the run's environment and state folder).
+        self._context: contextvars.Context | None = None
+        # Re-entrant: per process `request` runs in the signal handler, on the
+        # very thread that may be inside `bind` (a plain lock would hang it there).
+        self._lock = threading.RLock()
+
+    def request(self) -> None:
+        with self._lock:
+            self.asked = True
+            worker, loop, thread, context = self.worker, self.loop, self._thread, self._context
+        if worker is None:
+            return  # `bind` begins stopping once the worker exists
+        if loop is None:
+            if thread == threading.get_ident():
+                worker.begin_stopping()  # the run's own thread, before its loop: at once, as before
+            return  # another thread's: `bind` takes it as the run's loop starts
+        try:
+            running = asyncio.get_running_loop()
+        except RuntimeError:
+            running = None
+        if running is loop:
+            worker.begin_stopping()  # the finish budget starts now, not at the next round
+            return
+        try:
+            loop.call_soon_threadsafe(worker.begin_stopping, context=context)
+        except RuntimeError:
+            pass  # its loop closed meanwhile: the run is over
+
+    def bind(self, worker: Worker, loop: asyncio.AbstractEventLoop | None = None) -> None:
+        """The run's worker (as it is built), then its loop (as the loop starts)."""
+        with self._lock:
+            self.worker, self.loop, self._thread = worker, loop, threading.get_ident()
+            self._context = contextvars.copy_context() if loop is not None else None
+            asked = self.asked
+        if asked:
+            worker.begin_stopping()
+
+    def unbind(self) -> None:
+        """The run's loop has ended: a later stop has nothing to begin."""
+        with self._lock:
+            self.worker, self.loop = None, None
+
+
+def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="probe daemon worker")
     parser.add_argument("--session-id", required=True)
     parser.add_argument("--transcript", required=True)
     parser.add_argument("--cwd", required=True)
     parser.add_argument("--source", default="claude_code")
-    args = parser.parse_args(argv)
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    # Pydantic AI prints a welcome banner on its first run; it would land in the
+    # daemon's log on every start.
+    os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
+    args = _parse_args(argv)
     # First, before anything slow: its supervisor may be gone by the time the
     # libraries are loaded (`_parent_gone`).
     parent = os.getppid()
@@ -3245,31 +3481,53 @@ def main(argv: list[str] | None = None) -> int:
         except OSError:
             with contextlib.suppress(OSError):
                 os.chdir(Path.home())
+    stopper = Stopper()
+
+    def _configure_logging() -> None:
+        # Into the session's folder beside its trace (`trace.py`); warnings on stderr too.
+        logging.basicConfig(level=os.environ.get("PROBE_DAEMON_LOG", "INFO"),
+                            format="%(asctime)s %(levelname)s %(name)s %(message)s",
+                            handlers=trace_mod.log_handlers(args.session_id))
+        trace_mod.quiet_noisy_loggers()
+        # The harness warns through `warnings` (a collapsed prompt cache, T3): into the log.
+        logging.captureWarnings(True)
+
+    def _stop(_sig, _frame):
+        stopper.request()
+
+    def _ready() -> None:
+        signal.signal(signal.SIGTERM, _stop)
+        signal.signal(signal.SIGINT, _stop)
+
+    hooks = RunHooks(say=lambda text: print(text, file=sys.stderr),
+                     supervisor_gone=lambda: parent_gone(supervisor, parent),
+                     configure_logging=_configure_logging, ready=_ready, parent_pid=parent, supervisor=supervisor)
+    return run_session(Session(args.session_id, Path(args.transcript), Path(args.cwd), args.source), hooks, stopper)
+
+
+def run_session(session: Session, hooks: RunHooks, stopper: Stopper) -> int:
+    """One run of a session's worker, start to exit code: the per-process
+    worker's whole life (`main`), or one run in the daemon host."""
     from probe.service import barrier
 
+    sid = session.session_id
     if barrier.workers_held() or not barrier.wait():
         # The Probe service is replacing the CLI's env (plan X1), or stopping
         # the running workers first (D7): `probe`'s own entry looked already;
         # this covers a worker started another way.
-        print(f"probe daemon worker: {barrier.MESSAGE}", file=sys.stderr)
+        hooks.say(f"probe daemon worker: {barrier.MESSAGE}")
         return EXIT_RESPAWN_LATER
-    if lease.inline(args.session_id):
+    if lease.inline(sid):
         # Started while manual or confirmed-quota inline is active (an older tap wants a
         # worker there): leave before loading anything.
-        return inline_exit_code(args.session_id)
-    # Into the session's folder beside its trace (`trace.py`); warnings on stderr too.
-    logging.basicConfig(level=os.environ.get("PROBE_DAEMON_LOG", "INFO"),
-                        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-                        handlers=trace_mod.log_handlers(args.session_id))
-    trace_mod.quiet_noisy_loggers()
-    # The harness warns through `warnings` (a collapsed prompt cache, T3): into the log.
-    logging.captureWarnings(True)
+        return inline_exit_code(sid)
+    hooks.configure_logging()
     if not ai_libraries_importable():
-        if _libs_missing_log_due(args.session_id):
+        if _libs_missing_log_due(sid):
             _device_error(f"daemon mode needs the AI libraries: Enter on Who records in the Probe wizard "
                           f"installs them ({WIZARD_HINT})")
-        print(f"the daemon's AI libraries are not installed: Enter on Who records in the Probe wizard "
-              f"installs them ({WIZARD_HINT})", file=sys.stderr)
+        hooks.say(f"the daemon's AI libraries are not installed: Enter on Who records in the Probe wizard "
+                  f"installs them ({WIZARD_HINT})")
         return libs_missing_exit_code()
     from probe.daemon import model as model_mod
 
@@ -3281,28 +3539,21 @@ def main(argv: list[str] | None = None) -> int:
     alerts.configure(ep.base_url)
     # Before anything is recorded: whose traces these are (`shipper.bind`). A
     # folder recorded under another account or server stays local, unshipped.
-    shipper_mod.bind(args.session_id, ep.base_url, ep.key)
+    shipper_mod.bind(sid, ep.base_url, ep.key)
     # Whose hint marker the reader's prompt wake and every chat request read.
-    model_mod.bind_hints(args.session_id)
-    sid = args.session_id
+    model_mod.bind_hints(sid)
+    # The watched session, named on every `/v1/companion/*` call (its spend).
+    model_mod.bind_session(session.source, sid)
     worker: Worker | None = None
-    stop = {"asked": False}
-
-    def _stop(_sig, _frame):
-        stop["asked"] = True
-        if worker is not None:
-            worker.begin_stopping()  # the finish budget starts now, not at the next round
-
-    signal.signal(signal.SIGTERM, _stop)
-    signal.signal(signal.SIGINT, _stop)
-    held = session_lock(sid, should_stop=lambda: stop["asked"] or parent_gone(supervisor, parent))
+    hooks.ready()
+    held = session_lock(sid, should_stop=lambda: stopper.asked or hooks.supervisor_gone())
     if isinstance(held, int):
         return held
     if not barrier.wait():
         # Raised while this worker loaded its libraries, after the check above:
         # the service's second look (plan X1) may have found no lock of ours
         # then. Holding it now, wait for the update to finish, else come back.
-        print(f"probe daemon worker: {barrier.MESSAGE}", file=sys.stderr)
+        hooks.say(f"probe daemon worker: {barrier.MESSAGE}")
         held.close()
         return EXIT_RESPAWN_LATER
     # We hold the lock, so no other worker of this session runs: a `.finishing`
@@ -3316,19 +3567,30 @@ def main(argv: list[str] | None = None) -> int:
         log.warning("could not say this worker takes requests: %s", exc)
     try:
         try:
-            worker = Worker(Session(sid, Path(args.transcript), Path(args.cwd), args.source))
+            worker = Worker(session)
         except (LookupError, StoreVersionError) as exc:
             _device_error(str(exc))
             return EXIT_DO_NOT_RESPAWN
-        if stop["asked"]:
-            worker.begin_stopping()
-        worker.parent_pid, worker.supervisor = parent, supervisor
+        stopper.bind(worker)  # a stop asked by now begins before the sweeps, as before
+        if hooks.hosted:
+            worker.supervisor_gone = hooks.supervisor_gone
+        else:
+            worker.parent_pid, worker.supervisor = hooks.parent_pid, hooks.supervisor
+        hooks.on_worker(worker)
         try:
             sweep_stale(sid)
             mailbox.sweep_stale_sessions(sid)
         except Exception as exc:  # noqa: BLE001 -- housekeeping never stops recording
             log.warning("sweeping old daemon files failed: %s", exc)
-        return asyncio.run(worker.loop())
+
+        async def _loop() -> int:
+            stopper.bind(worker, asyncio.get_running_loop())
+            try:
+                return await worker.loop()
+            finally:
+                stopper.unbind()
+
+        return hooks.run(_loop())
     except Exception as exc:  # noqa: BLE001 -- a bug hands writing back and waits, never a hot crash loop
         if install_replaced():
             # Not a bug: the CLI was reinstalled under this worker (2026-10-12, CLI

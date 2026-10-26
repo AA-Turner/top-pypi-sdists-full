@@ -8,8 +8,9 @@ tool-call message again as a second row and the chat drew the same tool card
 (and its image) twice (conversation 6fd1c446, 2026-10-24).
 """
 
-import inspect
 from types import SimpleNamespace
+
+from matrx_utils.source_guard import stable_source
 
 from matrx_ai.config import UnifiedMessage
 from matrx_ai.config.tools_config import ToolCallContent
@@ -57,5 +58,5 @@ def test_a_single_message_response_keeps_its_own_position():
 
 
 def test_the_checkpoint_commits_through_the_helper():
-    source = inspect.getsource(executor)
+    source = stable_source(executor)
     assert "_assistant_pos = _checkpointed_response_last_position(current_request, response)" in source

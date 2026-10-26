@@ -15,10 +15,12 @@
 from __future__ import annotations
 
 import re
+import sys
 from collections import Counter
 from operator import attrgetter
 from pathlib import Path
 from string import ascii_lowercase, digits
+from types import ModuleType
 
 import pytest
 
@@ -45,6 +47,7 @@ from extra_platforms import (
     Terminal,
     Trait,
 )
+from extra_platforms._docstrings import _parse_module_docstrings
 
 
 @pytest.mark.parametrize(
@@ -182,6 +185,81 @@ def test_detection_function_missing(caplog):
         _ = trait.current
 
 
+@pytest.mark.parametrize("attribute", ("type_id", "type_name"))
+def test_subclass_rejects_empty_type_attribute(attribute):
+    """A subclass setting an empty type ID or type name fails at definition.
+
+    The subclass derives from `Group`: a failed `Trait` subclass would linger in
+    `Trait.__subclasses__()`, which `_all_group_suffix_to_type_id()` reads.
+    """
+    with pytest.raises(
+        AssertionError, match=f"Season must define a non-empty {attribute}"
+    ):
+        type("Season", (Group,), {attribute: ""})
+
+
+@pytest.mark.parametrize(
+    ("klass", "fields", "message"),
+    (
+        pytest.param(Platform, {"id": ""}, "Platform ID cannot be empty", id="id"),
+        pytest.param(
+            Platform, {"name": ""}, "Platform name cannot be empty", id="name"
+        ),
+        pytest.param(
+            Platform, {"icon": ""}, "Platform icon cannot be empty", id="icon"
+        ),
+        pytest.param(Platform, {"url": ""}, "Platform URL cannot be empty", id="url"),
+        pytest.param(
+            Platform,
+            {"url": "http://example.com"},
+            "Platform URL must start with https://",
+            id="url_scheme",
+        ),
+        pytest.param(
+            Platform,
+            {"aliases": frozenset({""})},
+            "Platform alias cannot be empty",
+            id="empty_alias",
+        ),
+        pytest.param(
+            Platform,
+            {"aliases": frozenset({"Poire"})},
+            "Alias 'Poire' must be lowercase for pear",
+            id="alias_case",
+        ),
+        pytest.param(
+            Platform,
+            {"aliases": frozenset({"pear"})},
+            "Alias 'pear' cannot be the same as ID",
+            id="alias_is_id",
+        ),
+        pytest.param(
+            Shell,
+            {"executables": ("",)},
+            "pear executable name cannot be empty",
+            id="empty_executable",
+        ),
+        pytest.param(
+            Shell,
+            {"executables": ("Pear",)},
+            "Executable 'Pear' must be lowercase for pear",
+            id="executable_case",
+        ),
+        pytest.param(
+            Shell,
+            {"executables": ("pear",)},
+            "Executable 'pear' of pear is already its ID",
+            id="executable_is_id",
+        ),
+    ),
+)
+def test_trait_rejects_invalid_field(klass, fields, message):
+    """A trait with an invalid field fails at construction."""
+    valid = {"id": "pear", "name": "Pear", "icon": "🍐", "url": "https://example.com"}
+    with pytest.raises(AssertionError, match=re.escape(message)):
+        klass(**{**valid, **fields})
+
+
 def _instances_outside_registries() -> dict[str, Trait | Group]:
     """Build one instance of each kind that `ALL_TRAITS` and `ALL_GROUPS` lack.
 
@@ -235,6 +313,35 @@ def test_generate_docstring_of_class_defined_outside_package(kind):
 
     first_line = instance.generate_docstring().splitlines()[0]
     assert first_line == f"- **ID**: ``{instance.id}``"
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected"),
+    (
+        pytest.param("source_on_disk", {"APPLE": "A red fruit."}, id="source_on_disk"),
+        pytest.param("no_file", {}, id="no_file"),
+        pytest.param("missing_file", {}, id="missing_file"),
+        pytest.param("missing_file_with_loader", {}, id="missing_file_with_loader"),
+    ),
+)
+def test_attribute_docstrings_without_source(kind, expected, tmp_path, monkeypatch):
+    """A data module without readable source yields no attribute docstring.
+
+    Frozen and compiled builds load modules without a source file, or without
+    a `__file__` at all: reading the docstring of a trait there must not raise.
+    """
+    source = tmp_path / "fruit_data.py"
+    module = ModuleType("fruit_data")
+    if kind == "source_on_disk":
+        source.write_text('APPLE = 1\n"""A red fruit."""\n', encoding="UTF-8")
+    if kind != "no_file":
+        module.__file__ = str(source)
+    if kind == "missing_file_with_loader":
+        # A loader makes inspect.getsourcefile() trust a path that is missing.
+        module.__loader__ = object()  # type: ignore[assignment]
+    monkeypatch.setitem(sys.modules, "fruit_data", module)
+
+    assert _parse_module_docstrings("fruit_data") == expected
 
 
 def test_aliases_do_not_conflict_with_trait_ids():

@@ -560,7 +560,13 @@ class Algorithm76(WeightedMod11):
         account_code = validate_account_code(components[0])
         if int(account_code[0]) not in {0, 4, 6, 7, 8, 9}:
             return False
-        return super().validate(components, expected)
+        if super().validate(components, expected):
+            return True
+        # The sub-account number "00" may be omitted and the account code padded with
+        # leading zeros instead, which moves the check digit to position 10.
+        if account_code.startswith("00") and int(account_code[2]) in {0, 4, 6, 7, 8, 9}:
+            return super().validate([account_code[2:] + "00"], expected)
+        return False
 
     @override
     def solve(self, components: list[str]) -> list[str] | None:
@@ -690,3 +696,92 @@ class AlgorithmA3(FallbackVariants):
         Algorithm00,
         Algorithm10,
     )
+
+
+@register
+class AlgorithmC1(checksum.Algorithm):
+    """Method 17, or a variant of it over positions 1-9 for account codes starting with 5.
+
+    Unlike :class:`FallbackVariants`, the leading digit selects the variant, so an account
+    code rejected by that variant is invalid and the other one is not tried.
+    """
+
+    name = "C1"
+    accepts: ClassVar[list[Component]] = [Component.ACCOUNT_CODE]
+
+    class Variant2(Algorithm17):
+        positions = Positions(start=1, end=9, check_digit=10)
+
+    def get_variant(self, account_code: str) -> WeightedModulus:
+        if validate_account_code(account_code)[0] == "5":
+            return self.Variant2()
+        return Algorithm17()
+
+    @override
+    def compute(self, components: list[str]) -> str:
+        return self.get_variant(components[0]).compute(components)
+
+    @override
+    def validate(self, components: list[str], expected: str) -> bool:
+        return self.get_variant(components[0]).validate(components, expected)
+
+    @override
+    def solve(self, components: list[str]) -> list[str] | None:
+        return self.get_variant(components[0]).solve(components)
+
+
+@register
+class AlgorithmC0(checksum.Algorithm):
+    """Method 52 for account codes with exactly two leading zeros, otherwise method 20.
+
+    Method 52 checks the account number of the former ESER system, which is built from the
+    bank code and the account code, so unlike the other German methods this one needs the
+    bank code too. An account code rejected by method 52 is checked with method 20 as well.
+    """
+
+    name = "C0"
+    accepts: ClassVar[list[Component]] = [Component.BANK_CODE, Component.ACCOUNT_CODE]
+    eser_weights: ClassVar[list[int]] = [2, 4, 8, 5, 10, 9, 7, 3, 6, 1, 2, 4]
+
+    @staticmethod
+    def has_two_leading_zeros(account_code: str) -> bool:
+        return account_code.startswith("00") and account_code[2] != "0"
+
+    def compute_eser(self, bank_code: str, account_code: str) -> str:
+        """Return the method 52 check digit, or an empty string if there is none."""
+        # Bank code XXX5XXXX and account code 00XPXXXXXX give the ESER account number
+        # XXXX-XP-XXXXXX, with the leading zeros of the last part dropped.
+        tail = account_code[4:].lstrip("0")
+        digits = bank_code[4:8] + account_code[2] + "0" + tail
+        remainder = (
+            sum(int(d) * w for d, w in zip(reversed(digits), self.eser_weights, strict=False)) % 11
+        )
+        weight = self.eser_weights[len(tail)]
+        for check_digit in range(10):
+            if (remainder + check_digit * weight) % 11 == 10:
+                return str(check_digit)
+        return ""
+
+    @override
+    def compute(self, components: list[str]) -> str:
+        bank_code, account_code = components
+        if self.has_two_leading_zeros(validate_account_code(account_code)):
+            return self.compute_eser(bank_code, account_code)
+        return Algorithm20().compute([account_code])
+
+    @override
+    def validate(self, components: list[str], expected: str) -> bool:
+        bank_code, account_code = components
+        if (
+            self.has_two_leading_zeros(validate_account_code(account_code))
+            and self.compute_eser(bank_code, account_code) == account_code[3]
+        ):
+            return True
+        return Algorithm20().validate([account_code], expected)
+
+    @override
+    def solve(self, components: list[str]) -> list[str] | None:
+        # Method 20 applies to every account code and always yields a check digit.
+        bank_code, account_code = components
+        solved = Algorithm20().solve([account_code])
+        return None if solved is None else [bank_code, *solved]

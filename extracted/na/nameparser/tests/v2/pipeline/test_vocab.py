@@ -9,7 +9,7 @@ from nameparser._lexicon import (
 )
 from nameparser._pipeline._vocab import (
     ambiguous_class_candidate, ambiguous_class_member, ambiguous_lean,
-    caps_shape_candidate, comma_follows_marker,
+    caps_shape_candidate, comma_follows_marker, delimiter_cores, glued_stem,
     effective_script, is_initial, is_initial_shaped, is_one_case,
     is_single_letter_numeral,
     is_suffix_lenient, is_suffix_strict, is_title_shaped, is_wholly_suffix,
@@ -207,6 +207,40 @@ _SUFFIX_LEX = Lexicon(
 )
 
 
+def test_the_semicolon_is_a_core_every_policy_has() -> None:
+    # a declared delimiter adds to the semicolon, and none removes it
+    # (decisions/C10)
+    assert delimiter_cores(frozenset()) == {";"}
+    assert delimiter_cores(frozenset({" - ", "/"})) == {";", "-", "/"}
+
+
+def test_a_core_glued_to_an_end_is_found_beside_one_inside() -> None:
+    # every core is tried, so a word holding one core inside and another
+    # at an end has a stem whatever the set's order; it read two ways by
+    # hash seed when the first core found decided (#871's second review)
+    cores = frozenset({";", "/", "-"})
+    assert glued_stem("MD/PhD;", cores) == "MD/PhD"
+    assert glued_stem(";MD-PhD", cores) == "MD-PhD"
+    assert glued_stem("MD;PhD", cores) is None
+    assert glued_stem("MD;;", cores) is None
+    assert glued_stem("Stand", frozenset({"and"})) is None
+
+
+def test_a_word_with_a_semicolon_glued_reads_as_the_word() -> None:
+    # a glued word reads by the test it gets alone (decisions/C10) -- at
+    # either end, beside another suffix word, and through the strict
+    # test when the caller asks for it ('V' is an initial there)
+    lex, pol = _SUFFIX_LEX, Policy()
+    assert is_wholly_suffix(["MD;", "PhD"], lex, pol)
+    assert is_wholly_suffix([";PhD"], lex, pol)
+    assert is_wholly_suffix(["MD;PhD"], lex, pol)
+    assert not is_wholly_suffix(["Smith;", "PhD"], lex, pol)
+    assert not is_wholly_suffix(["MD;Smith"], lex, pol)
+    assert is_wholly_suffix(["V;", "MD"], lex, pol)
+    assert not is_wholly_suffix(["V;", "MD"], lex, pol, strict=True)
+    assert is_wholly_suffix(["Jr.;", "MD"], lex, pol, strict=True)
+
+
 def test_is_wholly_suffix() -> None:
     lex, pol = _SUFFIX_LEX, Policy()
     assert is_wholly_suffix(["Jr."], lex, pol)
@@ -313,7 +347,7 @@ def test_ambiguous_class_member_is_the_comma_form_s_candidate() -> None:
     # whole-token vocabulary wins over any shape reading
     assert not ambiguous_class_member("M.A.", lex)
     # a period ANYWHERE excludes membership here, deliberately
-    # stricter than S2's own dotted-form test: the trailing-period
+    # stricter than S3's own dotted-form test: the trailing-period
     # spelling still leans (ambiguous_lean('MA.', ...) reads as 'MA'
     # does) but reaches the comma slot through the TAG path, not this
     # predicate, which only the comma-form's own candidate check and
@@ -786,7 +820,7 @@ def test_is_one_case() -> None:
     assert not is_one_case(["john", "e", "jones", "III"])
     # a caseless script is "one case" harmlessly: the fork that reads
     # this ALSO requires a cased token, so a caseless letter never
-    # enters it (rules/P3, decisions/P3)
+    # enters it (rules/P8, decisions/P8)
     assert is_one_case(["محمد", "و", "علي"])
     assert is_one_case(["山田", "太郎"])
     # the empty and single-token edges
@@ -821,7 +855,7 @@ def test_ambiguous_lean_reads_the_written_case() -> None:
 
 def test_a_listed_member_written_in_period_closed_chunks_is_dotted(
 ) -> None:
-    """#544: S2's period gate counts a listed member written in two or
+    """#544: S3's period gate counts a listed member written in two or
     more letter chunks, each closed by a period ('M.Eng.'), as it
     counts one written with a period after each letter ('M.A.'). One
     chunk is the single trailing period any word can wear and stays

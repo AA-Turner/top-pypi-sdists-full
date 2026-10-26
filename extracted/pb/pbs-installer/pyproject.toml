@@ -4,10 +4,10 @@ description = "Installer for Python Build Standalone"
 authors = [
     { name = "Frost Ming", email = "me@frostming.com" },
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 readme = "README.md"
 dynamic = []
-version = "2026.10.21"
+version = "2026.10.25"
 
 [project.license]
 text = "MIT"
@@ -18,7 +18,7 @@ Documentation = "http://pbs-installer.readthedocs.io"
 
 [project.optional-dependencies]
 download = [
-    "httpx<1,>=0.27.0",
+    "httpx2<3,>=2.14.0",
 ]
 install = [
     "backports.zstd>=1.0.0 ; python_version<'3.14'",
@@ -29,6 +29,16 @@ all = [
 
 [project.scripts]
 pbs-install = "pbs_installer.__main__:main"
+
+[dependency-groups]
+doc = [
+    "mkdocs>=1.5.3",
+    "mkdocs-material>=9.5.14",
+    "mkdocstrings[python]>=0.24",
+]
+dev = [
+    "mypy>=1.9.0",
+]
 
 [build-system]
 requires = [
@@ -41,16 +51,6 @@ source = "scm"
 
 [tool.pdm.scripts.update]
 shell = "./scripts/update.sh"
-
-[tool.pdm.dev-dependencies]
-doc = [
-    "mkdocs>=1.5.3",
-    "mkdocs-material>=9.5.14",
-    "mkdocstrings[python]>=0.24",
-]
-dev = [
-    "mypy>=1.9.0",
-]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,670 @@
+"""
+Lower instance-independent :mod:`vsc.dc.constraint_ir` into pyvsc's existing
+``Expr*Model`` / ``Constraint*Model`` objects — **per randomize call**, binding
+``IRField`` references to that instance's field models by name.
+
+Resolution goes through a small :class:`Ctx` so that foreach loop variables (and,
+later, nested composites) bind cleanly without threading extra parameters: the
+base scope maps field names to their models; ``foreach`` pushes the loop's
+index / element bindings.
+"""
+from vsc.model.bin_expr_type import BinExprType
+from vsc.model.constraint_block_model import ConstraintBlockModel
+from vsc.model.constraint_dist_model import ConstraintDistModel
+from vsc.model.constraint_expr_model import ConstraintExprModel
+from vsc.model.constraint_foreach_model import ConstraintForeachModel
+from vsc.model.constraint_if_else_model import ConstraintIfElseModel
+from vsc.model.constraint_implies_model import ConstraintImpliesModel
+from vsc.model.constraint_scope_model import ConstraintScopeModel
+from vsc.model.constraint_soft_model import ConstraintSoftModel
+from vsc.model.constraint_solve_order_model import ConstraintSolveOrderModel
+from vsc.model.constraint_unique_model import ConstraintUniqueModel
+from vsc.model.dist_weight_expr_model import DistWeightExprModel
+from vsc.model.expr_array_subscript_model import ExprArraySubscriptModel
+from vsc.model.expr_array_product_model import ExprArrayProductModel
+from vsc.model.expr_array_sum_model import ExprArraySumModel
+from vsc.model.expr_bin_model import ExprBinModel
+from vsc.model.expr_cond_model import ExprCondModel
+from vsc.model.expr_dynref_model import ExprDynRefModel
+from vsc.model.expr_fieldref_model import ExprFieldRefModel
+from vsc.model.expr_in_model import ExprInModel
+from vsc.model.expr_literal_model import ExprLiteralModel
+from vsc.model.expr_partselect_model import ExprPartselectModel
+from vsc.model.expr_range_model import ExprRangeModel
+from vsc.model.expr_rangelist_model import ExprRangelistModel
+from vsc.model.expr_unary_model import ExprUnaryModel
+from vsc.model.field_array_model import FieldArrayModel
+from vsc.model.field_composite_model import FieldCompositeModel
+from vsc.model.unary_expr_type import UnaryExprType
+
+from . import constraint_ir as ir
+
+# IR op token -> BinExprType (matches vsc.types.expr operators).
+_BIN = {
+    "==": BinExprType.Eq, "!=": BinExprType.Ne, "<": BinExprType.Lt,
+    "<=": BinExprType.Le, ">": BinExprType.Gt, ">=": BinExprType.Ge,
+    "+": BinExprType.Add, "-": BinExprType.Sub, "*": BinExprType.Mul,
+    "//": BinExprType.Div, "%": BinExprType.Mod, "&": BinExprType.And,
+    "|": BinExprType.Or, "^": BinExprType.Xor, "<<": BinExprType.Sll,
+    ">>": BinExprType.Srl,
+}
+
+
+class Ctx:
+    """Name-resolution context for lowering one constraint program."""
+
+    def __init__(self, field_models, generics=None, host=()):
+        self.fields = field_models           # name -> FieldModel
+        self.host = host                      # randomize_with host values
+        self.locals = {}                      # name -> callable() -> ExprModel
+        self.model_locals = {}               # name -> FieldModel (composite elem)
+        self.const_locals = {}               # name -> int (unrolled foreach index)
+        self.generics = generics or {}        # name -> ConstraintProgram (generic/value)
+        self._active = frozenset()            # generics being expanded (cycle guard)
+
+    def model(self, name):
+        return self.fields.get(name)
+
+    def _child(self):
+        c = Ctx(self.fields, self.generics, self.host)
+        c.locals = dict(self.locals)
+        c.model_locals = dict(self.model_locals)
+        c.const_locals = dict(self.const_locals)
+        c._active = self._active
+        return c
+
+    def activate(self, name):
+        """Return a child Ctx marking ``name`` as being expanded (cycle guard)."""
+        c = self._child()
+        c._active = self._active | {name}
+        return c
+
+    def with_local(self, name, factory):
+        """Return a child Ctx with one extra expr local binding (scalar foreach)."""
+        c = self._child()
+        if name is not None:
+            c.locals[name] = factory
+        return c
+
+    def with_model_local(self, name, model):
+        """Return a child Ctx binding ``name`` to a concrete element model
+        (composite foreach element)."""
+        c = self._child()
+        if name is not None:
+            c.model_locals[name] = model
+        return c
+
+    def with_const_local(self, name, value):
+        """Return a child Ctx binding ``name`` to a constant int (unrolled foreach
+        index), usable both as a value and as a constant array subscript."""
+        c = self._child()
+        if name is not None:
+            c.const_locals[name] = value
+        return c
+
+
+def lower_program(prog, field_models, generics=None, host=()):
+    """Build a fresh :class:`ConstraintBlockModel` from ``prog`` binding fields
+    via ``field_models`` (name -> model). ``generics`` is the type's generic/value
+    constraint registry, used to resolve ``IRConstraintRef`` references. ``host``
+    holds a ``randomize_with`` body's host values (see :class:`ir.IRHost`)."""
+    ctx = Ctx(field_models, generics, host)
+    block = ConstraintBlockModel(prog.name)
+    for stmt in prog.stmts:
+        if isinstance(stmt, ir.IRHostFor):
+            # As a constant 'for' unrolled by the parser: the body's
+            # statements, one copy per value, directly in the block.
+            block.constraint_l.extend(_host_for(stmt, ctx).constraint_l)
+        else:
+            block.constraint_l.append(_stmt(stmt, ctx))
+    return block
+
+
+def _bind_params(ctx, prog, ref):
+    """Return a child Ctx binding each of ``prog``'s formals to its actual argument
+    (positional/keyword/default, resolved by ir.bind_actuals), lowered in the
+    *caller's* scope (``ctx``). Each formal use re-lowers the actual (fresh model
+    per occurrence, matching foreach-local semantics)."""
+    actuals = ir.bind_actuals(prog.name, prog.params, prog.param_defaults,
+                              ref.args, ref.kwargs)
+    child = ctx
+    for pname, arg in zip(prog.params, actuals):
+        child = child.with_local(pname, (lambda a, c: (lambda: _expr(a, c)))(arg, ctx))
+    return child
+
+
+def _ref_stmt(node, ctx):
+    """Lower a generic-constraint reference in statement position: splice the whole
+    body into a fresh scope."""
+    prog = ctx.generics.get(node.name)
+    if prog is None:
+        raise KeyError("reference to unknown generic constraint %r" % node.name)
+    if prog.kind == "value":
+        raise TypeError("value generic %r cannot be referenced as a statement"
+                        % node.name)
+    if node.name in ctx._active:
+        raise ValueError("recursive generic-constraint reference %r" % node.name)
+    child = _bind_params(ctx.activate(node.name), prog, node)
+    scope = ConstraintScopeModel()
+    for s in prog.stmts:
+        scope.constraint_l.append(_stmt(s, child))
+    return scope
+
+
+# Statement kinds with a boolean value — the only ones meaningful when a generic
+# is reified as a boolean term (matches type_model._BOOLEAN_OK_STMT).
+_BOOLEAN_REF_OK = (ir.IRConstraintExpr, ir.IRIfElse, ir.IRImplies,
+                   ir.IRUnique, ir.IRConstraintRef)
+
+
+def lower_generic_ref(name, field_models, generics, args=None, kwargs=None):
+    """Lower a generic-constraint reference to an ExprDynRefModel, for inline
+    ``randomize_with`` references (``it.<name>(...)``). ``args``/``kwargs`` are IR
+    actuals (constants for the inline path). Boolean-bodied generics only — the
+    inline path always reifies the block as a boolean term."""
+    prog = generics.get(name)
+    if prog is None:
+        raise KeyError("unknown generic constraint %r" % name)
+    if prog.kind == "value":
+        raise TypeError(
+            "value generic %r cannot be referenced as a constraint" % name)
+    if any(not isinstance(s, _BOOLEAN_REF_OK) for s in prog.stmts):
+        raise TypeError(
+            "generic %r contains a non-boolean item (soft/dist/solve_order/foreach) "
+            "and cannot be referenced in randomize_with; reference it from a "
+            "@vdc.constraint instead" % name)
+    ctx = Ctx(field_models, generics)
+    return _ref_expr(ir.IRConstraintRef(name, args or [], 0, kwargs or {}), ctx)
+
+
+def _ref_expr(node, ctx):
+    """Lower a generic-constraint reference in expression/boolean position. A value
+    generic inlines its returned expression; a boolean generic is reified as a
+    boolean term via ExprDynRefModel (reusing the dynamic-constraint backend path)."""
+    prog = ctx.generics.get(node.name)
+    if prog is None:
+        raise KeyError("reference to unknown generic constraint %r" % node.name)
+    if node.name in ctx._active:
+        raise ValueError("recursive generic-constraint reference %r" % node.name)
+    child = _bind_params(ctx.activate(node.name), prog, node)
+    if prog.kind == "value":
+        return _expr(prog.ret, child)
+    block = ConstraintBlockModel(node.name)
+    for s in prog.stmts:
+        block.constraint_l.append(_stmt(s, child))
+    return ExprDynRefModel(block)
+
+
+def _stmt(node, ctx):
+    if isinstance(node, ir.IRConstraintRef):
+        return _ref_stmt(node, ctx)
+    if isinstance(node, ir.IRConstraintExpr):
+        return ConstraintExprModel(_expr(node.expr, ctx))
+    if isinstance(node, ir.IRIfElse):
+        return _if_else(node, ctx)
+    if isinstance(node, ir.IRImplies):
+        body = [_stmt(s, ctx) for s in node.body]
+        return ConstraintImpliesModel(_expr(node.cond, ctx), body)
+    if isinstance(node, ir.IRSoft):
+        return ConstraintSoftModel(_expr(node.expr, ctx))
+    if isinstance(node, ir.IRUnique):
+        return ConstraintUniqueModel([_expr(t, ctx) for t in node.terms])
+    if isinstance(node, ir.IRSolveOrder):
+        before = [ctx.model(f.name) for f in node.before]
+        after = [ctx.model(f.name) for f in node.after]
+        return ConstraintSolveOrderModel(before, after)
+    if isinstance(node, ir.IRForeach):
+        return _foreach(node, ctx)
+    if isinstance(node, ir.IRDist):
+        return _dist(node, ctx)
+    if isinstance(node, ir.IRHostFor):
+        return _host_for(node, ctx)
+    raise NotImplementedError("lower statement %r" % type(node).__name__)
+
+
+def _host_for(node, ctx):
+    """A ``for`` over a host iterable: the body once per value."""
+    scope = ConstraintScopeModel()
+    for v in ctx.host[node.slot]:
+        child = ctx
+        for name, x in zip(node.names, v if len(node.names) > 1 else (v,)):
+            child = child.with_const_local(name, x)
+        for s in node.body:
+            scope.constraint_l.append(_stmt(s, child))
+    return scope
+
+
+def _dist(node, ctx):
+    lhs = _expr(node.lhs, ctx)
+    weights = []
+    for w in node.weights:
+        rng_lhs = ExprLiteralModel(w.lo, True, 32)
+        rng_rhs = ExprLiteralModel(w.hi, True, 32) if w.hi is not None else None
+        # Weight is a general expression: a literal (static) or a field ref read at
+        # solve time (dynamic). The plan-cache dist_state snapshot detects changes.
+        weights.append(DistWeightExprModel(
+            rng_lhs, rng_rhs, _expr(w.weight, ctx),
+            is_per_value=w.per_value))
+    return ConstraintDistModel(lhs, weights)
+
+
+def _foreach(node, ctx):
+    arr = _resolve_model(node.array, ctx)
+    if not isinstance(arr, FieldArrayModel):
+        raise TypeError("foreach target %r is not an array" % (node.array,))
+    if not arr.is_scalar:
+        # Composite-element array: unroll over the concrete elements so element
+        # fields bind directly (no ExprArraySubscript-of-composite machinery).
+        return _foreach_composite(node, ctx, arr)
+    # ConstraintForeachModel.lhs is an expression (ExprFieldRefModel), matching the
+    # classic front-end — the array-constraint builder resolves the array from it.
+    arr_ref = ExprFieldRefModel(arr)
+    stmt = ConstraintForeachModel(arr_ref)
+    index = stmt.index
+    # Bind loop variables: idx -> the index field; it -> the element subscript.
+    child = ctx
+    if node.idx_name is not None:
+        child = child.with_local(
+            node.idx_name, lambda: ExprFieldRefModel(index))
+    if node.it_name is not None:
+        child = child.with_local(
+            node.it_name,
+            lambda: ExprArraySubscriptModel(arr_ref, ExprFieldRefModel(index)))
+    for s in node.body:
+        stmt.constraint_l.append(_stmt(s, child))
+    return stmt
+
+
+def _reduce(node, ctx):
+    """``all``/``any`` over an array, unrolled over its elements. For a
+    random-size array, element ``i`` counts only when ``size > i``."""
+    arr = _resolve_model(node.array, ctx)
+    if not isinstance(arr, FieldArrayModel):
+        raise TypeError("%s() target %r is not an array" % (node.op, node.array))
+    if arr.is_rand_sz and arr.is_scalar:
+        # Lowered before the size is solved, and only a composite array is
+        # allocated to its max_size.
+        raise NotImplementedError(
+            "%s() in an expression over the random-size array %r is not "
+            "supported yet; use 'x in arr' for membership, or all(...) as a "
+            "statement" % (node.op, arr.name))
+    is_all = node.op == "all"
+    join = BinExprType.And if is_all else BinExprType.Or
+    result = None
+    for i, elem in enumerate(arr.field_l):
+        child = ctx.with_model_local(node.it_name, elem) \
+            .with_const_local(node.idx_name, i)
+        term = _expr(node.cond, child)
+        if node.filt is not None:
+            term = _guard(_expr(node.filt, child), term, is_all)
+        if arr.is_rand_sz:
+            active = ExprBinModel(ExprFieldRefModel(arr.size), BinExprType.Gt,
+                                  ExprLiteralModel(i, False, 32))
+            term = _guard(active, term, is_all)
+        result = term if result is None else ExprBinModel(result, join, term)
+    if result is None:
+        return ExprLiteralModel(1 if is_all else 0, False, 1)
+    return result
+
+
+def _guard(g, term, is_all):
+    """``term`` where ``g`` holds: ``not g or term`` in an all, ``g and term``
+    in an any."""
+    if is_all:
+        return ExprBinModel(ExprBinModel(g, BinExprType.Eq,
+                                         ExprLiteralModel(0, False, 1)),
+                            BinExprType.Or, term)
+    return ExprBinModel(g, BinExprType.And, term)
+
+
+def _foreach_composite(node, ctx, arr):
+    """Unroll a foreach over a (fixed-size) composite-element array: for each
+    element, bind ``it`` to that element's model and ``idx`` to the literal index,
+    then lower the body. Produces one ConstraintScopeModel of plain constraints."""
+    scope = ConstraintScopeModel()
+    for i, elem in enumerate(arr.field_l):
+        child = ctx
+        if node.idx_name is not None:
+            child = child.with_const_local(node.idx_name, i)
+        if node.it_name is not None:
+            child = child.with_model_local(node.it_name, elem)
+        for s in node.body:
+            scope.constraint_l.append(_stmt(s, child))
+    return scope
+
+
+def _if_else(node, ctx):
+    true_c = _scope(node.true_body, ctx)
+    false_c = None
+    if node.false_body is not None:
+        if len(node.false_body) == 1 and isinstance(node.false_body[0], ir.IRIfElse):
+            false_c = _if_else(node.false_body[0], ctx)
+        else:
+            false_c = _scope(node.false_body, ctx)
+    return ConstraintIfElseModel(_expr(node.cond, ctx), true_c, false_c)
+
+
+def _scope(stmts, ctx):
+    scope = ConstraintScopeModel()
+    for s in stmts:
+        scope.constraint_l.append(_stmt(s, ctx))
+    return scope
+
+
+def _expr(node, ctx):
+    if isinstance(node, ir.IRField):
+        return _field(node, ctx)
+    if isinstance(node, ir.IRParam):
+        factory = ctx.locals.get(node.name)
+        if factory is None:
+            raise KeyError("unbound generic-constraint parameter %r" % node.name)
+        return factory()
+    if isinstance(node, ir.IRModelLiteral):
+        # An already-built model actual (inline field-valued argument).
+        return node.model
+    if isinstance(node, ir.IRConstraintRef):
+        return _ref_expr(node, ctx)
+    if isinstance(node, ir.IRConst):
+        # Match vsc.types.to_expr: int literals are signed, width 32.
+        return ExprLiteralModel(node.value, True, 32)
+    if isinstance(node, ir.IRHost):
+        return ExprLiteralModel(ctx.host[node.slot], True, 32)
+    if isinstance(node, ir.IRBin):
+        return ExprBinModel(_expr(node.lhs, ctx), _BIN[node.op], _expr(node.rhs, ctx))
+    if isinstance(node, ir.IRUnary):
+        if node.op == "~":
+            return ExprUnaryModel(UnaryExprType.Not, _expr(node.operand, ctx))
+        raise NotImplementedError("unary op %r" % node.op)
+    if isinstance(node, ir.IRCond):
+        return ExprCondModel(_expr(node.cond, ctx), _expr(node.t, ctx),
+                             _expr(node.f, ctx))
+    if isinstance(node, ir.IRReduce):
+        return _reduce(node, ctx)
+    if isinstance(node, ir.IRIndex):
+        return _index(node, ctx)
+    if isinstance(node, ir.IRPartSelect):
+        # base[upper:lower] bit part-select (upper/lower resolve to constants).
+        base_e = _expr(node.base, ctx)
+        if isinstance(getattr(base_e, "fm", None), FieldArrayModel):
+            # The parser rejects self.arr[a:b]; this catches a nested array.
+            raise TypeError("array slices are not supported in constraints "
+                            "(%r)" % (node.base,))
+        return ExprPartselectModel(base_e,
+                                   _expr(node.upper, ctx), _expr(node.lower, ctx))
+    if isinstance(node, ir.IRAttr):
+        return _attr(node, ctx)
+    if isinstance(node, ir.IRInside):
+        return _inside(node, ctx)
+    raise NotImplementedError("lower expr %r" % type(node).__name__)
+
+
+def _attr(node, ctx):
+    """Attribute access on an indexed/element base (composite-array element field
+    or foreach element): self.arr[0].x, it.x."""
+    # Symbolic composite-array subscript — self.arr[idx].field with a rand
+    # (non-constant) idx over a list of dataclass objects. Lower it to a select
+    # over the homogeneous sub-field column rather than a concrete element.
+    if isinstance(node.base, ir.IRIndex):
+        node = ir.IRAttr(_from_end(node.base, ctx), node.name)
+        sel = _try_symbolic_composite_select(node.base, node.name, ctx)
+        if sel is not None:
+            return sel
+    base = _resolve_model(node.base, ctx)
+    if isinstance(base, FieldArrayModel) and node.name == "sum":
+        return ExprArraySumModel(base)
+    if isinstance(base, FieldArrayModel) and node.name == "product":
+        return ExprArrayProductModel(base)
+    return ExprFieldRefModel(_descend(base, node.name))
+
+
+def _try_symbolic_composite_select(idx_node, field_name, ctx):
+    """Lower ``arr[idx].field`` for a **non-constant** index over a composite-element
+    array into a symbolic select over the homogeneous scalar sub-field column
+    ``[arr[0].field, arr[1].field, …]``.
+
+    The column is wrapped in a synthetic scalar :class:`FieldArrayModel` (a *view* —
+    its ``field_l`` are the real element sub-field models, never copied or renamed)
+    and returned as an ``ExprArraySubscriptModel``. From there the existing scalar
+    symbolic-select machinery takes over unchanged: ``RandInfoBuilder`` unifies the
+    column elements + the index into one randset (A1), and the dv-solve translator
+    emits the ITE / native select. Returns ``None`` when the index is actually
+    constant or the base is not a composite array (caller falls back to the concrete
+    resolve path); raises for an unsupported multi-level access."""
+    if _try_const_eval(idx_node.index, ctx) is not None:
+        return None                          # constant index -> concrete element
+    arr = _resolve_model(idx_node.base, ctx)
+    if not isinstance(arr, FieldArrayModel) or arr.is_scalar:
+        return None                          # scalar-array subscript: not our case
+    column = [_descend(elem, field_name) for elem in arr.field_l]
+    if any(isinstance(f, FieldCompositeModel) for f in column):
+        # arr[idx].sub.field / arr[idx].sub[k] — more than one symbolic level.
+        raise NotImplementedError(
+            "symbolic composite-array subscript supports a single scalar sub-field "
+            "level only (got a nested composite at %r)" % (field_name,))
+    if not column:
+        raise NotImplementedError(
+            "symbolic subscript over an empty composite array %r" % (arr.name,))
+    elem0 = column[0]
+    synth = FieldArrayModel(
+        arr.name, None, True, None,
+        int(getattr(elem0, "width", 32)),
+        bool(getattr(elem0, "is_signed", False)),
+        arr.is_used_rand, False)
+    synth.field_l = list(column)
+    synth._set_size(len(column))
+    return ExprArraySubscriptModel(ExprFieldRefModel(synth), _expr(idx_node.index, ctx))
+
+
+def _resolve_model(node, ctx):
+    """Resolve an IRField/IRIndex/IRAttr access chain to a *concrete* FieldModel.
+    Array subscripts must be constant (literal or unrolled-foreach index)."""
+    if isinstance(node, ir.IRField):
+        path = node.path
+        head = path[0]
+        if head in ctx.model_locals:
+            model = ctx.model_locals[head]
+        elif head in ctx.locals or head in ctx.const_locals:
+            raise NotImplementedError(
+                "cannot descend through scalar loop var %r" % head)
+        else:
+            model = ctx.model(head)
+        if model is None:
+            raise KeyError("constraint references unknown field %r" % head)
+        for seg in path[1:]:
+            model = _descend(model, seg)
+        return model
+    if isinstance(node, ir.IRAttr):
+        return _descend(_resolve_model(node.base, ctx), node.name)
+    if isinstance(node, ir.IRIndex):
+        node = _from_end(node, ctx)
+        base = _resolve_model(node.base, ctx)
+        if not isinstance(base, FieldArrayModel):
+            raise TypeError("indexed access on a non-array model")
+        return base.field_l[_const_index(node.index, ctx)]
+    raise NotImplementedError("cannot resolve model for %r" % type(node).__name__)
+
+
+def _descend(model, seg):
+    if isinstance(model, FieldArrayModel):
+        if seg == "size":
+            return model.size
+        raise NotImplementedError("array attribute %r in composite access" % seg)
+    if isinstance(model, FieldCompositeModel):
+        child = model.find_field(seg)
+        if child is None:
+            raise KeyError("composite %r has no field %r"
+                           % (getattr(model, "name", "?"), seg))
+        return child
+    raise NotImplementedError(
+        "cannot descend into %r at %r" % (seg, getattr(model, "name", "?")))
+
+
+# Constant-foldable arithmetic ops for composite-array subscripts. A foreach over
+# a composite array is fully unrolled, so its index var is a concrete const_local;
+# relative element access (items[i-1], items[i+1]) is then a constant expression.
+_CONST_BINOPS = {
+    "+": lambda a, b: a + b,
+    "-": lambda a, b: a - b,
+    "*": lambda a, b: a * b,
+    "//": lambda a, b: a // b,
+    "%": lambda a, b: a % b,
+}
+
+
+def _try_const_eval(node, ctx):
+    """Return the int value of a constant subscript expression, or None if it is
+    not a compile-time constant in this context."""
+    if isinstance(node, ir.IRConst):
+        return node.value
+    if isinstance(node, ir.IRField) and len(node.path) == 1 \
+            and node.path[0] in ctx.const_locals:
+        return ctx.const_locals[node.path[0]]
+    if isinstance(node, ir.IRBin):
+        fn = _CONST_BINOPS.get(node.op)
+        if fn is None:
+            return None
+        lhs = _try_const_eval(node.lhs, ctx)
+        rhs = _try_const_eval(node.rhs, ctx)
+        if lhs is None or rhs is None:
+            return None
+        return fn(lhs, rhs)
+    return None
+
+
+def _const_index(node, ctx):
+    """Evaluate an array subscript that must resolve to a constant int (a literal,
+    an unrolled-foreach index var, or constant arithmetic over them — e.g. i-1)."""
+    val = _try_const_eval(node, ctx)
+    if val is not None:
+        return val
+    raise NotImplementedError(
+        "composite-array subscripts must be constant (got %r)" % (node,))
+
+
+def _field(node, ctx):
+    path = node.path
+    head = path[0]
+    if head in ctx.locals:
+        # Scalar foreach element/index: an expr binding.
+        if len(path) == 1:
+            return ctx.locals[head]()
+        raise NotImplementedError("descent through foreach var %r" % (path,))
+    if head in ctx.const_locals:
+        # Unrolled-foreach index used as a value.
+        if len(path) == 1:
+            return ExprLiteralModel(ctx.const_locals[head], True, 32)
+        raise NotImplementedError("descent through index var %r" % (path,))
+    if head in ctx.model_locals:
+        # Composite foreach element used directly (rare); descent goes via _attr.
+        return ExprFieldRefModel(_resolve_model(node, ctx))
+    model = ctx.model(head)
+    if model is None:
+        raise KeyError("constraint references unknown field %r" % head)
+    # Walk the remaining path segments, descending through nested composites and
+    # resolving array pseudo-attributes (arr.size / arr.sum).
+    for seg in path[1:]:
+        if isinstance(model, FieldArrayModel):
+            if seg == "size":
+                model = model.size
+                continue
+            if seg == "sum":
+                return ExprArraySumModel(model)
+            if seg == "product":
+                return ExprArrayProductModel(model)
+            raise NotImplementedError("array attribute %r" % seg)
+        if isinstance(model, FieldCompositeModel):
+            child = model.find_field(seg)
+            if child is None:
+                raise KeyError("composite %r has no field %r" % (model.name, seg))
+            model = child
+            continue
+        raise NotImplementedError("cannot descend into %r at %r" % (seg, model.name))
+    return ExprFieldRefModel(model)
+
+
+def _from_end(node, ctx):
+    """``node`` (an IRIndex), with a negative constant index into a random-size
+    array counted from its solved size: ``arr[-k]`` is ``arr[arr.size - k]``.
+    (The elements are allocated after lowering, so ``field_l[-k]`` here would
+    be an element of the previous solve's size.)"""
+    k = _try_const_eval(node.index, ctx)
+    if k is None or k >= 0:
+        return node
+    try:
+        arr = _resolve_model(node.base, ctx)
+    except (NotImplementedError, KeyError, TypeError):
+        return node
+    if not (isinstance(arr, FieldArrayModel) and arr.is_rand_sz):
+        return node
+    if not isinstance(node.base, ir.IRField):
+        raise NotImplementedError(
+            "a negative index into the random-size array %r needs a "
+            "self.<array> path; write arr[arr.size - %d]" % (arr.name, -k))
+    return ir.IRIndex(node.base, ir.IRBin(
+        "-", ir.IRField(node.base.path + ("size",)), ir.IRConst(-k)))
+
+
+def _index(node, ctx):
+    node = _from_end(node, ctx)
+    # Decide array-subscript vs scalar bit-select from the base's resolved model.
+    # Look at the *lowered* base, so a nested path (self.sub.arr[k]) is seen as
+    # an array too. Checking only a one-segment name lowered self.sub.arr[k] as
+    # a bit-select of the array (V8): in a foreach it compared against the
+    # index instead of the element, and a constant subscript crashed.
+    base_e = _expr(node.base, ctx)
+    idx_e = _expr(node.index, ctx)
+    if isinstance(getattr(base_e, "fm", None), FieldArrayModel):
+        return ExprArraySubscriptModel(base_e, idx_e)
+    return ExprPartselectModel(base_e, idx_e)
+
+
+def _inside(node, ctx):
+    lhs = _expr(node.lhs, ctx)
+    rl = ExprRangelistModel()
+    stepped = []
+    for r in node.ranges:
+        if isinstance(r.lo, ir.IRHost) and r.lo.kind == "set":
+            stepped.extend(_add_host_set(rl, ctx.host[r.lo.slot]))
+            continue
+        # r.lo / r.hi are IR expr nodes (IRConst for literals, IRField for rand
+        # endpoints, IRBin for arithmetic) — lower each so variable ranges work.
+        if r.hi is None:
+            rl.add_range(_expr(r.lo, ctx))
+        else:
+            rl.add_range(ExprRangeModel(_expr(r.lo, ctx), _expr(r.hi, ctx)))
+    terms = [ExprInModel(lhs, rl)] if rl.rl else []
+    for s in stepped:
+        # As the parser tests a stepped range(...) in a set (_Stepped).
+        from .constraint_parser import _Stepped
+        terms.append(_expr(_Stepped(ir.IRConst(s.start), ir.IRConst(s.stop),
+                                    s.step).test(node.lhs), ctx))
+    if not terms:
+        # Only empty host sets: nothing is a member. (An ExprInModel with no
+        # entries reads as true.)
+        return ExprLiteralModel(int(bool(node.negate)), False, 1)
+    e = terms[0]
+    for t in terms[1:]:
+        e = ExprBinModel(e, BinExprType.Or, t)
+    if node.negate:
+        return ExprUnaryModel(UnaryExprType.Not, e)
+    return e
+
+
+def _add_host_set(rl, values):
+    """Add a host collection's values to ``rl``: a range of step 1 as one
+    range, a value as itself. Returns the ranges of another step, which a
+    rangelist cannot hold."""
+    if isinstance(values, range):
+        values = (values,)
+    stepped = []
+    for v in values:
+        if isinstance(v, range):
+            if v.step != 1:
+                stepped.append(v)
+            elif len(v):
+                rl.add_range(ExprRangeModel(
+                    ExprLiteralModel(v.start, True, 32),
+                    ExprLiteralModel(v.stop - 1, True, 32)))
+        else:
+            rl.add_range(ExprLiteralModel(v, True, 32))
+    return stepped

@@ -22,13 +22,19 @@ from schemathesis.core.failures import (
     MessageBlock,
     is_reproducible_failure,
 )
+from schemathesis.core.output import pluralize
 from schemathesis.core.timing import Instant
+from schemathesis.engine import Status
 from schemathesis.engine.summary import (
     BaselineSummary,
     ErrorGroup,
     FailureGroup,
     OperationsSummary,
+    SummaryData,
     TestCasesSummary,
+    WarningBlock,
+    WarningGroup,
+    WarningItem,
 )
 
 if TYPE_CHECKING:
@@ -131,16 +137,11 @@ def display_final_line(
     no_checks_ran: bool = False,
     interrupted: bool = False,
 ) -> None:
-    parts = []
-    if failures:
-        suffix = "s" if failures > 1 else ""
-        parts.append(f"{failures} failure{suffix}")
-    if errors:
-        suffix = "s" if errors > 1 else ""
-        parts.append(f"{errors} error{suffix}")
-    if warnings:
-        suffix = "s" if warnings > 1 else ""
-        parts.append(f"{warnings} warning{suffix}")
+    parts = [
+        pluralize(count, word)
+        for count, word in ((failures, "failure"), (errors, "error"), (warnings, "warning"))
+        if count
+    ]
 
     if nothing_tested_reason is not None:
         message = nothing_tested_reason
@@ -558,6 +559,35 @@ def display_reports(ctx: BaseExecutionContext) -> None:
         click.echo()
 
 
+def issue_parts(*, unique_failures: int, errors: int) -> list[str]:
+    parts = []
+    if unique_failures:
+        parts.append(f"❌ {pluralize(unique_failures, 'unique failure')}")
+    if errors:
+        parts.append(f"🚫 {pluralize(errors, 'error')}")
+    return parts
+
+
+def display_summary_counts(summary: SummaryData) -> None:
+    if summary.failures:
+        display_failures_summary(summary.failures)
+    if summary.baseline:
+        display_baseline_summary(summary.baseline)
+    if summary.filtered:
+        display_filtered_summary(summary.filtered)
+    if summary.errors:
+        display_errors_summary(summary.errors)
+
+
+def display_summary_footer(ctx: BaseExecutionContext, summary: SummaryData) -> None:
+    if ctx.summary_lines:
+        print_lines(ctx.summary_lines)
+        click.echo()
+    display_test_cases(summary.test_cases)
+    display_reports(ctx)
+    display_seed(ctx.config)
+
+
 def display_fatal_error(
     console: Console,
     loading_manager: LoadingProgressManager | None,
@@ -613,3 +643,79 @@ def display_fatal_error(
     _display_extras(extras)
     click.echo(style(f"\n{click.style('Tip:', bold=True, fg='green')} {suggestion}\n"))
     raise click.Abort
+
+
+UNMATCHED_FILTER_TIP = "Check the filter for a typo, or update it if the operation was renamed"
+
+
+def get_status_icon(stats: dict[Status, int], *, is_interrupted: bool, default: str = "🕛") -> str:
+    if is_interrupted:
+        return "⚡"
+    if stats[Status.ERROR] > 0:
+        return "🚫"
+    if stats[Status.FAILURE] > 0:
+        return "❌"
+    if stats[Status.SUCCESS] > 0:
+        return "✅"
+    if stats[Status.SKIP] > 0:
+        return "⏭ "
+    return default
+
+
+def warning_items(values: set[str], *, operations: bool = True) -> list[WarningItem]:
+    return [WarningItem(text=value, operation=value if operations else None) for value in sorted(values)]
+
+
+def list_block(
+    title: str,
+    values: set[str],
+    suffix: str,
+    tips: list[str],
+    entity: str = "operation",
+    *,
+    short_suffix: str,
+    affects_verdict: bool = False,
+) -> WarningBlock:
+    return WarningBlock(
+        title=title,
+        count=len(values),
+        entity=entity,
+        suffix=suffix,
+        short_suffix=short_suffix,
+        groups=[WarningGroup(items=warning_items(values, operations=entity == "operation"), tips=tips)],
+        affects_verdict=affects_verdict,
+    )
+
+
+def unmatched_filter_block(filters: set[str]) -> WarningBlock:
+    return list_block(
+        "Unmatched filters",
+        filters,
+        " matched no API operations",
+        [UNMATCHED_FILTER_TIP],
+        entity="filter",
+        short_suffix="matched no API operations",
+    )
+
+
+def display_warning_blocks(blocks: list[WarningBlock]) -> None:
+    display_section_name("WARNINGS")
+    click.echo()
+    for block in blocks:
+        click.echo(style(f"{block.title}: {block.summary}\n", fg="yellow"))
+        for group in block.groups:
+            if group.heading is not None:
+                click.echo(style(f"{group.heading}:", fg="yellow"))
+            for index, item in enumerate(group.items):
+                click.echo(style(f"  - {item.text}", fg="yellow"))
+                for detail in item.details:
+                    click.echo(style(f"    {detail}", fg="yellow"))
+                # Items with details read as separate paragraphs.
+                if item.details and index < len(group.items) - 1:
+                    click.echo()
+            if group.tips is not None:
+                click.echo()
+                for tip in group.tips:
+                    click.echo(style(f"💡 {tip}", fg="yellow"))
+                if group.tips:
+                    click.echo()

@@ -12,6 +12,21 @@ except ImportError:
 from array_api_compat import torch as xp
 
 
+def test_reshape_copy():
+    array = xp.arange(12).reshape((3, 4))
+
+    view = xp.reshape(array, (4, 3), copy=False)
+    view[0, 0] = -1
+    assert array[0, 0] == -1
+
+    with pytest.raises(ValueError):
+        xp.reshape(array.T, (12,), copy=False)
+
+    copied = xp.reshape(array, (4, 3), copy=True)
+    copied[0, 0] = -2
+    assert array[0, 0] == -1
+
+
 class TestResultType:
     def test_empty(self):
         with pytest.raises(ValueError):
@@ -178,3 +193,48 @@ def test_dynamo_array_namespace():
     x = torch.arange(3)
     y = bar(x)
     assert xp.all(y == x**2)
+
+
+@pytest.mark.parametrize(
+    "func_name",
+    [
+        "atan2", "copysign", "hypot", "logaddexp", "maximum", "minimum",
+        "nextafter", "equal", "not_equal", "less", "less_equal", "greater",
+        "greater_equal",
+    ]
+)
+def test_binary_python_scalars(func_name):
+    # https://github.com/data-apis/array-api-compat/issues/271
+    func = getattr(xp, func_name)
+    x = xp.asarray([-1.5, 0.0, 2.0], dtype=xp.float32)
+    s = 0.5
+    y = xp.full(x.shape, s, dtype=xp.float32)
+
+    assert xp.all(func(x, s) == func(x, y))
+    assert xp.all(func(s, x) == func(y, x))
+    assert func(x, s).dtype == func(s, x).dtype == func(x, y).dtype
+
+    with pytest.raises(TypeError):
+        func(s, s)
+
+
+@pytest.mark.parametrize("func_name", ["logical_and", "logical_or", "logical_xor"])
+def test_logical_python_scalars(func_name):
+    func = getattr(xp, func_name)
+    x = xp.asarray([True, False])
+    for s in [True, False]:
+        y = xp.full(x.shape, s)
+        assert xp.all(func(x, s) == func(x, y))
+        assert xp.all(func(s, x) == func(y, x))
+
+
+def test_binary_python_scalars_promotion():
+    # Python scalars take the dtype of the array argument
+    x = xp.asarray([1, 5], dtype=xp.int8)
+    assert xp.maximum(x, 3).dtype == xp.int8
+    assert xp.minimum(3, x).dtype == xp.int8
+    assert xp.all(xp.maximum(3, x) == xp.asarray([3, 5], dtype=xp.int8))
+
+    x = xp.asarray([1., 5.], dtype=xp.float64)
+    assert xp.maximum(3.0, x).dtype == xp.float64
+    assert xp.all(xp.less(3, x) == xp.asarray([False, True]))

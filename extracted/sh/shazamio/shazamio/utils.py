@@ -1,67 +1,24 @@
-import pathlib
-from enum import Enum
-from io import BytesIO
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Union
+from http import HTTPStatus
+from typing import Any
 
-import aiofiles
 import aiohttp
 from aiohttp import ContentTypeError
-from pydub import AudioSegment
 
-from shazamio.exceptions import FailedDecodeJson
-from shazamio.schemas.artists import ArtistQuery
-
-SongT = Union[str, pathlib.Path, bytes, bytearray]
-FileT = Union[str, pathlib.Path]
+from shazamio.exceptions import FailedDecodeJson, RateLimited
 
 
-async def validate_json(resp: aiohttp.ClientResponse, content_type: str = "application/json"):
+async def validate_json(response: aiohttp.ClientResponse) -> Any:
+    # A throttled request carries no payload to decode, so without this it
+    #  surfaces as `FailedDecodeJson` below: a message naming the parser for
+    #  something the rate limiter did. `SongRec` reports the status by name too:
+    #  https://github.com/marin-m/SongRec/blob/b94ee61d51f40e8b3051da8f5c6a9e9c437b3633/src/core/fingerprinting/communication.rs#L120
+    if response.status == HTTPStatus.TOO_MANY_REQUESTS:
+        msg = f"{response.url} rate limited the request"
+        raise RateLimited(msg)
+
     try:
-        return await resp.json(content_type=content_type)
-    except ContentTypeError as e:
-        raise FailedDecodeJson("Failed to decode json") from e
-
-
-async def get_file_bytes(file: FileT) -> bytes:
-    async with aiofiles.open(file, mode="rb") as f:
-        return await f.read()
-
-
-async def get_song(data: SongT) -> Union[AudioSegment]:
-    if isinstance(data, (str, pathlib.Path)):
-        song_bytes = await get_file_bytes(file=data)
-        return AudioSegment.from_file(BytesIO(song_bytes))
-
-    if isinstance(data, (bytes, bytearray)):
-        return AudioSegment.from_file(BytesIO(data))
-
-    if isinstance(data, AudioSegment):
-        return data
-
-
-class QueryBuilder:
-    def __init__(
-        self,
-        source: List[Union[str, Enum]],
-    ):
-        self.source = source
-
-    def to_str(self) -> str:
-        return ",".join(self.source)
-
-
-class ArtistQueryGenerator:
-    def __init__(
-        self,
-        source: Optional[ArtistQuery] = None,
-    ):
-        self.source = source
-
-    def params(self) -> Dict[str, str]:
-        return {
-            "extend": QueryBuilder(source=self.source.extend or []).to_str(),
-            "views": QueryBuilder(source=self.source.views or []).to_str(),
-        }
+        return await response.json()
+    except ContentTypeError as er:
+        body = await response.text()
+        msg = f"Failed to decode json (status={response.status}): {body[:200]}"
+        raise FailedDecodeJson(msg) from er

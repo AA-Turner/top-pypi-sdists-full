@@ -1229,6 +1229,9 @@ class TwitterTweetExtractor(TwitterExtractor):
             if not tweet_id:
                 break
             tweet = self.api.tweet_result_by_rest_id(tweet_id)
+            if "legacy" not in tweet:
+                self.log.debug("%s: %s", tweet_id, tweet)
+                break
             tweet["legacy"]["quoted_by_id_str"] = parent_id
             yield tweet
 
@@ -1520,7 +1523,12 @@ class TwitterAPI():
             "features"    : self._json_dumps(features),
             "fieldToggles": self._json_dumps(field_toggles),
         }
-        tweet = self._call(endpoint, params)["data"]["tweetResult"]["result"]
+        data = self._call(endpoint, params)
+        try:
+            tweet = data["data"]["tweetResult"]["result"]
+        except KeyError:
+            return data
+
         if "tweet" in tweet:
             tweet = tweet["tweet"]
 
@@ -2122,7 +2130,7 @@ class TwitterAPI():
         stop_tweets_max = stop_tweets
         api_retries = None
 
-        if count := variables.get("count").__class__ is list:
+        if (count := variables.get("count")) and count.__class__ is list:
             count = count.copy()
             count.reverse()
             self.log.debug("Using 'count: %s'", count[-1])

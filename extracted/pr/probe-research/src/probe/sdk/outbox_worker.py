@@ -845,6 +845,26 @@ def maybe_rescue(journal, status: dict) -> bool:
     return spawn_rescuer(journal)
 
 
+def lift_stale_pause(journal, status: dict, *, base_url: str | None, wait: bool = True) -> bool:
+    """Delete the outbox's pause marker when it no longer holds
+    (`Journal.lift_stale_pause`: its end passed, or an older CLI's endless
+    one), forget the rescue's paused-time look as `probe outbox resume` does,
+    and report `outbox.pause_lifted` with what it held (``status``, read
+    before; ``base_url`` None reports nothing). The caller starts the drainer:
+    the CLI's every-command check, and the Probe service (`server._keep_outbox`).
+    Never raises; True when one was lifted."""
+    try:
+        if not journal.lift_stale_pause(wait=wait):
+            return False
+        _rescue_stamp(journal).unlink(missing_ok=True)
+        from .._shared import telemetry
+
+        telemetry.emit_outbox_pause_lifted(status, base_url=base_url)
+        return True
+    except Exception:  # noqa: BLE001 -- the every-command path never raises
+        return False
+
+
 def _discards_held_in_queues(journal) -> bool:
     """Whether a credential queue under some outbox root holds discards: they
     are deleted with the queue once it idles, by this release's cleanup and

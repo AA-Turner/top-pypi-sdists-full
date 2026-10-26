@@ -22,8 +22,8 @@ _vocab.is_wholly_suffix; every Lexicon wordlist through
 _vocab.caps_shape_candidate (to know an all-caps word is unlisted) and
 _vocab.claimed_as_non_name (the name's contrast); Lexicon
 .maiden_markers through _pieces.own_words, for the name's contrast;
-Policy.lenient_comma_suffixes, Policy.extra_suffix_delimiters and
-Policy.unlisted_caps_suffixes.
+Policy.lenient_comma_suffixes, Policy.extra_suffix_delimiters,
+Policy.unlisted_caps_suffixes and Policy.unlisted_dotted_suffixes.
 """
 from __future__ import annotations
 
@@ -41,7 +41,8 @@ from nameparser._pipeline._state import (
 )
 from nameparser._pipeline._vocab import (
     D, PH, ROMAN, caps_shape_candidate, claimed_as_non_name, delimiter_cores,
-    composed_len, is_caps_word, is_paired_initials, is_single_letter_numeral,
+    composed_len, glued_stem, glues, is_caps_word, is_paired_initials,
+    is_single_letter_numeral,
     is_trailing_numeral_suffix, is_wholly_suffix, name_word_count,
     surname_unit_facts, unit_ends, written_as_a_name,
 )
@@ -82,7 +83,7 @@ def _reading_pieces(part: Sequence[int], tokens: Sequence[WorkToken],
     # joined part a title ('Mr. and Mrs.', 'Secretary of State', 'Dr.
     # and'), a run of connectives merging first as it does in the name
     # ('Minister of the Interior'). A LONE single-letter connective is
-    # left as it stands, P3 reading it as a name word or an initial in
+    # left as it stands, P3 or P8 reading it as a name word or an initial in
     # short names; one beside another connective is a member of their
     # run and joins with it ('Mr. y and Mrs.'). Any other join is not
     # made here: where no credential opens the part, a name word in it
@@ -213,8 +214,8 @@ def _behind_a_generation(state: ParseState, seg0: Sequence[int],
         # a title reads as a title, a word or a run a connective joins
         # ('Mr. and Mrs.', a dual inside it included); a lone dual of
         # the title and the suffix vocabulary is the suffix here, the
-        # slot being postnominal ('John Smith Jr., AD MD'): C8's two
-        # predicates, asked in C8's order
+        # slot being postnominal ('John Smith Jr., AD RA'): C13's two
+        # predicates, asked in C13's order
         title = (not is_suffix_piece(p, pt, tokens)
                  and is_title_piece(p, pt, tokens))
         for i in p:
@@ -280,8 +281,8 @@ def decide(state: ParseState) -> ParseState:
         return state
     tokens = list(state.tokens)
     lex, pol = state.lexicon, state.policy
-    # rules/C10: "A delimiter the policy declares parts a trailing
-    # suffix part as a comma would" -- behind a whole name its cores are
+    # rules/C10: "a suffix delimiter parts the suffix words on each side
+    # of it as a comma would" -- behind a whole name its cores are
     # no word of the reading, and leave as group drops them in a tail;
     # behind one name word the core is a word, v1 having applied the
     # delimiter to the suffix-comma form alone (C10's core-is-a-word
@@ -289,30 +290,74 @@ def decide(state: ParseState) -> ParseState:
     cores = delimiter_cores(pol.extra_suffix_delimiters)
     whole: bool | None = None
     core_idx: list[int] = []
-    if cores and len(seg1) > 1:
-        whole = _whole_name(seg0, tokens)
-        if whole:
-            core_idx = [i for i in seg1 if tokens[i].text in cores]
+    # a loop, and the head counted only where a core stands alone: the
+    # built-in ';' leaves `cores` non-empty for every policy (D15)
+    if len(seg1) > 1:
+        for i in seg1:
+            if tokens[i].text in cores:
+                core_idx.append(i)
+        if core_idx:
+            whole = _whole_name(seg0, tokens)
+            if not whole:
+                core_idx = []
     # a set for the membership test: a list scanned per token was
     # quadratic in the part (#613's PR review, 'MD / '*k under '/')
     core_set = frozenset(core_idx)
     part = [i for i in seg1 if i not in core_set] if core_idx else list(seg1)
     if not part:
         return state
+    if pol.unlisted_dotted_suffixes:
+        # rules/S3: "Paired initials are the exception [...] where S4
+        # would count words to spare for them they are the name word
+        # they are written as" -- classify holds the class tag back from
+        # them, and at this comma C5 reads them instead (S3's Precedence
+        # bullet), so they rejoin the class for C5's count. Shape-tagged
+        # and untagged with the switch on is exactly that word
+        # (classify's dotted branch), asked of the tags in C
+        # (decisions/S3 (#864)).
+        for i in part:
+            tags = tokens[i].tags
+            if (SHAPE_ACRONYM_TAG in tags
+                    and AMBIGUOUS_ACRONYM_TAG not in tags):
+                tokens[i] = copy_with(
+                    tokens[i], tags=tags | {AMBIGUOUS_ACRONYM_TAG})
     p1, pt1 = _reading_pieces(part, tokens)
     anchored: list[int] = []
     absorbed: list[int] = []
+    # A core in the part, standing alone or glued to a word or inside
+    # one: either keeps the part from the listing form's early return,
+    # and only a glued one reads behind any head, a core standing alone
+    # being a word behind one name word (C10's Accepted bullet). The
+    # shape tests below read a word with one glued at an end as the word
+    # without it, as classify tags it ('MBBS;' as 'MBBS'). A loop, so
+    # the listing form pays no frame for it.
+    cored = glued = False
+    texts: dict[int, str] = {}
+    for i in part:
+        text = texts[i] = tokens[i].text
+        here = False
+        for core in cores:
+            if core in text:
+                cored = True
+                if text not in cores and glues(core):
+                    here = glued = True
+        if here:
+            stem = glued_stem(text, cores)
+            if stem is not None:
+                texts[i] = stem
     # The words of the class in the part, and the unlisted all-caps
     # words the caps shape could admit: only a part holding one asks
     # the count, so 'Smith, John' and 'John Smith, PhD' never build it.
     maybe = [p[0] for p in p1 if len(p) == 1
              and (AMBIGUOUS_ACRONYM_TAG in (tags := tokens[p[0]].tags)
                   or ("vocab:suffix" not in tags
-                      and (tokens[p[0]].text.isalpha()
-                           and tokens[p[0]].text.isupper()
+                      and (texts[p[0]].isalpha()
+                           and texts[p[0]].isupper()
                            or not unicodedata.is_normalized(
-                               "NFC", tokens[p[0]].text)
-                           and is_caps_word(tokens[p[0]].text))))]
+                               "NFC", texts[p[0]])
+                           and is_caps_word(texts[p[0]]))))]
+    # rules/C8: "a part that is nothing but suffix words is the
+    # credential run and reads as suffixes, whole" -- the reading below.
     # The part is read ONCE: here where it holds no word of the class,
     # after the count below where it does, with the words the count
     # licensed (a read here and a second after licensing threw the first
@@ -335,9 +380,14 @@ def decide(state: ParseState) -> ParseState:
             anchored, absorbed)
         # a word no vocabulary claims as a suffix: the listing form,
         # unless C12 reads it below, which skips C1's fallback for it
-        listing = reading is None and not cores and not all(
+        listing = reading is None and not all(
             "suffix" in t or "vocab:suffix" in tokens[p[0]].tags
             for p, t in zip(p1, pt1))
+        # a part holding a delimiter core ('MD;', 'MD ; PhD') is left
+        # to C1's run test below, which reads a core alone as no word
+        # and a word with one glued as the word without it (rules/C10)
+        if cored:
+            listing = False
         if listing and not generation:
             return state
     names = 0
@@ -351,7 +401,7 @@ def decide(state: ParseState) -> ParseState:
         # rules/C6: "An unlisted all-caps word joins the ambiguous
         # credential class [...] only where the name carries the contrast"
         for i in maybe:
-            text = tokens[i].text
+            text = texts[i]
             if SHAPE_ACRONYM_TAG in tokens[i].tags:
                 # tagged by classify (EVERYWHERE); the dotted shape has
                 # a period
@@ -387,7 +437,7 @@ def decide(state: ParseState) -> ParseState:
                and (not others or is_wholly_suffix(
                    others, lex, pol, letters_one_case=state.one_case))
                and not any(len(p) == 1
-                           and is_single_letter_numeral(tokens[p[0]].text)
+                           and is_single_letter_numeral(texts[p[0]])
                            for p in p1))
         if not run:
             licensed.clear()
@@ -404,14 +454,14 @@ def decide(state: ParseState) -> ParseState:
             # it stands behind that word, so one scan answers every
             # pair. Asked per pair, the scan re-walked every word in
             # front of each one, quadratic in the part ('John Smith, ' +
-            # 'MD '*k + 'G.J. '*k, the duals never ending it; #563's
+            # 'RA '*k + 'G.J. '*k, the duals never ending it; #563's
             # shape, back in #613 and caught in review)
             speaker = -1
             for k, p in enumerate(p1):
                 i = p[0]
                 if len(p) != 1 or i not in licensed:
                     continue
-                text = tokens[i].text
+                text = texts[i]
                 if not (is_paired_initials(text)
                         or (i in caps and composed_len(text) == 2)):
                     continue
@@ -436,9 +486,16 @@ def decide(state: ParseState) -> ParseState:
             whole = _whole_name(seg0, tokens)
         # rules/C1: "By default a recognized suffix word counts even
         # written like an initial" -- behind a whole name ('John Smith, V.')
-        if reading is None and whole and is_wholly_suffix(
+        # rules/C10: "A delimiter glued to a suffix word parts it from
+        # the next as a comma glued there would" -- the part "reads as
+        # it does with a space in the delimiter's place", behind any
+        # head, so 'Smith, MD; PhD' reads as 'Smith, MD PhD' does; behind
+        # one that is not a whole name by the strict test, where "A
+        # glued word written like an initial is the given name"
+        # (decisions/C10, D15)
+        if reading is None and (whole or glued) and is_wholly_suffix(
                 [tokens[i].text for i in part], lex, pol, one_case=None,
-                letters_one_case=state.one_case):
+                letters_one_case=state.one_case, strict=not whole):
             reading = (True,) * len(p1)
     # the words of the part C12 reads as suffixes, which its report
     # names: a title in the part, a word or a joined run, is no
@@ -454,7 +511,7 @@ def decide(state: ParseState) -> ParseState:
                     continue
                 for i in p:
                     taken.append(i)
-                    text = tokens[i].text
+                    text = texts[i]
                     # #564's marks on an unlisted all-caps word, as the
                     # caps shape writes them, so case repair keeps 'AD'
                     # (rules/R4); the C-level filter `maybe` uses first
@@ -481,10 +538,14 @@ def decide(state: ParseState) -> ParseState:
             tokens[i] = copy_with(tokens[i], role=role, tags=tags)
     # rules/C11: "A decision either way at the comma C1 reads is reported;
     # for a run of words the decision is the flip to the credential
-    # run, reported once over the whole part. A flip in which no listed
-    # word of the ambiguous credential class (C4) takes part is the exception and is made in
-    # silence" -- "unless what said so is nothing but other paired
-    # initials". A run whose every class word is listed and settled by
+    # run, reported once over the whole part" -- its Then, which this
+    # implements, with rules/C11's Then bullet "A run the count leaves
+    # in the listing form reports as S7 reads the words in it" and
+    # rules/C11's Except bullet "A flip in which no listed word of the
+    # ambiguous credential class (C4) takes part is the exception and
+    # is made in silence" -- "unless what said so is nothing but other
+    # paired initials", the clause that bullet ends on
+    # (decisions/C11 (#544)). A run whose every class word is listed and settled by
     # its capitals is read on that evidence, not flipped by the count.
     # A caps word bound above carries the class tags now, so membership
     # is the tag alone; a part with no word of the class has none, and
@@ -504,9 +565,9 @@ def decide(state: ParseState) -> ParseState:
                            == "credential" for i in listed))
         member_set = frozenset(members)
         pairs = [k for k, p in enumerate(p1) if p[0] in member_set
-                 and (is_paired_initials(tokens[p[0]].text)
+                 and (is_paired_initials(texts[p[0]])
                       or (p[0] in caps
-                      and composed_len(tokens[p[0]].text) == 2))]
+                      and composed_len(texts[p[0]]) == 2))]
         # spoken for by each other only: every class word a pair, and
         # only titles among the other words in front of the first
         pair_only = (len(pairs) >= 2 and len(pairs) == len(members)
@@ -534,12 +595,16 @@ def decide(state: ParseState) -> ParseState:
             f"{what}; the part before the comma holds {names} name words, "
             f"so it is read as a credential run", tuple(part)))
     elif len(p1[0]) == 1 and p1[0][0] in listed:
-        # the first word after the comma reports as it always does
+        # the first word after the comma reports as it always does,
+        # naming the role bound above: the listing form binds a word
+        # the reading declines as a title ('John, Si.', #793), and no
+        # later rule moves a word of the emptied part
         i = p1[0][0]
+        field = "a credential" if reading[0] else "a title"
         ambiguities.append(PendingAmbiguity(
             AmbiguityKind.SUFFIX_OR_NAME,
             f"{tokens[i].text!r} after the comma is also an ordinary name "
-            f"word; read as a credential", (i,)))
+            f"word; read as {field}", (i,)))
     # rules/S7: "A member the company decides reports the fork as a
     # counted pick does" -- reported where it decided: a member the
     # anchor read as a credential after its own writing declined (#544)
@@ -549,8 +614,8 @@ def decide(state: ParseState) -> ParseState:
             AmbiguityKind.SUFFIX_OR_NAME,
             f"{tokens[i].text!r} behind a credential after the comma is "
             f"also an ordinary name word; read as a credential", (i,)))
-    # rules/C8: "A credential opening the part makes it the
-    # postnominal part however it goes on" -- each word it takes that
+    # rules/C13: "A credential opening the part after a family comma
+    # makes it the postnominal part however it goes on" -- each word it takes that
     # would have made it the given part, as #602's run reports them
     for k in absorbed:
         if has_name_content(p1[k], tokens):
